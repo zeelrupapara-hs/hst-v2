@@ -46,11 +46,18 @@ func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 		Checks:  checks,
 	}
 
+	// the status code is what a kubernetes probe reads, so it stays; the body
+	// carries the same envelope as every other endpoint
 	if status != "ok" {
-		return c.Status(http.StatusInternalServerError).JSON(res)
+		return c.Status(http.StatusInternalServerError).JSON(&http.HttpResponse{
+			Success: false,
+			Code:    http.RetOK,
+			Data:    res,
+			Error:   http.ErrInternalServerError,
+		})
 	}
 
-	return c.Status(http.StatusOK).JSON(res)
+	return s.App.HttpResponseOK(c, res)
 }
 
 // CheckSystemLive godoc
@@ -61,7 +68,7 @@ func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 //	@Success	200	{object}	map[string]string
 //	@Router		/api/v1/system/monitor/live [get]
 func (s *HttpServer) CheckSystemLive(c *fiber.Ctx) error {
-	return c.Status(http.StatusOK).JSON(fiber.Map{"status": "alive"})
+	return s.App.HttpResponseOK(c, fiber.Map{"status": "alive"})
 }
 
 // CacheStats reports the session cache, so MAX_ACCOUNT_PER_SHARD is tuned from

@@ -22,19 +22,19 @@ func (s *HttpServer) RegisterV1() {
 	// system group
 	system := v1.Group("/system")
 
-	// ------------------------- Health -------------------------
+	// health-check
 	system.Get("/monitor/health", s.CheckSystemHealth)
 	system.Get("/monitor/live", s.CheckSystemLive)
 	system.Get("/monitor/cache", s.Middleware.Protect, s.Middleware.RequireManager, s.CacheStats)
 
-	// ------------------------- Auth, authenticated -------------------------
+	// auth
 	auth := v1.Group("/auth", s.Middleware.Protect)
 	auth.Get("/me", s.Me)
 	auth.Post("/logout", s.Logout)
 	// the one route a restricted session may reach
 	auth.Post("/oauth2/change-password", s.ChangePassword)
 
-	// ------------------------- Clients -------------------------
+	// clients
 	clients := v1.Group("/clients", s.Middleware.Protect, s.Middleware.RequireManager)
 	clients.Get("/", s.Middleware.Authorization(model.MgrRightClientsAccess), s.ListClients)
 	clients.Post("/", s.Middleware.Authorization(model.MgrRightClientsCreate), s.CreateClient)
@@ -42,7 +42,7 @@ func (s *HttpServer) RegisterV1() {
 	clients.Patch("/:id", s.Middleware.Authorization(model.MgrRightClientsEdit), s.UpdateClient)
 	clients.Delete("/:id", s.Middleware.Authorization(model.MgrRightClientsDelete), s.DeleteClient)
 
-	// ------------------------- Users -------------------------
+	// users
 	users := v1.Group("/users", s.Middleware.Protect, s.Middleware.RequireManager)
 	users.Get("/", s.Middleware.Authorization(model.MgrRightAccRead), s.ListUsers)
 	users.Post("/", s.Middleware.Authorization(model.MgrRightAccManager), s.CreateUser)
@@ -50,7 +50,7 @@ func (s *HttpServer) RegisterV1() {
 	users.Patch("/:login", s.Middleware.Authorization(model.MgrRightAccManager), s.UpdateUser)
 	users.Delete("/:login", s.Middleware.Authorization(model.MgrRightAccDelete), s.DeleteUser)
 
-	// ------------------------- Managers -------------------------
+	// managers
 	managers := v1.Group("/managers", s.Middleware.Protect, s.Middleware.RequireManager)
 	managers.Get("/", s.Middleware.Authorization(model.MgrRightCfgManagers), s.ListManagers)
 	managers.Get("/:login/rights", s.Middleware.Authorization(model.MgrRightCfgManagers), s.GetManagerRights)

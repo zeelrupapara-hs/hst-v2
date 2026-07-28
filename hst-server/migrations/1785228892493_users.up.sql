@@ -1,4 +1,4 @@
-CREATE SEQUENCE IF NOT EXISTS hst.users_login_seq AS BIGINT START WITH 1000000 CACHE 1;
+CREATE SEQUENCE IF NOT EXISTS hst.users_login_seq AS BIGINT START WITH 1000 CACHE 1;
 
 CREATE TABLE IF NOT EXISTS hst.users (
     login               BIGINT       PRIMARY KEY DEFAULT nextval('hst.users_login_seq'),
