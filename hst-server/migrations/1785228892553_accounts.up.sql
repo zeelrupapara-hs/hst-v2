@@ -17,5 +17,7 @@ CREATE TABLE IF NOT EXISTS hst.accounts (
     blocked_profit      NUMERIC(20,8) NOT NULL DEFAULT 0,
     assets              NUMERIC(20,8) NOT NULL DEFAULT 0,
     liabilities         NUMERIC(20,8) NOT NULL DEFAULT 0,
-    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT now()
+    updated_at          BIGINT   NOT NULL DEFAULT 0
 );
+
+COMMENT ON TABLE hst.accounts IS 'all time columns are unix nanoseconds, 0 means unset';

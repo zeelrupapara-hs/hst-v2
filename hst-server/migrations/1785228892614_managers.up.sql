@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS hst.managers (
     right_comments_access          SMALLINT NOT NULL DEFAULT 0,
     right_comments_create          SMALLINT NOT NULL DEFAULT 0,
     right_comments_delete          SMALLINT NOT NULL DEFAULT 0,
-    updated_at              TIMESTAMPTZ  NOT NULL DEFAULT now()
+    updated_at              BIGINT  NOT NULL DEFAULT 0
 );
 
 ALTER TABLE hst.clients
@@ -101,3 +101,5 @@ COMMENT ON COLUMN hst.managers.request_limit_logs IS
     'ManagerLimit: 0=all 1=1_month 2=3_months 3=6_months 4=1_year 5=2_years 6=3_years';
 COMMENT ON COLUMN hst.managers.request_limit_reports IS
     'ManagerLimit: 0=all 1=1_month 2=3_months 3=6_months 4=1_year 5=2_years 6=3_years';
+
+COMMENT ON TABLE hst.managers IS 'all time columns are unix nanoseconds, 0 means unset';

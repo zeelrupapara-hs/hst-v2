@@ -8,8 +8,8 @@ CREATE TABLE IF NOT EXISTS hst.clients (
     assigned_manager            BIGINT,
     compliance_approved_by      BIGINT,
     compliance_client_category  VARCHAR(64)   NOT NULL DEFAULT '',
-    compliance_date_approval    TIMESTAMPTZ,
-    compliance_date_termination TIMESTAMPTZ,
+    compliance_date_approval    BIGINT NOT NULL DEFAULT 0,
+    compliance_date_termination BIGINT NOT NULL DEFAULT 0,
     comment                     TEXT          NOT NULL DEFAULT '',
 
     lead_campaign               VARCHAR(128)  NOT NULL DEFAULT '',
@@ -21,13 +21,13 @@ CREATE TABLE IF NOT EXISTS hst.clients (
     person_title                VARCHAR(32)   NOT NULL DEFAULT '',
     person_name                 VARCHAR(128)  NOT NULL DEFAULT '',
     person_middle_name          VARCHAR(64)   NOT NULL DEFAULT '',
-    person_birth_date           DATE,
+    person_birth_date           BIGINT NOT NULL DEFAULT 0,
     person_citizenship          VARCHAR(64)   NOT NULL DEFAULT '',
     person_gender               SMALLINT      NOT NULL DEFAULT 0,
     person_tax_id               VARCHAR(64)   NOT NULL DEFAULT '',
     person_document_type        VARCHAR(64)   NOT NULL DEFAULT '',
     person_document_number      VARCHAR(64)   NOT NULL DEFAULT '',
-    person_document_date        DATE,
+    person_document_date        BIGINT NOT NULL DEFAULT 0,
     person_document_extra       TEXT          NOT NULL DEFAULT '',
     person_employment           SMALLINT      NOT NULL DEFAULT 0,
     person_industry             SMALLINT      NOT NULL DEFAULT 0,
@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS hst.clients (
     contact_phone               VARCHAR(64)   NOT NULL DEFAULT '',
     contact_messengers          TEXT          NOT NULL DEFAULT '',
     contact_social_networks     TEXT          NOT NULL DEFAULT '',
-    contact_last_date           TIMESTAMPTZ,
+    contact_last_date           BIGINT NOT NULL DEFAULT 0,
 
     address_country             VARCHAR(64)   NOT NULL DEFAULT '',
     address_postcode            VARCHAR(32)   NOT NULL DEFAULT '',
@@ -68,8 +68,8 @@ CREATE TABLE IF NOT EXISTS hst.clients (
     experience_futures          SMALLINT      NOT NULL DEFAULT 0,
     experience_stocks           SMALLINT      NOT NULL DEFAULT 0,
 
-    date_created                TIMESTAMPTZ   NOT NULL DEFAULT now(),
-    date_modified               TIMESTAMPTZ   NOT NULL DEFAULT now()
+    date_created                BIGINT   NOT NULL DEFAULT 0,
+    date_modified               BIGINT   NOT NULL DEFAULT 0
 );
 
 CREATE INDEX IF NOT EXISTS clients_assigned_manager_idx ON hst.clients (assigned_manager);
@@ -104,3 +104,5 @@ COMMENT ON COLUMN hst.clients.experience_futures IS
     'EnTradingExperience: 0=less_1_year 1=1_3_year 2=above_3_year';
 COMMENT ON COLUMN hst.clients.experience_stocks IS
     'EnTradingExperience: 0=less_1_year 1=1_3_year 2=above_3_year';
+
+COMMENT ON TABLE hst.clients IS 'all time columns are unix nanoseconds, 0 means unset';

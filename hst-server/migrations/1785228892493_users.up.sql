@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS hst.users (
     password_api        TEXT         NOT NULL DEFAULT '',
     password_phone      TEXT         NOT NULL DEFAULT '',
     failed_attempts     INTEGER      NOT NULL DEFAULT 0,
-    locked_until        TIMESTAMPTZ,
+    locked_until        BIGINT NOT NULL DEFAULT 0,
 
     leverage            INTEGER      NOT NULL DEFAULT 100,
     agent               BIGINT,
@@ -52,11 +52,11 @@ CREATE TABLE IF NOT EXISTS hst.users (
     lead_source         VARCHAR(255) NOT NULL DEFAULT '',
     api_data            JSONB        NOT NULL DEFAULT '[]'::jsonb,
 
-    registration        TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    last_access         TIMESTAMPTZ,
-    last_pass_change    TIMESTAMPTZ,
+    registration        BIGINT  NOT NULL DEFAULT 0,
+    last_access         BIGINT NOT NULL DEFAULT 0,
+    last_pass_change    BIGINT NOT NULL DEFAULT 0,
     last_ip             INET,
-    updated_at          TIMESTAMPTZ  NOT NULL DEFAULT now(),
+    updated_at          BIGINT  NOT NULL DEFAULT 0,
 
     CONSTRAINT users_login_range CHECK (login > 0),
     CONSTRAINT users_group_set   CHECK ("group" <> '')
@@ -93,3 +93,5 @@ COMMENT ON COLUMN hst.users.password_main IS 'EnUsersPasswords slot 0, argon2id 
 COMMENT ON COLUMN hst.users.password_investor IS 'EnUsersPasswords slot 1, read-only session';
 COMMENT ON COLUMN hst.users.password_api IS 'EnUsersPasswords slot 2, gated by rights 0x4000';
 COMMENT ON COLUMN hst.users.password_phone IS 'MT5 PhonePassword, support verification only, not a login credential';
+
+COMMENT ON TABLE hst.users IS 'all time columns are unix nanoseconds, 0 means unset';

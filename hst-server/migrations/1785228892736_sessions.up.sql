@@ -6,10 +6,10 @@ CREATE TABLE IF NOT EXISTS hst.sessions (
     token_hash      BYTEA        NOT NULL,
     ip              INET         NOT NULL,
     user_agent      TEXT         NOT NULL DEFAULT '',
-    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    last_seen_at    TIMESTAMPTZ  NOT NULL DEFAULT now(),
-    expires_at      TIMESTAMPTZ  NOT NULL,
-    revoked_at      TIMESTAMPTZ,
+    created_at      BIGINT  NOT NULL DEFAULT 0,
+    last_seen_at    BIGINT  NOT NULL DEFAULT 0,
+    expires_at      BIGINT  NOT NULL,
+    revoked_at      BIGINT NOT NULL DEFAULT 0,
     revoked_reason  VARCHAR(64)
 );
 
@@ -21,3 +21,5 @@ COMMENT ON COLUMN hst.sessions.scope IS
     'EnUsersPasswords: 0=main 1=investor(read-only) 2=api';
 COMMENT ON COLUMN hst.sessions.connection_type IS
     'EnUsersConnectionTypes: clients 0=terminal 3=api_web 4=iphone 5=android 11=web; staff 32=admin 33=manager 34=manager_api 36=admin_api 37=manager_api_web';
+
+COMMENT ON TABLE hst.sessions IS 'all time columns are unix nanoseconds, 0 means unset';
