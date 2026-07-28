@@ -14,33 +14,23 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// CrtManager attaches back office rights to the new login. Its presence is what
-// makes the login staff.
-type CrtManager struct {
-	Name   string   `json:"name" validate:"required,max=128"`
-	Groups []string `json:"groups"`
-	// Rights are column names from ManagerRightsNames; anything else is rejected
-	Rights []string `json:"rights"`
-}
-
 // CrtUser creates a login, its account row, and optionally its manager row.
 type CrtUser struct {
-	ClientId         *int64      `json:"client_id"`
-	Group            string      `json:"group" validate:"required,max=128"`
-	Rights           int64       `json:"rights"`
-	Name             string      `json:"name" validate:"required,max=128"`
-	FirstName        string      `json:"first_name" validate:"max=64"`
-	LastName         string      `json:"last_name" validate:"max=64"`
-	Email            string      `json:"email" validate:"required,email,max=255"`
-	Phone            string      `json:"phone" validate:"max=64"`
-	Country          string      `json:"country" validate:"max=64"`
-	City             string      `json:"city" validate:"max=64"`
-	Comment          string      `json:"comment" validate:"max=4096"`
-	Leverage         int32       `json:"leverage" validate:"gte=1,lte=10000"`
-	PasswordMain     string      `json:"password_main" validate:"required,min=8,max=128"`
-	PasswordInvestor string      `json:"password_investor" validate:"omitempty,min=8,max=128"`
-	PasswordApi      string      `json:"password_api" validate:"omitempty,min=8,max=128"`
-	Manager          *CrtManager `json:"manager"`
+	ClientId         *int64 `json:"client_id"`
+	Group            string `json:"group" validate:"required,max=128"`
+	Rights           int64  `json:"rights"`
+	Name             string `json:"name" validate:"required,max=128"`
+	FirstName        string `json:"first_name" validate:"max=64"`
+	LastName         string `json:"last_name" validate:"max=64"`
+	Email            string `json:"email" validate:"required,email,max=255"`
+	Phone            string `json:"phone" validate:"max=64"`
+	Country          string `json:"country" validate:"max=64"`
+	City             string `json:"city" validate:"max=64"`
+	Comment          string `json:"comment" validate:"max=4096"`
+	Leverage         int32  `json:"leverage" validate:"gte=1,lte=10000"`
+	PasswordMain     string `json:"password_main" validate:"required,min=8,max=128"`
+	PasswordInvestor string `json:"password_investor" validate:"required,min=8,max=128"`
+	PasswordApi      string `json:"password_api" validate:"omitempty,min=8,max=128"`
 }
 
 // UptUser patches a login.
@@ -87,8 +77,9 @@ const userColumns = `u.login, COALESCE(u.client_id, 0), u."group", u.rights, u.n
 
 const userJoin = ` FROM hst.users u LEFT JOIN hst.managers m ON m.login = u.login`
 
-// CreateUser creates the login, its 1:1 account row and, when asked, its
-// manager row, in one transaction.
+// CreateUser creates the identity and its 1:1 account row in one transaction.
+// A user is never staff at creation; that is done by attaching a manager row
+// to the login afterwards, see CreateManager.
 //
 //	@Id			CreateUser
 //	@Tags		Users
@@ -109,14 +100,6 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 	}
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
-	}
-
-	var rights model.ManagerRights
-	if body.Manager != nil {
-		var ok bool
-		if rights, ok = packRightNames(body.Manager.Rights); !ok {
-			return s.App.HttpResponseBadRequest(c, errs.ErrBadRequest)
-		}
 	}
 
 	// hash before opening the transaction. Argon2 takes tens of milliseconds,
@@ -156,19 +139,13 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	if body.Manager != nil {
-		if err := insertManager(ctx, tx, login, body.Manager, rights, now); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
-		}
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	snap, _ := utils.GetClient(c)
 	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "user created",
-		"actor", snap.Login, "target", login, "manager", body.Manager != nil)
+		"actor", snap.Login, "target", login)
 
 	return s.getUserByLogin(c, login, s.App.HttpResponseCreated)
 }
@@ -385,24 +362,4 @@ func (s *HttpServer) hashPasswords(passwords ...string) ([]string, error) {
 	}
 
 	return out, nil
-}
-
-// packRightNames turns the requested column names into the bitset, rejecting
-// anything that is not a real right.
-func packRightNames(names []string) (model.ManagerRights, bool) {
-	byName := make(map[string]uint, model.ManagerRightsCount)
-	for bit, name := range model.ManagerRightsNames {
-		byName[name] = bit
-	}
-
-	var r model.ManagerRights
-	for _, n := range names {
-		bit, ok := byName[n]
-		if !ok {
-			return r, false
-		}
-		r = r.Set(bit)
-	}
-
-	return r, true
 }

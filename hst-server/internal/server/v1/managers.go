@@ -2,15 +2,36 @@ package v1
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/logger"
 	"hstserver/pkg/oauth2"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
+
+// CrtManager promotes an existing login to staff. It never creates a user:
+// the login must already exist, and the manager row is what makes it staff.
+type CrtManager struct {
+	Login  int64    `json:"login" validate:"required,gt=0"`
+	Name   string   `json:"name" validate:"required,max=128"`
+	Groups []string `json:"groups"`
+	// Rights are column names from ManagerRightsNames; anything else is rejected
+	Rights []string `json:"rights"`
+}
+
+// UptManager rewrites the staff role of a login.
+type UptManager struct {
+	Name   string   `json:"name" validate:"required,max=128"`
+	Groups []string `json:"groups"`
+	Rights []string `json:"rights"`
+}
 
 // ViewManagerRights is the decoded right set, for the admin UI.
 type ViewManagerRights struct {
@@ -214,6 +235,43 @@ func (s *HttpServer) selectManager(ctx context.Context, login int64) (*model.Man
 	return m, err
 }
 
+// managerRightColumns is every right column, in the order the migration
+// declares them. Generated from it, so the two cannot drift.
+const managerRightColumns = `
+		right_admin, right_manager, right_cfg_time, right_cfg_holidays,
+		right_cfg_groups, right_cfg_managers, right_cfg_requests,
+		right_cfg_gateways, right_cfg_datafeeds, right_cfg_reports,
+		right_cfg_symbols, right_cfg_web_services, right_cfg_messengers,
+		right_cfg_kyc, right_cfg_automations, right_cfg_allocations,
+		right_cfg_corporate, right_cfg_payments, right_cfg_mails,
+		right_cfg_streaming, right_srv_journals, right_srv_reports, right_charts,
+		right_email, right_news, right_export, right_techsupport, right_market,
+		right_accountant, right_acc_read, right_acc_details_name,
+		right_acc_details_location, right_acc_details_address,
+		right_acc_details_id, right_acc_details_email, right_acc_details_phone,
+		right_acc_details_general, right_acc_technical, right_acc_tech_modify,
+		right_acc_manager, right_acc_delete, right_acc_online,
+		right_confirm_actions, right_notifications, right_trades_read,
+		right_trades_manager, right_trades_delete, right_trades_dealer,
+		right_trades_supervisor, right_quotes_raw, right_quotes,
+		right_symbol_details, right_risk_manager, right_group_margin,
+		right_group_commission, right_reports, right_clients_access,
+		right_clients_create, right_clients_edit, right_clients_delete,
+		right_clients_kyc, right_clients_details_name,
+		right_clients_details_location, right_clients_details_address,
+		right_clients_details_id, right_clients_details_email,
+		right_clients_details_phone, right_clients_details_general,
+		right_documents_access, right_documents_create, right_documents_edit,
+		right_documents_delete, right_documents_files_add,
+		right_documents_files_delete, right_comments_access, right_comments_create,
+		right_comments_delete`
+
+// execer is satisfied by both the pool and a transaction, so the write helpers
+// work inside a transaction or on their own.
+type execer interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+}
+
 // b renders a right as the 1 or 0 the schema stores.
 func b(granted bool) int32 {
 	if granted {
@@ -222,54 +280,27 @@ func b(granted bool) int32 {
 	return 0
 }
 
-// insertManager writes the manager row inside the caller's transaction, so a
-// user without its rights row can never be committed.
-func insertManager(ctx context.Context, tx pgx.Tx, login int64, m *CrtManager,
+// insertManager attaches the staff role to an existing login.
+func insertManager(ctx context.Context, q execer, login int64, m *CrtManager,
 	r model.ManagerRights, now int64) error {
 
 	// groups is NOT NULL, and an omitted json array arrives as nil, which pgx
 	// would send as NULL. An empty set means "no group filter", not "unset".
-	if m.Groups == nil {
-		m.Groups = []string{}
+	groups := m.Groups
+	if groups == nil {
+		groups = []string{}
 	}
 
-	_, err := tx.Exec(ctx,
-		`INSERT INTO hst.managers (login, name, groups, updated_at,
-		 right_admin, right_manager, right_cfg_time, right_cfg_holidays,
-		 right_cfg_groups, right_cfg_managers, right_cfg_requests,
-		 right_cfg_gateways, right_cfg_datafeeds, right_cfg_reports,
-		 right_cfg_symbols, right_cfg_web_services, right_cfg_messengers,
-		 right_cfg_kyc, right_cfg_automations, right_cfg_allocations,
-		 right_cfg_corporate, right_cfg_payments, right_cfg_mails,
-		 right_cfg_streaming, right_srv_journals, right_srv_reports, right_charts,
-		 right_email, right_news, right_export, right_techsupport, right_market,
-		 right_accountant, right_acc_read, right_acc_details_name,
-		 right_acc_details_location, right_acc_details_address,
-		 right_acc_details_id, right_acc_details_email, right_acc_details_phone,
-		 right_acc_details_general, right_acc_technical, right_acc_tech_modify,
-		 right_acc_manager, right_acc_delete, right_acc_online,
-		 right_confirm_actions, right_notifications, right_trades_read,
-		 right_trades_manager, right_trades_delete, right_trades_dealer,
-		 right_trades_supervisor, right_quotes_raw, right_quotes,
-		 right_symbol_details, right_risk_manager, right_group_margin,
-		 right_group_commission, right_reports, right_clients_access,
-		 right_clients_create, right_clients_edit, right_clients_delete,
-		 right_clients_kyc, right_clients_details_name,
-		 right_clients_details_location, right_clients_details_address,
-		 right_clients_details_id, right_clients_details_email,
-		 right_clients_details_phone, right_clients_details_general,
-		 right_documents_access, right_documents_create, right_documents_edit,
-		 right_documents_delete, right_documents_files_add,
-		 right_documents_files_delete, right_comments_access,
-		 right_comments_create, right_comments_delete)
+	_, err := q.Exec(ctx,
+		`INSERT INTO hst.managers (login, name, groups, updated_at, `+managerRightColumns+`)
 		 VALUES ($1, $2, $3, $4,
-		 $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19,
-		 $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34,
-		 $35, $36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49,
-		 $50, $51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64,
-		 $65, $66, $67, $68, $69, $70, $71, $72, $73, $74, $75, $76, $77, $78, $79,
-		 $80, $81)`,
-		login, m.Name, m.Groups, now,
+		$5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+		$21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35,
+		$36, $37, $38, $39, $40, $41, $42, $43, $44, $45, $46, $47, $48, $49, $50,
+		$51, $52, $53, $54, $55, $56, $57, $58, $59, $60, $61, $62, $63, $64, $65,
+		$66, $67, $68, $69, $70, $71, $72, $73, $74, $75, $76, $77, $78, $79, $80,
+		$81)`,
+		login, m.Name, groups, now,
 		b(r.Has(model.MgrRightAdmin)), b(r.Has(model.MgrRightManager)),
 		b(r.Has(model.MgrRightCfgTime)), b(r.Has(model.MgrRightCfgHolidays)),
 		b(r.Has(model.MgrRightCfgGroups)), b(r.Has(model.MgrRightCfgManagers)),
@@ -319,4 +350,307 @@ func insertManager(ctx context.Context, tx pgx.Tx, login int64, m *CrtManager,
 		b(r.Has(model.MgrRightCommentsDelete)))
 
 	return err
+}
+
+// updateManagerRights rewrites the whole right set. Rights are replaced rather
+// than merged: a partial update of 77 flags is ambiguous, and silently keeping
+// an old grant is the dangerous direction to be wrong in.
+func updateManagerRights(ctx context.Context, q execer, login int64, name string,
+	groups []string, r model.ManagerRights, now int64) (int64, error) {
+
+	if groups == nil {
+		groups = []string{}
+	}
+
+	tag, err := q.Exec(ctx,
+		`UPDATE hst.managers SET name = $2, groups = $3, updated_at = $4,
+		right_admin = $5, right_manager = $6, right_cfg_time = $7,
+		right_cfg_holidays = $8, right_cfg_groups = $9, right_cfg_managers = $10,
+		right_cfg_requests = $11, right_cfg_gateways = $12,
+		right_cfg_datafeeds = $13, right_cfg_reports = $14,
+		right_cfg_symbols = $15, right_cfg_web_services = $16,
+		right_cfg_messengers = $17, right_cfg_kyc = $18,
+		right_cfg_automations = $19, right_cfg_allocations = $20,
+		right_cfg_corporate = $21, right_cfg_payments = $22, right_cfg_mails = $23,
+		right_cfg_streaming = $24, right_srv_journals = $25,
+		right_srv_reports = $26, right_charts = $27, right_email = $28,
+		right_news = $29, right_export = $30, right_techsupport = $31,
+		right_market = $32, right_accountant = $33, right_acc_read = $34,
+		right_acc_details_name = $35, right_acc_details_location = $36,
+		right_acc_details_address = $37, right_acc_details_id = $38,
+		right_acc_details_email = $39, right_acc_details_phone = $40,
+		right_acc_details_general = $41, right_acc_technical = $42,
+		right_acc_tech_modify = $43, right_acc_manager = $44,
+		right_acc_delete = $45, right_acc_online = $46,
+		right_confirm_actions = $47, right_notifications = $48,
+		right_trades_read = $49, right_trades_manager = $50,
+		right_trades_delete = $51, right_trades_dealer = $52,
+		right_trades_supervisor = $53, right_quotes_raw = $54, right_quotes = $55,
+		right_symbol_details = $56, right_risk_manager = $57,
+		right_group_margin = $58, right_group_commission = $59,
+		right_reports = $60, right_clients_access = $61,
+		right_clients_create = $62, right_clients_edit = $63,
+		right_clients_delete = $64, right_clients_kyc = $65,
+		right_clients_details_name = $66, right_clients_details_location = $67,
+		right_clients_details_address = $68, right_clients_details_id = $69,
+		right_clients_details_email = $70, right_clients_details_phone = $71,
+		right_clients_details_general = $72, right_documents_access = $73,
+		right_documents_create = $74, right_documents_edit = $75,
+		right_documents_delete = $76, right_documents_files_add = $77,
+		right_documents_files_delete = $78, right_comments_access = $79,
+		right_comments_create = $80, right_comments_delete = $81
+		  WHERE login = $1`,
+		login, name, groups, now,
+		b(r.Has(model.MgrRightAdmin)), b(r.Has(model.MgrRightManager)),
+		b(r.Has(model.MgrRightCfgTime)), b(r.Has(model.MgrRightCfgHolidays)),
+		b(r.Has(model.MgrRightCfgGroups)), b(r.Has(model.MgrRightCfgManagers)),
+		b(r.Has(model.MgrRightCfgRequests)), b(r.Has(model.MgrRightCfgGateways)),
+		b(r.Has(model.MgrRightCfgDatafeeds)), b(r.Has(model.MgrRightCfgReports)),
+		b(r.Has(model.MgrRightCfgSymbols)), b(r.Has(model.MgrRightCfgWebServices)),
+		b(r.Has(model.MgrRightCfgMessengers)), b(r.Has(model.MgrRightCfgKyc)),
+		b(r.Has(model.MgrRightCfgAutomations)), b(r.Has(model.MgrRightCfgAllocations)),
+		b(r.Has(model.MgrRightCfgCorporate)), b(r.Has(model.MgrRightCfgPayments)),
+		b(r.Has(model.MgrRightCfgMails)), b(r.Has(model.MgrRightCfgStreaming)),
+		b(r.Has(model.MgrRightSrvJournals)), b(r.Has(model.MgrRightSrvReports)),
+		b(r.Has(model.MgrRightCharts)), b(r.Has(model.MgrRightEmail)),
+		b(r.Has(model.MgrRightNews)), b(r.Has(model.MgrRightExport)),
+		b(r.Has(model.MgrRightTechsupport)), b(r.Has(model.MgrRightMarket)),
+		b(r.Has(model.MgrRightAccountant)), b(r.Has(model.MgrRightAccRead)),
+		b(r.Has(model.MgrRightAccDetailsName)),
+		b(r.Has(model.MgrRightAccDetailsLocation)),
+		b(r.Has(model.MgrRightAccDetailsAddress)),
+		b(r.Has(model.MgrRightAccDetailsId)), b(r.Has(model.MgrRightAccDetailsEmail)),
+		b(r.Has(model.MgrRightAccDetailsPhone)),
+		b(r.Has(model.MgrRightAccDetailsGeneral)),
+		b(r.Has(model.MgrRightAccTechnical)), b(r.Has(model.MgrRightAccTechModify)),
+		b(r.Has(model.MgrRightAccManager)), b(r.Has(model.MgrRightAccDelete)),
+		b(r.Has(model.MgrRightAccOnline)), b(r.Has(model.MgrRightConfirmActions)),
+		b(r.Has(model.MgrRightNotifications)), b(r.Has(model.MgrRightTradesRead)),
+		b(r.Has(model.MgrRightTradesManager)), b(r.Has(model.MgrRightTradesDelete)),
+		b(r.Has(model.MgrRightTradesDealer)), b(r.Has(model.MgrRightTradesSupervisor)),
+		b(r.Has(model.MgrRightQuotesRaw)), b(r.Has(model.MgrRightQuotes)),
+		b(r.Has(model.MgrRightSymbolDetails)), b(r.Has(model.MgrRightRiskManager)),
+		b(r.Has(model.MgrRightGroupMargin)), b(r.Has(model.MgrRightGroupCommission)),
+		b(r.Has(model.MgrRightReports)), b(r.Has(model.MgrRightClientsAccess)),
+		b(r.Has(model.MgrRightClientsCreate)), b(r.Has(model.MgrRightClientsEdit)),
+		b(r.Has(model.MgrRightClientsDelete)), b(r.Has(model.MgrRightClientsKyc)),
+		b(r.Has(model.MgrRightClientsDetailsName)),
+		b(r.Has(model.MgrRightClientsDetailsLocation)),
+		b(r.Has(model.MgrRightClientsDetailsAddress)),
+		b(r.Has(model.MgrRightClientsDetailsId)),
+		b(r.Has(model.MgrRightClientsDetailsEmail)),
+		b(r.Has(model.MgrRightClientsDetailsPhone)),
+		b(r.Has(model.MgrRightClientsDetailsGeneral)),
+		b(r.Has(model.MgrRightDocumentsAccess)),
+		b(r.Has(model.MgrRightDocumentsCreate)), b(r.Has(model.MgrRightDocumentsEdit)),
+		b(r.Has(model.MgrRightDocumentsDelete)),
+		b(r.Has(model.MgrRightDocumentsFilesAdd)),
+		b(r.Has(model.MgrRightDocumentsFilesDelete)),
+		b(r.Has(model.MgrRightCommentsAccess)), b(r.Has(model.MgrRightCommentsCreate)),
+		b(r.Has(model.MgrRightCommentsDelete)))
+	if err != nil {
+		return 0, err
+	}
+
+	return tag.RowsAffected(), nil
+}
+
+// packRightNames turns the requested column names into the bitset, rejecting
+// anything that is not a real right so a typo cannot silently grant nothing,
+// and an invented name cannot be smuggled through.
+func packRightNames(names []string) (model.ManagerRights, bool) {
+	byName := make(map[string]uint, model.ManagerRightsCount)
+	for bit, name := range model.ManagerRightsNames {
+		byName[name] = bit
+	}
+
+	var r model.ManagerRights
+	for _, n := range names {
+		bit, ok := byName[n]
+		if !ok {
+			return r, false
+		}
+		r = r.Set(bit)
+	}
+
+	return r, true
+}
+
+// CreateManager promotes an existing login to staff by attaching a manager row.
+// It never creates a user: the login must exist first.
+//
+//	@Id			CreateManager
+//	@Tags		Managers
+//	@Accept		json
+//	@Produce	json
+//	@Success	201	{object}	Response{data=ViewManagerRights}
+//	@Failure	400	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	409	{object}	Response
+//	@Failure	500	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/managers [post]
+func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	var body CrtManager
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	if err := s.Validate.Struct(body); err != nil {
+		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	rights, ok := packRightNames(body.Rights)
+	if !ok {
+		return s.App.HttpResponseBadRequest(c, errs.ErrUnknownManagerRight)
+	}
+
+	// the login must already exist; a manager is a role on a user, not a user
+	var exists bool
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM hst.users WHERE login = $1)`, body.Login).Scan(&exists); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !exists {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
+	var already bool
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM hst.managers WHERE login = $1)`, body.Login).Scan(&already); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if already {
+		return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
+	}
+
+	if err := insertManager(ctx, s.DB.DB, body.Login, &body, rights, time.Now().UnixNano()); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	// the login just became staff, so any session it already holds is stale
+	if err := s.OAuth2.InvalidateLogin(ctx, body.Login, model.SessionRevokedRightsChanged); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	snap, _ := utils.GetClient(c)
+	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "manager created",
+		"actor", snap.Login, "target", body.Login)
+
+	return s.getManagerRights(c, body.Login, s.App.HttpResponseCreated)
+}
+
+// UpdateManager replaces the name, groups and the whole right set of a manager.
+//
+//	@Id			UpdateManager
+//	@Tags		Managers
+//	@Accept		json
+//	@Produce	json
+//	@Success	200	{object}	Response{data=ViewManagerRights}
+//	@Failure	400	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/managers/{login} [patch]
+func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	login, err := c.ParamsInt("login")
+	if err != nil {
+		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	var body UptManager
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	if err := s.Validate.Struct(body); err != nil {
+		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	rights, ok := packRightNames(body.Rights)
+	if !ok {
+		return s.App.HttpResponseBadRequest(c, errs.ErrUnknownManagerRight)
+	}
+
+	affected, err := updateManagerRights(ctx, s.DB.DB, int64(login), body.Name,
+		body.Groups, rights, time.Now().UnixNano())
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if affected == 0 {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
+	// rights changed, so every live session of this login must be rebuilt
+	if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	snap, _ := utils.GetClient(c)
+	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "manager updated",
+		"actor", snap.Login, "target", login)
+
+	return s.getManagerRights(c, int64(login), s.App.HttpResponseOK)
+}
+
+// DeleteManager removes the staff role. The user and its account survive; the
+// login simply stops being staff.
+//
+//	@Id			DeleteManager
+//	@Tags		Managers
+//	@Produce	json
+//	@Success	204	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/managers/{login} [delete]
+func (s *HttpServer) DeleteManager(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	login, err := c.ParamsInt("login")
+	if err != nil {
+		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.managers WHERE login = $1`, login)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if tag.RowsAffected() == 0 {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
+	// this login is no longer staff. Dropping its sessions is the whole point:
+	// otherwise it keeps back office access until the snapshot expires.
+	if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	snap, _ := utils.GetClient(c)
+	s.Log.Journal(logger.TypeCfg, logger.CodeWarn, "manager removed",
+		"actor", snap.Login, "target", login)
+
+	return s.App.HttpResponseNoContent(c)
+}
+
+// getManagerRights reads one manager and answers with the given responder.
+func (s *HttpServer) getManagerRights(c *fiber.Ctx, login int64,
+	respond func(*fiber.Ctx, interface{}) error) error {
+
+	m, err := s.selectManager(c.UserContext(), login)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return respond(c, &ViewManagerRights{
+		Login:  m.Login,
+		Name:   m.Name,
+		Groups: m.Groups,
+		Rights: oauth2.PackManagerRights(m).Flags(),
+	})
 }

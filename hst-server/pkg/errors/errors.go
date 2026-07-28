@@ -30,6 +30,7 @@ const (
 	EndpointNotFound             = "the endpoint you requested doesn't exist on server"
 	DeleteWhileNotEmpty          = "you can't delete a record while it's not empty"
 	SessionStoreUnavailable      = "the session store is unavailable"
+	UnknownManagerRight          = "unknown manager right"
 )
 
 var (
@@ -59,4 +60,5 @@ var (
 	ErrEndpointNotFound             = errors.New(EndpointNotFound)
 	ErrDeleteWhileNotEmpty          = errors.New(DeleteWhileNotEmpty)
 	ErrSessionStoreUnavailable      = errors.New(SessionStoreUnavailable)
+	ErrUnknownManagerRight          = errors.New(UnknownManagerRight)
 )

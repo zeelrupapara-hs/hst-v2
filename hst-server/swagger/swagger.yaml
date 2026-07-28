@@ -533,6 +533,96 @@ paths:
       - BearerAuth: []
       tags:
       - Managers
+    post:
+      consumes:
+      - application/json
+      operationId: CreateManager
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewManagerRights'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Managers
+  /api/v1/managers/{login}:
+    delete:
+      operationId: DeleteManager
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Managers
+    patch:
+      consumes:
+      - application/json
+      operationId: UpdateManager
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewManagerRights'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Managers
   /api/v1/managers/{login}/rights:
     get:
       operationId: GetManagerRights
