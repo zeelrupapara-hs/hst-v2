@@ -10,7 +10,10 @@ POSTGRES_HOST     ?= localhost
 POSTGRES_PORT     ?= 5432
 POSTGRES_DB       ?= hst
 POSTGRES_SSL_MODE ?= disable
-DB_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=$(POSTGRES_SSL_MODE)
+# search_path is pinned: the role is also named hst, so once the hst schema
+# exists "$$user" resolves to it and migrate would look for schema_migrations
+# in the wrong schema, losing all version state.
+DB_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=$(POSTGRES_SSL_MODE)&search_path=public
 
 MIGRATE := $(GOBIN)/migrate
 
@@ -21,7 +24,7 @@ run:
 	go run ./cmd
 
 build:
-	go build -o $(BIN) ./cmd
+	go build -o $(BIN) ./cmdgo
 
 test:
 	go test ./... -race -cover

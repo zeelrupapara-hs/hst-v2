@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"runtime"
 	"strconv"
 	"time"
 )
@@ -32,6 +33,8 @@ const (
 	NATS_NAME         = "NATS_NAME"
 	REDIS_URL         = "REDIS_URL"
 	REDIS_PASSWORD    = "REDIS_PASSWORD"
+	REDIS_DB          = "REDIS_DB"
+	REDIS_POOL_SIZE   = "REDIS_POOL_SIZE"
 )
 
 type Config struct {
@@ -106,6 +109,16 @@ type Nats struct {
 type Redis struct {
 	RedisUrl      string
 	RedisPassword string
+	RedisDB       int
+
+	DialTimeout  time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+
+	PoolSize        int
+	MinIdleConns    int
+	ConnMaxIdleTime time.Duration
+	ConnMaxLifetime time.Duration
 }
 
 // NewConfig will load the env vars into the config struct
@@ -169,6 +182,14 @@ func NewConfig() *Config {
 	// Redis
 	c.Redis.RedisUrl = getEnv(REDIS_URL, "localhost:6379")
 	c.Redis.RedisPassword = getEnv(REDIS_PASSWORD, "")
+	c.Redis.RedisDB = getEnvAsInt(REDIS_DB, 0)
+	c.Redis.DialTimeout = 5 * time.Second
+	c.Redis.ReadTimeout = 3 * time.Second
+	c.Redis.WriteTimeout = 3 * time.Second
+	c.Redis.PoolSize = getEnvAsInt(REDIS_POOL_SIZE, 10*runtime.NumCPU())
+	c.Redis.MinIdleConns = 2
+	c.Redis.ConnMaxIdleTime = 30 * time.Minute
+	c.Redis.ConnMaxLifetime = time.Hour
 
 	return c
 }

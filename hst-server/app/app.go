@@ -11,6 +11,7 @@ import (
 	"hstserver/pkg/db"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/nats"
+	"hstserver/pkg/redis"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -89,11 +90,26 @@ func Run() int {
 
 	log.Logger.Info("nats connected")
 
+	// Redis
+	redisClient, err := redis.NewRedisClient(cfg, log)
+	if err != nil {
+		log.Logger.Errorf("failed to connect to redis %v", err)
+		return 1
+	}
+	defer func() {
+		log.Logger.Info("closing redis pool")
+		if err := redisClient.Close(); err != nil {
+			log.Logger.Errorf("failed to close redis %v", err)
+		}
+	}()
+
+	log.Logger.Info("redis connected")
+
 	// Validator
 	validate := validator.New()
 
 	// build the server
-	srv := server.NewServer(log, database, natsClient, validate, cfg)
+	srv := server.NewServer(log, database, natsClient, redisClient, validate, cfg)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)

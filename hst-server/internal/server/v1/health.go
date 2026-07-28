@@ -32,6 +32,14 @@ func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 		checks["postgres"] = "ok"
 	}
 
+	if err := s.Redis.Health(c.Context()); err != nil {
+		s.Log.Logger.Errorw("redis health check failed", "error", err)
+		checks["redis"] = "down"
+		status = "degraded"
+	} else {
+		checks["redis"] = "ok"
+	}
+
 	res := HealthResponse{
 		Status:  status,
 		Version: s.Cfg.Setting.Version,

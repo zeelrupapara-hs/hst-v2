@@ -11,6 +11,7 @@ import (
 	"hstserver/pkg/http"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/nats"
+	"hstserver/pkg/redis"
 )
 
 // Now server is a generic builder with http server as v1 every http, ws or any public interface should
@@ -30,11 +31,13 @@ type Server struct {
 	DB *db.PostgresDB
 	// Nats
 	Nats *nats.Nats
+	// Redis
+	Redis *redis.Redis
 	// Config
 	Cfg *config.Config
 }
 
-func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, validate *validator.Validate, cfg *config.Config) *Server {
+func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds *redis.Redis, validate *validator.Validate, cfg *config.Config) *Server {
 	// fiber instence
 	app := http.NewApp(cfg, log)
 
@@ -42,7 +45,7 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, val
 	newMiddleware := middleware.NewMiddleware(app, database, log, nats)
 
 	// v1 http server
-	web := v1.NewHTTP(app, database, log, nats, newMiddleware, cfg, validate)
+	web := v1.NewHTTP(app, database, log, nats, rds, newMiddleware, cfg, validate)
 
 	return &Server{
 		App:        app,
@@ -51,6 +54,7 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, val
 		Log:        log,
 		DB:         database,
 		Nats:       nats,
+		Redis:      rds,
 		Cfg:        cfg,
 	}
 }

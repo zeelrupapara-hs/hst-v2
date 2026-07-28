@@ -7,6 +7,7 @@ import (
 	"hstserver/pkg/http"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/nats"
+	"hstserver/pkg/redis"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -24,11 +25,13 @@ type HttpServer struct {
 	Log *logger.Logger
 	// Nats
 	Nats *nats.Nats
+	// Redis
+	Redis *redis.Redis
 	// Validator
 	Validate *validator.Validate
 }
 
-func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *nats.Nats, middleware *middleware.Middleware, cfg *config.Config, validate *validator.Validate) *HttpServer {
+func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *nats.Nats, rds *redis.Redis, middleware *middleware.Middleware, cfg *config.Config, validate *validator.Validate) *HttpServer {
 
 	h := &HttpServer{
 		Middleware: middleware,
@@ -36,6 +39,7 @@ func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *n
 		DB:         database,
 		Log:        log,
 		Nats:       nats,
+		Redis:      rds,
 		Validate:   validate,
 		Cfg:        cfg,
 	}
