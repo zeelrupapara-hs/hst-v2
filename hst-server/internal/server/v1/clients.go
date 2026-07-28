@@ -84,10 +84,10 @@ const clientColumns = `client_id, client_type, client_status, kyc_status,
 //	@Tags		Clients
 //	@Accept		json
 //	@Produce	json
-//	@Success	201	{object}	ViewClient
-//	@Failure	400	{object}	ErrorResponse
-//	@Failure	403	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	201	{object}	Response{data=ViewClient}
+//	@Failure	400	{object}	Response
+//	@Failure	403	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients [post]
 func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
@@ -136,10 +136,10 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 //	@Id			ListClients
 //	@Tags		Clients
 //	@Produce	json
-//	@Success	200	{array}		ViewClient
-//	@Failure	400	{object}	ErrorResponse
-//	@Failure	403	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=[]ViewClient}
+//	@Failure	400	{object}	Response
+//	@Failure	403	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients [get]
 func (s *HttpServer) ListClients(c *fiber.Ctx) error {
@@ -184,9 +184,9 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 //	@Id			GetClient
 //	@Tags		Clients
 //	@Produce	json
-//	@Success	200	{object}	ViewClient
-//	@Failure	404	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=ViewClient}
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [get]
 func (s *HttpServer) GetClient(c *fiber.Ctx) error {
@@ -219,10 +219,10 @@ func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 //	@Tags		Clients
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	ViewClient
-//	@Failure	400	{object}	ErrorResponse
-//	@Failure	404	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=ViewClient}
+//	@Failure	400	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [patch]
 func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
@@ -288,9 +288,10 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 //	@Id			DeleteClient
 //	@Tags		Clients
 //	@Produce	json
-//	@Failure	404	{object}	ErrorResponse
-//	@Failure	409	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	204	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	409	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [delete]
 func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {

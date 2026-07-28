@@ -61,17 +61,26 @@ definitions:
     - RetAuthApiDisabled
     - RetSessionExpired
     - RetAccountLocked
-  internal_server_v1.ErrorResponse:
+  internal_server_v1.CacheStats:
     properties:
-      code:
-        $ref: '#/definitions/hstserver_pkg_http.RetCode'
-      data: {}
-      error:
-        type: string
-      message:
-        type: string
-      success:
-        type: boolean
+      entries:
+        type: integer
+      evictions:
+        type: integer
+      foreign:
+        type: integer
+      hit_rate:
+        type: number
+      hits:
+        type: integer
+      max_accounts:
+        type: integer
+      misses:
+        type: integer
+      shard_count:
+        type: integer
+      shard_id:
+        type: integer
     type: object
   internal_server_v1.HealthResponse:
     properties:
@@ -83,6 +92,23 @@ definitions:
         type: string
       version:
         type: string
+    type: object
+  internal_server_v1.LiveResponse:
+    properties:
+      status:
+        type: string
+    type: object
+  internal_server_v1.Response:
+    properties:
+      code:
+        $ref: '#/definitions/hstserver_pkg_http.RetCode'
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
     type: object
   internal_server_v1.ViewClient:
     properties:
@@ -258,14 +284,18 @@ paths:
       produces:
       - application/json
       responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -279,15 +309,20 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewMe'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewMe'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -300,18 +335,22 @@ paths:
       produces:
       - application/json
       responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -325,21 +364,26 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/internal_server_v1.ViewClient'
-            type: array
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_server_v1.ViewClient'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -354,19 +398,24 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewClient'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewClient'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -377,18 +426,22 @@ paths:
       produces:
       - application/json
       responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -401,15 +454,20 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewClient'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewClient'
+              type: object
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -424,19 +482,24 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewClient'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewClient'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -447,14 +510,25 @@ paths:
       produces:
       - application/json
       responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_server_v1.ViewManagerRights'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -468,15 +542,20 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewManagerRights'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewManagerRights'
+              type: object
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -487,14 +566,23 @@ paths:
       produces:
       - application/json
       responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.CacheStats'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -508,11 +596,16 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.HealthResponse'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.HealthResponse'
+              type: object
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       summary: Check the system health
       tags:
       - System
@@ -525,9 +618,12 @@ paths:
         "200":
           description: OK
           schema:
-            additionalProperties:
-              type: string
-            type: object
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.LiveResponse'
+              type: object
       summary: Liveness probe, does not touch the database
       tags:
       - System
@@ -540,21 +636,26 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/internal_server_v1.ViewUser'
-            type: array
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_server_v1.ViewUser'
+                  type: array
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -569,19 +670,24 @@ paths:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewUser'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewUser'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -592,14 +698,18 @@ paths:
       produces:
       - application/json
       responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -612,15 +722,20 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewUser'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewUser'
+              type: object
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -635,19 +750,24 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewUser'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewUser'
+              type: object
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BearerAuth: []
       tags:
@@ -664,19 +784,24 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewToken'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewToken'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "403":
           description: Forbidden
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       security:
       - BasicAuth: []
       tags:
@@ -692,15 +817,20 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/internal_server_v1.ViewToken'
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewToken'
+              type: object
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
         "500":
           description: Internal Server Error
           schema:
-            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+            $ref: '#/definitions/internal_server_v1.Response'
       tags:
       - Auth
 schemes:

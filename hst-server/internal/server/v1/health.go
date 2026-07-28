@@ -6,6 +6,11 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// LiveResponse is the payload returned by the liveness probe
+type LiveResponse struct {
+	Status string `json:"status"`
+}
+
 // HealthResponse is the payload returned by the health endpoint
 type HealthResponse struct {
 	Status  string            `json:"status"`
@@ -19,8 +24,8 @@ type HealthResponse struct {
 //	@Summary	Check the system health
 //	@Tags		System
 //	@Produce	json
-//	@Success	200	{object}	HealthResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=HealthResponse}
+//	@Failure	500	{object}	Response
 //	@Router		/api/v1/system/monitor/health [get]
 func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 	checks := make(map[string]string)
@@ -68,10 +73,10 @@ func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 //	@Summary	Liveness probe, does not touch the database
 //	@Tags		System
 //	@Produce	json
-//	@Success	200	{object}	map[string]string
+//	@Success	200	{object}	Response{data=LiveResponse}
 //	@Router		/api/v1/system/monitor/live [get]
 func (s *HttpServer) CheckSystemLive(c *fiber.Ctx) error {
-	return s.App.HttpResponseOK(c, fiber.Map{"status": "alive"})
+	return s.App.HttpResponseOK(c, LiveResponse{Status: "alive"})
 }
 
 // CacheStats reports the session cache, so MAX_ACCOUNT_PER_SHARD is tuned from
@@ -80,8 +85,9 @@ func (s *HttpServer) CheckSystemLive(c *fiber.Ctx) error {
 //	@Id			CacheStats
 //	@Tags		System
 //	@Produce	json
-//	@Failure	401	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=CacheStats}
+//	@Failure	401	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/system/monitor/cache [get]
 func (s *HttpServer) CacheStats(c *fiber.Ctx) error {

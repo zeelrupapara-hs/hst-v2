@@ -25,9 +25,9 @@ type ViewManagerRights struct {
 //	@Id			GetManagerRights
 //	@Tags		Managers
 //	@Produce	json
-//	@Success	200	{object}	ViewManagerRights
-//	@Failure	404	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=ViewManagerRights}
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login}/rights [get]
 func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
@@ -57,8 +57,9 @@ func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
 //	@Id			ListManagers
 //	@Tags		Managers
 //	@Produce	json
-//	@Failure	400	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=[]ViewManagerRights}
+//	@Failure	400	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers [get]
 func (s *HttpServer) ListManagers(c *fiber.Ctx) error {

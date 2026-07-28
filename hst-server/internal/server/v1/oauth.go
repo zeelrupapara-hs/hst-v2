@@ -67,10 +67,10 @@ type ViewMe struct {
 //	@Tags			Auth
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	ViewToken
-//	@Failure		401	{object}	ErrorResponse
-//	@Failure		403	{object}	ErrorResponse
-//	@Failure		500	{object}	ErrorResponse
+//	@Success		200	{object}	Response{data=ViewToken}
+//	@Failure		401	{object}	Response
+//	@Failure		403	{object}	Response
+//	@Failure		500	{object}	Response
 //	@Security		BasicAuth
 //	@Router			/auth/v1/oauth2/login [post]
 func (s *HttpServer) Login(c *fiber.Ctx) error {
@@ -204,9 +204,9 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 //	@Tags		Auth
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	ViewToken
-//	@Failure	401	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=ViewToken}
+//	@Failure	401	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Router		/auth/v1/oauth2/refresh [post]
 func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	ctx := c.UserContext()
@@ -333,8 +333,9 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 //	@Id			Logout
 //	@Tags		Auth
 //	@Produce	json
-//	@Failure	401	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	204	{object}	Response
+//	@Failure	401	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/auth/logout [post]
 func (s *HttpServer) Logout(c *fiber.Ctx) error {
@@ -357,9 +358,9 @@ func (s *HttpServer) Logout(c *fiber.Ctx) error {
 //	@Id			Me
 //	@Tags		Auth
 //	@Produce	json
-//	@Success	200	{object}	ViewMe
-//	@Failure	401	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=ViewMe}
+//	@Failure	401	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/auth/me [get]
 func (s *HttpServer) Me(c *fiber.Ctx) error {
@@ -390,9 +391,10 @@ func (s *HttpServer) Me(c *fiber.Ctx) error {
 //	@Tags		Auth
 //	@Accept		json
 //	@Produce	json
-//	@Failure	400	{object}	ErrorResponse
-//	@Failure	401	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	204	{object}	Response
+//	@Failure	400	{object}	Response
+//	@Failure	401	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/auth/oauth2/change-password [post]
 func (s *HttpServer) ChangePassword(c *fiber.Ctx) error {

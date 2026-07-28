@@ -3,6 +3,7 @@ package v1
 import (
 	"hstserver/config"
 	"hstserver/internal/middleware"
+	"hstserver/pkg/cache"
 	"hstserver/pkg/db"
 	"hstserver/pkg/http"
 	"hstserver/pkg/logger"
@@ -13,10 +14,14 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// ErrorResponse is the failure envelope, aliased into this package so the
-// swagger annotations can resolve it without every handler file importing
-// pkg/http purely for a comment.
-type ErrorResponse = http.HttpResponse
+// Response is the envelope every endpoint returns, aliased into this package
+// so the swagger annotations resolve it without each handler importing
+// pkg/http purely for a comment. Success bodies compose the payload into it,
+// for example Response{data=ViewClient}.
+type Response = http.HttpResponse
+
+// CacheStats is the session cache report, aliased for the same reason.
+type CacheStats = cache.Stats
 
 type HttpServer struct {
 	// Config

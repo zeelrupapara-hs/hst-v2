@@ -94,10 +94,10 @@ const userJoin = ` FROM hst.users u LEFT JOIN hst.managers m ON m.login = u.logi
 //	@Tags		Users
 //	@Accept		json
 //	@Produce	json
-//	@Success	201	{object}	ViewUser
-//	@Failure	400	{object}	ErrorResponse
-//	@Failure	403	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	201	{object}	Response{data=ViewUser}
+//	@Failure	400	{object}	Response
+//	@Failure	403	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users [post]
 func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
@@ -178,10 +178,10 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 //	@Id			ListUsers
 //	@Tags		Users
 //	@Produce	json
-//	@Success	200	{array}		ViewUser
-//	@Failure	400	{object}	ErrorResponse
-//	@Failure	403	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=[]ViewUser}
+//	@Failure	400	{object}	Response
+//	@Failure	403	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users [get]
 func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
@@ -222,9 +222,9 @@ func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
 //	@Id			GetUser
 //	@Tags		Users
 //	@Produce	json
-//	@Success	200	{object}	ViewUser
-//	@Failure	404	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=ViewUser}
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [get]
 func (s *HttpServer) GetUser(c *fiber.Ctx) error {
@@ -243,10 +243,10 @@ func (s *HttpServer) GetUser(c *fiber.Ctx) error {
 //	@Tags		Users
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	ViewUser
-//	@Failure	400	{object}	ErrorResponse
-//	@Failure	404	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	200	{object}	Response{data=ViewUser}
+//	@Failure	400	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [patch]
 func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
@@ -305,8 +305,9 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 //	@Id			DeleteUser
 //	@Tags		Users
 //	@Produce	json
-//	@Failure	404	{object}	ErrorResponse
-//	@Failure	500	{object}	ErrorResponse
+//	@Success	204	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [delete]
 func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
