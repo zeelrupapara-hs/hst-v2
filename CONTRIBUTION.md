@@ -85,7 +85,7 @@ make down     # stop containers
   breaks the guarantee that a request costs zero database round trips.
 - Route rights come from the packed manager bitset:
   `s.Middleware.Authorization(model.MgrRightClientsCreate)`. The bit constants in
-  `model/manager_rights.go` follow the column order of the managers migration.
+  `model/manager.go` follow the column order of the managers migration.
 - Any handler that changes `rights`, `group` or a password must call
   `s.OAuth2.InvalidateLogin` after commit, or the change won't reach live sessions.
 - Comments are one or two lines. Explain why, not what.
