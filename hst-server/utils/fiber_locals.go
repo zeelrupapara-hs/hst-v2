@@ -1,15 +1,15 @@
 package utils
 
 import (
-	"hstserver/pkg/distributecache"
+	"hstserver/pkg/cache"
 	"hstserver/pkg/http"
 
 	"github.com/gofiber/fiber/v2"
 )
 
 // GetClient returns the session snapshot Protect stored on the request.
-func GetClient(c *fiber.Ctx) (*distributecache.Snapshot, bool) {
-	v, ok := c.Locals(http.LocalsClient).(*distributecache.Snapshot)
+func GetClient(c *fiber.Ctx) (*cache.Snapshot, bool) {
+	v, ok := c.Locals(http.LocalsClient).(*cache.Snapshot)
 	return v, ok
 }
 

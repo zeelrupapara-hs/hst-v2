@@ -63,9 +63,12 @@ type Auth struct {
 	// ephemeral dev key would invalidate every token on restart.
 	JwtPrivateKey string
 	JwtIssuer     string
-	AccessTTL     time.Duration
-	RefreshTTL    time.Duration
-	// RefreshAbsoluteTTL caps a whole rotation family, however often it rotates
+	// AccessTTL and RefreshTTL are read from the env in seconds
+	AccessTTL  time.Duration
+	RefreshTTL time.Duration
+	// RefreshAbsoluteTTL caps a whole rotation family however often it rotates.
+	// It must exceed RefreshTTL, otherwise rotating never extends the session
+	// and every family dies exactly RefreshTTL after the first login.
 	RefreshAbsoluteTTL time.Duration
 
 	Argon2MemoryKiB   int
@@ -242,9 +245,9 @@ func NewConfig() (*Config, error) {
 	// Auth
 	c.Auth.JwtPrivateKey = getEnv(AUTH_JWT_PRIVATE_KEY, "")
 	c.Auth.JwtIssuer = "hstserver"
-	c.Auth.AccessTTL = getEnvAsDuration(AUTH_ACCESS_TTL, 10*time.Minute)
-	c.Auth.RefreshTTL = getEnvAsDuration(AUTH_REFRESH_TTL, 12*time.Hour)
-	c.Auth.RefreshAbsoluteTTL = 7 * 24 * time.Hour
+	c.Auth.AccessTTL = time.Duration(getEnvAsInt(AUTH_ACCESS_TTL, 7200)) * time.Second
+	c.Auth.RefreshTTL = time.Duration(getEnvAsInt(AUTH_REFRESH_TTL, 604800)) * time.Second
+	c.Auth.RefreshAbsoluteTTL = 30 * 24 * time.Hour
 	c.Auth.Argon2MemoryKiB = getEnvAsInt(AUTH_ARGON2_MEMORY_KIB, 65536)
 	c.Auth.Argon2Time = getEnvAsInt(AUTH_ARGON2_TIME, 3)
 	c.Auth.Argon2Parallelism = 2
@@ -272,6 +275,10 @@ func NewConfig() (*Config, error) {
 func (c *Config) validate() error {
 	if c.Auth.JwtPrivateKey == "" {
 		return fmt.Errorf("%s is required, generate one with: make gen-keys", AUTH_JWT_PRIVATE_KEY)
+	}
+	if c.Auth.RefreshAbsoluteTTL <= c.Auth.RefreshTTL {
+		return fmt.Errorf("%s must be shorter than the absolute family cap of %s",
+			AUTH_REFRESH_TTL, c.Auth.RefreshAbsoluteTTL)
 	}
 	if c.Cache.ShardCount < 1 {
 		return fmt.Errorf("%s must be at least 1", SHARD_COUNT)
@@ -313,14 +320,6 @@ func getEnvAsInt32(name string, defaultVal int32) int32 {
 		return defaultVal
 	}
 	return int32(v)
-}
-
-// getEnvAsDuration accepts go duration strings such as 10m or 12h.
-func getEnvAsDuration(name string, defaultVal time.Duration) time.Duration {
-	if v, err := time.ParseDuration(getEnv(name, "")); err == nil && v > 0 {
-		return v
-	}
-	return defaultVal
 }
 
 func getEnvAsInt(name string, defaultVal int) int {

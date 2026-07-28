@@ -1,4 +1,4 @@
-package distributecache
+package cache
 
 import (
 	"fmt"

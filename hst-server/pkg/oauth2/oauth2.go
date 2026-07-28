@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"hstserver/config"
+	"hstserver/pkg/cache"
 	"hstserver/pkg/crypto"
 	"hstserver/pkg/db"
-	"hstserver/pkg/distributecache"
 	"hstserver/pkg/jwt"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/redis"
@@ -35,7 +35,7 @@ type OAuth2 struct {
 	// Signer mints and verifies access tokens
 	Signer *jwt.Signer
 	// Cache is the in process snapshot cache, sharded across instances
-	Cache *distributecache.DistributeCache
+	Cache *cache.DistributeCache
 	// Hasher does argon2id behind a concurrency limit
 	Hasher *crypto.Hasher
 	// Redis is the source of truth for live sessions
@@ -61,7 +61,7 @@ func NewOAuth2(rds *redis.Redis, database *db.PostgresDB, cfg *config.Config, lo
 
 	o := &OAuth2{
 		Signer: signer,
-		Cache: distributecache.New(
+		Cache: cache.New(
 			cfg.Cache.ShardId, cfg.Cache.ShardCount,
 			cfg.Cache.MaxAccounts, cfg.Cache.Buckets, cfg.Cache.TTL),
 		// ranges are checked in config.validate, so these conversions are safe

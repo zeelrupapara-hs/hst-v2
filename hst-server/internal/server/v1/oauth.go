@@ -458,6 +458,23 @@ func (s *HttpServer) openSession(ctx context.Context, u *model.User, mgr *model.
 	now := time.Now()
 	expiresAt := now.Add(s.Cfg.Auth.RefreshTTL).UnixNano()
 
+	// a rotation may not outlive the family it belongs to. Without this cap a
+	// stolen token that keeps being rotated would extend the session forever.
+	if parentId != "" {
+		var familyStart int64
+		if err := s.DB.DB.QueryRow(ctx,
+			`SELECT min(created_at) FROM hst.sessions WHERE family_id = $1`,
+			familyId).Scan(&familyStart); err == nil && familyStart > 0 {
+			if cap := familyStart + int64(s.Cfg.Auth.RefreshAbsoluteTTL); cap < expiresAt {
+				expiresAt = cap
+			}
+		}
+	}
+
+	if expiresAt <= now.UnixNano() {
+		return nil, errs.ErrInvalidSession
+	}
+
 	var parent *string
 	if parentId != "" {
 		parent = &parentId

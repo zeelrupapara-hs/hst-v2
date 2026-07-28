@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"hstserver/model"
+	"hstserver/pkg/cache"
 	"hstserver/pkg/crypto"
-	"hstserver/pkg/distributecache"
 	"hstserver/pkg/logger"
 
 	"github.com/goccy/go-json"
@@ -46,7 +46,7 @@ type RefreshRecord struct {
 // LoadSnapshot reads the session from redis. It never falls back to postgres:
 // a missing session means refresh, and refresh is the only path allowed to
 // read the database.
-func (o *OAuth2) LoadSnapshot(ctx context.Context, sid string) (*distributecache.Snapshot, error) {
+func (o *OAuth2) LoadSnapshot(ctx context.Context, sid string) (*cache.Snapshot, error) {
 	raw, err := o.Redis.Client.Get(ctx, KeySession(sid)).Bytes()
 	if err == redis.Nil {
 		return nil, ErrSessionNotFound
@@ -55,7 +55,7 @@ func (o *OAuth2) LoadSnapshot(ctx context.Context, sid string) (*distributecache
 		return nil, err
 	}
 
-	snap := &distributecache.Snapshot{}
+	snap := &cache.Snapshot{}
 	if err := json.Unmarshal(raw, snap); err != nil {
 		return nil, err
 	}
@@ -64,7 +64,7 @@ func (o *OAuth2) LoadSnapshot(ctx context.Context, sid string) (*distributecache
 }
 
 // SaveSnapshot writes the session to redis and warms the local cache.
-func (o *OAuth2) SaveSnapshot(ctx context.Context, snap *distributecache.Snapshot) error {
+func (o *OAuth2) SaveSnapshot(ctx context.Context, snap *cache.Snapshot) error {
 	raw, err := json.Marshal(snap)
 	if err != nil {
 		return err
@@ -276,8 +276,8 @@ func (o *OAuth2) IPThrottled(ctx context.Context, ip string) bool {
 }
 
 // NewSnapshot builds the capability snapshot that every later request reads.
-func NewSnapshot(sid string, u *model.User, mgr *model.Manager, cfg *Config, expiresAt int64) *distributecache.Snapshot {
-	snap := &distributecache.Snapshot{
+func NewSnapshot(sid string, u *model.User, mgr *model.Manager, cfg *Config, expiresAt int64) *cache.Snapshot {
+	snap := &cache.Snapshot{
 		SessionId:      sid,
 		Login:          u.Login,
 		ClientId:       u.ClientId,
