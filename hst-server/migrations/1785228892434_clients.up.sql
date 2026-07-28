@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS hst.clients (
     person_title                VARCHAR(32)   NOT NULL DEFAULT '',
     person_name                 VARCHAR(128)  NOT NULL DEFAULT '',
     person_middle_name          VARCHAR(64)   NOT NULL DEFAULT '',
+    person_last_name            VARCHAR(64)   NOT NULL DEFAULT '',
     person_birth_date           BIGINT NOT NULL DEFAULT 0,
     person_citizenship          VARCHAR(64)   NOT NULL DEFAULT '',
     person_gender               SMALLINT      NOT NULL DEFAULT 0,

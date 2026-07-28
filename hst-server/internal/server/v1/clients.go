@@ -22,6 +22,7 @@ type CrtClient struct {
 	Comment          string `json:"comment" validate:"max=4096"`
 	PersonName       string `json:"person_name" validate:"required,max=128"`
 	PersonMiddleName string `json:"person_middle_name" validate:"max=64"`
+	PersonLastName   string `json:"person_last_name" validate:"max=64"`
 	PersonBirthDate  int64  `json:"person_birth_date"`
 	PersonCitizen    string `json:"person_citizenship" validate:"max=64"`
 	CompanyName      string `json:"company_name" validate:"max=255"`
@@ -58,6 +59,7 @@ type ViewClient struct {
 	AssignedManager int64  `json:"assigned_manager"`
 	Comment         string `json:"comment"`
 	PersonName      string `json:"person_name"`
+	PersonLastName  string `json:"person_last_name"`
 	CompanyName     string `json:"company_name"`
 	ContactEmail    string `json:"contact_email"`
 	ContactPhone    string `json:"contact_phone"`
@@ -74,7 +76,7 @@ var clientsSortable = utils.NewSortable(
 	"contact_email", "client_status", "kyc_status")
 
 const clientColumns = `client_id, client_type, client_status, kyc_status,
-	COALESCE(assigned_manager, 0), comment, person_name, company_name,
+	COALESCE(assigned_manager, 0), comment, person_name, person_last_name, company_name,
 	contact_email, contact_phone, address_country, address_city,
 	date_created, date_modified`
 
@@ -106,19 +108,20 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 	err := s.DB.DB.QueryRow(c.UserContext(),
 		`INSERT INTO hst.clients
 		   (client_type, client_status, kyc_status, assigned_manager, comment,
-		    person_name, person_middle_name, person_birth_date, person_citizenship,
-		    company_name, contact_email, contact_phone,
+		    person_name, person_middle_name, person_last_name, person_birth_date,
+		    person_citizenship, company_name, contact_email, contact_phone,
 		    address_country, address_city, address_street, address_postcode,
 		    date_created, date_modified)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$17)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$18)
 		 RETURNING `+clientColumns,
 		body.ClientType, body.ClientStatus, body.KycStatus, body.AssignedManager,
-		body.Comment, body.PersonName, body.PersonMiddleName, body.PersonBirthDate,
-		body.PersonCitizen, body.CompanyName, body.ContactEmail, body.ContactPhone,
+		body.Comment, body.PersonName, body.PersonMiddleName, body.PersonLastName,
+		body.PersonBirthDate, body.PersonCitizen, body.CompanyName,
+		body.ContactEmail, body.ContactPhone,
 		body.AddressCountry, body.AddressCity, body.AddressStreet, body.AddressPostcode,
 		now).
 		Scan(&view.ClientId, &view.ClientType, &view.ClientStatus, &view.KycStatus,
-			&view.AssignedManager, &view.Comment, &view.PersonName, &view.CompanyName,
+			&view.AssignedManager, &view.Comment, &view.PersonName, &view.PersonLastName, &view.CompanyName,
 			&view.ContactEmail, &view.ContactPhone, &view.AddressCountry,
 			&view.AddressCity, &view.DateCreated, &view.DateModified)
 	if err != nil {
@@ -165,7 +168,7 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 	for rows.Next() {
 		var v ViewClient
 		if err := rows.Scan(&v.ClientId, &v.ClientType, &v.ClientStatus, &v.KycStatus,
-			&v.AssignedManager, &v.Comment, &v.PersonName, &v.CompanyName,
+			&v.AssignedManager, &v.Comment, &v.PersonName, &v.PersonLastName, &v.CompanyName,
 			&v.ContactEmail, &v.ContactPhone, &v.AddressCountry, &v.AddressCity,
 			&v.DateCreated, &v.DateModified); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -199,7 +202,7 @@ func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 	err = s.DB.DB.QueryRow(c.UserContext(),
 		`SELECT `+clientColumns+` FROM hst.clients WHERE client_id = $1`, id).
 		Scan(&view.ClientId, &view.ClientType, &view.ClientStatus, &view.KycStatus,
-			&view.AssignedManager, &view.Comment, &view.PersonName, &view.CompanyName,
+			&view.AssignedManager, &view.Comment, &view.PersonName, &view.PersonLastName, &view.CompanyName,
 			&view.ContactEmail, &view.ContactPhone, &view.AddressCountry,
 			&view.AddressCity, &view.DateCreated, &view.DateModified)
 
@@ -263,7 +266,7 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 		body.AddressCity, body.AddressStreet, body.AddressPostcode,
 		time.Now().UnixNano()).
 		Scan(&view.ClientId, &view.ClientType, &view.ClientStatus, &view.KycStatus,
-			&view.AssignedManager, &view.Comment, &view.PersonName, &view.CompanyName,
+			&view.AssignedManager, &view.Comment, &view.PersonName, &view.PersonLastName, &view.CompanyName,
 			&view.ContactEmail, &view.ContactPhone, &view.AddressCountry,
 			&view.AddressCity, &view.DateCreated, &view.DateModified)
 

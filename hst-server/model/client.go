@@ -376,6 +376,7 @@ type Client struct {
 	PersonTitle          string         `db:"person_title" json:"person_title"`
 	PersonName           string         `db:"person_name" json:"person_name"`
 	PersonMiddleName     string         `db:"person_middle_name" json:"person_middle_name"`
+	PersonLastName       string         `db:"person_last_name" json:"person_last_name"`
 	PersonBirthDate      int64          `db:"person_birth_date" json:"person_birth_date"`
 	PersonCitizenship    string         `db:"person_citizenship" json:"person_citizenship"`
 	PersonGender         Gender         `db:"person_gender" json:"person_gender"`

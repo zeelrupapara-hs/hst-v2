@@ -1314,6 +1314,9 @@ const docTemplate = `{
                 "kyc_status": {
                     "type": "integer"
                 },
+                "person_last_name": {
+                    "type": "string"
+                },
                 "person_name": {
                     "type": "string"
                 }
