@@ -482,7 +482,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_server_v1.ViewManagerRights"
+                                            "$ref": "#/definitions/model.Manager"
                                         }
                                     }
                                 }
@@ -517,6 +517,52 @@
             }
         },
         "/api/v1/managers/{login}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Managers"
+                ],
+                "operationId": "GetManager",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.Manager"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            },
             "delete": {
                 "security": [
                     {
@@ -579,7 +625,7 @@
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_server_v1.ViewManagerRights"
+                                            "$ref": "#/definitions/model.Manager"
                                         }
                                     }
                                 }
@@ -1819,6 +1865,291 @@
                 "KycStatus_undefined",
                 "KycStatus_approved",
                 "KycStatus_declined"
+            ]
+        },
+        "model.Manager": {
+            "type": "object",
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "login": {
+                    "type": "integer"
+                },
+                "mailbox": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "request_limit_logs": {
+                    "$ref": "#/definitions/model.ManagerLimit"
+                },
+                "request_limit_reports": {
+                    "$ref": "#/definitions/model.ManagerLimit"
+                },
+                "right_acc_delete": {
+                    "type": "integer"
+                },
+                "right_acc_details_address": {
+                    "type": "integer"
+                },
+                "right_acc_details_email": {
+                    "type": "integer"
+                },
+                "right_acc_details_general": {
+                    "type": "integer"
+                },
+                "right_acc_details_id": {
+                    "type": "integer"
+                },
+                "right_acc_details_location": {
+                    "type": "integer"
+                },
+                "right_acc_details_name": {
+                    "type": "integer"
+                },
+                "right_acc_details_phone": {
+                    "type": "integer"
+                },
+                "right_acc_manager": {
+                    "type": "integer"
+                },
+                "right_acc_online": {
+                    "type": "integer"
+                },
+                "right_acc_read": {
+                    "type": "integer"
+                },
+                "right_acc_tech_modify": {
+                    "type": "integer"
+                },
+                "right_acc_technical": {
+                    "type": "integer"
+                },
+                "right_accountant": {
+                    "type": "integer"
+                },
+                "right_admin": {
+                    "type": "integer"
+                },
+                "right_cfg_allocations": {
+                    "type": "integer"
+                },
+                "right_cfg_automations": {
+                    "type": "integer"
+                },
+                "right_cfg_corporate": {
+                    "type": "integer"
+                },
+                "right_cfg_datafeeds": {
+                    "type": "integer"
+                },
+                "right_cfg_gateways": {
+                    "type": "integer"
+                },
+                "right_cfg_groups": {
+                    "type": "integer"
+                },
+                "right_cfg_holidays": {
+                    "type": "integer"
+                },
+                "right_cfg_kyc": {
+                    "type": "integer"
+                },
+                "right_cfg_mails": {
+                    "type": "integer"
+                },
+                "right_cfg_managers": {
+                    "type": "integer"
+                },
+                "right_cfg_messengers": {
+                    "type": "integer"
+                },
+                "right_cfg_payments": {
+                    "type": "integer"
+                },
+                "right_cfg_reports": {
+                    "type": "integer"
+                },
+                "right_cfg_requests": {
+                    "type": "integer"
+                },
+                "right_cfg_streaming": {
+                    "type": "integer"
+                },
+                "right_cfg_symbols": {
+                    "type": "integer"
+                },
+                "right_cfg_time": {
+                    "type": "integer"
+                },
+                "right_cfg_web_services": {
+                    "type": "integer"
+                },
+                "right_charts": {
+                    "type": "integer"
+                },
+                "right_clients_access": {
+                    "type": "integer"
+                },
+                "right_clients_create": {
+                    "type": "integer"
+                },
+                "right_clients_delete": {
+                    "type": "integer"
+                },
+                "right_clients_details_address": {
+                    "type": "integer"
+                },
+                "right_clients_details_email": {
+                    "type": "integer"
+                },
+                "right_clients_details_general": {
+                    "type": "integer"
+                },
+                "right_clients_details_id": {
+                    "type": "integer"
+                },
+                "right_clients_details_location": {
+                    "type": "integer"
+                },
+                "right_clients_details_name": {
+                    "type": "integer"
+                },
+                "right_clients_details_phone": {
+                    "type": "integer"
+                },
+                "right_clients_edit": {
+                    "type": "integer"
+                },
+                "right_clients_kyc": {
+                    "type": "integer"
+                },
+                "right_comments_access": {
+                    "type": "integer"
+                },
+                "right_comments_create": {
+                    "type": "integer"
+                },
+                "right_comments_delete": {
+                    "type": "integer"
+                },
+                "right_confirm_actions": {
+                    "type": "integer"
+                },
+                "right_documents_access": {
+                    "type": "integer"
+                },
+                "right_documents_create": {
+                    "type": "integer"
+                },
+                "right_documents_delete": {
+                    "type": "integer"
+                },
+                "right_documents_edit": {
+                    "type": "integer"
+                },
+                "right_documents_files_add": {
+                    "type": "integer"
+                },
+                "right_documents_files_delete": {
+                    "type": "integer"
+                },
+                "right_email": {
+                    "type": "integer"
+                },
+                "right_export": {
+                    "type": "integer"
+                },
+                "right_group_commission": {
+                    "type": "integer"
+                },
+                "right_group_margin": {
+                    "type": "integer"
+                },
+                "right_manager": {
+                    "type": "integer"
+                },
+                "right_market": {
+                    "type": "integer"
+                },
+                "right_news": {
+                    "type": "integer"
+                },
+                "right_notifications": {
+                    "type": "integer"
+                },
+                "right_quotes": {
+                    "type": "integer"
+                },
+                "right_quotes_raw": {
+                    "type": "integer"
+                },
+                "right_reports": {
+                    "type": "integer"
+                },
+                "right_risk_manager": {
+                    "type": "integer"
+                },
+                "right_srv_journals": {
+                    "type": "integer"
+                },
+                "right_srv_reports": {
+                    "type": "integer"
+                },
+                "right_symbol_details": {
+                    "type": "integer"
+                },
+                "right_techsupport": {
+                    "type": "integer"
+                },
+                "right_trades_dealer": {
+                    "type": "integer"
+                },
+                "right_trades_delete": {
+                    "type": "integer"
+                },
+                "right_trades_manager": {
+                    "type": "integer"
+                },
+                "right_trades_read": {
+                    "type": "integer"
+                },
+                "right_trades_supervisor": {
+                    "type": "integer"
+                },
+                "server": {
+                    "type": "integer"
+                },
+                "updated_at": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.ManagerLimit": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+            ],
+            "x-enum-varnames": [
+                "ManagerLimit_all",
+                "ManagerLimit_months_1",
+                "ManagerLimit_months_3",
+                "ManagerLimit_months_6",
+                "ManagerLimit_year_1",
+                "ManagerLimit_year_2",
+                "ManagerLimit_year_3"
             ]
         },
         "model.PreferredCommunication": {

@@ -60,6 +60,7 @@ func (s *HttpServer) RegisterV1() {
 	managers := v1.Group("/managers", s.Middleware.Protect, s.Middleware.RequireManager)
 	managers.Get("/", s.Middleware.Authorization(model.MgrRightCfgManagers), s.ListManagers)
 	managers.Post("/", s.Middleware.Authorization(model.MgrRightCfgManagers), s.CreateManager)
+	managers.Get("/:login", s.Middleware.Authorization(model.MgrRightCfgManagers), s.GetManager)
 	managers.Get("/:login/rights", s.Middleware.Authorization(model.MgrRightCfgManagers), s.GetManagerRights)
 	managers.Patch("/:login", s.Middleware.Authorization(model.MgrRightCfgManagers), s.UpdateManager)
 	managers.Delete("/:login", s.Middleware.Authorization(model.MgrRightCfgManagers), s.DeleteManager)
