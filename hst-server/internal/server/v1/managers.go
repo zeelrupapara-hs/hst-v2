@@ -579,7 +579,7 @@ func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
 	}
 
 	snap, _ := utils.GetClient(c)
-	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "manager created",
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "manager created",
 		"actor", snap.Login, "target", body.Login)
 
 	return s.getManager(c, body.Login, s.App.HttpResponseCreated)
@@ -633,7 +633,7 @@ func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
 	}
 
 	snap, _ := utils.GetClient(c)
-	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "manager updated",
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "manager updated",
 		"actor", snap.Login, "target", login)
 
 	return s.getManager(c, int64(login), s.App.HttpResponseOK)
@@ -673,7 +673,7 @@ func (s *HttpServer) DeleteManager(c *fiber.Ctx) error {
 	}
 
 	snap, _ := utils.GetClient(c)
-	s.Log.Journal(logger.TypeCfg, logger.CodeWarn, "manager removed",
+	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "manager removed",
 		"actor", snap.Login, "target", login)
 
 	return s.App.HttpResponseNoContent(c)

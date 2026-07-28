@@ -184,7 +184,7 @@ func (o *OAuth2) RevokeFamily(ctx context.Context, familyId string, reason strin
 
 	for _, sid := range sids {
 		if err := o.Redis.Client.Del(ctx, KeySession(sid)).Err(); err != nil {
-			o.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to drop session key",
+			o.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to drop session key",
 				"session_id", sid, "error", err.Error())
 		}
 		o.Cache.Invalidate(sid)
@@ -205,7 +205,7 @@ func (o *OAuth2) InvalidateLogin(ctx context.Context, login int64, reason string
 
 	for _, sid := range sids {
 		if err := o.Redis.Client.Del(ctx, KeySession(sid)).Err(); err != nil {
-			o.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to drop session key",
+			o.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to drop session key",
 				"session_id", sid, "error", err.Error())
 		}
 	}

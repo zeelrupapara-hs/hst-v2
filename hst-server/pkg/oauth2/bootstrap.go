@@ -41,7 +41,7 @@ func (o *OAuth2) Bootstrap(ctx context.Context) error {
 
 	raw, err := os.ReadFile(BootstrapFile)
 	if errors.Is(err, os.ErrNotExist) {
-		o.Log.Journal(logger.TypeSys, logger.CodeWarn,
+		o.Log.Log(logger.TypeSys, logger.CodeWarn,
 			"no manager exists and no bootstrap file was found",
 			"file", BootstrapFile)
 		return nil
@@ -111,7 +111,7 @@ func (o *OAuth2) Bootstrap(ctx context.Context) error {
 		return err
 	}
 
-	o.Log.Journal(logger.TypeSys, logger.CodeLogin, "bootstrap administrator created",
+	o.Log.Log(logger.TypeSys, logger.CodeLogin, "bootstrap administrator created",
 		"login", login, "group", cfg.Group)
 
 	return nil

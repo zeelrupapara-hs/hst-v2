@@ -38,7 +38,7 @@ func (o *OAuth2) Subscribe() {
 
 			var m invalidateMessage
 			if err := json.Unmarshal([]byte(msg.Payload), &m); err != nil {
-				o.Log.Journal(logger.TypeUser, logger.CodeWarn, "bad invalidate message",
+				o.Log.Log(logger.TypeUser, logger.CodeWarn, "bad invalidate message",
 					"error", err.Error())
 				continue
 			}
@@ -61,7 +61,7 @@ func (o *OAuth2) publish(ctx context.Context, m invalidateMessage) {
 	}
 
 	if err := o.Redis.Client.Publish(ctx, ChannelInvalidate, raw).Err(); err != nil {
-		o.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to publish invalidation",
+		o.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to publish invalidation",
 			"error", err.Error())
 	}
 }

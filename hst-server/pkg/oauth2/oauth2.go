@@ -83,7 +83,7 @@ func NewOAuth2(rds *redis.Redis, database *db.PostgresDB, cfg *config.Config, lo
 	go o.Subscribe()
 	go o.flushTouches()
 
-	log.Journal(logger.TypeSys, logger.CodeOK, "auth ready",
+	log.Log(logger.TypeSys, logger.CodeOK, "auth ready",
 		"shard_id", cfg.Cache.ShardId,
 		"shard_count", cfg.Cache.ShardCount,
 		"max_accounts", cfg.Cache.MaxAccounts)
@@ -131,7 +131,7 @@ func (o *OAuth2) flushTouches() {
 			`UPDATE hst.sessions SET last_seen_at = $1 WHERE session_id = ANY($2::uuid[])`,
 			time.Now().UnixNano(), sids)
 		if err != nil {
-			o.Log.Journal(logger.TypeSys, logger.CodeWarn, "failed to flush session activity",
+			o.Log.Log(logger.TypeSys, logger.CodeWarn, "failed to flush session activity",
 				"count", len(sids), "error", err.Error())
 		}
 	}

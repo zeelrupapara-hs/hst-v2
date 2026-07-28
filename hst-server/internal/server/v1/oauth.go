@@ -128,11 +128,11 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	if err != nil || !valid {
 		locked, ferr := s.OAuth2.RegisterFailure(ctx, login, ip)
 		if ferr != nil {
-			s.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to record login failure",
+			s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to record login failure",
 				"login", login, "error", ferr.Error())
 		}
 
-		s.Log.Journal(logger.TypeUser, logger.CodeAtt, "failed login",
+		s.Log.Log(logger.TypeUser, logger.CodeAtt, "failed login",
 			"login", login, "ip", ip, "locked", locked)
 
 		if locked {
@@ -167,7 +167,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		if hash, herr := s.OAuth2.Hasher.HashPassword(password); herr == nil {
 			if _, uerr := s.DB.DB.Exec(ctx,
 				`UPDATE hst.users SET password_main = $1 WHERE login = $2`, hash, login); uerr != nil {
-				s.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to upgrade password hash",
+				s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to upgrade password hash",
 					"login", login, "error", uerr.Error())
 			}
 		}
@@ -191,7 +191,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 
 	s.OAuth2.ClearFailures(ctx, login, ip)
 
-	s.Log.Journal(logger.TypeUser, logger.CodeLogin, "login",
+	s.Log.Log(logger.TypeUser, logger.CodeLogin, "login",
 		"login", login, "ip", ip, "connection_type", body.ConnectionType)
 
 	return s.App.HttpResponseRetCode(c, view.Code, view)
@@ -234,11 +234,11 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	// compromised and kill all of it, including the session the thief may hold.
 	if rec.Used {
 		if rerr := s.OAuth2.RevokeFamily(ctx, rec.FamilyId, model.SessionRevokedReuseDetected); rerr != nil {
-			s.Log.Journal(logger.TypeUser, logger.CodeErr, "failed to revoke family",
+			s.Log.Log(logger.TypeUser, logger.CodeErr, "failed to revoke family",
 				"family_id", rec.FamilyId, "error", rerr.Error())
 		}
 
-		s.Log.Journal(logger.TypeUser, logger.CodeAtt, "refresh token reuse detected",
+		s.Log.Log(logger.TypeUser, logger.CodeAtt, "refresh token reuse detected",
 			"login", rec.Login, "family_id", rec.FamilyId, "ip", utils.GetRealIP(c))
 
 		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
@@ -270,7 +270,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 
 	if !u.Rights.CanConnect() {
 		if rerr := s.OAuth2.RevokeFamily(ctx, rec.FamilyId, model.SessionRevokedRightsChanged); rerr != nil {
-			s.Log.Journal(logger.TypeUser, logger.CodeErr, "failed to revoke family",
+			s.Log.Log(logger.TypeUser, logger.CodeErr, "failed to revoke family",
 				"family_id", rec.FamilyId, "error", rerr.Error())
 		}
 		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
@@ -307,7 +307,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	// the old token becomes a tombstone rather than disappearing, so a replay
 	// is detectable instead of merely failing
 	if err := s.OAuth2.MarkRefreshUsed(ctx, body.RefreshToken, rec); err != nil {
-		s.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to tombstone refresh token",
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to tombstone refresh token",
 			"login", u.Login, "error", err.Error())
 	}
 
@@ -315,12 +315,12 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		`UPDATE hst.sessions SET revoked_at = $1, revoked_reason = $2
 		   WHERE session_id = $3 AND revoked_at = 0`,
 		time.Now().UnixNano(), model.SessionRevokedRotated, rec.SessionId); err != nil {
-		s.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to mark session rotated",
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to mark session rotated",
 			"session_id", rec.SessionId, "error", err.Error())
 	}
 
 	if err := s.OAuth2.Redis.Client.Del(ctx, oauth2.KeySession(rec.SessionId)).Err(); err != nil {
-		s.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to drop rotated session",
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to drop rotated session",
 			"session_id", rec.SessionId, "error", err.Error())
 	}
 	s.OAuth2.Cache.Invalidate(rec.SessionId)
@@ -348,7 +348,7 @@ func (s *HttpServer) Logout(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	s.Log.Journal(logger.TypeUser, logger.CodeLogin, "logout", "login", snap.Login)
+	s.Log.Log(logger.TypeUser, logger.CodeLogin, "logout", "login", snap.Login)
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -444,7 +444,7 @@ func (s *HttpServer) ChangePassword(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	s.Log.Journal(logger.TypeUser, logger.CodeLogin, "password changed", "login", snap.Login)
+	s.Log.Log(logger.TypeUser, logger.CodeLogin, "password changed", "login", snap.Login)
 
 	return s.App.HttpResponseNoContent(c)
 }

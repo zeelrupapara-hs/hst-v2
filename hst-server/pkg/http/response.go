@@ -83,10 +83,10 @@ func (a *App) HttpResponseServiceUnavailable(c *fiber.Ctx, message error) error 
 	return a.fail(c, StatusServiceUnavailable, RetAuthServerBusy, ErrServiceUnavailable, message)
 }
 
-// http 500. The real error goes to the journal, never to the client, so a
+// http 500. The real error goes to the log, never to the client, so a
 // driver or query detail cannot leak through the body.
 func (a *App) HttpResponseInternalServerErrorRequest(c *fiber.Ctx, message error) error {
-	a.Log.Journal(logger.TypeSys, logger.CodeErr, "request failed",
+	a.Log.Log(logger.TypeSys, logger.CodeErr, "request failed",
 		"path", c.Path(), "method", c.Method(), "error", message.Error())
 
 	return c.Status(StatusInternalServerError).JSON(&HttpResponse{

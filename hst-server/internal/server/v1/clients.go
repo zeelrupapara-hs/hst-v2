@@ -199,7 +199,7 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "client created",
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "client created",
 		"actor", snap.Login, "client_id", view.ClientId)
 
 	return s.App.HttpResponseCreated(c, view)
@@ -423,7 +423,7 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 	}
 
 	snap, _ := utils.GetClient(c)
-	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "client updated",
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "client updated",
 		"actor", snap.Login, "client_id", id)
 
 	return s.App.HttpResponseOK(c, client)
@@ -451,15 +451,27 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	if !c.QueryBool("force", false) {
-		var users int
-		if err := s.DB.DB.QueryRow(ctx,
-			`SELECT count(*) FROM hst.users WHERE client_id = $1`, id).Scan(&users); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
-		}
-		if users > 0 {
-			return s.App.HttpResponseConflict(c, errs.ErrDeleteWhileNotEmpty)
-		}
+	// a client owns N users, and each user owns one account. users.client_id is
+	// ON DELETE SET NULL, so deleting the client does not remove them, it
+	// detaches them: the trading accounts and their money survive with no KYC
+	// owner. Check the whole chain before allowing that.
+	var users, funded int
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT count(*),
+		        count(*) FILTER (WHERE a.balance <> 0 OR a.credit <> 0 OR a.equity <> 0)
+		   FROM hst.users u
+		   LEFT JOIN hst.accounts a ON a.login = u.login
+		  WHERE u.client_id = $1`, id).Scan(&users, &funded); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	// money outranks force. Detaching a funded account from its client is a
+	// compliance problem, so close or move the accounts first.
+	if funded > 0 {
+		return s.App.HttpResponseConflict(c, errs.ErrClientHasFundedAccounts)
+	}
+	if users > 0 && !c.QueryBool("force", false) {
+		return s.App.HttpResponseConflict(c, errs.ErrDeleteWhileNotEmpty)
 	}
 
 	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.clients WHERE client_id = $1`, id)
@@ -471,8 +483,8 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 	}
 
 	snap, _ := utils.GetClient(c)
-	s.Log.Journal(logger.TypeCfg, logger.CodeWarn, "client deleted",
-		"actor", snap.Login, "client_id", id)
+	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "client deleted",
+		"actor", snap.Login, "client_id", id, "users_detached", users)
 
 	return s.App.HttpResponseNoContent(c)
 }

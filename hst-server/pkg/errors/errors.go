@@ -31,6 +31,7 @@ const (
 	DeleteWhileNotEmpty          = "you can't delete a record while it's not empty"
 	SessionStoreUnavailable      = "the session store is unavailable"
 	UnknownManagerRight          = "unknown manager right"
+	ClientHasFundedAccounts      = "this client has trading accounts holding funds, close or move them first"
 )
 
 var (
@@ -61,4 +62,5 @@ var (
 	ErrDeleteWhileNotEmpty          = errors.New(DeleteWhileNotEmpty)
 	ErrSessionStoreUnavailable      = errors.New(SessionStoreUnavailable)
 	ErrUnknownManagerRight          = errors.New(UnknownManagerRight)
+	ErrClientHasFundedAccounts      = errors.New(ClientHasFundedAccounts)
 )

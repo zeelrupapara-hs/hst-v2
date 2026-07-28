@@ -95,7 +95,7 @@ func errorHandler(log *logger.Logger) fiber.ErrorHandler {
 		}
 
 		if code >= fiber.StatusInternalServerError {
-			log.Journal(logger.TypeSys, logger.CodeErr, "unhandled error",
+			log.Log(logger.TypeSys, logger.CodeErr, "unhandled error",
 				"path", c.Path(), "method", c.Method(), "error", err.Error())
 			msg = ErrInternalServerError
 		}

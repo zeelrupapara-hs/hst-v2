@@ -20,12 +20,12 @@ func (n *Nats) ErrorHandler(nc *nats.Conn, sub *nats.Subscription, natsErr error
 	if natsErr == nats.ErrSlowConsumer {
 		pendingMsgs, pendingBytes, err := sub.Pending()
 		if err != nil {
-			n.Log.Journal(logger.TypeNet, logger.CodeErr, "nats slow consumer",
+			n.Log.Log(logger.TypeNet, logger.CodeErr, "nats slow consumer",
 				"error", natsErr.Error(), "pending_err", err.Error())
 			return
 		}
 		dropped, _ := sub.Dropped()
-		n.Log.Journal(logger.TypeNet, logger.CodeErr, "nats slow consumer",
+		n.Log.Log(logger.TypeNet, logger.CodeErr, "nats slow consumer",
 			"subject", sub.Subject,
 			"pending_msgs", pendingMsgs,
 			"pending_bytes", pendingBytes,
@@ -38,7 +38,7 @@ func (n *Nats) ErrorHandler(nc *nats.Conn, sub *nats.Subscription, natsErr error
 	if sub != nil {
 		fields = append(fields, "subject", sub.Subject)
 	}
-	n.Log.Journal(logger.TypeNet, logger.CodeErr, "nats async error", fields...)
+	n.Log.Log(logger.TypeNet, logger.CodeErr, "nats async error", fields...)
 }
 
 // NewNatClient will return a connected NATS client.
@@ -62,14 +62,14 @@ func NewNatClient(cfg *config.Config, log *logger.Logger) (*Nats, error) {
 			if err != nil {
 				f = append(f, "error", err.Error())
 			}
-			log.Journal(logger.TypeNet, logger.CodeWarn, "nats disconnected", f...)
+			log.Log(logger.TypeNet, logger.CodeWarn, "nats disconnected", f...)
 		}),
 		nats.ReconnectHandler(func(nc *nats.Conn) {
-			log.Journal(logger.TypeNet, logger.CodeOK, "nats reconnected",
+			log.Log(logger.TypeNet, logger.CodeOK, "nats reconnected",
 				"url", nc.ConnectedUrl())
 		}),
 		nats.ClosedHandler(func(_ *nats.Conn) {
-			log.Journal(logger.TypeNet, logger.CodeWarn, "nats connection closed")
+			log.Log(logger.TypeNet, logger.CodeWarn, "nats connection closed")
 		}),
 		nats.ErrorHandler(n.ErrorHandler),
 	}

@@ -144,7 +144,7 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 	}
 
 	snap, _ := utils.GetClient(c)
-	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "user created",
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
 		"actor", snap.Login, "target", login)
 
 	return s.getUserByLogin(c, login, s.App.HttpResponseCreated)
@@ -271,7 +271,7 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	}
 
 	snap, _ := utils.GetClient(c)
-	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "user updated",
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user updated",
 		"actor", snap.Login, "target", login)
 
 	return s.getUserByLogin(c, int64(login), s.App.HttpResponseOK)
@@ -304,12 +304,12 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	}
 
 	if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
-		s.Log.Journal(logger.TypeUser, logger.CodeWarn, "failed to drop sessions of deleted user",
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to drop sessions of deleted user",
 			"login", login, "error", err.Error())
 	}
 
 	snap, _ := utils.GetClient(c)
-	s.Log.Journal(logger.TypeCfg, logger.CodeWarn, "user deleted",
+	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "user deleted",
 		"actor", snap.Login, "target", login)
 
 	return s.App.HttpResponseNoContent(c)

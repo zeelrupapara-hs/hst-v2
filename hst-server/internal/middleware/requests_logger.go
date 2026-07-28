@@ -46,7 +46,7 @@ func (m *Middleware) RequestsLogger(c *fiber.Ctx) error {
 		fields = append(fields, "error", err.Error())
 	}
 
-	m.Log.Journal(logger.TypeNet, code, "request", fields...)
+	m.Log.Log(logger.TypeNet, code, "request", fields...)
 
 	return err
 }
