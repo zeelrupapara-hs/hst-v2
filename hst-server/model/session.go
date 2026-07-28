@@ -76,7 +76,17 @@ type Session struct {
 	ExpiresAt      int64                `db:"expires_at" json:"expires_at"`
 	RevokedAt      int64                `db:"revoked_at" json:"revoked_at"`
 	RevokedReason  string               `db:"revoked_reason" json:"revoked_reason"`
+	FamilyId       string               `db:"family_id" json:"family_id"`
+	ParentId       string               `db:"parent_id" json:"parent_id"`
 }
+
+// revoked_reason values
+const (
+	SessionRevokedRotated       = "rotated"
+	SessionRevokedLogout        = "logout"
+	SessionRevokedReuseDetected = "reuse_detected"
+	SessionRevokedRightsChanged = "rights_changed"
+)
 
 func (Session) TableName() string { return "hst.sessions" }
 

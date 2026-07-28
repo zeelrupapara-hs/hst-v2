@@ -1,5 +1,7 @@
+CREATE SEQUENCE IF NOT EXISTS hst.users_login_seq AS BIGINT START WITH 1000000 CACHE 1;
+
 CREATE TABLE IF NOT EXISTS hst.users (
-    login               BIGINT       PRIMARY KEY,
+    login               BIGINT       PRIMARY KEY DEFAULT nextval('hst.users_login_seq'),
     client_id           BIGINT,
     "group"             VARCHAR(128) NOT NULL,
     rights              BIGINT       NOT NULL DEFAULT 0,
@@ -67,6 +69,7 @@ CREATE INDEX IF NOT EXISTS users_group_idx       ON hst.users ("group");
 CREATE INDEX IF NOT EXISTS users_agent_idx       ON hst.users (agent);
 CREATE INDEX IF NOT EXISTS users_email_idx       ON hst.users (email);
 CREATE INDEX IF NOT EXISTS users_last_access_idx ON hst.users (last_access DESC);
+CREATE INDEX IF NOT EXISTS users_locked_until_idx ON hst.users (locked_until) WHERE locked_until > 0;
 
 ALTER TABLE hst.users
     ADD CONSTRAINT users_client_id_fkey FOREIGN KEY (client_id)
@@ -93,5 +96,8 @@ COMMENT ON COLUMN hst.users.password_main IS 'EnUsersPasswords slot 0, argon2id 
 COMMENT ON COLUMN hst.users.password_investor IS 'EnUsersPasswords slot 1, read-only session';
 COMMENT ON COLUMN hst.users.password_api IS 'EnUsersPasswords slot 2, gated by rights 0x4000';
 COMMENT ON COLUMN hst.users.password_phone IS 'MT5 PhonePassword, support verification only, not a login credential';
+
+COMMENT ON SEQUENCE hst.users_login_seq IS
+    'CACHE 1: logins are user facing account numbers, gaps would confuse';
 
 COMMENT ON TABLE hst.users IS 'all time columns are unix nanoseconds, 0 means unset';

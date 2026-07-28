@@ -17,7 +17,7 @@ DB_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(PO
 
 MIGRATE := $(GOBIN)/migrate
 
-.PHONY: run build test tidy fmt vet check up down logs psql tools \
+.PHONY: run build test tidy fmt vet check up down logs psql tools gen-keys \
         migrate-create migrate-up migrate-down migrate-version migrate-force migrate-drop
 
 run:
@@ -44,6 +44,10 @@ check: fmt vet
 	$(GOBIN)/errcheck ./...
 	$(GOBIN)/gosec -quiet ./...
 	$(GOBIN)/govulncheck ./...
+
+# prints an ed25519 key pair; the seed goes into AUTH_JWT_PRIVATE_KEY
+gen-keys:
+	@go run ./cmd/genkeys
 
 tools:
 	go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1

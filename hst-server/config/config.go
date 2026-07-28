@@ -35,6 +35,15 @@ const (
 	REDIS_PASSWORD    = "REDIS_PASSWORD"
 	REDIS_DB          = "REDIS_DB"
 	REDIS_POOL_SIZE   = "REDIS_POOL_SIZE"
+	// #nosec G101 -- env var name, not a credential
+	AUTH_JWT_PRIVATE_KEY   = "AUTH_JWT_PRIVATE_KEY"
+	AUTH_ACCESS_TTL        = "AUTH_ACCESS_TTL"
+	AUTH_REFRESH_TTL       = "AUTH_REFRESH_TTL"
+	AUTH_ARGON2_MEMORY_KIB = "AUTH_ARGON2_MEMORY_KIB"
+	AUTH_ARGON2_TIME       = "AUTH_ARGON2_TIME"
+	SHARD_ID               = "SHARD_ID"
+	SHARD_COUNT            = "SHARD_COUNT"
+	MAX_ACCOUNT_PER_SHARD  = "MAX_ACCOUNT_PER_SHARD"
 )
 
 type Config struct {
@@ -44,6 +53,45 @@ type Config struct {
 	HTTP     Http
 	Nats     Nats
 	Redis    Redis
+	Auth     Auth
+	Cache    Cache
+}
+
+// Auth config
+type Auth struct {
+	// JwtPrivateKey is a base64 ed25519 seed. There is no default: an
+	// ephemeral dev key would invalidate every token on restart.
+	JwtPrivateKey string
+	JwtIssuer     string
+	AccessTTL     time.Duration
+	RefreshTTL    time.Duration
+	// RefreshAbsoluteTTL caps a whole rotation family, however often it rotates
+	RefreshAbsoluteTTL time.Duration
+
+	Argon2MemoryKiB   int
+	Argon2Time        int
+	Argon2Parallelism int
+	Argon2SaltLength  int
+	Argon2KeyLength   int
+
+	MaxFailedAttempts int
+	LockoutDuration   time.Duration
+	// MaxFailedPerIP throttles credential stuffing across many logins
+	MaxFailedPerIP int
+}
+
+// Cache config for the sharded in-memory session cache
+type Cache struct {
+	// ShardId must be unique per instance; k8s supplies the pod ordinal
+	ShardId int
+	// ShardCount must equal the instance count, or memory is wasted
+	ShardCount int
+	// MaxAccounts is the memory dial, roughly 400 bytes per session
+	MaxAccounts int
+	// TTL is the staleness contract: how long a revoked right can survive
+	// if the invalidation message is lost
+	TTL     time.Duration
+	Buckets int
 }
 
 type Setting struct {
@@ -122,7 +170,7 @@ type Redis struct {
 }
 
 // NewConfig will load the env vars into the config struct
-func NewConfig() *Config {
+func NewConfig() (*Config, error) {
 	// init config
 	http := Http{}
 	setting := Setting{}
@@ -191,7 +239,57 @@ func NewConfig() *Config {
 	c.Redis.ConnMaxIdleTime = 30 * time.Minute
 	c.Redis.ConnMaxLifetime = time.Hour
 
-	return c
+	// Auth
+	c.Auth.JwtPrivateKey = getEnv(AUTH_JWT_PRIVATE_KEY, "")
+	c.Auth.JwtIssuer = "hstserver"
+	c.Auth.AccessTTL = getEnvAsDuration(AUTH_ACCESS_TTL, 10*time.Minute)
+	c.Auth.RefreshTTL = getEnvAsDuration(AUTH_REFRESH_TTL, 12*time.Hour)
+	c.Auth.RefreshAbsoluteTTL = 7 * 24 * time.Hour
+	c.Auth.Argon2MemoryKiB = getEnvAsInt(AUTH_ARGON2_MEMORY_KIB, 65536)
+	c.Auth.Argon2Time = getEnvAsInt(AUTH_ARGON2_TIME, 3)
+	c.Auth.Argon2Parallelism = 2
+	c.Auth.Argon2SaltLength = 16
+	c.Auth.Argon2KeyLength = 32
+	c.Auth.MaxFailedAttempts = 10
+	c.Auth.LockoutDuration = 15 * time.Minute
+	c.Auth.MaxFailedPerIP = 50
+
+	// Cache
+	c.Cache.ShardId = getEnvAsInt(SHARD_ID, 0)
+	c.Cache.ShardCount = getEnvAsInt(SHARD_COUNT, 1)
+	c.Cache.MaxAccounts = getEnvAsInt(MAX_ACCOUNT_PER_SHARD, 100000)
+	c.Cache.TTL = 30 * time.Second
+	c.Cache.Buckets = 16
+
+	if err := c.validate(); err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+
+// validate refuses to boot on a configuration that would fail silently later.
+func (c *Config) validate() error {
+	if c.Auth.JwtPrivateKey == "" {
+		return fmt.Errorf("%s is required, generate one with: make gen-keys", AUTH_JWT_PRIVATE_KEY)
+	}
+	if c.Cache.ShardCount < 1 {
+		return fmt.Errorf("%s must be at least 1", SHARD_COUNT)
+	}
+	if c.Cache.ShardId < 0 || c.Cache.ShardId >= c.Cache.ShardCount {
+		return fmt.Errorf("%s must be between 0 and %d", SHARD_ID, c.Cache.ShardCount-1)
+	}
+	// bounds keep the uint32 and uint8 conversions in pkg/crypto safe
+	if c.Auth.Argon2MemoryKiB < 8192 || c.Auth.Argon2MemoryKiB > 1<<20 {
+		return fmt.Errorf("%s must be between 8192 and %d", AUTH_ARGON2_MEMORY_KIB, 1<<20)
+	}
+	if c.Auth.Argon2Time < 1 || c.Auth.Argon2Time > 16 {
+		return fmt.Errorf("%s must be between 1 and 16", AUTH_ARGON2_TIME)
+	}
+	if c.Cache.MaxAccounts < 1 {
+		return fmt.Errorf("%s must be at least 1", MAX_ACCOUNT_PER_SHARD)
+	}
+	return nil
 }
 
 // Dsn will return the postgres connection string
@@ -215,6 +313,14 @@ func getEnvAsInt32(name string, defaultVal int32) int32 {
 		return defaultVal
 	}
 	return int32(v)
+}
+
+// getEnvAsDuration accepts go duration strings such as 10m or 12h.
+func getEnvAsDuration(name string, defaultVal time.Duration) time.Duration {
+	if v, err := time.ParseDuration(getEnv(name, "")); err == nil && v > 0 {
+		return v
+	}
+	return defaultVal
 }
 
 func getEnvAsInt(name string, defaultVal int) int {

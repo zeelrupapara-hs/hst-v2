@@ -11,6 +11,7 @@ import (
 	"hstserver/pkg/http"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/nats"
+	"hstserver/pkg/oauth2"
 	"hstserver/pkg/redis"
 )
 
@@ -33,19 +34,21 @@ type Server struct {
 	Nats *nats.Nats
 	// Redis
 	Redis *redis.Redis
+	// OAuth2.0
+	OAuth2 *oauth2.OAuth2
 	// Config
 	Cfg *config.Config
 }
 
-func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds *redis.Redis, validate *validator.Validate, cfg *config.Config) *Server {
+func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds *redis.Redis, oauth *oauth2.OAuth2, validate *validator.Validate, cfg *config.Config) *Server {
 	// fiber instence
 	app := http.NewApp(cfg, log)
 
 	// Middleware
-	newMiddleware := middleware.NewMiddleware(app, database, log, nats)
+	newMiddleware := middleware.NewMiddleware(app, database, oauth, rds, log, nats, cfg)
 
 	// v1 http server
-	web := v1.NewHTTP(app, database, log, nats, rds, newMiddleware, cfg, validate)
+	web := v1.NewHTTP(app, database, log, nats, rds, newMiddleware, oauth, cfg, validate)
 
 	return &Server{
 		App:        app,
@@ -55,6 +58,7 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 		DB:         database,
 		Nats:       nats,
 		Redis:      rds,
+		OAuth2:     oauth,
 		Cfg:        cfg,
 	}
 }

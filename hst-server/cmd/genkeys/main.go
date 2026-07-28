@@ -1,0 +1,23 @@
+// Command genkeys prints an ed25519 key pair for AUTH_JWT_PRIVATE_KEY.
+// The seed signs, the public key only verifies, so the other services can be
+// given the public half and still never mint a token.
+package main
+
+import (
+	"crypto/ed25519"
+	"crypto/rand"
+	"encoding/base64"
+	"fmt"
+	"os"
+)
+
+func main() {
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "failed to generate key:", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("AUTH_JWT_PRIVATE_KEY=%s\n", base64.StdEncoding.EncodeToString(priv.Seed()))
+	fmt.Printf("AUTH_JWT_PUBLIC_KEY=%s\n", base64.StdEncoding.EncodeToString(pub))
+}

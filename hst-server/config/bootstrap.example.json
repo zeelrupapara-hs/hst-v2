@@ -1,0 +1,6 @@
+{
+  "group": "managers\\admin",
+  "name": "Administrator",
+  "email": "admin@hybridsolutions.com",
+  "password": "change-me-before-first-boot"
+}

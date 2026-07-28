@@ -13,12 +13,14 @@ import (
 
 // Locals constants
 const (
-	LocalsAllowed = "allowed"
-	LocalsClient  = "client"
-	LocalsToken   = "token"
-	LocalsDevice  = "device"
-	LocalsOs      = "os"
-	LocalsChannel = "channel"
+	LocalsAllowed   = "allowed"
+	LocalsClient    = "client"
+	LocalsToken     = "token"
+	LocalsDevice    = "device"
+	LocalsOs        = "os"
+	LocalsChannel   = "channel"
+	LocalsIp        = "ip"
+	LocalsUserAgent = "user_agent"
 )
 
 const (
@@ -26,7 +28,10 @@ const (
 	StatusUnauthorized        = fiber.StatusUnauthorized
 	StatusForbidden           = fiber.StatusForbidden
 	StatusNotFound            = fiber.StatusNotFound
+	StatusConflict            = fiber.StatusConflict
+	StatusTooManyRequests     = fiber.StatusTooManyRequests
 	StatusInternalServerError = fiber.StatusInternalServerError
+	StatusServiceUnavailable  = fiber.StatusServiceUnavailable
 	StatusOK                  = fiber.StatusOK
 	StatusCreated             = fiber.StatusCreated
 	StatusNoContent           = fiber.StatusNoContent
@@ -39,6 +44,9 @@ const (
 	ErrNotFound            = "Not Found"
 	ErrUnauthorized        = "Unauthorized"
 	ErrForbidden           = "Forbidden"
+	ErrConflict            = "Conflict"
+	ErrTooManyRequests     = "Too many requests"
+	ErrServiceUnavailable  = "Service unavailable"
 	ErrBadQueryParams      = "Invalid query params"
 	ErrRequestTimeout      = "Request Timeout"
 	ErrEndpointNotFound    = "The endpoint you requested doesn't exist on server"
@@ -89,6 +97,10 @@ func errorHandler(log *logger.Logger) fiber.ErrorHandler {
 			msg = ErrInternalServerError
 		}
 
-		return c.Status(code).JSON(fiber.Map{"error": msg})
+		return c.Status(code).JSON(&HttpResponse{
+			Success: false,
+			Code:    RetOK,
+			Error:   msg,
+		})
 	}
 }

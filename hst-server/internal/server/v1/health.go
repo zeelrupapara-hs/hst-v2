@@ -63,3 +63,15 @@ func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 func (s *HttpServer) CheckSystemLive(c *fiber.Ctx) error {
 	return c.Status(http.StatusOK).JSON(fiber.Map{"status": "alive"})
 }
+
+// CacheStats reports the session cache, so MAX_ACCOUNT_PER_SHARD is tuned from
+// data rather than guessed.
+//
+//	@Id			CacheStats
+//	@Tags		System
+//	@Produce	json
+//	@Security	BearerAuth
+//	@Router		/api/v1/system/monitor/cache [get]
+func (s *HttpServer) CacheStats(c *fiber.Ctx) error {
+	return s.App.HttpResponseOK(c, s.OAuth2.Cache.Stats())
+}

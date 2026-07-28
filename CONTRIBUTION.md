@@ -24,7 +24,13 @@ All commands run from `hst-server/`.
 cd hst-server
 make tools     # migrate, staticcheck, errcheck, gosec, govulncheck
 cp .env.example .env
+make gen-keys  # put AUTH_JWT_PRIVATE_KEY into .env, the server won't boot without it
+cp config/bootstrap.example.json config/bootstrap.json   # set a real password
 ```
+
+`bootstrap.json` creates the first manager, once, while `hst.managers` is empty.
+That first login is forced through a password change, so the value in the file
+stops being a working credential. The file is gitignored.
 
 ## Start the server
 
@@ -73,6 +79,15 @@ make down     # stop containers
 
 - Handlers are methods on `*HttpServer` in `internal/server/v1/`, routes
   registered in `routes.go`.
+- **The auth middleware never reads Postgres.** A session miss goes to Redis and
+  then to 401 (refresh) or 503 (store down) — never to SQL. Only `Login` and
+  `RefreshToken` may read the database for auth. Adding a query to `Protect`
+  breaks the guarantee that a request costs zero database round trips.
+- Route rights come from the packed manager bitset:
+  `s.Middleware.Authorization(model.MgrRightClientsCreate)`. The bit constants in
+  `model/manager_rights.go` follow the column order of the managers migration.
+- Any handler that changes `rights`, `group` or a password must call
+  `s.OAuth2.InvalidateLogin` after commit, or the change won't reach live sessions.
 - Comments are one or two lines. Explain why, not what.
 - Log through `Log.Journal(type, code, msg, kv...)` using the MT5 codes in
   `pkg/logger` — type 1 Cfg, 3 Net, 5 User, 6 Trade; code 0 OK, 1 Warn, 2 Err,

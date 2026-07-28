@@ -1,6 +1,7 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
@@ -11,6 +12,7 @@ import (
 	"hstserver/pkg/db"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/nats"
+	"hstserver/pkg/oauth2"
 	"hstserver/pkg/redis"
 
 	"github.com/go-playground/validator/v10"
@@ -36,7 +38,11 @@ func Start() {
 
 func Run() int {
 	// config instant
-	cfg := config.NewConfig()
+	cfg, err := config.NewConfig()
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "invalid configuration:", err)
+		return 1
+	}
 
 	// pass to logger handler instant
 	log, err := logger.NewLogger(cfg)
@@ -105,11 +111,29 @@ func Run() int {
 
 	log.Logger.Info("redis connected")
 
+	// Authentication
+	oauth, err := oauth2.NewOAuth2(redisClient, database, cfg, log)
+	if err != nil {
+		log.Logger.Errorf("failed to init auth %v", err)
+		return 1
+	}
+	// stopped before redis closes, its workers publish on shutdown
+	defer func() {
+		log.Logger.Info("stopping auth workers")
+		oauth.Close()
+	}()
+
+	// first administrator, only when hst.managers is empty
+	if err := oauth.Bootstrap(context.Background()); err != nil {
+		log.Logger.Errorf("failed to bootstrap the first manager %v", err)
+		return 1
+	}
+
 	// Validator
 	validate := validator.New()
 
 	// build the server
-	srv := server.NewServer(log, database, natsClient, redisClient, validate, cfg)
+	srv := server.NewServer(log, database, natsClient, redisClient, oauth, validate, cfg)
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
