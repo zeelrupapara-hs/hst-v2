@@ -97,33 +97,20 @@ func (a *App) HttpResponseInternalServerErrorRequest(c *fiber.Ctx, message error
 	})
 }
 
-// HttpResponseRetCode answers with an MT5 retcode; the status comes from the code.
-// This is the only helper the auth endpoints use.
-func (a *App) HttpResponseRetCode(c *fiber.Ctx, code RetCode, data interface{}, message error) error {
-	status := RetHTTPStatus(code)
-	if status < StatusBadRequest {
-		return c.Status(status).JSON(&HttpResponse{
-			Success: true,
-			Code:    code,
-			Data:    data,
-		})
-	}
-
-	res := &HttpResponse{Success: false, Code: code, Error: ErrUnauthorized}
-	if status == StatusForbidden {
-		res.Error = ErrForbidden
-	}
-	if message != nil {
-		res.Message = message.Error()
-	}
-
-	return c.Status(status).JSON(res)
+// HttpResponseRetCode answers 200 with an MT5 retcode. A login that must change
+// its password is still a success: it hands over a token and reports 1026.
+func (a *App) HttpResponseRetCode(c *fiber.Ctx, code RetCode, data interface{}) error {
+	return c.Status(StatusOK).JSON(&HttpResponse{
+		Success: true,
+		Code:    code,
+		Data:    data,
+	})
 }
 
-// HttpResponseRetCodeDenied refuses a request while still carrying the MT5
-// retcode. It exists because a code can mean two things: 1026 from login is a
-// success that hands over a token, 1026 from the middleware is a refusal.
-func (a *App) HttpResponseRetCodeDenied(c *fiber.Ctx, status int, code RetCode, message error) error {
+// HttpResponseDenied refuses a request while still carrying the MT5 retcode.
+// The status is explicit because one code can mean two things: 1026 from login
+// is a success, 1026 from the middleware is a refusal.
+func (a *App) HttpResponseDenied(c *fiber.Ctx, status int, code RetCode, message error) error {
 	errStr := ErrForbidden
 	if status == StatusUnauthorized {
 		errStr = ErrUnauthorized

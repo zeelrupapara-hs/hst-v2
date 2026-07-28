@@ -1,7 +1,5 @@
 package http
 
-import "github.com/gofiber/fiber/v2"
-
 // RetCode is an MT5 return code. It travels in the response body so a client
 // can tell "wrong password" from "must change password" without parsing text,
 // while the HTTP status stays in the header.
@@ -34,24 +32,3 @@ const (
 	RetSessionExpired RetCode = 60001 // the session is gone, refresh or log in again
 	RetAccountLocked  RetCode = 60002 // too many failed attempts, temporarily locked
 )
-
-// RetHTTPStatus maps a retcode onto the status a client should see.
-// 1026 is the odd one: at login it accompanies a successful 200 that still
-// hands over a token, while the middleware uses it to refuse. The refusing
-// caller passes its own status, so this default is the login one.
-func RetHTTPStatus(r RetCode) int {
-	switch r {
-	case RetOK, RetAuthResetPassword:
-		return fiber.StatusOK
-	case RetAuthClientInvalid, RetAuthAccountInvalid, RetAuthAccountUnknown,
-		RetAuthOtpInvalid, RetSessionExpired:
-		return fiber.StatusUnauthorized
-	case RetAuthAccountDisabled, RetAuthManagerNoConfig, RetAuthManagerIpBlock,
-		RetAuthManagerType, RetAuthApiDisabled, RetAccountLocked:
-		return fiber.StatusForbidden
-	case RetAuthServerBusy:
-		return fiber.StatusServiceUnavailable
-	default:
-		return fiber.StatusInternalServerError
-	}
-}

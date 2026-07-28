@@ -34,7 +34,7 @@ func (m *Middleware) RequireManager(c *fiber.Ctx) error {
 	}
 
 	if !snap.IsManager {
-		return m.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
+		return m.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
 	}
 
 	return c.Next()

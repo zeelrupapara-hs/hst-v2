@@ -92,7 +92,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 
 	login, err := strconv.ParseInt(loginStr, 10, 64)
 	if err != nil || login <= 0 {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
 	}
 
 	// stop credential stuffing before it reaches argon2
@@ -111,14 +111,14 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		// burn the same work as a real verify so a missing login and a wrong
 		// password cannot be told apart by timing
 		s.OAuth2.Hasher.VerifyDummy(password)
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
 	}
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	if u.LockedUntil > time.Now().UnixNano() {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
 	}
 
 	// managers authenticate with the main slot only. The investor and api slots
@@ -138,30 +138,30 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 			"login", login, "ip", ip, "locked", locked)
 
 		if locked {
-			return s.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
+			return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
 		}
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetAuthAccountInvalid, errs.ErrInvalidCredentials)
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetAuthAccountInvalid, errs.ErrInvalidCredentials)
 	}
 
 	if !u.Rights.CanConnect() {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
 	}
 
 	connType := model.UsersConnectionTypes(body.ConnectionType)
 	if !connType.IsStaff() {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
 	}
 
 	mgr, err := s.selectManager(ctx, login)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
 	}
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	if !mgr.PermitsTerminal(connType) {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
 	}
 
 	// upgrading the stored hash must never block the login
@@ -196,7 +196,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	s.Log.Journal(logger.TypeUser, logger.CodeLogin, "login",
 		"login", login, "ip", ip, "connection_type", body.ConnectionType)
 
-	return s.App.HttpResponseRetCode(c, view.Code, view, nil)
+	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
 
 // RefreshToken rotates the refresh token and issues a new access token.
@@ -224,7 +224,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	// never detected.
 	rec, err := s.OAuth2.LoadRefresh(ctx, body.RefreshToken)
 	if errors.Is(err, oauth2.ErrSessionNotFound) {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 	}
 	if err != nil {
 		return s.App.HttpResponseServiceUnavailable(c, errs.ErrSessionStoreUnavailable)
@@ -241,11 +241,11 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		s.Log.Journal(logger.TypeUser, logger.CodeAtt, "refresh token reuse detected",
 			"login", rec.Login, "family_id", rec.FamilyId, "ip", utils.GetRealIP(c))
 
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 	}
 
 	if rec.ExpiresAt <= time.Now().UnixNano() {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 	}
 
 	// only now take the lock, so two parallel refreshes of the same unused
@@ -255,7 +255,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		return s.App.HttpResponseServiceUnavailable(c, errs.ErrSessionStoreUnavailable)
 	}
 	if !locked {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 	}
 
 	// re-read the user: rights may have changed since the token was issued
@@ -273,7 +273,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 			s.Log.Journal(logger.TypeUser, logger.CodeErr, "failed to revoke family",
 				"family_id", rec.FamilyId, "error", rerr.Error())
 		}
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
 	}
 
 	old, err := s.selectSession(ctx, rec.SessionId)
@@ -283,7 +283,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 
 	mgr, err := s.selectManager(ctx, rec.Login)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
 	}
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -325,7 +325,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	}
 	s.OAuth2.Cache.Invalidate(rec.SessionId)
 
-	return s.App.HttpResponseRetCode(c, view.Code, view, nil)
+	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
 
 // Logout closes the current session.
@@ -412,7 +412,7 @@ func (s *HttpServer) ChangePassword(c *fiber.Ctx) error {
 
 	valid, _, err := s.OAuth2.Hasher.VerifyPassword(current, body.OldPassword)
 	if err != nil || !valid {
-		return s.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetAuthAccountInvalid, errs.ErrInvalidCredentials)
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetAuthAccountInvalid, errs.ErrInvalidCredentials)
 	}
 
 	hash, err := s.OAuth2.Hasher.HashPassword(body.NewPassword)

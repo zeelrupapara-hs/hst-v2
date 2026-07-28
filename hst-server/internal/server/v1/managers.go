@@ -222,6 +222,12 @@ func b(granted bool) int32 {
 func insertManager(ctx context.Context, tx pgx.Tx, login int64, m *CrtManager,
 	r model.ManagerRights, now int64) error {
 
+	// groups is NOT NULL, and an omitted json array arrives as nil, which pgx
+	// would send as NULL. An empty set means "no group filter", not "unset".
+	if m.Groups == nil {
+		m.Groups = []string{}
+	}
+
 	_, err := tx.Exec(ctx,
 		`INSERT INTO hst.managers (login, name, groups, updated_at,
 		 right_admin, right_manager, right_cfg_time, right_cfg_holidays,
