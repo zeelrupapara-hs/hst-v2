@@ -22,12 +22,12 @@ import (
 func (m *Middleware) Protect(c *fiber.Ctx) error {
 	token, ok := utils.GetToken(c)
 	if !ok {
-		return m.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetAuthSessionExpired, errs.ErrMissingAuthorizationHeader)
+		return m.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrMissingAuthorizationHeader)
 	}
 
 	claims, err := m.OAuth2.Signer.Parse(token)
 	if err != nil {
-		return m.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetAuthSessionExpired, errs.ErrInvalidToken)
+		return m.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidToken)
 	}
 
 	snap, hit := m.OAuth2.Cache.Get(claims.Sid)
@@ -35,7 +35,7 @@ func (m *Middleware) Protect(c *fiber.Ctx) error {
 		snap, err = m.OAuth2.LoadSnapshot(c.UserContext(), claims.Sid)
 		switch {
 		case errors.Is(err, oauth2.ErrSessionNotFound):
-			return m.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetAuthSessionExpired, errs.ErrInvalidSession)
+			return m.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 		case err != nil:
 			// the session store is down, not the client's fault. A 401 here
 			// would make it burn its refresh token on our outage.
@@ -45,7 +45,7 @@ func (m *Middleware) Protect(c *fiber.Ctx) error {
 	}
 
 	if snap.ExpiresAt <= time.Now().UnixNano() {
-		return m.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetAuthSessionExpired, errs.ErrInvalidSession)
+		return m.App.HttpResponseRetCodeDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 	}
 
 	if !model.UsersRights(snap.Rights).CanConnect() {
@@ -54,7 +54,7 @@ func (m *Middleware) Protect(c *fiber.Ctx) error {
 
 	// a restricted session may do exactly one thing: change its password
 	if snap.Restricted && !isPasswordChangeRoute(c) {
-		return m.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthUpdatePassword, errs.ErrMustChangePassword)
+		return m.App.HttpResponseRetCodeDenied(c, http.StatusForbidden, http.RetAuthResetPassword, errs.ErrMustChangePassword)
 	}
 
 	c.Locals(http.LocalsClient, snap)
