@@ -17,7 +17,7 @@ DB_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(PO
 
 MIGRATE := $(GOBIN)/migrate
 
-.PHONY: run build test tidy fmt vet check up down logs psql tools gen-keys \
+.PHONY: run build test tidy fmt vet check up down logs psql tools gen-keys swagger \
         migrate-create migrate-up migrate-down migrate-version migrate-force migrate-drop
 
 run:
@@ -45,6 +45,12 @@ check: fmt vet
 	$(GOBIN)/gosec -quiet ./...
 	$(GOBIN)/govulncheck ./...
 
+# regenerates swagger/ from the handler annotations
+# output is swagger/ and not docs/, because docs/ is gitignored
+swagger:
+	@$(GOBIN)/swag fmt -g cmd/main.go
+	@$(GOBIN)/swag init -g cmd/main.go -o swagger --parseDependency --parseInternal
+
 # prints an ed25519 key pair; the seed goes into AUTH_JWT_PRIVATE_KEY
 gen-keys:
 	@go run ./cmd/genkeys
@@ -55,6 +61,7 @@ tools:
 	go install github.com/kisielk/errcheck@latest
 	go install github.com/securego/gosec/v2/cmd/gosec@latest
 	go install golang.org/x/vuln/cmd/govulncheck@latest
+	go install github.com/swaggo/swag/cmd/swag@v1.16.6
 
 up:
 	docker compose -f $(STACK) up -d

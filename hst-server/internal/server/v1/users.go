@@ -90,13 +90,16 @@ const userJoin = ` FROM hst.users u LEFT JOIN hst.managers m ON m.login = u.logi
 // CreateUser creates the login, its 1:1 account row and, when asked, its
 // manager row, in one transaction.
 //
-// @Id			CreateUser
-// @Tags		Users
-// @Accept		json
-// @Produce		json
-// @Success		201	{object}	ViewUser
-// @Security	BearerAuth
-// @Router		/api/v1/users [post]
+//	@Id			CreateUser
+//	@Tags		Users
+//	@Accept		json
+//	@Produce	json
+//	@Success	201	{object}	ViewUser
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/users [post]
 func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
@@ -172,12 +175,15 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 
 // ListUsers returns a page of logins.
 //
-// @Id			ListUsers
-// @Tags		Users
-// @Produce		json
-// @Success		200	{array}	ViewUser
-// @Security	BearerAuth
-// @Router		/api/v1/users [get]
+//	@Id			ListUsers
+//	@Tags		Users
+//	@Produce	json
+//	@Success	200	{array}		ViewUser
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/users [get]
 func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, usersSortable, "login")
 	if err != nil {
@@ -213,12 +219,14 @@ func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
 
 // GetUser returns one login.
 //
-// @Id			GetUser
-// @Tags		Users
-// @Produce		json
-// @Success		200	{object}	ViewUser
-// @Security	BearerAuth
-// @Router		/api/v1/users/{login} [get]
+//	@Id			GetUser
+//	@Tags		Users
+//	@Produce	json
+//	@Success	200	{object}	ViewUser
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/users/{login} [get]
 func (s *HttpServer) GetUser(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
@@ -231,13 +239,16 @@ func (s *HttpServer) GetUser(c *fiber.Ctx) error {
 // UpdateUser patches a login. A change to rights or group drops every session
 // of that login, so a downgrade takes effect on the next request.
 //
-// @Id			UpdateUser
-// @Tags		Users
-// @Accept		json
-// @Produce		json
-// @Success		200	{object}	ViewUser
-// @Security	BearerAuth
-// @Router		/api/v1/users/{login} [patch]
+//	@Id			UpdateUser
+//	@Tags		Users
+//	@Accept		json
+//	@Produce	json
+//	@Success	200	{object}	ViewUser
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/users/{login} [patch]
 func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
@@ -291,11 +302,13 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 
 // DeleteUser removes a login. The account and manager rows cascade.
 //
-// @Id			DeleteUser
-// @Tags		Users
-// @Produce		json
-// @Security	BearerAuth
-// @Router		/api/v1/users/{login} [delete]
+//	@Id			DeleteUser
+//	@Tags		Users
+//	@Produce	json
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/users/{login} [delete]
 func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 

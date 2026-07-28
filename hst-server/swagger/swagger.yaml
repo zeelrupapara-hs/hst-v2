@@ -1,0 +1,717 @@
+basePath: /
+definitions:
+  hstserver_pkg_http.RetCode:
+    enum:
+    - 0
+    - 1000
+    - 1001
+    - 1002
+    - 1011
+    - 1012
+    - 1018
+    - 1020
+    - 1024
+    - 1026
+    - 1027
+    - 1034
+    - 60001
+    - 60002
+    type: integer
+    x-enum-comments:
+      RetAccountLocked: too many failed attempts, temporarily locked
+      RetAuthAccountDisabled: the account is disabled
+      RetAuthAccountInvalid: invalid account, our wrong password case
+      RetAuthAccountUnknown: unknown account
+      RetAuthApiDisabled: api connection prohibited, USER_RIGHT_API_ENABLED
+      RetAuthClientInvalid: invalid type of the terminal
+      RetAuthManagerIpBlock: ip address is not valid for the manager
+      RetAuthManagerNoConfig: no manager configuration for the account
+      RetAuthManagerType: this connection type is not permitted for manager
+      RetAuthOtpInvalid: invalid one time password
+      RetAuthResetPassword: master password must be changed
+      RetAuthServerBusy: the server is busy
+      RetSessionExpired: the session is gone, refresh or log in again
+    x-enum-descriptions:
+    - ""
+    - invalid type of the terminal
+    - invalid account, our wrong password case
+    - the account is disabled
+    - no manager configuration for the account
+    - ip address is not valid for the manager
+    - the server is busy
+    - unknown account
+    - this connection type is not permitted for manager
+    - master password must be changed
+    - invalid one time password
+    - api connection prohibited, USER_RIGHT_API_ENABLED
+    - the session is gone, refresh or log in again
+    - too many failed attempts, temporarily locked
+    x-enum-varnames:
+    - RetOK
+    - RetAuthClientInvalid
+    - RetAuthAccountInvalid
+    - RetAuthAccountDisabled
+    - RetAuthManagerNoConfig
+    - RetAuthManagerIpBlock
+    - RetAuthServerBusy
+    - RetAuthAccountUnknown
+    - RetAuthManagerType
+    - RetAuthResetPassword
+    - RetAuthOtpInvalid
+    - RetAuthApiDisabled
+    - RetSessionExpired
+    - RetAccountLocked
+  internal_server_v1.ErrorResponse:
+    properties:
+      code:
+        $ref: '#/definitions/hstserver_pkg_http.RetCode'
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  internal_server_v1.HealthResponse:
+    properties:
+      checks:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        type: string
+      version:
+        type: string
+    type: object
+  internal_server_v1.ViewClient:
+    properties:
+      address_city:
+        type: string
+      address_country:
+        type: string
+      assigned_manager:
+        type: integer
+      client_id:
+        type: integer
+      client_status:
+        type: integer
+      client_type:
+        type: integer
+      comment:
+        type: string
+      company_name:
+        type: string
+      contact_email:
+        type: string
+      contact_phone:
+        type: string
+      date_created:
+        type: integer
+      date_modified:
+        type: integer
+      kyc_status:
+        type: integer
+      person_name:
+        type: string
+    type: object
+  internal_server_v1.ViewManagerRights:
+    properties:
+      groups:
+        items:
+          type: string
+        type: array
+      login:
+        type: integer
+      name:
+        type: string
+      rights:
+        additionalProperties:
+          type: boolean
+        type: object
+    type: object
+  internal_server_v1.ViewMe:
+    properties:
+      client_id:
+        type: integer
+      connection_type:
+        type: integer
+      group:
+        type: string
+      is_manager:
+        type: boolean
+      login:
+        type: integer
+      manager_rights:
+        additionalProperties:
+          type: boolean
+        type: object
+      restricted:
+        type: boolean
+    type: object
+  internal_server_v1.ViewToken:
+    properties:
+      access_token:
+        type: string
+      code:
+        $ref: '#/definitions/hstserver_pkg_http.RetCode'
+      connection_type:
+        type: integer
+      expires_in:
+        type: integer
+      login:
+        type: integer
+      refresh_token:
+        type: string
+      session_id:
+        type: string
+    type: object
+  internal_server_v1.ViewUser:
+    properties:
+      balance:
+        type: number
+      city:
+        type: string
+      client_id:
+        type: integer
+      country:
+        type: string
+      credit:
+        type: number
+      email:
+        type: string
+      group:
+        type: string
+      is_manager:
+        type: boolean
+      last_access:
+        type: integer
+      leverage:
+        type: integer
+      login:
+        type: integer
+      name:
+        type: string
+      phone:
+        type: string
+      rights:
+        $ref: '#/definitions/model.UsersRights'
+      updated_at:
+        type: integer
+    type: object
+  model.UsersRights:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+    - 128
+    - 256
+    - 512
+    - 1024
+    - 2048
+    - 8192
+    - 16384
+    - 32768
+    - 65536
+    - 131072
+    format: int64
+    type: integer
+    x-enum-varnames:
+    - UsersRights_none
+    - UsersRights_enabled
+    - UsersRights_password
+    - UsersRights_trade_disabled
+    - UsersRights_investor
+    - UsersRights_confirmed
+    - UsersRights_trailing
+    - UsersRights_expert
+    - UsersRights_obsolete
+    - UsersRights_reports
+    - UsersRights_readonly
+    - UsersRights_reset_pass
+    - UsersRights_otp_enabled
+    - UsersRights_sponsored_hosting
+    - UsersRights_api_enabled
+    - UsersRights_push_notification
+    - UsersRights_technical
+    - UsersRights_exclude_reports
+info:
+  contact:
+    email: support@hybridsolutions.com
+    name: API Support
+  description: HS Trader APIs doc
+  license:
+    name: HS Trader
+    url: https://hybridsolutions.com
+  termsOfService: https://hybridsolutions.com
+  title: HS Trader
+  version: "1.0"
+paths:
+  /api/v1/auth/logout:
+    post:
+      operationId: Logout
+      produces:
+      - application/json
+      responses:
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Auth
+  /api/v1/auth/me:
+    get:
+      operationId: Me
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewMe'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Auth
+  /api/v1/auth/oauth2/change-password:
+    post:
+      consumes:
+      - application/json
+      operationId: ChangePassword
+      produces:
+      - application/json
+      responses:
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Auth
+  /api/v1/clients:
+    get:
+      operationId: ListClients
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_server_v1.ViewClient'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Clients
+    post:
+      consumes:
+      - application/json
+      operationId: CreateClient
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewClient'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Clients
+  /api/v1/clients/{id}:
+    delete:
+      operationId: DeleteClient
+      produces:
+      - application/json
+      responses:
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Clients
+    get:
+      operationId: GetClient
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewClient'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Clients
+    patch:
+      consumes:
+      - application/json
+      operationId: UpdateClient
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewClient'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Clients
+  /api/v1/managers:
+    get:
+      operationId: ListManagers
+      produces:
+      - application/json
+      responses:
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Managers
+  /api/v1/managers/{login}/rights:
+    get:
+      operationId: GetManagerRights
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewManagerRights'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Managers
+  /api/v1/system/monitor/cache:
+    get:
+      operationId: CacheStats
+      produces:
+      - application/json
+      responses:
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - System
+  /api/v1/system/monitor/health:
+    get:
+      operationId: CheckSystemHealth
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.HealthResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      summary: Check the system health
+      tags:
+      - System
+  /api/v1/system/monitor/live:
+    get:
+      operationId: CheckSystemLive
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Liveness probe, does not touch the database
+      tags:
+      - System
+  /api/v1/users:
+    get:
+      operationId: ListUsers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/internal_server_v1.ViewUser'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Users
+    post:
+      consumes:
+      - application/json
+      operationId: CreateUser
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewUser'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Users
+  /api/v1/users/{login}:
+    delete:
+      operationId: DeleteUser
+      produces:
+      - application/json
+      responses:
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Users
+    get:
+      operationId: GetUser
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewUser'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Users
+    patch:
+      consumes:
+      - application/json
+      operationId: UpdateUser
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewUser'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BearerAuth: []
+      tags:
+      - Users
+  /auth/v1/oauth2/login:
+    post:
+      consumes:
+      - application/json
+      description: Login with a manager account using basic auth
+      operationId: Login
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewToken'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      security:
+      - BasicAuth: []
+      tags:
+      - Auth
+  /auth/v1/oauth2/refresh:
+    post:
+      consumes:
+      - application/json
+      operationId: RefreshToken
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/internal_server_v1.ViewToken'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.ErrorResponse'
+      tags:
+      - Auth
+schemes:
+- http
+- https
+securityDefinitions:
+  BasicAuth:
+    type: basic
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the access token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

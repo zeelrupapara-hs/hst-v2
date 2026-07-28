@@ -2,10 +2,8 @@ package v1
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"strconv"
-	"strings"
 	"time"
 
 	"hstserver/model"
@@ -60,19 +58,21 @@ type ViewMe struct {
 }
 
 // Login authenticates a manager and opens a session.
-//
 // The order of the checks is deliberate: the account state and manager checks
 // run after the password is verified, because answering "disabled" or "not a
 // manager" first would tell an attacker the login exists.
 //
-// @Id			Login
-// @Description	Login with a manager account using basic auth
-// @Tags		Auth
-// @Accept		json
-// @Produce		json
-// @Success		200	{object}	ViewToken
-// @Security	BasicAuth
-// @Router		/auth/v1/oauth2/login [post]
+//	@Id				Login
+//	@Description	Login with a manager account using basic auth
+//	@Tags			Auth
+//	@Accept			json
+//	@Produce		json
+//	@Success		200	{object}	ViewToken
+//	@Failure		401	{object}	ErrorResponse
+//	@Failure		403	{object}	ErrorResponse
+//	@Failure		500	{object}	ErrorResponse
+//	@Security		BasicAuth
+//	@Router			/auth/v1/oauth2/login [post]
 func (s *HttpServer) Login(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	ip := utils.GetRealIP(c)
@@ -85,10 +85,8 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	loginStr, password, ok := basicAuth(c)
-	if !ok {
-		return s.App.HttpResponseUnauthorized(c, errs.ErrInvalidBasicAuth)
-	}
+	loginStr, _ := c.Locals(http.LocalsUsername).(string)
+	password, _ := c.Locals(http.LocalsPassword).(string)
 
 	login, err := strconv.ParseInt(loginStr, 10, 64)
 	if err != nil || login <= 0 {
@@ -202,12 +200,14 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 // RefreshToken rotates the refresh token and issues a new access token.
 // This is the only endpoint besides Login that may read postgres for auth.
 //
-// @Id			RefreshToken
-// @Tags		Auth
-// @Accept		json
-// @Produce		json
-// @Success		200	{object}	ViewToken
-// @Router		/auth/v1/oauth2/refresh [post]
+//	@Id			RefreshToken
+//	@Tags		Auth
+//	@Accept		json
+//	@Produce	json
+//	@Success	200	{object}	ViewToken
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Router		/auth/v1/oauth2/refresh [post]
 func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
@@ -330,11 +330,13 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 
 // Logout closes the current session.
 //
-// @Id			Logout
-// @Tags		Auth
-// @Produce		json
-// @Security	BearerAuth
-// @Router		/api/v1/auth/logout [post]
+//	@Id			Logout
+//	@Tags		Auth
+//	@Produce	json
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/auth/logout [post]
 func (s *HttpServer) Logout(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
@@ -352,12 +354,14 @@ func (s *HttpServer) Logout(c *fiber.Ctx) error {
 
 // Me returns the caller's own profile and decoded rights.
 //
-// @Id			Me
-// @Tags		Auth
-// @Produce		json
-// @Success		200	{object}	ViewMe
-// @Security	BearerAuth
-// @Router		/api/v1/auth/me [get]
+//	@Id			Me
+//	@Tags		Auth
+//	@Produce	json
+//	@Success	200	{object}	ViewMe
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/auth/me [get]
 func (s *HttpServer) Me(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
@@ -382,12 +386,15 @@ func (s *HttpServer) Me(c *fiber.Ctx) error {
 // ChangePassword sets a new main password and closes every other session.
 // It is the one route a restricted session may reach.
 //
-// @Id			ChangePassword
-// @Tags		Auth
-// @Accept		json
-// @Produce		json
-// @Security	BearerAuth
-// @Router		/api/v1/auth/oauth2/change-password [post]
+//	@Id			ChangePassword
+//	@Tags		Auth
+//	@Accept		json
+//	@Produce	json
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/auth/oauth2/change-password [post]
 func (s *HttpServer) ChangePassword(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
@@ -548,24 +555,4 @@ func (s *HttpServer) selectSession(ctx context.Context, sid string) (*model.Sess
 			&sess.ExpiresAt, &sess.RevokedAt, &sess.RevokedReason, &sess.FamilyId)
 
 	return sess, err
-}
-
-// basicAuth decodes the Authorization header into login and password.
-func basicAuth(c *fiber.Ctx) (string, string, bool) {
-	header := c.Get("Authorization")
-	if !strings.HasPrefix(header, "Basic ") {
-		return "", "", false
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(header[6:])
-	if err != nil {
-		return "", "", false
-	}
-
-	login, password, found := strings.Cut(string(decoded), ":")
-	if !found || login == "" || password == "" {
-		return "", "", false
-	}
-
-	return login, password, true
 }

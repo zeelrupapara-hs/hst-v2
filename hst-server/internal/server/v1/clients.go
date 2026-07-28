@@ -80,13 +80,16 @@ const clientColumns = `client_id, client_type, client_status, kyc_status,
 
 // CreateClient registers a KYC person or company.
 //
-// @Id			CreateClient
-// @Tags		Clients
-// @Accept		json
-// @Produce		json
-// @Success		201	{object}	ViewClient
-// @Security	BearerAuth
-// @Router		/api/v1/clients [post]
+//	@Id			CreateClient
+//	@Tags		Clients
+//	@Accept		json
+//	@Produce	json
+//	@Success	201	{object}	ViewClient
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/clients [post]
 func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 	var body CrtClient
 	if err := c.BodyParser(&body); err != nil {
@@ -130,12 +133,15 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 
 // ListClients returns a page of clients.
 //
-// @Id			ListClients
-// @Tags		Clients
-// @Produce		json
-// @Success		200	{array}	ViewClient
-// @Security	BearerAuth
-// @Router		/api/v1/clients [get]
+//	@Id			ListClients
+//	@Tags		Clients
+//	@Produce	json
+//	@Success	200	{array}		ViewClient
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	403	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/clients [get]
 func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, clientsSortable, "date_created")
 	if err != nil {
@@ -175,12 +181,14 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 
 // GetClient returns one client.
 //
-// @Id			GetClient
-// @Tags		Clients
-// @Produce		json
-// @Success		200	{object}	ViewClient
-// @Security	BearerAuth
-// @Router		/api/v1/clients/{id} [get]
+//	@Id			GetClient
+//	@Tags		Clients
+//	@Produce	json
+//	@Success	200	{object}	ViewClient
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/clients/{id} [get]
 func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
@@ -207,13 +215,16 @@ func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 
 // UpdateClient patches the fields present in the body.
 //
-// @Id			UpdateClient
-// @Tags		Clients
-// @Accept		json
-// @Produce		json
-// @Success		200	{object}	ViewClient
-// @Security	BearerAuth
-// @Router		/api/v1/clients/{id} [patch]
+//	@Id			UpdateClient
+//	@Tags		Clients
+//	@Accept		json
+//	@Produce	json
+//	@Success	200	{object}	ViewClient
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/clients/{id} [patch]
 func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
@@ -270,16 +281,18 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 }
 
 // DeleteClient removes a client.
-//
 // client_id is ON DELETE SET NULL on users, so deleting a client that still has
 // trading accounts would silently orphan them. That is refused unless the
 // caller asks for it explicitly.
 //
-// @Id			DeleteClient
-// @Tags		Clients
-// @Produce		json
-// @Security	BearerAuth
-// @Router		/api/v1/clients/{id} [delete]
+//	@Id			DeleteClient
+//	@Tags		Clients
+//	@Produce	json
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	409	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/clients/{id} [delete]
 func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 

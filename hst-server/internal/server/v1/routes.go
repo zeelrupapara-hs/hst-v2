@@ -1,6 +1,10 @@
 package v1
 
-import "hstserver/model"
+import (
+	"hstserver/model"
+
+	"github.com/gofiber/swagger"
+)
 
 // RegisterV1 will register all the v1 routes
 func (s *HttpServer) RegisterV1() {
@@ -8,10 +12,12 @@ func (s *HttpServer) RegisterV1() {
 	// Root group with the requests logger and the header reader
 	root := s.App.Group("/", s.Middleware.RequestsLogger, s.Middleware.HeaderReader)
 
-	// ------------------------- Auth, unauthenticated -------------------------
 	oauth := root.Group("/auth/v1/oauth2")
-	oauth.Post("/login", s.Login)
+	oauth.Post("/login", s.Middleware.BasicAuthParser, s.Login)
 	oauth.Post("/refresh", s.RefreshToken)
+
+	// swagger ui, served from the generated swagger package
+	root.Get("/swagger/*", swagger.HandlerDefault)
 
 	// api group
 	api := root.Group("/api")
@@ -31,7 +37,7 @@ func (s *HttpServer) RegisterV1() {
 	auth := v1.Group("/auth", s.Middleware.Protect)
 	auth.Get("/me", s.Me)
 	auth.Post("/logout", s.Logout)
-	// the one route a restricted session may reach
+	// restricted session may reach
 	auth.Post("/oauth2/change-password", s.ChangePassword)
 
 	// clients

@@ -22,12 +22,14 @@ type ViewManagerRights struct {
 
 // GetManagerRights returns the 77 flags of one manager.
 //
-// @Id			GetManagerRights
-// @Tags		Managers
-// @Produce		json
-// @Success		200	{object}	ViewManagerRights
-// @Security	BearerAuth
-// @Router		/api/v1/managers/{login}/rights [get]
+//	@Id			GetManagerRights
+//	@Tags		Managers
+//	@Produce	json
+//	@Success	200	{object}	ViewManagerRights
+//	@Failure	404	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/managers/{login}/rights [get]
 func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
@@ -52,11 +54,13 @@ func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
 
 // ListManagers returns the managers, newest first.
 //
-// @Id			ListManagers
-// @Tags		Managers
-// @Produce		json
-// @Security	BearerAuth
-// @Router		/api/v1/managers [get]
+//	@Id			ListManagers
+//	@Tags		Managers
+//	@Produce	json
+//	@Failure	400	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
+//	@Security	BearerAuth
+//	@Router		/api/v1/managers [get]
 func (s *HttpServer) ListManagers(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, utils.NewSortable("login", "name"), "login")
 	if err != nil {

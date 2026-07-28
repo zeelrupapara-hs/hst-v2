@@ -13,6 +13,11 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
+// ErrorResponse is the failure envelope, aliased into this package so the
+// swagger annotations can resolve it without every handler file importing
+// pkg/http purely for a comment.
+type ErrorResponse = http.HttpResponse
+
 type HttpServer struct {
 	// Config
 	Cfg *config.Config

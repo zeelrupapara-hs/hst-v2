@@ -11,9 +11,10 @@ hst-v2/
     ├── internal/
     │   ├── middleware/  request logger, auth
     │   └── server/v1/   handlers and routes
-    ├── pkg/             db, http, logger, nats
+    ├── pkg/             db, http, logger, nats, cache, crypto, jwt, oauth2
     ├── migrations/      <epoch-millis>_<name>.{up,down}.sql
-    └── docs/            MT5 data model and design docs
+    ├── swagger/         generated, do not edit by hand
+    └── docs/            MT5 data model and design docs (gitignored)
 ```
 
 All commands run from `hst-server/`.
@@ -42,6 +43,24 @@ make run           # http://localhost:8080
 
 Check it: `curl localhost:8080/api/v1/system/monitor/health`
 
+The first login is **1000**, named **First Admin**, created from
+`config/bootstrap.json`. Its first sign-in is forced through a password change.
+
+## API docs
+
+```bash
+make swagger    # regenerate from the handler annotations
+```
+
+Then open http://localhost:8080/swagger/index.html
+
+Two security schemes are defined: `BasicAuth` on `/auth/v1/oauth2/login`, and
+`BearerAuth` everywhere else. In the UI click **Authorize**, and for
+`BearerAuth` enter `Bearer <access_token>` including the word Bearer.
+
+`swagger/` is generated output and committed, because `cmd/main.go` imports it.
+Never edit it by hand; change the annotations and re-run `make swagger`.
+
 ## Migrations
 
 ```bash
@@ -60,11 +79,13 @@ rollback.
 ## Before you push
 
 ```bash
-make check    # fmt, vet, staticcheck, errcheck, gosec, govulncheck
-make test
+make check      # fmt, vet, staticcheck, errcheck, gosec, govulncheck
+make swagger    # if you touched a handler annotation
 ```
 
 `make check` must be clean. gosec and govulncheck are expected to report zero.
+This project carries no Go test files; behaviour is verified by running the
+server and exercising it over HTTP.
 
 ## Other commands
 
@@ -79,6 +100,12 @@ make down     # stop containers
 
 - Handlers are methods on `*HttpServer` in `internal/server/v1/`, routes
   registered in `routes.go`.
+- Every handler carries the full swagger block: `@Id`, `@Tags`, `@Accept`,
+  `@Produce`, `@Success`, one `@Failure` per status it can return, `@Security`
+  and `@Router`. Failure bodies are `ErrorResponse`.
+- Request and response types follow `CrtX`, `UptX`, `ViewX`.
+- Credentials are parsed by `BasicAuthParser` into Locals; handlers never read
+  the Authorization header directly.
 - **The auth middleware never reads Postgres.** A session miss goes to Redis and
   then to 401 (refresh) or 503 (store down) — never to SQL. Only `Login` and
   `RefreshToken` may read the database for auth. Adding a query to `Protect`

@@ -15,10 +15,12 @@ type HealthResponse struct {
 
 // CheckSystemHealth godoc
 //
+//	@Id			CheckSystemHealth
 //	@Summary	Check the system health
 //	@Tags		System
 //	@Produce	json
 //	@Success	200	{object}	HealthResponse
+//	@Failure	500	{object}	ErrorResponse
 //	@Router		/api/v1/system/monitor/health [get]
 func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 	checks := make(map[string]string)
@@ -62,6 +64,7 @@ func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 
 // CheckSystemLive godoc
 //
+//	@Id			CheckSystemLive
 //	@Summary	Liveness probe, does not touch the database
 //	@Tags		System
 //	@Produce	json
@@ -77,6 +80,8 @@ func (s *HttpServer) CheckSystemLive(c *fiber.Ctx) error {
 //	@Id			CacheStats
 //	@Tags		System
 //	@Produce	json
+//	@Failure	401	{object}	ErrorResponse
+//	@Failure	500	{object}	ErrorResponse
 //	@Security	BearerAuth
 //	@Router		/api/v1/system/monitor/cache [get]
 func (s *HttpServer) CacheStats(c *fiber.Ctx) error {

@@ -21,6 +21,9 @@ const (
 	LocalsChannel   = "channel"
 	LocalsIp        = "ip"
 	LocalsUserAgent = "user_agent"
+	LocalsUsername  = "username"
+	// #nosec G101 -- locals key name, not a credential
+	LocalsPassword = "password"
 )
 
 const (
