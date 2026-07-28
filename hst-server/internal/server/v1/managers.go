@@ -58,7 +58,7 @@ func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
 // @Security	BearerAuth
 // @Router		/api/v1/managers [get]
 func (s *HttpServer) ListManagers(c *fiber.Ctx) error {
-	q, err := utils.QueryFilter(c)
+	q, err := utils.QueryFilter(c, utils.NewSortable("login", "name"), "login")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}

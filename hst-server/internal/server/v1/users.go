@@ -75,6 +75,12 @@ type ViewUser struct {
 	UpdatedAt  int64             `json:"updated_at"`
 }
 
+// usersSortable are the real columns of hst.users. Note it has registration
+// and last_access, not created_at.
+var usersSortable = utils.NewSortable(
+	"login", "client_id", "name", "email", "registration",
+	"last_access", "updated_at", "balance")
+
 const userColumns = `u.login, COALESCE(u.client_id, 0), u."group", u.rights, u.name,
 	u.email, u.phone, u.country, u.city, u.leverage, u.balance, u.credit,
 	(m.login IS NOT NULL), u.last_access, u.updated_at`
@@ -173,7 +179,7 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 // @Security	BearerAuth
 // @Router		/api/v1/users [get]
 func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
-	q, err := utils.QueryFilter(c)
+	q, err := utils.QueryFilter(c, usersSortable, "login")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}

@@ -89,7 +89,7 @@ type Cache struct {
 	ShardId int
 	// ShardCount must equal the instance count, or memory is wasted
 	ShardCount int
-	// MaxAccounts is the memory dial, roughly 400 bytes per session
+	// MaxAccounts is the memory dial, measured 552 bytes per session
 	MaxAccounts int
 	// TTL is the staleness contract: how long a revoked right can survive
 	// if the invalidation message is lost

@@ -18,15 +18,24 @@ type Query struct {
 	SortBy string
 }
 
-// sortable lists the columns a caller may order by. An allowlist and not string
-// interpolation: sort_by goes into the SQL text, where a bind parameter cannot.
-var sortable = map[string]struct{}{
-	"created_at": {}, "updated_at": {}, "login": {}, "client_id": {},
-	"name": {}, "email": {}, "last_access": {}, "registration": {},
+// Sortable is the set of columns one endpoint may order by. Every table names
+// its timestamps differently, so the allowlist belongs to the caller, not here.
+// It is an allowlist and not interpolation because sort_by lands in the SQL
+// text, where a bind parameter cannot go.
+type Sortable map[string]struct{}
+
+// NewSortable builds the set from column names.
+func NewSortable(columns ...string) Sortable {
+	s := make(Sortable, len(columns))
+	for _, c := range columns {
+		s[c] = struct{}{}
+	}
+	return s
 }
 
-// QueryFilter parses page, limit, search and sort_by.
-func QueryFilter(c *fiber.Ctx) (*Query, error) {
+// QueryFilter parses page, limit, search and sort_by. defaultSort must be one
+// of the allowed columns, so a caller cannot ship a default that does not exist.
+func QueryFilter(c *fiber.Ctx, sortable Sortable, defaultSort string) (*Query, error) {
 	page := c.QueryInt("page", 1)
 	if page < 1 {
 		page = 1
@@ -40,7 +49,7 @@ func QueryFilter(c *fiber.Ctx) (*Query, error) {
 		return nil, fmt.Errorf("you can't request more than %d records per page", maxLimit)
 	}
 
-	sortBy := c.Query("sort_by", "created_at")
+	sortBy := c.Query("sort_by", defaultSort)
 	desc := c.Query("order", "desc") == "desc"
 	if _, ok := sortable[sortBy]; !ok {
 		return nil, fmt.Errorf("sort_by %q is not a sortable column", sortBy)

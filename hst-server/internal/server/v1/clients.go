@@ -67,6 +67,12 @@ type ViewClient struct {
 	DateModified    int64  `json:"date_modified"`
 }
 
+// clientsSortable are the real columns of hst.clients, checked against the
+// migration. A name that does not exist here is a 500 at request time.
+var clientsSortable = utils.NewSortable(
+	"client_id", "date_created", "date_modified", "person_name",
+	"contact_email", "client_status", "kyc_status")
+
 const clientColumns = `client_id, client_type, client_status, kyc_status,
 	COALESCE(assigned_manager, 0), comment, person_name, company_name,
 	contact_email, contact_phone, address_country, address_city,
@@ -131,7 +137,7 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 // @Security	BearerAuth
 // @Router		/api/v1/clients [get]
 func (s *HttpServer) ListClients(c *fiber.Ctx) error {
-	q, err := utils.QueryFilter(c)
+	q, err := utils.QueryFilter(c, clientsSortable, "date_created")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
