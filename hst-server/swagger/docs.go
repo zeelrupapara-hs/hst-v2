@@ -290,7 +290,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_server_v1.ViewClient"
+                                            "$ref": "#/definitions/model.Client"
                                         }
                                     }
                                 }
@@ -379,7 +379,7 @@ const docTemplate = `{
                                     "type": "object",
                                     "properties": {
                                         "data": {
-                                            "$ref": "#/definitions/internal_server_v1.ViewClient"
+                                            "$ref": "#/definitions/model.Client"
                                         }
                                     }
                                 }
@@ -1450,6 +1450,412 @@ const docTemplate = `{
                 }
             }
         },
+        "model.Client": {
+            "type": "object",
+            "properties": {
+                "address_city": {
+                    "type": "string"
+                },
+                "address_country": {
+                    "type": "string"
+                },
+                "address_postcode": {
+                    "type": "string"
+                },
+                "address_state": {
+                    "type": "string"
+                },
+                "address_street": {
+                    "type": "string"
+                },
+                "assigned_manager": {
+                    "type": "integer"
+                },
+                "client_id": {
+                    "type": "integer"
+                },
+                "client_origin": {
+                    "$ref": "#/definitions/model.ClientOrigin"
+                },
+                "client_origin_login": {
+                    "type": "integer"
+                },
+                "client_status": {
+                    "$ref": "#/definitions/model.ClientStatus"
+                },
+                "client_type": {
+                    "$ref": "#/definitions/model.ClientType"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "company_address": {
+                    "type": "string"
+                },
+                "company_country": {
+                    "type": "string"
+                },
+                "company_lei": {
+                    "type": "string"
+                },
+                "company_license_authority": {
+                    "type": "string"
+                },
+                "company_license_number": {
+                    "type": "string"
+                },
+                "company_name": {
+                    "type": "string"
+                },
+                "company_reg_authority": {
+                    "type": "string"
+                },
+                "company_reg_date": {
+                    "type": "string"
+                },
+                "company_reg_number": {
+                    "type": "string"
+                },
+                "company_vat": {
+                    "type": "string"
+                },
+                "company_website": {
+                    "type": "string"
+                },
+                "compliance_approved_by": {
+                    "type": "integer"
+                },
+                "compliance_client_category": {
+                    "type": "string"
+                },
+                "compliance_date_approval": {
+                    "type": "integer"
+                },
+                "compliance_date_termination": {
+                    "type": "integer"
+                },
+                "contact_email": {
+                    "type": "string"
+                },
+                "contact_language": {
+                    "type": "string"
+                },
+                "contact_last_date": {
+                    "type": "integer"
+                },
+                "contact_messengers": {
+                    "type": "string"
+                },
+                "contact_phone": {
+                    "type": "string"
+                },
+                "contact_preferred": {
+                    "$ref": "#/definitions/model.PreferredCommunication"
+                },
+                "contact_social_networks": {
+                    "type": "string"
+                },
+                "date_created": {
+                    "type": "integer"
+                },
+                "date_modified": {
+                    "type": "integer"
+                },
+                "experience_cfd": {
+                    "$ref": "#/definitions/model.TradingExperience"
+                },
+                "experience_futures": {
+                    "$ref": "#/definitions/model.TradingExperience"
+                },
+                "experience_fx": {
+                    "$ref": "#/definitions/model.TradingExperience"
+                },
+                "experience_stocks": {
+                    "$ref": "#/definitions/model.TradingExperience"
+                },
+                "introducer": {
+                    "type": "integer"
+                },
+                "kyc_status": {
+                    "$ref": "#/definitions/model.KycStatus"
+                },
+                "lead_campaign": {
+                    "type": "string"
+                },
+                "lead_source": {
+                    "type": "string"
+                },
+                "person_annual_deposit": {
+                    "type": "number"
+                },
+                "person_annual_income": {
+                    "type": "number"
+                },
+                "person_birth_date": {
+                    "type": "integer"
+                },
+                "person_citizenship": {
+                    "type": "string"
+                },
+                "person_document_date": {
+                    "type": "integer"
+                },
+                "person_document_extra": {
+                    "type": "string"
+                },
+                "person_document_number": {
+                    "type": "string"
+                },
+                "person_document_type": {
+                    "type": "string"
+                },
+                "person_education": {
+                    "$ref": "#/definitions/model.EducationLevel"
+                },
+                "person_employment": {
+                    "$ref": "#/definitions/model.Employment"
+                },
+                "person_gender": {
+                    "$ref": "#/definitions/model.Gender"
+                },
+                "person_industry": {
+                    "$ref": "#/definitions/model.ClientIndustry"
+                },
+                "person_last_name": {
+                    "type": "string"
+                },
+                "person_middle_name": {
+                    "type": "string"
+                },
+                "person_name": {
+                    "type": "string"
+                },
+                "person_net_worth": {
+                    "type": "number"
+                },
+                "person_tax_id": {
+                    "type": "string"
+                },
+                "person_title": {
+                    "type": "string"
+                },
+                "person_wealth_source": {
+                    "$ref": "#/definitions/model.WealthSource"
+                }
+            }
+        },
+        "model.ClientIndustry": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16
+            ],
+            "x-enum-varnames": [
+                "ClientIndustry_none",
+                "ClientIndustry_agriculture",
+                "ClientIndustry_construction",
+                "ClientIndustry_management",
+                "ClientIndustry_communication",
+                "ClientIndustry_education",
+                "ClientIndustry_government",
+                "ClientIndustry_healthcare",
+                "ClientIndustry_tourism",
+                "ClientIndustry_it",
+                "ClientIndustry_security",
+                "ClientIndustry_manufacturing",
+                "ClientIndustry_marketing",
+                "ClientIndustry_science",
+                "ClientIndustry_engineering",
+                "ClientIndustry_transport",
+                "ClientIndustry_other"
+            ]
+        },
+        "model.ClientOrigin": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "x-enum-varnames": [
+                "ClientOrigin_manual",
+                "ClientOrigin_demo",
+                "ClientOrigin_contest",
+                "ClientOrigin_preliminary",
+                "ClientOrigin_real"
+            ]
+        },
+        "model.ClientStatus": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                100,
+                200,
+                300,
+                400,
+                500,
+                600,
+                700,
+                800,
+                900,
+                1000,
+                1100,
+                1200,
+                1300
+            ],
+            "x-enum-varnames": [
+                "ClientStatus_unregistered",
+                "ClientStatus_registered",
+                "ClientStatus_notinterested",
+                "ClientStatus_application_incompleted",
+                "ClientStatus_application_completed",
+                "ClientStatus_application_information",
+                "ClientStatus_application_rejected",
+                "ClientStatus_approved",
+                "ClientStatus_funded",
+                "ClientStatus_active",
+                "ClientStatus_inactive",
+                "ClientStatus_suspended",
+                "ClientStatus_closed",
+                "ClientStatus_terminated"
+            ]
+        },
+        "model.ClientType": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "ClientType_undefined",
+                "ClientType_individual",
+                "ClientType_corporate",
+                "ClientType_fund"
+            ]
+        },
+        "model.EducationLevel": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
+            "x-enum-varnames": [
+                "EducationLevel_none",
+                "EducationLevel_high_school",
+                "EducationLevel_bachelor",
+                "EducationLevel_master",
+                "EducationLevel_phd",
+                "EducationLevel_other"
+            ]
+        },
+        "model.Employment": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5
+            ],
+            "x-enum-varnames": [
+                "Employment_unemployed",
+                "Employment_employed",
+                "Employment_self_employed",
+                "Employment_retired",
+                "Employment_student",
+                "Employment_other"
+            ]
+        },
+        "model.Gender": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "Gender_unspecified",
+                "Gender_male",
+                "Gender_female"
+            ]
+        },
+        "model.KycStatus": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "KycStatus_undefined",
+                "KycStatus_approved",
+                "KycStatus_declined"
+            ]
+        },
+        "model.PreferredCommunication": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "x-enum-varnames": [
+                "PreferredCommunication_undefined",
+                "PreferredCommunication_email",
+                "PreferredCommunication_phone",
+                "PreferredCommunication_phone_sms",
+                "PreferredCommunication_messenger"
+            ]
+        },
+        "model.TradingExperience": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "TradingExperience_less_1_year",
+                "TradingExperience_1_3_year",
+                "TradingExperience_above_3_year"
+            ]
+        },
         "model.UsersRights": {
             "type": "integer",
             "format": "int64",
@@ -1492,6 +1898,22 @@ const docTemplate = `{
                 "UsersRights_push_notification",
                 "UsersRights_technical",
                 "UsersRights_exclude_reports"
+            ]
+        },
+        "model.WealthSource": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "WealthSource_employment",
+                "WealthSource_savings",
+                "WealthSource_inheritance",
+                "WealthSource_other"
             ]
         }
     },

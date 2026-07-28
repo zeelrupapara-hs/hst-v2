@@ -1,9 +1,11 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"time"
 
+	"hstserver/model"
 	errs "hstserver/pkg/errors"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
@@ -34,20 +36,70 @@ type CrtClient struct {
 	AddressPostcode  string `json:"address_postcode" validate:"max=32"`
 }
 
-// UptClient patches a client. Pointer fields plus COALESCE, so an absent field
-// keeps its value and an explicit value overwrites it.
+// UptClient patches a client. Every field a manager may change is here, as a
+// pointer, so an absent field keeps its value and an explicit one overwrites
+// it. client_id and the two date columns are server owned and not settable.
 type UptClient struct {
-	ClientStatus    *int16  `json:"client_status"`
-	KycStatus       *int16  `json:"kyc_status"`
-	AssignedManager *int64  `json:"assigned_manager"`
-	Comment         *string `json:"comment" validate:"omitempty,max=4096"`
-	PersonName      *string `json:"person_name" validate:"omitempty,max=128"`
-	ContactEmail    *string `json:"contact_email" validate:"omitempty,email,max=255"`
-	ContactPhone    *string `json:"contact_phone" validate:"omitempty,max=64"`
-	AddressCountry  *string `json:"address_country" validate:"omitempty,max=64"`
-	AddressCity     *string `json:"address_city" validate:"omitempty,max=64"`
-	AddressStreet   *string `json:"address_street" validate:"omitempty,max=1024"`
-	AddressPostcode *string `json:"address_postcode" validate:"omitempty,max=32"`
+	ClientType                *model.ClientType             `json:"client_type"`
+	ClientStatus              *model.ClientStatus           `json:"client_status"`
+	KycStatus                 *model.KycStatus              `json:"kyc_status"`
+	AssignedManager           *int64                        `json:"assigned_manager"`
+	ComplianceApprovedBy      *int64                        `json:"compliance_approved_by"`
+	ComplianceClientCategory  *string                       `json:"compliance_client_category"`
+	ComplianceDateApproval    *int64                        `json:"compliance_date_approval"`
+	ComplianceDateTermination *int64                        `json:"compliance_date_termination"`
+	Comment                   *string                       `json:"comment"`
+	LeadCampaign              *string                       `json:"lead_campaign"`
+	LeadSource                *string                       `json:"lead_source"`
+	Introducer                *int64                        `json:"introducer"`
+	ClientOrigin              *model.ClientOrigin           `json:"client_origin"`
+	ClientOriginLogin         *int64                        `json:"client_origin_login"`
+	PersonTitle               *string                       `json:"person_title"`
+	PersonName                *string                       `json:"person_name"`
+	PersonMiddleName          *string                       `json:"person_middle_name"`
+	PersonLastName            *string                       `json:"person_last_name"`
+	PersonBirthDate           *int64                        `json:"person_birth_date"`
+	PersonCitizenship         *string                       `json:"person_citizenship"`
+	PersonGender              *model.Gender                 `json:"person_gender"`
+	PersonTaxId               *string                       `json:"person_tax_id"`
+	PersonDocumentType        *string                       `json:"person_document_type"`
+	PersonDocumentNumber      *string                       `json:"person_document_number"`
+	PersonDocumentDate        *int64                        `json:"person_document_date"`
+	PersonDocumentExtra       *string                       `json:"person_document_extra"`
+	PersonEmployment          *model.Employment             `json:"person_employment"`
+	PersonIndustry            *model.ClientIndustry         `json:"person_industry"`
+	PersonEducation           *model.EducationLevel         `json:"person_education"`
+	PersonWealthSource        *model.WealthSource           `json:"person_wealth_source"`
+	PersonAnnualIncome        *float64                      `json:"person_annual_income"`
+	PersonNetWorth            *float64                      `json:"person_net_worth"`
+	PersonAnnualDeposit       *float64                      `json:"person_annual_deposit"`
+	CompanyName               *string                       `json:"company_name"`
+	CompanyRegNumber          *string                       `json:"company_reg_number"`
+	CompanyRegDate            *string                       `json:"company_reg_date"`
+	CompanyRegAuthority       *string                       `json:"company_reg_authority"`
+	CompanyVat                *string                       `json:"company_vat"`
+	CompanyLei                *string                       `json:"company_lei"`
+	CompanyLicenseNumber      *string                       `json:"company_license_number"`
+	CompanyLicenseAuthority   *string                       `json:"company_license_authority"`
+	CompanyCountry            *string                       `json:"company_country"`
+	CompanyAddress            *string                       `json:"company_address"`
+	CompanyWebsite            *string                       `json:"company_website"`
+	ContactPreferred          *model.PreferredCommunication `json:"contact_preferred"`
+	ContactLanguage           *string                       `json:"contact_language"`
+	ContactEmail              *string                       `json:"contact_email"`
+	ContactPhone              *string                       `json:"contact_phone"`
+	ContactMessengers         *string                       `json:"contact_messengers"`
+	ContactSocialNetworks     *string                       `json:"contact_social_networks"`
+	ContactLastDate           *int64                        `json:"contact_last_date"`
+	AddressCountry            *string                       `json:"address_country"`
+	AddressPostcode           *string                       `json:"address_postcode"`
+	AddressStreet             *string                       `json:"address_street"`
+	AddressState              *string                       `json:"address_state"`
+	AddressCity               *string                       `json:"address_city"`
+	ExperienceFx              *model.TradingExperience      `json:"experience_fx"`
+	ExperienceCfd             *model.TradingExperience      `json:"experience_cfd"`
+	ExperienceFutures         *model.TradingExperience      `json:"experience_futures"`
+	ExperienceStocks          *model.TradingExperience      `json:"experience_stocks"`
 }
 
 // ViewClient is what the panel renders.
@@ -75,6 +127,25 @@ var clientsSortable = utils.NewSortable(
 	"client_id", "date_created", "date_modified", "person_name",
 	"contact_email", "client_status", "kyc_status")
 
+// clientAllColumns is every column of hst.clients in model.Client field order,
+// generated from the struct so the select and the scan cannot drift apart.
+const clientAllColumns = `
+	client_id, client_type, client_status, kyc_status, COALESCE(assigned_manager, 0),
+	COALESCE(compliance_approved_by, 0), compliance_client_category, compliance_date_approval,
+	compliance_date_termination, comment, lead_campaign, lead_source, COALESCE(introducer, 0),
+	client_origin, COALESCE(client_origin_login, 0), person_title, person_name,
+	person_middle_name, person_last_name, person_birth_date, person_citizenship, person_gender,
+	person_tax_id, person_document_type, person_document_number, person_document_date,
+	person_document_extra, person_employment, person_industry, person_education,
+	person_wealth_source, person_annual_income, person_net_worth, person_annual_deposit,
+	company_name, company_reg_number, company_reg_date, company_reg_authority, company_vat,
+	company_lei, company_license_number, company_license_authority, company_country,
+	company_address, company_website, contact_preferred, contact_language, contact_email,
+	contact_phone, contact_messengers, contact_social_networks, contact_last_date,
+	address_country, address_postcode, address_street, address_state, address_city, experience_fx,
+	experience_cfd, experience_futures, experience_stocks, date_created, date_modified`
+
+// clientColumns is the short shape used by the list endpoint.
 const clientColumns = `client_id, client_type, client_status, kyc_status,
 	COALESCE(assigned_manager, 0), comment, person_name, person_last_name, company_name,
 	contact_email, contact_phone, address_country, address_city,
@@ -187,7 +258,7 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 //	@Id			GetClient
 //	@Tags		Clients
 //	@Produce	json
-//	@Success	200	{object}	Response{data=ViewClient}
+//	@Success	200	{object}	Response{data=model.Client}
 //	@Failure	404	{object}	Response
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
@@ -198,14 +269,7 @@ func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	view := &ViewClient{}
-	err = s.DB.DB.QueryRow(c.UserContext(),
-		`SELECT `+clientColumns+` FROM hst.clients WHERE client_id = $1`, id).
-		Scan(&view.ClientId, &view.ClientType, &view.ClientStatus, &view.KycStatus,
-			&view.AssignedManager, &view.Comment, &view.PersonName, &view.PersonLastName, &view.CompanyName,
-			&view.ContactEmail, &view.ContactPhone, &view.AddressCountry,
-			&view.AddressCity, &view.DateCreated, &view.DateModified)
-
+	client, err := s.selectClient(c.UserContext(), int64(id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
@@ -213,7 +277,34 @@ func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	return s.App.HttpResponseOK(c, view)
+	return s.App.HttpResponseOK(c, client)
+}
+
+// selectClient reads every column into the model, for the detail view and for
+// the response to an update.
+func (s *HttpServer) selectClient(ctx context.Context, id int64) (*model.Client, error) {
+	c := &model.Client{}
+
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT `+clientAllColumns+` FROM hst.clients WHERE client_id = $1`, id).
+		Scan(
+			&c.ClientId, &c.ClientType, &c.ClientStatus, &c.KycStatus, &c.AssignedManager,
+			&c.ComplianceApprovedBy, &c.ComplianceClientCategory, &c.ComplianceDateApproval,
+			&c.ComplianceDateTermination, &c.Comment, &c.LeadCampaign, &c.LeadSource, &c.Introducer,
+			&c.ClientOrigin, &c.ClientOriginLogin, &c.PersonTitle, &c.PersonName, &c.PersonMiddleName,
+			&c.PersonLastName, &c.PersonBirthDate, &c.PersonCitizenship, &c.PersonGender, &c.PersonTaxId,
+			&c.PersonDocumentType, &c.PersonDocumentNumber, &c.PersonDocumentDate,
+			&c.PersonDocumentExtra, &c.PersonEmployment, &c.PersonIndustry, &c.PersonEducation,
+			&c.PersonWealthSource, &c.PersonAnnualIncome, &c.PersonNetWorth, &c.PersonAnnualDeposit,
+			&c.CompanyName, &c.CompanyRegNumber, &c.CompanyRegDate, &c.CompanyRegAuthority,
+			&c.CompanyVat, &c.CompanyLei, &c.CompanyLicenseNumber, &c.CompanyLicenseAuthority,
+			&c.CompanyCountry, &c.CompanyAddress, &c.CompanyWebsite, &c.ContactPreferred,
+			&c.ContactLanguage, &c.ContactEmail, &c.ContactPhone, &c.ContactMessengers,
+			&c.ContactSocialNetworks, &c.ContactLastDate, &c.AddressCountry, &c.AddressPostcode,
+			&c.AddressStreet, &c.AddressState, &c.AddressCity, &c.ExperienceFx, &c.ExperienceCfd,
+			&c.ExperienceFutures, &c.ExperienceStocks, &c.DateCreated, &c.DateModified)
+
+	return c, err
 }
 
 // UpdateClient patches the fields present in the body.
@@ -222,13 +313,15 @@ func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 //	@Tags		Clients
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	Response{data=ViewClient}
+//	@Success	200	{object}	Response{data=model.Client}
 //	@Failure	400	{object}	Response
 //	@Failure	404	{object}	Response
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [patch]
 func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -242,45 +335,98 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	snap, _ := utils.GetClient(c)
-
-	view := &ViewClient{}
-	err = s.DB.DB.QueryRow(c.UserContext(),
+	tag, err := s.DB.DB.Exec(ctx,
 		`UPDATE hst.clients SET
-		    client_status    = COALESCE($2, client_status),
-		    kyc_status       = COALESCE($3, kyc_status),
-		    assigned_manager = COALESCE($4, assigned_manager),
-		    comment          = COALESCE($5, comment),
-		    person_name      = COALESCE($6, person_name),
-		    contact_email    = COALESCE($7, contact_email),
-		    contact_phone    = COALESCE($8, contact_phone),
-		    address_country  = COALESCE($9, address_country),
-		    address_city     = COALESCE($10, address_city),
-		    address_street   = COALESCE($11, address_street),
-		    address_postcode = COALESCE($12, address_postcode),
-		    date_modified    = $13
-		  WHERE client_id = $1
-		 RETURNING `+clientColumns,
-		id, body.ClientStatus, body.KycStatus, body.AssignedManager, body.Comment,
-		body.PersonName, body.ContactEmail, body.ContactPhone, body.AddressCountry,
-		body.AddressCity, body.AddressStreet, body.AddressPostcode,
-		time.Now().UnixNano()).
-		Scan(&view.ClientId, &view.ClientType, &view.ClientStatus, &view.KycStatus,
-			&view.AssignedManager, &view.Comment, &view.PersonName, &view.PersonLastName, &view.CompanyName,
-			&view.ContactEmail, &view.ContactPhone, &view.AddressCountry,
-			&view.AddressCity, &view.DateCreated, &view.DateModified)
-
-	if errors.Is(err, pgx.ErrNoRows) {
+		    client_type = COALESCE($2, client_type), client_status = COALESCE($3, client_status),
+		    kyc_status = COALESCE($4, kyc_status), assigned_manager = COALESCE($5, assigned_manager),
+		    compliance_approved_by = COALESCE($6, compliance_approved_by),
+		    compliance_client_category = COALESCE($7, compliance_client_category),
+		    compliance_date_approval = COALESCE($8, compliance_date_approval),
+		    compliance_date_termination = COALESCE($9, compliance_date_termination),
+		    comment = COALESCE($10, comment), lead_campaign = COALESCE($11, lead_campaign),
+		    lead_source = COALESCE($12, lead_source), introducer = COALESCE($13, introducer),
+		    client_origin = COALESCE($14, client_origin),
+		    client_origin_login = COALESCE($15, client_origin_login),
+		    person_title = COALESCE($16, person_title), person_name = COALESCE($17, person_name),
+		    person_middle_name = COALESCE($18, person_middle_name),
+		    person_last_name = COALESCE($19, person_last_name),
+		    person_birth_date = COALESCE($20, person_birth_date),
+		    person_citizenship = COALESCE($21, person_citizenship),
+		    person_gender = COALESCE($22, person_gender),
+		    person_tax_id = COALESCE($23, person_tax_id),
+		    person_document_type = COALESCE($24, person_document_type),
+		    person_document_number = COALESCE($25, person_document_number),
+		    person_document_date = COALESCE($26, person_document_date),
+		    person_document_extra = COALESCE($27, person_document_extra),
+		    person_employment = COALESCE($28, person_employment),
+		    person_industry = COALESCE($29, person_industry),
+		    person_education = COALESCE($30, person_education),
+		    person_wealth_source = COALESCE($31, person_wealth_source),
+		    person_annual_income = COALESCE($32, person_annual_income),
+		    person_net_worth = COALESCE($33, person_net_worth),
+		    person_annual_deposit = COALESCE($34, person_annual_deposit),
+		    company_name = COALESCE($35, company_name),
+		    company_reg_number = COALESCE($36, company_reg_number),
+		    company_reg_date = COALESCE($37, company_reg_date),
+		    company_reg_authority = COALESCE($38, company_reg_authority),
+		    company_vat = COALESCE($39, company_vat), company_lei = COALESCE($40, company_lei),
+		    company_license_number = COALESCE($41, company_license_number),
+		    company_license_authority = COALESCE($42, company_license_authority),
+		    company_country = COALESCE($43, company_country),
+		    company_address = COALESCE($44, company_address),
+		    company_website = COALESCE($45, company_website),
+		    contact_preferred = COALESCE($46, contact_preferred),
+		    contact_language = COALESCE($47, contact_language),
+		    contact_email = COALESCE($48, contact_email),
+		    contact_phone = COALESCE($49, contact_phone),
+		    contact_messengers = COALESCE($50, contact_messengers),
+		    contact_social_networks = COALESCE($51, contact_social_networks),
+		    contact_last_date = COALESCE($52, contact_last_date),
+		    address_country = COALESCE($53, address_country),
+		    address_postcode = COALESCE($54, address_postcode),
+		    address_street = COALESCE($55, address_street),
+		    address_state = COALESCE($56, address_state), address_city = COALESCE($57, address_city),
+		    experience_fx = COALESCE($58, experience_fx),
+		    experience_cfd = COALESCE($59, experience_cfd),
+		    experience_futures = COALESCE($60, experience_futures),
+		    experience_stocks = COALESCE($61, experience_stocks),
+		    date_modified = $62
+		  WHERE client_id = $1`,
+		id,
+		body.ClientType, body.ClientStatus, body.KycStatus, body.AssignedManager,
+		body.ComplianceApprovedBy, body.ComplianceClientCategory, body.ComplianceDateApproval,
+		body.ComplianceDateTermination, body.Comment, body.LeadCampaign, body.LeadSource,
+		body.Introducer, body.ClientOrigin, body.ClientOriginLogin, body.PersonTitle,
+		body.PersonName, body.PersonMiddleName, body.PersonLastName, body.PersonBirthDate,
+		body.PersonCitizenship, body.PersonGender, body.PersonTaxId, body.PersonDocumentType,
+		body.PersonDocumentNumber, body.PersonDocumentDate, body.PersonDocumentExtra,
+		body.PersonEmployment, body.PersonIndustry, body.PersonEducation, body.PersonWealthSource,
+		body.PersonAnnualIncome, body.PersonNetWorth, body.PersonAnnualDeposit, body.CompanyName,
+		body.CompanyRegNumber, body.CompanyRegDate, body.CompanyRegAuthority, body.CompanyVat,
+		body.CompanyLei, body.CompanyLicenseNumber, body.CompanyLicenseAuthority,
+		body.CompanyCountry, body.CompanyAddress, body.CompanyWebsite, body.ContactPreferred,
+		body.ContactLanguage, body.ContactEmail, body.ContactPhone, body.ContactMessengers,
+		body.ContactSocialNetworks, body.ContactLastDate, body.AddressCountry, body.AddressPostcode,
+		body.AddressStreet, body.AddressState, body.AddressCity, body.ExperienceFx,
+		body.ExperienceCfd, body.ExperienceFutures, body.ExperienceStocks,
+		time.Now().UnixNano())
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if tag.RowsAffected() == 0 {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
+
+	client, err := s.selectClient(ctx, int64(id))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	snap, _ := utils.GetClient(c)
 	s.Log.Journal(logger.TypeCfg, logger.CodeOK, "client updated",
-		"actor", snap.Login, "client_id", view.ClientId)
+		"actor", snap.Login, "client_id", id)
 
-	return s.App.HttpResponseOK(c, view)
+	return s.App.HttpResponseOK(c, client)
 }
 
 // DeleteClient removes a client.
