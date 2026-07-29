@@ -8,4 +8,6 @@ logs/
 docs/
 !docs/infra/
 !docs/infra/**
+!docs/auth/
+!docs/auth/**
 
