@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -358,6 +359,55 @@ func symbolPath(folder, symbol string) string {
 	return folder + `\` + symbol
 }
 
+var weekdayNames = [7]string{"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"}
+
+// sessionWindow is one session row, in the shape the log prints it.
+type sessionWindow struct {
+	Type  int16
+	Day   int16
+	Open  int32
+	Close int32
+}
+
+// String prints the window the way a person reads it, clock time and all.
+func (w sessionWindow) String() string {
+	kind := "quote"
+	if w.Type == int16(model.SymbolSessionType_trade) {
+		kind = "trade"
+	}
+
+	day := "?"
+	if w.Day >= 0 && int(w.Day) < len(weekdayNames) {
+		day = weekdayNames[w.Day]
+	}
+
+	return fmt.Sprintf("%s %s %02d:%02d-%02d:%02d", kind, day,
+		w.Open/60, w.Open%60, w.Close/60, w.Close%60)
+}
+
+// sortSessions puts the windows in a fixed order, so a reorder is not a change.
+func sortSessions(windows []sessionWindow) {
+	sort.Slice(windows, func(i, j int) bool {
+		a, b := windows[i], windows[j]
+		if a.Type != b.Type {
+			return a.Type < b.Type
+		}
+		if a.Day != b.Day {
+			return a.Day < b.Day
+		}
+		return a.Open < b.Open
+	})
+}
+
+// printSessions joins the windows into one bracketed list.
+func printSessions(windows []sessionWindow) string {
+	out := make([]string, len(windows))
+	for i, w := range windows {
+		out[i] = w.String()
+	}
+	return "[" + strings.Join(out, ", ") + "]"
+}
+
 // jsonString reads a json string value, and returns "" for anything else.
 func jsonString(raw json.RawMessage) string {
 	var out string
@@ -377,7 +427,7 @@ func sameJSON(was, next json.RawMessage) bool {
 
 // changedSymbolFields lists what the request really changes, as key=value.
 // A field the caller sent with the value it already had is left out.
-func changedSymbolFields(before map[string]json.RawMessage, body *UptSymbol, sessions int) string {
+func changedSymbolFields(before map[string]json.RawMessage, body *UptSymbol, sessions []sessionWindow) string {
 	changes := make([]string, 0, 8)
 	fields := reflect.ValueOf(*body)
 	types := fields.Type()
@@ -394,9 +444,21 @@ func changedSymbolFields(before map[string]json.RawMessage, body *UptSymbol, ses
 		}
 
 		// sessions replace every row, so the count says more than the whole list
+		// sessions replace every row, so the whole new list is the value
 		if name == "sessions" {
-			if sent, ok := field.Interface().(*[]CrtSymbolSession); ok && len(*sent) != sessions {
-				changes = append(changes, fmt.Sprintf("sessions=%d", len(*sent)))
+			sent, ok := field.Interface().(*[]CrtSymbolSession)
+			if !ok {
+				continue
+			}
+
+			next := make([]sessionWindow, 0, len(*sent))
+			for _, w := range *sent {
+				next = append(next, sessionWindow(w))
+			}
+			sortSessions(next)
+
+			if !slices.Equal(sessions, next) {
+				changes = append(changes, "sessions="+printSessions(next))
 			}
 			continue
 		}
@@ -892,16 +954,29 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 	}
 
 	// only sessions need a second look, and only when the caller sends them
-	sessionCount := 0
+	var sessions []sessionWindow
 	if body.Sessions != nil {
-		if err := tx.QueryRow(ctx,
-			`SELECT count(*) FROM hst.symbols_sessions WHERE symbol_id = $1`, id).
-			Scan(&sessionCount); err != nil {
+		rows, err := tx.Query(ctx,
+			`SELECT type, day, open, close FROM hst.symbols_sessions WHERE symbol_id = $1`, id)
+		if err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
+		for rows.Next() {
+			var w sessionWindow
+			if err := rows.Scan(&w.Type, &w.Day, &w.Open, &w.Close); err != nil {
+				rows.Close()
+				return s.App.HttpResponseInternalServerErrorRequest(c, err)
+			}
+			sessions = append(sessions, w)
+		}
+		rows.Close()
+		if rows.Err() != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+		}
+		sortSessions(sessions)
 	}
 
-	changes := changedSymbolFields(before, &body, sessionCount)
+	changes := changedSymbolFields(before, &body, sessions)
 
 	// the stored path ends with the symbol, so renaming or moving rebuilds it
 	if body.Symbol != nil || body.Path != nil {
