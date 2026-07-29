@@ -30,20 +30,21 @@ curl -u '1000:Bootstrap-Admin-2026!' -X POST localhost:8080/auth/v1/oauth2/login
 ```json
 {
   "success": true,
-  "code": 1026,
+  "code": 0,
   "data": {
     "login": 1000,
-    "access_token": "eyJhbGciOiJFZERTQSIsImtpZCI6IjA3YjQyM2VhYTc5YjI0ZjciLCJ0eXAiOiJKV1QifQ...",
-    "refresh_token": "HlE1AnPMjJU1rzX7cBtZtdCka4VcGBZH6aoIXk4toPQ",
-    "session_id": "fb7f3022-17e4-48cf-964a-1d57f6aa4ff8",
+    "access_token": "eyJhbGciOiJFZERTQSIsImtpZCI6IjY5MTNkMjk5NWM2N2RiMDgiLCJ0eXAi...",
+    "refresh_token": "CrFY1IZRvGuhnBxvTKM1camwLr7N9UQ_gDh8z8i9WBo",
+    "session_id": "d521f178-d9cd-461c-ae3d-eeebce218e67",
     "expires_in": 7200,
     "connection_type": 33,
-    "code": 1026
+    "code": 0
   }
 }
 ```
 
-`code 1026` = must change the password. The token works, but only for one call.
+`code 0` means the session is ready. Changing the password is your choice, not
+forced:
 
 ```bash
 curl -X POST localhost:8080/api/v1/auth/oauth2/change-password \
@@ -52,7 +53,7 @@ curl -X POST localhost:8080/api/v1/auth/oauth2/change-password \
 # HTTP 204
 ```
 
-Log in again and `code` is `0`.
+That kills every other session of this login, so log in again afterwards.
 
 ---
 
@@ -432,7 +433,7 @@ second cache TTL.
 | 1018 | 429/503 | throttled or the hasher is saturated, see `Retry-After` |
 | 1020 | 401 | no such login |
 | 1024 | 403 | terminal type not permitted |
-| 1026 | 200/403 | must change password: 200 from login, 403 from anywhere else |
+| 1026 | 200/403 | reset_pass is set on the account: 200 from login, 403 elsewhere until changed |
 | 60001 | 401 | session gone, refresh or log in again |
 | 60002 | 403 | locked after 10 failed attempts, 15 minutes |
 

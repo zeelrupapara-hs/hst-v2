@@ -35,8 +35,8 @@ make gen-keys  # copy the printed seed into AUTH_JWT_PRIVATE_KEY in .env
 is empty, the server creates the administrator defined in `seed/manager.go`
 with that password: login **1000**, **First Admin**.
 
-That first login is forced through a password change, so the value in `.env`
-stops being a working credential once it is used. Clear it afterwards.
+The account is ready to use straight away. Change the password when you want
+to, it is not forced.
 
 To add a seed: write `seed/<subject>.go` holding the values as a Go struct and
 a `Seed<Subject>` function, then call it from `Seed()` in `seed/seed.go`. Each

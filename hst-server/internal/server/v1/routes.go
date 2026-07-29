@@ -19,7 +19,18 @@ func (s *HttpServer) RegisterV1() {
 
 	// swagger exposes the whole api surface, so it is off unless asked for
 	if s.Cfg.HTTP.SwaggerEnabled {
-		root.Get("/swagger/*", swagger.HandlerDefault)
+		root.Get("/swagger/*", swagger.New(swagger.Config{
+			// swagger 2.0 has no bearer scheme, so the token is sent verbatim.
+			// Add the prefix here when the pasted value is missing it.
+			RequestInterceptor: `(req) => {
+				const a = req.headers.Authorization;
+				if (a && !/^(Bearer|Basic) /i.test(a)) {
+					req.headers.Authorization = "Bearer " + a.trim();
+				}
+				return req;
+			}`,
+			PersistAuthorization: true,
+		}))
 	}
 
 	// api group

@@ -50,10 +50,8 @@ func (s *Seeder) SeedManager(ctx context.Context) error {
 
 	now := time.Now().UnixNano()
 
-	// reset_pass forces a password change, so the env value stops working after first use.
-	rights := model.UsersRights_enabled |
-		model.UsersRights_password |
-		model.UsersRights_reset_pass
+	// changing the password is the operator's choice, so no reset_pass here.
+	rights := model.UsersRights_enabled | model.UsersRights_password
 
 	var login int64
 	if err := tx.QueryRow(ctx,
