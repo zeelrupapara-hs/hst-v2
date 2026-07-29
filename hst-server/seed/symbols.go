@@ -64,10 +64,12 @@ var forexSymbols = []forexSymbol{
 const (
 	seedContractSize = 100000.0
 
-	// volume is counted in 1/10000 lot, so 100 is 0.01 lot
-	seedVolumeMin  = 100
-	seedVolumeMax  = 1000000
-	seedVolumeStep = 100
+	// volume is a whole number of 1/10000 lot, so multiply lots by 10000
+	seedLotUnits = 10000
+
+	seedVolumeMin  = 0.01 * seedLotUnits // 0.01 lot
+	seedVolumeMax  = 100 * seedLotUnits  // 100 lots
+	seedVolumeStep = 0.01 * seedLotUnits // 0.01 lot
 
 	// a rate of 1 charges the full margin; 0 would ask for none at all
 	seedMarginRate = 1.0
