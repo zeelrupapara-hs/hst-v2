@@ -1,11 +1,15 @@
 package v1
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -354,6 +358,60 @@ func symbolPath(folder, symbol string) string {
 	return folder + `\` + symbol
 }
 
+// jsonString reads a json string value, and returns "" for anything else.
+func jsonString(raw json.RawMessage) string {
+	var out string
+	_ = json.Unmarshal(raw, &out)
+	return out
+}
+
+// sameJSON compares two json values, treating 100 and 100.00000000 as equal.
+func sameJSON(was, next json.RawMessage) bool {
+	if bytes.Equal(was, next) {
+		return true
+	}
+	oldNum, oldErr := strconv.ParseFloat(string(was), 64)
+	newNum, newErr := strconv.ParseFloat(string(next), 64)
+	return oldErr == nil && newErr == nil && oldNum == newNum
+}
+
+// changedSymbolFields lists what the request really changes, as key=value.
+// A field the caller sent with the value it already had is left out.
+func changedSymbolFields(before map[string]json.RawMessage, body *UptSymbol, sessions int) string {
+	changes := make([]string, 0, 8)
+	fields := reflect.ValueOf(*body)
+	types := fields.Type()
+
+	for i := range fields.NumField() {
+		field := fields.Field(i)
+		if field.Kind() != reflect.Pointer || field.IsNil() {
+			continue
+		}
+
+		name, _, _ := strings.Cut(types.Field(i).Tag.Get("json"), ",")
+		if name == "" || name == "-" {
+			continue
+		}
+
+		// sessions replace every row, so the count says more than the whole list
+		if name == "sessions" {
+			if sent, ok := field.Interface().(*[]CrtSymbolSession); ok && len(*sent) != sessions {
+				changes = append(changes, fmt.Sprintf("sessions=%d", len(*sent)))
+			}
+			continue
+		}
+
+		next, err := json.Marshal(field.Elem().Interface())
+		if err != nil || sameJSON(before[name], next) {
+			continue
+		}
+
+		changes = append(changes, name+"="+string(next))
+	}
+
+	return strings.Join(changes, ", ")
+}
+
 // symbolFolder drops the symbol from the end of a stored path.
 func symbolFolder(path string) string {
 	if i := strings.LastIndex(path, `\`); i >= 0 {
@@ -511,7 +569,8 @@ func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
 
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "symbol created",
-		"actor", snap.Login, "symbol_id", view.SymbolId, "symbol", view.Symbol)
+		"actor", snap.Login, "symbol_id", view.SymbolId,
+		"symbol", view.Symbol, "path", view.Path)
 
 	return s.App.HttpResponseCreated(c, view)
 }
@@ -816,24 +875,41 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// the stored path ends with the symbol, so renaming or moving rebuilds it
-	if body.Symbol != nil || body.Path != nil {
-		var curSymbol, curPath string
-		err = tx.QueryRow(ctx,
-			`SELECT symbol, path FROM hst.symbols WHERE symbol_id = $1 FOR UPDATE`, id).
-			Scan(&curSymbol, &curPath)
+	// one row as json, so the log can name what really changes without a wide scan
+	var raw []byte
+	if err := tx.QueryRow(ctx,
+		`SELECT to_jsonb(s) FROM hst.symbols s WHERE symbol_id = $1 FOR UPDATE`, id).
+		Scan(&raw); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 		}
-		if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	var before map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &before); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	// only sessions need a second look, and only when the caller sends them
+	sessionCount := 0
+	if body.Sessions != nil {
+		if err := tx.QueryRow(ctx,
+			`SELECT count(*) FROM hst.symbols_sessions WHERE symbol_id = $1`, id).
+			Scan(&sessionCount); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
+	}
 
-		symbol := curSymbol
+	changes := changedSymbolFields(before, &body, sessionCount)
+
+	// the stored path ends with the symbol, so renaming or moving rebuilds it
+	if body.Symbol != nil || body.Path != nil {
+		symbol := jsonString(before["symbol"])
 		if body.Symbol != nil {
 			symbol = *body.Symbol
 		}
-		folder := symbolFolder(curPath)
+		folder := symbolFolder(jsonString(before["path"]))
 		if body.Path != nil {
 			folder = *body.Path
 		}
@@ -1114,7 +1190,8 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "symbol updated",
-		"actor", snap.Login, "symbol_id", id)
+		"actor", snap.Login, "symbol_id", id,
+		"symbol", detail.Symbol.Symbol, "changes", changes)
 
 	return s.App.HttpResponseOK(c, detail)
 }
@@ -1137,17 +1214,20 @@ func (s *HttpServer) DeleteSymbol(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	tag, err := s.DB.DB.Exec(c.UserContext(), `DELETE FROM hst.symbols WHERE symbol_id = $1`, id)
-	if err != nil {
+	var symbol, path string
+	if err := s.DB.DB.QueryRow(c.UserContext(),
+		`DELETE FROM hst.symbols WHERE symbol_id = $1 RETURNING symbol, path`, id).
+		Scan(&symbol, &path); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	if tag.RowsAffected() == 0 {
-		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "symbol deleted",
-		"actor", snap.Login, "symbol_id", id)
+		"actor", snap.Login, "symbol_id", id,
+		"symbol", symbol, "path", path)
 
 	return s.App.HttpResponseNoContent(c)
 }
