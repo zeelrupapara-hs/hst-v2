@@ -379,11 +379,12 @@ func isUniqueViolation(err error) bool {
 //	@Tags		Symbols
 //	@Accept		json
 //	@Produce	json
-//	@Success	201	{object}	Response{data=ViewSymbol}
-//	@Failure	400	{object}	Response
-//	@Failure	403	{object}	Response
-//	@Failure	409	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		body	body		CrtSymbol	true	"the symbol to create"
+//	@Success	201		{object}	Response{data=ViewSymbol}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Failure	409		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/symbols [post]
 func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
@@ -512,10 +513,15 @@ func insertSessions(ctx context.Context, db sessionInserter, symbolID int64, ses
 //	@Id			ListSymbols
 //	@Tags		Symbols
 //	@Produce	json
-//	@Success	200	{object}	Response{data=[]ViewSymbol}
-//	@Failure	400	{object}	Response
-//	@Failure	403	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		page	query		int		false	"page number, from 1"
+//	@Param		limit	query		int		false	"rows per page, max 500"
+//	@Param		search	query		string	false	"matches symbol, path or description"
+//	@Param		sort_by	query		string	false	"symbol_id, symbol, path, digits, trade_mode, calc_mode, exec_mode, spread, date_created, date_modified"	Enums(symbol_id, symbol, path, digits, trade_mode, calc_mode, exec_mode, spread, date_created, date_modified)
+//	@Param		order	query		string	false	"asc or desc"																								Enums(asc, desc)
+//	@Success	200		{object}	Response{data=[]ViewSymbol}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/symbols [get]
 func (s *HttpServer) ListSymbols(c *fiber.Ctx) error {
@@ -557,7 +563,9 @@ func (s *HttpServer) ListSymbols(c *fiber.Ctx) error {
 //	@Id			GetSymbol
 //	@Tags		Symbols
 //	@Produce	json
+//	@Param		id	path		int	true	"symbol id"
 //	@Success	200	{object}	Response{data=ViewSymbolDetail}
+//	@Failure	400	{object}	Response
 //	@Failure	404	{object}	Response
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
@@ -739,11 +747,13 @@ func (s *HttpServer) selectSymbolDetail(ctx context.Context, id int64) (*ViewSym
 //	@Tags		Symbols
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	Response{data=ViewSymbolDetail}
-//	@Failure	400	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	409	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		id		path		int			true	"symbol id"
+//	@Param		body	body		UptSymbol	true	"only the fields to change"
+//	@Success	200		{object}	Response{data=ViewSymbolDetail}
+//	@Failure	400		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	409		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/symbols/{id} [patch]
 func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
@@ -1062,7 +1072,9 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 //	@Id			DeleteSymbol
 //	@Tags		Symbols
 //	@Produce	json
+//	@Param		id	path		int	true	"symbol id"
 //	@Success	204	{object}	Response
+//	@Failure	400	{object}	Response
 //	@Failure	404	{object}	Response
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth

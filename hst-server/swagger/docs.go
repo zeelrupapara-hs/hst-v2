@@ -897,6 +897,54 @@ const docTemplate = `{
                     "Symbols"
                 ],
                 "operationId": "ListSymbols",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page number, from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "rows per page, max 500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "matches symbol, path or description",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "symbol_id",
+                            "symbol",
+                            "path",
+                            "digits",
+                            "trade_mode",
+                            "calc_mode",
+                            "exec_mode",
+                            "spread",
+                            "date_created",
+                            "date_modified"
+                        ],
+                        "type": "string",
+                        "description": "symbol_id, symbol, path, digits, trade_mode, calc_mode, exec_mode, spread, date_created, date_modified",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "asc or desc",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -955,6 +1003,17 @@ const docTemplate = `{
                     "Symbols"
                 ],
                 "operationId": "CreateSymbol",
+                "parameters": [
+                    {
+                        "description": "the symbol to create",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.CrtSymbol"
+                        }
+                    }
+                ],
                 "responses": {
                     "201": {
                         "description": "Created",
@@ -1015,6 +1074,15 @@ const docTemplate = `{
                     "Symbols"
                 ],
                 "operationId": "GetSymbol",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "symbol id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1032,6 +1100,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
                     "404": {
@@ -1061,9 +1135,24 @@ const docTemplate = `{
                     "Symbols"
                 ],
                 "operationId": "DeleteSymbol",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "symbol id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "204": {
                         "description": "No Content",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
@@ -1098,6 +1187,24 @@ const docTemplate = `{
                     "Symbols"
                 ],
                 "operationId": "UpdateSymbol",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "symbol id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "only the fields to change",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.UptSymbol"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1977,6 +2084,183 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_server_v1.CrtSymbol": {
+            "type": "object",
+            "required": [
+                "currency_base",
+                "currency_margin",
+                "currency_profit",
+                "path",
+                "symbol"
+            ],
+            "properties": {
+                "calc_mode": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "category": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "contract_size": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "currency_base": {
+                    "type": "string",
+                    "maxLength": 16
+                },
+                "currency_margin": {
+                    "type": "string",
+                    "maxLength": 16
+                },
+                "currency_profit": {
+                    "type": "string",
+                    "maxLength": 16
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "digits": {
+                    "type": "integer",
+                    "maximum": 12,
+                    "minimum": 0
+                },
+                "exchange": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "exec_mode": {
+                    "type": "integer",
+                    "maximum": 3,
+                    "minimum": 0
+                },
+                "expir_flags": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "fill_flags": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "freeze_level": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "gtc_mode": {
+                    "type": "integer",
+                    "maximum": 2,
+                    "minimum": 0
+                },
+                "international": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "isin": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "order_flags": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "path": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "quotes_timeout": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_server_v1.CrtSymbolSession"
+                    }
+                },
+                "source": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "spread": {
+                    "type": "integer"
+                },
+                "spread_balance": {
+                    "type": "integer"
+                },
+                "stops_level": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "swap_long": {
+                    "type": "number"
+                },
+                "swap_mode": {
+                    "type": "integer",
+                    "maximum": 9,
+                    "minimum": 0
+                },
+                "swap_short": {
+                    "type": "number"
+                },
+                "symbol": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "tick_size": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "tick_value": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "trade_mode": {
+                    "type": "integer",
+                    "maximum": 4,
+                    "minimum": 0
+                },
+                "volume_max": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "volume_min": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "volume_step": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "internal_server_v1.CrtSymbolSession": {
+            "type": "object",
+            "properties": {
+                "close": {
+                    "type": "integer",
+                    "maximum": 1440,
+                    "minimum": 1
+                },
+                "day": {
+                    "type": "integer",
+                    "maximum": 6,
+                    "minimum": 0
+                },
+                "open": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "type": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ]
+                }
+            }
+        },
         "internal_server_v1.CrtUser": {
             "type": "object",
             "required": [
@@ -2346,6 +2630,365 @@ const docTemplate = `{
                     }
                 },
                 "server": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_server_v1.UptSymbol": {
+            "type": "object",
+            "properties": {
+                "accrued_interest": {
+                    "type": "number"
+                },
+                "basis": {
+                    "type": "string"
+                },
+                "calc_mode": {
+                    "$ref": "#/definitions/model.CalcMode"
+                },
+                "category": {
+                    "type": "string"
+                },
+                "cfi": {
+                    "type": "string"
+                },
+                "color": {
+                    "type": "integer"
+                },
+                "color_background": {
+                    "type": "integer"
+                },
+                "contract_size": {
+                    "type": "number"
+                },
+                "country": {
+                    "type": "string"
+                },
+                "currency_base": {
+                    "type": "string"
+                },
+                "currency_base_digits": {
+                    "type": "integer"
+                },
+                "currency_margin": {
+                    "type": "string"
+                },
+                "currency_margin_digits": {
+                    "type": "integer"
+                },
+                "currency_profit": {
+                    "type": "string"
+                },
+                "currency_profit_digits": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "digits": {
+                    "type": "integer"
+                },
+                "exchange": {
+                    "type": "string"
+                },
+                "exec_mode": {
+                    "$ref": "#/definitions/model.ExecMode"
+                },
+                "expir_flags": {
+                    "$ref": "#/definitions/model.ExpirationFlags"
+                },
+                "face_value": {
+                    "type": "number"
+                },
+                "fill_flags": {
+                    "$ref": "#/definitions/model.FillingFlags"
+                },
+                "filter_discard": {
+                    "type": "integer"
+                },
+                "filter_gap": {
+                    "type": "integer"
+                },
+                "filter_gap_ticks": {
+                    "type": "integer"
+                },
+                "filter_hard": {
+                    "type": "integer"
+                },
+                "filter_hard_ticks": {
+                    "type": "integer"
+                },
+                "filter_soft": {
+                    "type": "integer"
+                },
+                "filter_soft_ticks": {
+                    "type": "integer"
+                },
+                "filter_spread_max": {
+                    "type": "integer"
+                },
+                "filter_spread_min": {
+                    "type": "integer"
+                },
+                "freeze_level": {
+                    "type": "integer"
+                },
+                "gtc_mode": {
+                    "$ref": "#/definitions/model.GTCMode"
+                },
+                "ie_check_mode": {
+                    "$ref": "#/definitions/model.InstantMode"
+                },
+                "ie_slip_losing": {
+                    "type": "integer"
+                },
+                "ie_slip_profit": {
+                    "type": "integer"
+                },
+                "ie_timeout": {
+                    "type": "integer"
+                },
+                "ie_volume_max": {
+                    "type": "integer"
+                },
+                "ie_volume_max_ext": {
+                    "type": "integer"
+                },
+                "industry": {
+                    "$ref": "#/definitions/model.SymbolIndustry"
+                },
+                "international": {
+                    "type": "string"
+                },
+                "isin": {
+                    "type": "string"
+                },
+                "margin_flags": {
+                    "$ref": "#/definitions/model.SymbolMarginFlags"
+                },
+                "margin_hedged": {
+                    "type": "number"
+                },
+                "margin_initial": {
+                    "type": "number"
+                },
+                "margin_initial_buy": {
+                    "type": "number"
+                },
+                "margin_initial_buy_limit": {
+                    "type": "number"
+                },
+                "margin_initial_buy_stop": {
+                    "type": "number"
+                },
+                "margin_initial_buy_stop_limit": {
+                    "type": "number"
+                },
+                "margin_initial_sell": {
+                    "type": "number"
+                },
+                "margin_initial_sell_limit": {
+                    "type": "number"
+                },
+                "margin_initial_sell_stop": {
+                    "type": "number"
+                },
+                "margin_initial_sell_stop_limit": {
+                    "type": "number"
+                },
+                "margin_maintenance": {
+                    "type": "number"
+                },
+                "margin_maintenance_buy": {
+                    "type": "number"
+                },
+                "margin_maintenance_buy_limit": {
+                    "type": "number"
+                },
+                "margin_maintenance_buy_stop": {
+                    "type": "number"
+                },
+                "margin_maintenance_buy_stop_limit": {
+                    "type": "number"
+                },
+                "margin_maintenance_sell": {
+                    "type": "number"
+                },
+                "margin_maintenance_sell_limit": {
+                    "type": "number"
+                },
+                "margin_maintenance_sell_stop": {
+                    "type": "number"
+                },
+                "margin_maintenance_sell_stop_limit": {
+                    "type": "number"
+                },
+                "margin_rate_currency": {
+                    "type": "number"
+                },
+                "margin_rate_liquidity": {
+                    "type": "number"
+                },
+                "option_mode": {
+                    "$ref": "#/definitions/model.OptionMode"
+                },
+                "order_flags": {
+                    "$ref": "#/definitions/model.OrderFlags"
+                },
+                "page": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "price_limit_max": {
+                    "type": "number"
+                },
+                "price_limit_min": {
+                    "type": "number"
+                },
+                "price_settle": {
+                    "type": "number"
+                },
+                "price_strike": {
+                    "type": "number"
+                },
+                "quotes_timeout": {
+                    "type": "integer"
+                },
+                "re_flags": {
+                    "$ref": "#/definitions/model.RequestFlags"
+                },
+                "re_timeout": {
+                    "type": "integer"
+                },
+                "sector": {
+                    "$ref": "#/definitions/model.SymbolSector"
+                },
+                "sessions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_server_v1.CrtSymbolSession"
+                    }
+                },
+                "source": {
+                    "type": "string"
+                },
+                "splice_time_days": {
+                    "type": "integer"
+                },
+                "splice_time_type": {
+                    "$ref": "#/definitions/model.SpliceTimeType"
+                },
+                "splice_type": {
+                    "$ref": "#/definitions/model.SpliceType"
+                },
+                "spread": {
+                    "type": "integer"
+                },
+                "spread_balance": {
+                    "type": "integer"
+                },
+                "spread_diff": {
+                    "type": "integer"
+                },
+                "spread_diff_balance": {
+                    "type": "integer"
+                },
+                "stops_level": {
+                    "type": "integer"
+                },
+                "subscriptions_delay": {
+                    "type": "integer"
+                },
+                "swap_flags": {
+                    "$ref": "#/definitions/model.SwapFlags"
+                },
+                "swap_long": {
+                    "type": "number"
+                },
+                "swap_mode": {
+                    "$ref": "#/definitions/model.SwapMode"
+                },
+                "swap_rate_friday": {
+                    "type": "number"
+                },
+                "swap_rate_monday": {
+                    "type": "number"
+                },
+                "swap_rate_saturday": {
+                    "type": "number"
+                },
+                "swap_rate_sunday": {
+                    "type": "number"
+                },
+                "swap_rate_thursday": {
+                    "type": "number"
+                },
+                "swap_rate_tuesday": {
+                    "type": "number"
+                },
+                "swap_rate_wednesday": {
+                    "type": "number"
+                },
+                "swap_short": {
+                    "type": "number"
+                },
+                "swap_year_day": {
+                    "$ref": "#/definitions/model.SwapDays"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "tick_book_depth": {
+                    "type": "integer"
+                },
+                "tick_chart_mode": {
+                    "$ref": "#/definitions/model.ChartMode"
+                },
+                "tick_flags": {
+                    "$ref": "#/definitions/model.TickFlags"
+                },
+                "tick_size": {
+                    "type": "number"
+                },
+                "tick_value": {
+                    "type": "number"
+                },
+                "time_expiration": {
+                    "type": "integer"
+                },
+                "time_start": {
+                    "type": "integer"
+                },
+                "trade_flags": {
+                    "$ref": "#/definitions/model.SymbolTradeFlags"
+                },
+                "trade_mode": {
+                    "$ref": "#/definitions/model.TradeMode"
+                },
+                "volume_limit": {
+                    "type": "integer"
+                },
+                "volume_limit_ext": {
+                    "type": "integer"
+                },
+                "volume_max": {
+                    "type": "integer"
+                },
+                "volume_max_ext": {
+                    "type": "integer"
+                },
+                "volume_min": {
+                    "type": "integer"
+                },
+                "volume_min_ext": {
+                    "type": "integer"
+                },
+                "volume_step": {
+                    "type": "integer"
+                },
+                "volume_step_ext": {
                     "type": "integer"
                 }
             }

@@ -186,6 +186,138 @@ definitions:
     - login
     - name
     type: object
+  internal_server_v1.CrtSymbol:
+    properties:
+      calc_mode:
+        minimum: 0
+        type: integer
+      category:
+        maxLength: 128
+        type: string
+      contract_size:
+        minimum: 0
+        type: number
+      currency_base:
+        maxLength: 16
+        type: string
+      currency_margin:
+        maxLength: 16
+        type: string
+      currency_profit:
+        maxLength: 16
+        type: string
+      description:
+        maxLength: 255
+        type: string
+      digits:
+        maximum: 12
+        minimum: 0
+        type: integer
+      exchange:
+        maxLength: 128
+        type: string
+      exec_mode:
+        maximum: 3
+        minimum: 0
+        type: integer
+      expir_flags:
+        minimum: 0
+        type: integer
+      fill_flags:
+        minimum: 0
+        type: integer
+      freeze_level:
+        minimum: 0
+        type: integer
+      gtc_mode:
+        maximum: 2
+        minimum: 0
+        type: integer
+      international:
+        maxLength: 64
+        type: string
+      isin:
+        maxLength: 32
+        type: string
+      order_flags:
+        minimum: 0
+        type: integer
+      path:
+        maxLength: 255
+        type: string
+      quotes_timeout:
+        minimum: 0
+        type: integer
+      sessions:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtSymbolSession'
+        type: array
+      source:
+        maxLength: 128
+        type: string
+      spread:
+        type: integer
+      spread_balance:
+        type: integer
+      stops_level:
+        minimum: 0
+        type: integer
+      swap_long:
+        type: number
+      swap_mode:
+        maximum: 9
+        minimum: 0
+        type: integer
+      swap_short:
+        type: number
+      symbol:
+        maxLength: 64
+        type: string
+      tick_size:
+        minimum: 0
+        type: number
+      tick_value:
+        minimum: 0
+        type: number
+      trade_mode:
+        maximum: 4
+        minimum: 0
+        type: integer
+      volume_max:
+        minimum: 0
+        type: integer
+      volume_min:
+        minimum: 0
+        type: integer
+      volume_step:
+        minimum: 0
+        type: integer
+    required:
+    - currency_base
+    - currency_margin
+    - currency_profit
+    - path
+    - symbol
+    type: object
+  internal_server_v1.CrtSymbolSession:
+    properties:
+      close:
+        maximum: 1440
+        minimum: 1
+        type: integer
+      day:
+        maximum: 6
+        minimum: 0
+        type: integer
+      open:
+        minimum: 0
+        type: integer
+      type:
+        enum:
+        - 0
+        - 1
+        type: integer
+    type: object
   internal_server_v1.CrtUser:
     properties:
       city:
@@ -437,6 +569,245 @@ definitions:
         type: integer
     required:
     - name
+    type: object
+  internal_server_v1.UptSymbol:
+    properties:
+      accrued_interest:
+        type: number
+      basis:
+        type: string
+      calc_mode:
+        $ref: '#/definitions/model.CalcMode'
+      category:
+        type: string
+      cfi:
+        type: string
+      color:
+        type: integer
+      color_background:
+        type: integer
+      contract_size:
+        type: number
+      country:
+        type: string
+      currency_base:
+        type: string
+      currency_base_digits:
+        type: integer
+      currency_margin:
+        type: string
+      currency_margin_digits:
+        type: integer
+      currency_profit:
+        type: string
+      currency_profit_digits:
+        type: integer
+      description:
+        type: string
+      digits:
+        type: integer
+      exchange:
+        type: string
+      exec_mode:
+        $ref: '#/definitions/model.ExecMode'
+      expir_flags:
+        $ref: '#/definitions/model.ExpirationFlags'
+      face_value:
+        type: number
+      fill_flags:
+        $ref: '#/definitions/model.FillingFlags'
+      filter_discard:
+        type: integer
+      filter_gap:
+        type: integer
+      filter_gap_ticks:
+        type: integer
+      filter_hard:
+        type: integer
+      filter_hard_ticks:
+        type: integer
+      filter_soft:
+        type: integer
+      filter_soft_ticks:
+        type: integer
+      filter_spread_max:
+        type: integer
+      filter_spread_min:
+        type: integer
+      freeze_level:
+        type: integer
+      gtc_mode:
+        $ref: '#/definitions/model.GTCMode'
+      ie_check_mode:
+        $ref: '#/definitions/model.InstantMode'
+      ie_slip_losing:
+        type: integer
+      ie_slip_profit:
+        type: integer
+      ie_timeout:
+        type: integer
+      ie_volume_max:
+        type: integer
+      ie_volume_max_ext:
+        type: integer
+      industry:
+        $ref: '#/definitions/model.SymbolIndustry'
+      international:
+        type: string
+      isin:
+        type: string
+      margin_flags:
+        $ref: '#/definitions/model.SymbolMarginFlags'
+      margin_hedged:
+        type: number
+      margin_initial:
+        type: number
+      margin_initial_buy:
+        type: number
+      margin_initial_buy_limit:
+        type: number
+      margin_initial_buy_stop:
+        type: number
+      margin_initial_buy_stop_limit:
+        type: number
+      margin_initial_sell:
+        type: number
+      margin_initial_sell_limit:
+        type: number
+      margin_initial_sell_stop:
+        type: number
+      margin_initial_sell_stop_limit:
+        type: number
+      margin_maintenance:
+        type: number
+      margin_maintenance_buy:
+        type: number
+      margin_maintenance_buy_limit:
+        type: number
+      margin_maintenance_buy_stop:
+        type: number
+      margin_maintenance_buy_stop_limit:
+        type: number
+      margin_maintenance_sell:
+        type: number
+      margin_maintenance_sell_limit:
+        type: number
+      margin_maintenance_sell_stop:
+        type: number
+      margin_maintenance_sell_stop_limit:
+        type: number
+      margin_rate_currency:
+        type: number
+      margin_rate_liquidity:
+        type: number
+      option_mode:
+        $ref: '#/definitions/model.OptionMode'
+      order_flags:
+        $ref: '#/definitions/model.OrderFlags'
+      page:
+        type: string
+      path:
+        type: string
+      price_limit_max:
+        type: number
+      price_limit_min:
+        type: number
+      price_settle:
+        type: number
+      price_strike:
+        type: number
+      quotes_timeout:
+        type: integer
+      re_flags:
+        $ref: '#/definitions/model.RequestFlags'
+      re_timeout:
+        type: integer
+      sector:
+        $ref: '#/definitions/model.SymbolSector'
+      sessions:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtSymbolSession'
+        type: array
+      source:
+        type: string
+      splice_time_days:
+        type: integer
+      splice_time_type:
+        $ref: '#/definitions/model.SpliceTimeType'
+      splice_type:
+        $ref: '#/definitions/model.SpliceType'
+      spread:
+        type: integer
+      spread_balance:
+        type: integer
+      spread_diff:
+        type: integer
+      spread_diff_balance:
+        type: integer
+      stops_level:
+        type: integer
+      subscriptions_delay:
+        type: integer
+      swap_flags:
+        $ref: '#/definitions/model.SwapFlags'
+      swap_long:
+        type: number
+      swap_mode:
+        $ref: '#/definitions/model.SwapMode'
+      swap_rate_friday:
+        type: number
+      swap_rate_monday:
+        type: number
+      swap_rate_saturday:
+        type: number
+      swap_rate_sunday:
+        type: number
+      swap_rate_thursday:
+        type: number
+      swap_rate_tuesday:
+        type: number
+      swap_rate_wednesday:
+        type: number
+      swap_short:
+        type: number
+      swap_year_day:
+        $ref: '#/definitions/model.SwapDays'
+      symbol:
+        type: string
+      tick_book_depth:
+        type: integer
+      tick_chart_mode:
+        $ref: '#/definitions/model.ChartMode'
+      tick_flags:
+        $ref: '#/definitions/model.TickFlags'
+      tick_size:
+        type: number
+      tick_value:
+        type: number
+      time_expiration:
+        type: integer
+      time_start:
+        type: integer
+      trade_flags:
+        $ref: '#/definitions/model.SymbolTradeFlags'
+      trade_mode:
+        $ref: '#/definitions/model.TradeMode'
+      volume_limit:
+        type: integer
+      volume_limit_ext:
+        type: integer
+      volume_max:
+        type: integer
+      volume_max_ext:
+        type: integer
+      volume_min:
+        type: integer
+      volume_min_ext:
+        type: integer
+      volume_step:
+        type: integer
+      volume_step_ext:
+        type: integer
     type: object
   internal_server_v1.UptUser:
     properties:
@@ -2295,6 +2666,42 @@ paths:
   /api/v1/symbols:
     get:
       operationId: ListSymbols
+      parameters:
+      - description: page number, from 1
+        in: query
+        name: page
+        type: integer
+      - description: rows per page, max 500
+        in: query
+        name: limit
+        type: integer
+      - description: matches symbol, path or description
+        in: query
+        name: search
+        type: string
+      - description: symbol_id, symbol, path, digits, trade_mode, calc_mode, exec_mode,
+          spread, date_created, date_modified
+        enum:
+        - symbol_id
+        - symbol
+        - path
+        - digits
+        - trade_mode
+        - calc_mode
+        - exec_mode
+        - spread
+        - date_created
+        - date_modified
+        in: query
+        name: sort_by
+        type: string
+      - description: asc or desc
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -2329,6 +2736,13 @@ paths:
       consumes:
       - application/json
       operationId: CreateSymbol
+      parameters:
+      - description: the symbol to create
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtSymbol'
       produces:
       - application/json
       responses:
@@ -2364,11 +2778,21 @@ paths:
   /api/v1/symbols/{id}:
     delete:
       operationId: DeleteSymbol
+      parameters:
+      - description: symbol id
+        in: path
+        name: id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
         "204":
           description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "400":
+          description: Bad Request
           schema:
             $ref: '#/definitions/internal_server_v1.Response'
         "404":
@@ -2385,6 +2809,12 @@ paths:
       - Symbols
     get:
       operationId: GetSymbol
+      parameters:
+      - description: symbol id
+        in: path
+        name: id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -2397,6 +2827,10 @@ paths:
                 data:
                   $ref: '#/definitions/internal_server_v1.ViewSymbolDetail'
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
         "404":
           description: Not Found
           schema:
@@ -2413,6 +2847,18 @@ paths:
       consumes:
       - application/json
       operationId: UpdateSymbol
+      parameters:
+      - description: symbol id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: only the fields to change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptSymbol'
       produces:
       - application/json
       responses:
