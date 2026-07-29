@@ -2,6 +2,8 @@ package seed
 
 import (
 	"context"
+	"sort"
+	"strings"
 	"time"
 
 	"hstserver/model"
@@ -18,6 +20,23 @@ var firstManager = struct {
 	Name:  "First Admin",
 	Email: "admin@hybridsolutions.com",
 }
+
+// allRightColumns and allRightOnes grant every right to the first administrator.
+// Built from the generated names, so a new right is included automatically.
+var allRightColumns, allRightOnes = func() (string, string) {
+	cols := make([]string, 0, model.ManagerRightsCount)
+	for bit := uint(0); bit < model.ManagerRightsCount; bit++ {
+		cols = append(cols, model.ManagerRightsNames[bit])
+	}
+	sort.Strings(cols)
+
+	ones := make([]string, len(cols))
+	for i := range ones {
+		ones[i] = "1"
+	}
+
+	return strings.Join(cols, ", "), strings.Join(ones, ", ")
+}()
 
 // SeedManager creates the first administrator on an empty database.
 func (s *Seeder) SeedManager(ctx context.Context) error {
@@ -69,11 +88,9 @@ func (s *Seeder) SeedManager(ctx context.Context) error {
 		return err
 	}
 
-	// admin and manager are the terminal gates; the rest are granted in the panel.
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO hst.managers (login, name, groups, right_admin, right_manager,
-		                           right_cfg_managers, updated_at)
-		 VALUES ($1, $2, $3, 1, 1, 1, $4)`,
+		`INSERT INTO hst.managers (login, name, groups, updated_at, `+allRightColumns+`)
+		 VALUES ($1, $2, $3, $4, `+allRightOnes+`)`,
 		login, firstManager.Name, []string{firstManager.Group}, now); err != nil {
 		return err
 	}

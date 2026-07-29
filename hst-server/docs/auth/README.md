@@ -20,7 +20,8 @@ Connection types: `32` admin panel, `33` manager panel.
 ## 0. The seed admin
 
 On an empty database the server creates login **1000** from `seed/manager.go`,
-using `FIRST_MANAGER_PASSWORD` from `.env`.
+using `FIRST_MANAGER_PASSWORD` from `.env`. It gets all 77 manager rights, so
+every endpoint works immediately.
 
 ```bash
 curl -u '1000:Bootstrap-Admin-2026!' -X POST localhost:8080/auth/v1/oauth2/login \
