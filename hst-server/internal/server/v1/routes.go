@@ -86,4 +86,13 @@ func (s *HttpServer) RegisterV1() {
 	symbols.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.GetSymbol)
 	symbols.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.UpdateSymbol)
 	symbols.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.DeleteSymbol)
+
+	// groups (config templates + per-group symbol overrides)
+	groups := v1.Group("/groups", s.Middleware.Protect, s.Middleware.RequireManager)
+	groups.Get("/", s.Middleware.Authorization(model.MgrRightCfgGroups), s.ListGroups)
+	groups.Post("/", s.Middleware.Authorization(model.MgrRightCfgGroups), s.CreateGroup)
+	groups.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.GetGroup)
+	groups.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.UpdateGroup)
+	groups.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.DeleteGroup)
+	groups.Get("/:id/symbols", s.Middleware.Authorization(model.MgrRightCfgGroups), s.ListGroupSymbols)
 }
