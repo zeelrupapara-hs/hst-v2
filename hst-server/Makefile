@@ -26,7 +26,7 @@ PSQL_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(
 
 MIGRATE := $(GOBIN)/migrate
 
-.PHONY: run build test tidy fmt vet check e2e up down logs psql tools gen-keys swagger \
+.PHONY: run build test tidy fmt vet check up down logs psql tools gen-keys swagger \
         migrate-create migrate-up migrate-down migrate-version migrate-force migrate-drop
 
 run:
@@ -53,10 +53,6 @@ check: fmt vet
 	$(GOBIN)/errcheck ./...
 	$(GOBIN)/gosec -quiet ./...
 	$(GOBIN)/govulncheck ./...
-
-# end to end suite against a running server; needs a fresh database, see the script header
-e2e:
-	E2E_DATABASE_URL="$(PSQL_URL)" ./scripts/e2e.sh
 
 # regenerates swagger/ from the handler annotations
 # output is swagger/ and not docs/, because docs/ is gitignored
@@ -118,5 +114,8 @@ ifndef v
 endif
 	$(MIGRATE) -path $(MIGRATIONS) -database "$(DB_URL)" force $(v)
 
+# migrate's own drop only clears the search_path, so the hst schema survives it
 migrate-drop:
-	$(MIGRATE) -path $(MIGRATIONS) -database "$(DB_URL)" drop -f
+	@psql "$(PSQL_URL)" -q -c 'DROP SCHEMA IF EXISTS hst CASCADE'
+	@psql "$(PSQL_URL)" -q -c 'DROP TABLE IF EXISTS public.schema_migrations'
+	@echo "dropped the hst schema and the migration state"

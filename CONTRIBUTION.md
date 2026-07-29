@@ -14,7 +14,6 @@ hst-v2/
     ├── pkg/             db, http, logger, nats, cache, crypto, jwt, oauth2
     ├── migrations/      <epoch-millis>_<name>.{up,down}.sql
     ├── seed/            starting rows for a fresh install
-    ├── scripts/         e2e.sh, the end to end suite
     ├── swagger/         generated, do not edit by hand
     └── docs/            MT5 data model (gitignored, except docs/infra which is committed)
 ```
@@ -88,15 +87,13 @@ rollback.
 ```bash
 make check      # fmt, vet, staticcheck, errcheck, gosec, govulncheck
 make swagger    # if you touched a handler annotation
-make e2e        # 90 case end to end suite against a running server
 ```
 
 `make check` must be clean. gosec and govulncheck are expected to report zero.
+CI runs it on every push.
 
-This project carries no Go test files. Behaviour is verified by `make e2e`,
-which drives a running server with curl and asserts both the HTTP status and
-the MT5 return code. It needs a fresh database and refuses to run against a
-dirty one. CI runs check and e2e on every push.
+This project carries no test files of any kind. Verify by running the server
+and exercising it by hand.
 
 Deploying to Kubernetes: see `hst-server/docs/infra/server/README.md`.
 
