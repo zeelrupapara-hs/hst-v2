@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 	"time"
 
 	"hstserver/model"
@@ -340,6 +341,27 @@ func pointMultiply(digits int32) (float64, float64) {
 	return math.Pow10(int(-digits)), math.Pow10(int(digits))
 }
 
+// symbolPath puts the symbol at the end of its folder, the way MT5 stores it.
+func symbolPath(folder, symbol string) string {
+	folder = strings.Trim(folder, `\`)
+	if folder == "" || folder == symbol {
+		return symbol
+	}
+	// the caller may already have sent the full path
+	if i := strings.LastIndex(folder, `\`); i >= 0 && folder[i+1:] == symbol {
+		return folder
+	}
+	return folder + `\` + symbol
+}
+
+// symbolFolder drops the symbol from the end of a stored path.
+func symbolFolder(path string) string {
+	if i := strings.LastIndex(path, `\`); i >= 0 {
+		return path[:i]
+	}
+	return ""
+}
+
 func validateSessions(sessions []CrtSymbolSession) error {
 	type key struct {
 		t, d int16
@@ -435,6 +457,10 @@ func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
 	}
 
 	point, multiply := pointMultiply(body.Digits)
+	path := symbolPath(body.Path, body.Symbol)
+	if len(path) > 255 {
+		return s.App.HttpResponseBadRequest(c, fmt.Errorf("path and symbol are longer than 255 together"))
+	}
 	now := time.Now().UnixNano()
 
 	tx, err := s.DB.DB.Begin(ctx)
@@ -456,7 +482,7 @@ func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
 		         $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$36)
 		 RETURNING `+symbolListColumns,
-		body.Symbol, body.Path, body.Description, body.ISIN, body.International,
+		body.Symbol, path, body.Description, body.ISIN, body.International,
 		body.Category, body.Exchange, body.Source,
 		body.CurrencyBase, body.CurrencyProfit, body.CurrencyMargin,
 		body.Digits, point, multiply,
@@ -789,6 +815,34 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	// the stored path ends with the symbol, so renaming or moving rebuilds it
+	if body.Symbol != nil || body.Path != nil {
+		var curSymbol, curPath string
+		err = tx.QueryRow(ctx,
+			`SELECT symbol, path FROM hst.symbols WHERE symbol_id = $1 FOR UPDATE`, id).
+			Scan(&curSymbol, &curPath)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+		if err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+
+		symbol := curSymbol
+		if body.Symbol != nil {
+			symbol = *body.Symbol
+		}
+		folder := symbolFolder(curPath)
+		if body.Path != nil {
+			folder = *body.Path
+		}
+		composed := symbolPath(folder, symbol)
+		if len(composed) > 255 {
+			return s.App.HttpResponseBadRequest(c, fmt.Errorf("path and symbol are longer than 255 together"))
+		}
+		body.Path = &composed
+	}
 
 	tag, err := tx.Exec(ctx,
 		`UPDATE hst.symbols SET
