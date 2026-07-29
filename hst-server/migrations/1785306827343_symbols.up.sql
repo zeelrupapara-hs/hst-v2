@@ -127,23 +127,23 @@ CREATE UNIQUE INDEX IF NOT EXISTS symbols_path_uidx ON hst.symbols (path);
 CREATE INDEX IF NOT EXISTS symbols_source_idx ON hst.symbols (source);
 
 COMMENT ON COLUMN hst.symbols.sector IS
-    'EnSectors';
+    'SymbolSector';
 COMMENT ON COLUMN hst.symbols.industry IS
-    'EnIndustries';
+    'SymbolIndustry';
 COMMENT ON COLUMN hst.symbols.tick_flags IS
-    'EnTicksFlags bitmask';
+    'TickFlags bitmask';
 COMMENT ON COLUMN hst.symbols.trade_mode IS
-    'EnTradeMode: 0=disabled 1=longonly 2=shortonly 3=closeonly 4=full';
+    'TradeMode: 0=disabled 1=longonly 2=shortonly 3=closeonly 4=full';
 COMMENT ON COLUMN hst.symbols.calc_mode IS
-    'EnCalcMode: 0=forex 1=futures 2=cfd 3=cfdindex 4=cfdleverage 5=forex_no_leverage 32+=exchange 64=collateral';
+    'CalcMode: 0=forex 1=futures 2=cfd 3=cfdindex 4=cfdleverage 5=forex_no_leverage 32+=exchange 64=collateral';
 COMMENT ON COLUMN hst.symbols.exec_mode IS
-    'EnExecutionMode: 0=request 1=instant 2=market 3=exchange';
+    'ExecMode: 0=request 1=instant 2=market 3=exchange';
 COMMENT ON COLUMN hst.symbols.gtc_mode IS
-    'EnGTCMode: 0=gtc 1=daily 2=daily_no_stops';
+    'GTCMode: 0=gtc 1=daily 2=daily_no_stops';
 COMMENT ON COLUMN hst.symbols.fill_flags IS
-    'EnFillingFlags bitmask';
+    'FillingFlags bitmask';
 COMMENT ON COLUMN hst.symbols.expir_flags IS
-    'EnExpirationFlags bitmask';
+    'ExpirationFlags bitmask';
 COMMENT ON COLUMN hst.symbols.spread IS
     'manual fixed spread in points; 0 = floating';
 COMMENT ON COLUMN hst.symbols.spread_diff IS
@@ -157,29 +157,29 @@ COMMENT ON COLUMN hst.symbols.volume_min_ext IS
 COMMENT ON COLUMN hst.symbols.margin_flags IS
     'SymbolMarginFlags bitmask';
 COMMENT ON COLUMN hst.symbols.swap_mode IS
-    'EnSwapMode';
+    'SwapMode';
 COMMENT ON COLUMN hst.symbols.swap_year_day IS
-    'EnSwapDays triple-swap day; also days/year for percent swaps';
+    'SwapDays triple-swap day; also days/year for percent swaps';
 COMMENT ON COLUMN hst.symbols.swap_flags IS
-    'EnSwapFlags bitmask';
+    'SwapFlags bitmask';
 COMMENT ON COLUMN hst.symbols.time_start IS
     'unix seconds; 0 with time_expiration 0 = no limit';
 COMMENT ON COLUMN hst.symbols.re_flags IS
-    'EnRequestFlags bitmask';
+    'RequestFlags bitmask';
 COMMENT ON COLUMN hst.symbols.ie_check_mode IS
-    'EnInstantMode';
+    'InstantMode';
 COMMENT ON COLUMN hst.symbols.trade_flags IS
     'SymbolTradeFlags bitmask';
 COMMENT ON COLUMN hst.symbols.order_flags IS
-    'EnOrderFlags bitmask';
+    'OrderFlags bitmask';
 COMMENT ON COLUMN hst.symbols.splice_type IS
-    'EnSpliceType';
+    'SpliceType';
 COMMENT ON COLUMN hst.symbols.splice_time_type IS
-    'EnSpliceTimeType';
+    'SpliceTimeType';
 COMMENT ON COLUMN hst.symbols.option_mode IS
-    'EnOptionMode';
+    'OptionMode';
 COMMENT ON COLUMN hst.symbols.tick_chart_mode IS
-    'EnChartMode: 0=bid 1=last';
+    'ChartMode: 0=bid 1=last';
 
 COMMENT ON TABLE hst.symbols IS 'all time columns are unix nanoseconds except time_start/time_expiration (unix seconds, MT5); 0 means unset';
 
