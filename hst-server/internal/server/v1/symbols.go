@@ -26,8 +26,7 @@ type CrtSymbolSession struct {
 	Close int32 `json:"close" validate:"gte=1,lte=1440"`
 }
 
-// CrtSymbol is the create payload. Practical trading fields; everything else
-// keeps its schema default. point/multiply are derived from digits.
+// CrtSymbol is the create payload, and point and multiply come from digits.
 type CrtSymbol struct {
 	Symbol         string             `json:"symbol" validate:"required,max=64"`
 	Path           string             `json:"path" validate:"required,max=255"`
@@ -65,8 +64,7 @@ type CrtSymbol struct {
 	Sessions       []CrtSymbolSession `json:"sessions" validate:"dive"`
 }
 
-// UptSymbol patches a symbol. Absent fields keep their value. point/multiply
-// are recomputed when digits is set. sessions, when present, replace all rows.
+// UptSymbol patches a symbol, and sending sessions replaces every row.
 type UptSymbol struct {
 	Symbol                         *string                  `json:"symbol"`
 	Path                           *string                  `json:"path"`
