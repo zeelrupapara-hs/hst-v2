@@ -78,4 +78,12 @@ func (s *HttpServer) RegisterV1() {
 	managers.Get("/:login/rights", s.Middleware.Authorization(model.MgrRightCfgManagers), s.GetManagerRights)
 	managers.Patch("/:login", s.Middleware.Authorization(model.MgrRightCfgManagers), s.UpdateManager)
 	managers.Delete("/:login", s.Middleware.Authorization(model.MgrRightCfgManagers), s.DeleteManager)
+
+	// symbols
+	symbols := v1.Group("/symbols", s.Middleware.Protect, s.Middleware.RequireManager)
+	symbols.Get("/", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.ListSymbols)
+	symbols.Post("/", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.CreateSymbol)
+	symbols.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.GetSymbol)
+	symbols.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.UpdateSymbol)
+	symbols.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.DeleteSymbol)
 }
