@@ -13,6 +13,7 @@ hst-v2/
     │   └── server/v1/   handlers and routes
     ├── pkg/             db, http, logger, nats, cache, crypto, jwt, oauth2
     ├── migrations/      <epoch-millis>_<name>.{up,down}.sql
+    ├── seed/            seed data, one json file per subject
     ├── swagger/         generated, do not edit by hand
     └── docs/            MT5 data model and design docs (gitignored)
 ```
@@ -26,12 +27,19 @@ cd hst-server
 make tools     # migrate, staticcheck, errcheck, gosec, govulncheck
 cp .env.example .env
 make gen-keys  # put AUTH_JWT_PRIVATE_KEY into .env, the server won't boot without it
-cp config/bootstrap.example.json config/bootstrap.json   # set a real password
 ```
 
-`bootstrap.json` creates the first manager, once, while `hst.managers` is empty.
-That first login is forced through a password change, so the value in the file
-stops being a working credential. The file is gitignored.
+Then set `SEED_MANAGER_PASSWORD` in `.env`. On first boot, while `hst.managers`
+is empty, the server creates the administrator described in
+`seed/managers.json` with that password: login **1000**, **First Admin**.
+
+That first login is forced through a password change, so the value in `.env`
+stops being a working credential once it is used. Clear it afterwards. The seed
+carries no secret, so `seed/managers.json` is committed.
+
+To add a seed: drop its json in `seed/`, write the apply function in
+`pkg/seed/`, and add one line to the list in `pkg/seed/seed.go`. Each seed
+checks for itself whether it is needed, so running them again is a no-op.
 
 ## Start the server
 
@@ -42,9 +50,6 @@ make run           # http://localhost:8080
 ```
 
 Check it: `curl localhost:8080/api/v1/system/monitor/health`
-
-The first login is **1000**, named **First Admin**, created from
-`config/bootstrap.json`. Its first sign-in is forced through a password change.
 
 ## API docs
 

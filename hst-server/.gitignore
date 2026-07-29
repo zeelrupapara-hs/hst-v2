@@ -7,5 +7,3 @@ hstserver.log
 logs/
 docs/
 
-# first administrator, never commit
-config/bootstrap.json

@@ -14,6 +14,7 @@ import (
 	"hstserver/pkg/nats"
 	"hstserver/pkg/oauth2"
 	"hstserver/pkg/redis"
+	"hstserver/pkg/seed"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -123,9 +124,9 @@ func Run() int {
 		oauth.Close()
 	}()
 
-	// first administrator, only when hst.managers is empty
-	if err := oauth.Bootstrap(context.Background()); err != nil {
-		log.Logger.Errorf("failed to bootstrap the first manager %v", err)
+	// starting rows a fresh install needs, each one a no op if already applied
+	if err := seed.New(database, oauth.Hasher, log, cfg).Run(context.Background()); err != nil {
+		log.Logger.Errorf("failed to seed %v", err)
 		return 1
 	}
 
