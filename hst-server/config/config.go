@@ -45,7 +45,7 @@ const (
 	SHARD_COUNT            = "SHARD_COUNT"
 	MAX_ACCOUNT_PER_SHARD  = "MAX_ACCOUNT_PER_SHARD"
 	// #nosec G101 -- env var name, not a credential
-	SEED_MANAGER_PASSWORD = "SEED_MANAGER_PASSWORD"
+	FIRST_MANAGER_PASSWORD = "FIRST_MANAGER_PASSWORD"
 )
 
 type Config struct {
@@ -83,9 +83,9 @@ type Auth struct {
 	LockoutDuration   time.Duration
 	// MaxFailedPerIP throttles credential stuffing across many logins
 	MaxFailedPerIP int
-	// SeedManagerPassword is the first administrator's password. Empty means
+	// FirstManagerPassword is the first administrator's password. Empty means
 	// do not seed, which is the right default once the server has run once.
-	SeedManagerPassword string
+	FirstManagerPassword string
 }
 
 // Cache config for the sharded in-memory session cache
@@ -261,7 +261,7 @@ func NewConfig() (*Config, error) {
 	c.Auth.MaxFailedAttempts = 10
 	c.Auth.LockoutDuration = 15 * time.Minute
 	c.Auth.MaxFailedPerIP = 50
-	c.Auth.SeedManagerPassword = getEnv(SEED_MANAGER_PASSWORD, "")
+	c.Auth.FirstManagerPassword = getEnv(FIRST_MANAGER_PASSWORD, "")
 
 	// Cache
 	c.Cache.ShardId = getEnvAsInt(SHARD_ID, 0)

@@ -2,33 +2,28 @@ package seed
 
 import (
 	"context"
-	"errors"
-	"fmt"
-	"os"
-	"path/filepath"
 	"time"
 
 	"hstserver/model"
 	"hstserver/pkg/logger"
-
-	"github.com/goccy/go-json"
 )
 
-// managersFile describes the first administrator. It carries no secret, so it
-// is committed; the password comes from SEED_MANAGER_PASSWORD.
-var managersFile = filepath.Join(Dir, "managers.json")
-
-// managerSeed is the shape of that file.
-type managerSeed struct {
-	Group string `json:"group"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+// firstManager is the administrator a fresh install starts with. The password
+// is deliberately absent: it comes from FIRST_MANAGER_PASSWORD.
+var firstManager = struct {
+	Group string
+	Name  string
+	Email string
+}{
+	Group: `managers\admin`,
+	Name:  "First Admin",
+	Email: "admin@hybridsolutions.com",
 }
 
-// managers creates the first administrator so a fresh install has a way in.
+// SeedManager creates the first administrator so a fresh install has a way in.
 // It runs only while hst.managers is empty, so it is a no op on every later
 // start and can never mint a second admin.
-func (s *Seeder) managers(ctx context.Context) error {
+func (s *Seeder) SeedManager(ctx context.Context) error {
 	var managers int
 	if err := s.DB.DB.QueryRow(ctx, `SELECT count(*) FROM hst.managers`).Scan(&managers); err != nil {
 		return err
@@ -37,30 +32,12 @@ func (s *Seeder) managers(ctx context.Context) error {
 		return nil
 	}
 
-	password := s.Cfg.Auth.SeedManagerPassword
+	password := s.Cfg.Auth.FirstManagerPassword
 	if password == "" {
 		s.Log.Log(logger.TypeSys, logger.CodeWarn,
 			"no manager exists and no seed password was given",
-			"env", "SEED_MANAGER_PASSWORD")
+			"env", "FIRST_MANAGER_PASSWORD")
 		return nil
-	}
-
-	raw, err := os.ReadFile(managersFile)
-	if errors.Is(err, os.ErrNotExist) {
-		s.Log.Log(logger.TypeSys, logger.CodeWarn,
-			"no manager exists and the seed file is missing", "file", managersFile)
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-
-	var m managerSeed
-	if err := json.Unmarshal(raw, &m); err != nil {
-		return fmt.Errorf("invalid %s: %w", managersFile, err)
-	}
-	if m.Group == "" || m.Name == "" {
-		return fmt.Errorf("%s needs group and name", managersFile)
 	}
 
 	hash, err := s.Hasher.HashPassword(password)
@@ -88,7 +65,7 @@ func (s *Seeder) managers(ctx context.Context) error {
 		   ("group", rights, name, email, password_main, registration, last_pass_change, updated_at)
 		 VALUES ($1,$2,$3,$4,$5,$6,$6,$6)
 		 RETURNING login`,
-		m.Group, int64(rights), m.Name, m.Email, hash, now).Scan(&login); err != nil {
+		firstManager.Group, int64(rights), firstManager.Name, firstManager.Email, hash, now).Scan(&login); err != nil {
 		return err
 	}
 
@@ -104,7 +81,7 @@ func (s *Seeder) managers(ctx context.Context) error {
 		`INSERT INTO hst.managers (login, name, groups, right_admin, right_manager,
 		                           right_cfg_managers, updated_at)
 		 VALUES ($1, $2, $3, 1, 1, 1, $4)`,
-		login, m.Name, []string{m.Group}, now); err != nil {
+		login, firstManager.Name, []string{firstManager.Group}, now); err != nil {
 		return err
 	}
 
@@ -113,7 +90,7 @@ func (s *Seeder) managers(ctx context.Context) error {
 	}
 
 	s.Log.Log(logger.TypeSys, logger.CodeLogin, "seed administrator created",
-		"login", login, "group", m.Group)
+		"login", login, "group", firstManager.Group)
 
 	return nil
 }
