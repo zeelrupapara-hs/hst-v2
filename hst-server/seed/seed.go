@@ -25,6 +25,9 @@ func (s *Seeder) Seed(ctx context.Context) error {
 	if err := s.SeedManager(ctx); err != nil {
 		return err
 	}
+	if err := s.SeedSymbols(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }

@@ -13,7 +13,6 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 )
 
 // MT5 caps both of these at 1024.
@@ -149,7 +148,7 @@ func (s *HttpServer) CreateLeverageProfile(c *fiber.Ctx) error {
 		`INSERT INTO hst.leverages (name, "timestamp", flags)
 		 VALUES ($1, $2, $3) RETURNING leverage_id`,
 		body.Name, time.Now().UnixNano(), body.Flags).Scan(&id); err != nil {
-		if isUniqueViolation(err) {
+		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrLeverageNameExists)
 		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -294,7 +293,7 @@ func (s *HttpServer) UpdateLeverageProfile(c *fiber.Ctx) error {
 		  WHERE leverage_id = $1`,
 		id, body.Name, body.Flags, time.Now().UnixNano())
 	if err != nil {
-		if isUniqueViolation(err) {
+		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrLeverageNameExists)
 		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -902,11 +901,4 @@ func validateTiers(tiers []CrtLeverageTier) error {
 	}
 
 	return nil
-}
-
-// isUniqueViolation reports whether the error is a duplicate key, so a clashing
-// profile name answers 409 rather than 500.
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }
