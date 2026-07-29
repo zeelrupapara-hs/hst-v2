@@ -65,8 +65,7 @@ type ViewUser struct {
 	UpdatedAt  int64             `json:"updated_at"`
 }
 
-// usersSortable are the real columns of hst.users. Note it has registration
-// and last_access, not created_at.
+// usersSortable are the real columns of hst.users.
 var usersSortable = utils.NewSortable(
 	"login", "client_id", "name", "email", "registration",
 	"last_access", "updated_at", "balance")
@@ -78,8 +77,6 @@ const userColumns = `u.login, COALESCE(u.client_id, 0), u."group", u.rights, u.n
 const userJoin = ` FROM hst.users u LEFT JOIN hst.managers m ON m.login = u.login`
 
 // CreateUser creates the identity and its 1:1 account row in one transaction.
-// A user is never staff at creation; that is done by attaching a manager row
-// to the login afterwards, see CreateManager.
 //
 //	@Id			CreateUser
 //	@Tags		Users
@@ -102,8 +99,7 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	// hash before opening the transaction. Argon2 takes tens of milliseconds,
-	// and holding a connection for that long exhausts the pool under load.
+	// hash before opening the transaction.
 	hashes, err := s.hashPasswords(body.PasswordMain, body.PasswordInvestor, body.PasswordApi)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -213,8 +209,7 @@ func (s *HttpServer) GetUser(c *fiber.Ctx) error {
 	return s.getUserByLogin(c, int64(login), s.App.HttpResponseOK)
 }
 
-// UpdateUser patches a login. A change to rights or group drops every session
-// of that login, so a downgrade takes effect on the next request.
+// UpdateUser patches a login.
 //
 //	@Id			UpdateUser
 //	@Tags		Users
@@ -277,7 +272,7 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	return s.getUserByLogin(c, int64(login), s.App.HttpResponseOK)
 }
 
-// DeleteUser removes a login. The account and manager rows cascade.
+// DeleteUser removes a login.
 //
 //	@Id			DeleteUser
 //	@Tags		Users
@@ -336,8 +331,7 @@ func (s *HttpServer) getUserByLogin(c *fiber.Ctx, login int64,
 	return respond(c, v)
 }
 
-// hashPasswords hashes the three slots concurrently. Sequentially this would be
-// three argon2 runs back to back on the request path.
+// hashPasswords hashes the three slots concurrently.
 func (s *HttpServer) hashPasswords(passwords ...string) ([]string, error) {
 	out := make([]string, len(passwords))
 	errs := make([]error, len(passwords))

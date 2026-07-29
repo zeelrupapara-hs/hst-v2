@@ -119,7 +119,8 @@ make down     # stop containers
   `model/manager.go` follow the column order of the managers migration.
 - Any handler that changes `rights`, `group` or a password must call
   `s.OAuth2.InvalidateLogin` after commit, or the change won't reach live sessions.
-- Comments are one or two lines. Explain why, not what.
+- Comments are one line, one sentence, simple words. Never a paragraph. If the
+  reasoning needs more room it belongs in the commit message, not the source.
 - Log through `Log.Journal(type, code, msg, kv...)` using the MT5 codes in
   `pkg/logger` — type 1 Cfg, 3 Net, 5 User, 6 Trade; code 0 OK, 1 Warn, 2 Err,
   3 Critical, 4 Login.

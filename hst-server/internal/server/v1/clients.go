@@ -14,8 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// CrtClient is the create payload. Only the fields the admin panel collects at
-// onboarding; everything else keeps its schema default.
+// CrtClient is the create payload.
 type CrtClient struct {
 	ClientType       int16  `json:"client_type" validate:"gte=0,lte=3"`
 	ClientStatus     int16  `json:"client_status" validate:"gte=0"`
@@ -36,9 +35,7 @@ type CrtClient struct {
 	AddressPostcode  string `json:"address_postcode" validate:"max=32"`
 }
 
-// UptClient patches a client. Every field a manager may change is here, as a
-// pointer, so an absent field keeps its value and an explicit one overwrites
-// it. client_id and the two date columns are server owned and not settable.
+// UptClient patches a client.
 type UptClient struct {
 	ClientType                *model.ClientType             `json:"client_type"`
 	ClientStatus              *model.ClientStatus           `json:"client_status"`
@@ -121,14 +118,12 @@ type ViewClient struct {
 	DateModified    int64  `json:"date_modified"`
 }
 
-// clientsSortable are the real columns of hst.clients, checked against the
-// migration. A name that does not exist here is a 500 at request time.
+// clientsSortable are the real columns of hst.clients, checked against the migration.
 var clientsSortable = utils.NewSortable(
 	"client_id", "date_created", "date_modified", "person_name",
 	"contact_email", "client_status", "kyc_status")
 
-// clientAllColumns is every column of hst.clients in model.Client field order,
-// generated from the struct so the select and the scan cannot drift apart.
+// clientAllColumns is every column, in model.Client field order.
 const clientAllColumns = `
 	client_id, client_type, client_status, kyc_status, COALESCE(assigned_manager, 0),
 	COALESCE(compliance_approved_by, 0), compliance_client_category, compliance_date_approval,
@@ -222,8 +217,7 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
-	// sort_by is validated against an allowlist in QueryFilter; a bind
-	// parameter cannot carry an ORDER BY clause
+	// sort_by is validated against an allowlist in QueryFilter.
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+clientColumns+`
 		   FROM hst.clients
@@ -280,8 +274,7 @@ func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, client)
 }
 
-// selectClient reads every column into the model, for the detail view and for
-// the response to an update.
+// selectClient reads every column into the model.
 func (s *HttpServer) selectClient(ctx context.Context, id int64) (*model.Client, error) {
 	c := &model.Client{}
 
@@ -430,9 +423,6 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 }
 
 // DeleteClient removes a client.
-// client_id is ON DELETE SET NULL on users, so deleting a client that still has
-// trading accounts would silently orphan them. That is refused unless the
-// caller asks for it explicitly.
 //
 //	@Id			DeleteClient
 //	@Tags		Clients
@@ -451,10 +441,7 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	// a client owns N users, and each user owns one account. users.client_id is
-	// ON DELETE SET NULL, so deleting the client does not remove them, it
-	// detaches them: the trading accounts and their money survive with no KYC
-	// owner. Check the whole chain before allowing that.
+	// a client owns N users, each with one account.
 	var users, funded int
 	if err := s.DB.DB.QueryRow(ctx,
 		`SELECT count(*),
@@ -465,8 +452,7 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	// money outranks force. Detaching a funded account from its client is a
-	// compliance problem, so close or move the accounts first.
+	// money outranks force.
 	if funded > 0 {
 		return s.App.HttpResponseConflict(c, errs.ErrClientHasFundedAccounts)
 	}

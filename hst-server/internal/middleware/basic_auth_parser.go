@@ -10,8 +10,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// BasicAuthParser decodes the basic auth header and puts the credentials in
-// Locals, so the login handler never touches the raw header.
+// BasicAuthParser decodes the basic auth header into Locals.
 func (m *Middleware) BasicAuthParser(c *fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 	if authHeader == "" {

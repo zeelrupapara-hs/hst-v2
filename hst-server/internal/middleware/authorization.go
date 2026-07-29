@@ -9,8 +9,7 @@ import (
 	"hstserver/pkg/http"
 )
 
-// Authorization gates a route on one manager right. The check reads the
-// snapshot only, so a forbidden request costs no database round trip.
+// Authorization gates a route on one manager right.
 func (m *Middleware) Authorization(right uint) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		snap, ok := utils.GetClient(c)

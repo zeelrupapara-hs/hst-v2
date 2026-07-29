@@ -19,9 +19,7 @@ func GenerateToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// HashToken returns the sha256 of a token. Only the hash is stored, so a
-// database dump cannot be replayed. sha256 is right here and bcrypt is not:
-// the input is already 256 bits of entropy, there is nothing to brute force.
+// HashToken returns the sha256 of a token.
 func HashToken(token string) []byte {
 	sum := sha256.Sum256([]byte(token))
 	return sum[:]

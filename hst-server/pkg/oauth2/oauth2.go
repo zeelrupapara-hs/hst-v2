@@ -91,8 +91,7 @@ func NewOAuth2(rds *redis.Redis, database *db.PostgresDB, cfg *config.Config, lo
 	return o, nil
 }
 
-// TouchAsync records activity without blocking. Dropping a touch under load is
-// fine, nothing reads last_seen_at for a correctness decision.
+// TouchAsync records activity without blocking.
 func (o *OAuth2) TouchAsync(sid string) {
 	select {
 	case o.touchCh <- sid:

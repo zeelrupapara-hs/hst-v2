@@ -9,7 +9,6 @@ import (
 )
 
 // DailyWriter writes <dir>/YYYYMMDD.log, rolling at midnight like MT5.
-// Retention is then just "keep the last N files".
 type DailyWriter struct {
 	dir     string
 	maxAge  time.Duration

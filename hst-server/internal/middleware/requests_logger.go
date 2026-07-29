@@ -15,8 +15,7 @@ func (m *Middleware) RequestsLogger(c *fiber.Ctx) error {
 
 	err := c.Next()
 
-	// fiber sets the status in its error handler, which runs after this
-	// middleware returns, so read the code from the error instead
+	// fiber sets the status in its error handler.
 	status := c.Response().StatusCode()
 	if err != nil {
 		var fe *fiber.Error

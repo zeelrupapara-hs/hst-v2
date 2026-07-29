@@ -13,8 +13,7 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
-// maxFieldLen bounds the decoded salt and key so a crafted PHC string cannot
-// ask argon2 for an absurd output length.
+// maxFieldLen bounds the decoded salt and key against a crafted PHC string.
 const maxFieldLen = 1024
 
 var (
@@ -24,8 +23,7 @@ var (
 	errWrongVersion = errors.New("unsupported argon2 version")
 )
 
-// Params are the argon2id cost settings. Memory dominates, so it is the dial
-// that decides how many logins can run at once.
+// Params are the argon2id cost settings.
 type Params struct {
 	MemoryKiB   uint32
 	Time        uint32
@@ -34,16 +32,14 @@ type Params struct {
 	KeyLength   uint32
 }
 
-// Hasher serialises argon2 work. Without the semaphore, 100 concurrent logins
-// at 64 MiB each would ask for 6.4 GB and take the process down.
+// Hasher serialises argon2 work.
 type Hasher struct {
 	params Params
 	sem    chan struct{}
 	wait   time.Duration
 }
 
-// dummyHash is verified when the login does not exist, so a missing account
-// costs the same wall clock as a wrong password and cannot be probed.
+// dummyHash is verified for a missing login, so timing cannot probe for accounts.
 var dummyHash string
 
 // NewHasher bounds concurrent hashing to the core count.
@@ -84,8 +80,7 @@ func (h *Hasher) HashPassword(password string) (string, error) {
 		base64.RawStdEncoding.EncodeToString(key)), nil
 }
 
-// VerifyPassword reports whether the password matches, and whether the stored
-// hash was made with weaker parameters than the current ones.
+// VerifyPassword reports a match, and whether the hash needs upgrading.
 func (h *Hasher) VerifyPassword(encoded, password string) (ok bool, needsRehash bool, err error) {
 	p, salt, want, err := decode(encoded)
 	if err != nil {
@@ -106,8 +101,7 @@ func (h *Hasher) VerifyPassword(encoded, password string) (ok bool, needsRehash 
 	return true, weaker, nil
 }
 
-// VerifyDummy burns the same work as a real verify. Call it when the login was
-// not found so the response time does not reveal that.
+// VerifyDummy burns the same work as a real verify.
 func (h *Hasher) VerifyDummy(password string) {
 	if dummyHash == "" {
 		return

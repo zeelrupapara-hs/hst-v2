@@ -8,7 +8,6 @@ import (
 )
 
 // HttpResponse is the single envelope every endpoint returns.
-// Code is the MT5 retcode, not the HTTP status.
 type HttpResponse struct {
 	Success bool        `json:"success"`
 	Code    RetCode     `json:"code"`
@@ -83,8 +82,7 @@ func (a *App) HttpResponseServiceUnavailable(c *fiber.Ctx, message error) error 
 	return a.fail(c, StatusServiceUnavailable, RetAuthServerBusy, ErrServiceUnavailable, message)
 }
 
-// http 500. The real error goes to the log, never to the client, so a
-// driver or query detail cannot leak through the body.
+// http 500.
 func (a *App) HttpResponseInternalServerErrorRequest(c *fiber.Ctx, message error) error {
 	a.Log.Log(logger.TypeSys, logger.CodeErr, "request failed",
 		"path", c.Path(), "method", c.Method(), "error", message.Error())
@@ -97,8 +95,7 @@ func (a *App) HttpResponseInternalServerErrorRequest(c *fiber.Ctx, message error
 	})
 }
 
-// HttpResponseRetCode answers 200 with an MT5 retcode. A login that must change
-// its password is still a success: it hands over a token and reports 1026.
+// HttpResponseRetCode answers 200 with an MT5 retcode.
 func (a *App) HttpResponseRetCode(c *fiber.Ctx, code RetCode, data interface{}) error {
 	return c.Status(StatusOK).JSON(&HttpResponse{
 		Success: true,
@@ -108,8 +105,6 @@ func (a *App) HttpResponseRetCode(c *fiber.Ctx, code RetCode, data interface{}) 
 }
 
 // HttpResponseDenied refuses a request while still carrying the MT5 retcode.
-// The status is explicit because one code can mean two things: 1026 from login
-// is a success, 1026 from the middleware is a refusal.
 func (a *App) HttpResponseDenied(c *fiber.Ctx, status int, code RetCode, message error) error {
 	errStr := ErrForbidden
 	if status == StatusUnauthorized {

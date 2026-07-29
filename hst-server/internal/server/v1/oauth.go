@@ -20,8 +20,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// LoginRequest carries the terminal type. The credentials are in the basic
-// auth header, never in the body.
+// LoginRequest carries the terminal type.
 type LoginRequest struct {
 	ConnectionType int32 `json:"connection_type" validate:"required"`
 }
@@ -46,9 +45,7 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" validate:"required,min=8,max=128"`
 }
 
-// loginDenied is a refusal with the status and MT5 code it should carry. Each
-// login step returns one of these instead of writing a response itself, which
-// is what keeps Login readable as a short list of steps.
+// loginDenied is a refusal with the status and MT5 code it should carry.
 type loginDenied struct {
 	status int
 	code   http.RetCode
@@ -73,9 +70,6 @@ type ViewMe struct {
 }
 
 // Login authenticates a manager and opens a session.
-// The order of the checks is deliberate: the account state and manager checks
-// run after the password is verified, because answering "disabled" or "not a
-// manager" first would tell an attacker the login exists.
 //
 //	@Id				Login
 //	@Description	Login with a manager account using basic auth
@@ -145,8 +139,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
 
-// checkPassword loads the login and verifies the master password. It answers
-// one question only: is this really them, and is the account usable.
+// checkPassword loads the login and verifies the master password.
 func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, ip string) (*model.User, error) {
 	user := &model.User{}
 
@@ -157,8 +150,7 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 			&user.PasswordMain, &user.LockedUntil)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		// burn the same work as a real verify, so a missing login and a wrong
-		// password take the same time and cannot be told apart
+		// burn the same work as a real verify.
 		s.OAuth2.Hasher.VerifyDummy(password)
 		return nil, denied(http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
 	}
@@ -170,8 +162,7 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 		return nil, denied(http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
 	}
 
-	// staff authenticate with the master slot only. The investor and api slots
-	// belong to trader login, which this endpoint does not serve.
+	// staff authenticate with the master slot only.
 	ok, needsRehash, err := s.OAuth2.Hasher.VerifyPassword(user.PasswordMain, password)
 	if errors.Is(err, crypto.ErrHasherBusy) {
 		return nil, denied(http.StatusServiceUnavailable, http.RetAuthServerBusy, errs.ErrServiceUnavailable)
@@ -191,9 +182,7 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 	return user, nil
 }
 
-// checkManagerAccess decides whether this login may use the admin or manager
-// panel. A login gets in only because a row exists for it in hst.managers, so
-// that row, and the terminal type it permits, is the whole decision.
+// checkManagerAccess decides whether this login may use the admin or manager panel.
 func (s *HttpServer) checkManagerAccess(ctx context.Context, login int64,
 	connType model.UsersConnectionTypes) (*model.Manager, error) {
 
@@ -217,8 +206,7 @@ func (s *HttpServer) checkManagerAccess(ctx context.Context, login int64,
 	return manager, nil
 }
 
-// recordFailedLogin counts the attempt and returns what the caller should
-// answer: locked once the limit is reached, otherwise a plain bad password.
+// recordFailedLogin counts the attempt and returns what the caller should answer:
 func (s *HttpServer) recordFailedLogin(ctx context.Context, login int64, ip string) error {
 	locked, err := s.OAuth2.RegisterFailure(ctx, login, ip)
 	if err != nil {
@@ -236,8 +224,7 @@ func (s *HttpServer) recordFailedLogin(ctx context.Context, login int64, ip stri
 	return denied(http.StatusUnauthorized, http.RetAuthAccountInvalid, errs.ErrInvalidCredentials)
 }
 
-// upgradePasswordHash rewrites a hash made with weaker settings. It must never
-// block the login, so a failure is logged and otherwise ignored.
+// upgradePasswordHash rewrites a hash made with weaker settings.
 func (s *HttpServer) upgradePasswordHash(ctx context.Context, login int64, password string) {
 	hash, err := s.OAuth2.Hasher.HashPassword(password)
 	if err != nil {
@@ -251,8 +238,7 @@ func (s *HttpServer) upgradePasswordHash(ctx context.Context, login int64, passw
 	}
 }
 
-// basicCredentials reads what BasicAuthParser put in Locals. MT5 logins are
-// numbers, so anything else is simply an unknown account.
+// basicCredentials reads what BasicAuthParser put in Locals.
 func basicCredentials(c *fiber.Ctx) (int64, string, error) {
 	loginStr, _ := c.Locals(http.LocalsUsername).(string)
 	password, _ := c.Locals(http.LocalsPassword).(string)
@@ -265,8 +251,7 @@ func basicCredentials(c *fiber.Ctx) (int64, string, error) {
 	return login, password, nil
 }
 
-// loginFailed writes the refusal a step returned. Anything that is not a
-// deliberate refusal is a bug on our side, so it becomes a 500.
+// loginFailed writes the refusal a step returned.
 func (s *HttpServer) loginFailed(c *fiber.Ctx, err error) error {
 	var d *loginDenied
 	if errors.As(err, &d) {
@@ -277,7 +262,6 @@ func (s *HttpServer) loginFailed(c *fiber.Ctx, err error) error {
 }
 
 // RefreshToken rotates the refresh token and issues a new access token.
-// This is the only endpoint besides Login that may read postgres for auth.
 //
 //	@Id			RefreshToken
 //	@Tags		Auth
@@ -298,9 +282,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	// the record is read before the lock is taken. Doing it the other way round
-	// lets a replay inside the lock window return a plain 401, so the theft is
-	// never detected.
+	// the record is read before the lock is taken.
 	rec, err := s.OAuth2.LoadRefresh(ctx, body.RefreshToken)
 	if errors.Is(err, oauth2.ErrSessionNotFound) {
 		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
@@ -309,8 +291,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		return s.App.HttpResponseServiceUnavailable(c, errs.ErrSessionStoreUnavailable)
 	}
 
-	// a token that was already rotated is being replayed. Assume the family is
-	// compromised and kill all of it, including the session the thief may hold.
+	// a token that was already rotated is being replayed.
 	if rec.Used {
 		if rerr := s.OAuth2.RevokeFamily(ctx, rec.FamilyId, model.SessionRevokedReuseDetected); rerr != nil {
 			s.Log.Log(logger.TypeUser, logger.CodeErr, "failed to revoke family",
@@ -327,8 +308,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 	}
 
-	// only now take the lock, so two parallel refreshes of the same unused
-	// token do not both rotate it
+	// lock now, so two parallel refreshes cannot both rotate
 	locked, err := s.OAuth2.LockRefresh(ctx, body.RefreshToken)
 	if err != nil {
 		return s.App.HttpResponseServiceUnavailable(c, errs.ErrSessionStoreUnavailable)
@@ -383,8 +363,7 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	// the old token becomes a tombstone rather than disappearing, so a replay
-	// is detectable instead of merely failing
+	// the old token becomes a tombstone rather than disappearing.
 	if err := s.OAuth2.MarkRefreshUsed(ctx, body.RefreshToken, rec); err != nil {
 		s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to tombstone refresh token",
 			"login", u.Login, "error", err.Error())
@@ -464,7 +443,6 @@ func (s *HttpServer) Me(c *fiber.Ctx) error {
 }
 
 // ChangePassword sets a new main password and closes every other session.
-// It is the one route a restricted session may reach.
 //
 //	@Id			ChangePassword
 //	@Tags		Auth
@@ -529,7 +507,6 @@ func (s *HttpServer) ChangePassword(c *fiber.Ctx) error {
 }
 
 // openSession writes the session row, the redis state and the tokens.
-// familyId empty means a fresh login; otherwise this is a rotation.
 func (s *HttpServer) openSession(ctx context.Context, u *model.User, mgr *model.Manager,
 	cfg *oauth2.Config, familyId, parentId string) (*ViewToken, error) {
 
@@ -546,8 +523,7 @@ func (s *HttpServer) openSession(ctx context.Context, u *model.User, mgr *model.
 	now := time.Now()
 	expiresAt := now.Add(s.Cfg.Auth.RefreshTTL).UnixNano()
 
-	// a rotation may not outlive the family it belongs to. Without this cap a
-	// stolen token that keeps being rotated would extend the session forever.
+	// a rotation may not outlive the family it belongs to.
 	if parentId != "" {
 		var familyStart int64
 		if err := s.DB.DB.QueryRow(ctx,

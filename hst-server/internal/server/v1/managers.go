@@ -16,8 +16,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// CrtManager promotes an existing login to staff. It never creates a user:
-// the login must already exist, and the manager row is what makes it staff.
+// CrtManager promotes an existing login to staff.
 type CrtManager struct {
 	Login               int64              `json:"login" validate:"required,gt=0"`
 	Name                string             `json:"name" validate:"required,max=128"`
@@ -49,8 +48,7 @@ type ViewManagerRights struct {
 	Rights map[string]bool `json:"rights"`
 }
 
-// GetManager returns the whole manager record, all 84 fields including the raw
-// right columns. Use GetManagerRights when the decoded flag map is wanted.
+// GetManager returns the whole manager record.
 //
 //	@Id			GetManager
 //	@Tags		Managers
@@ -150,8 +148,7 @@ func (s *HttpServer) ListManagers(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, out)
 }
 
-// selectManager reads the whole right set in one round trip. Login pays this
-// once, then every later request answers from the packed bitset.
+// selectManager reads the whole right set in one round trip.
 func (s *HttpServer) selectManager(ctx context.Context, login int64) (*model.Manager, error) {
 	m := &model.Manager{}
 
@@ -271,8 +268,7 @@ func (s *HttpServer) selectManager(ctx context.Context, login int64) (*model.Man
 	return m, err
 }
 
-// managerRightColumns is every right column, in the order the migration
-// declares them. Generated from it, so the two cannot drift.
+// managerRightColumns is every right column, in the order the migration declares them.
 const managerRightColumns = `
 		right_admin, right_manager, right_cfg_time, right_cfg_holidays,
 		right_cfg_groups, right_cfg_managers, right_cfg_requests,
@@ -302,8 +298,7 @@ const managerRightColumns = `
 		right_documents_files_delete, right_comments_access, right_comments_create,
 		right_comments_delete`
 
-// execer is satisfied by both the pool and a transaction, so the write helpers
-// work inside a transaction or on their own.
+// execer is satisfied by both the pool and a transaction.
 type execer interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
@@ -320,8 +315,7 @@ func b(granted bool) int32 {
 func insertManager(ctx context.Context, q execer, login int64, m *CrtManager,
 	r model.ManagerRights, now int64) error {
 
-	// groups is NOT NULL, and an omitted json array arrives as nil, which pgx
-	// would send as NULL. An empty set means "no group filter", not "unset".
+	// groups is NOT NULL, and an omitted json array arrives as nil.
 	groups := m.Groups
 	if groups == nil {
 		groups = []string{}
@@ -393,9 +387,7 @@ func insertManager(ctx context.Context, q execer, login int64, m *CrtManager,
 	return err
 }
 
-// updateManager rewrites the whole record. Rights are replaced rather than
-// merged: a partial update of 77 flags is ambiguous, and silently keeping an
-// old grant is the dangerous direction to be wrong in.
+// updateManager rewrites the whole record.
 func updateManager(ctx context.Context, q execer, login int64, m *UptManager,
 	r model.ManagerRights, now int64) (int64, error) {
 
@@ -499,9 +491,7 @@ func updateManager(ctx context.Context, q execer, login int64, m *UptManager,
 	return tag.RowsAffected(), nil
 }
 
-// packRightNames turns the requested column names into the bitset, rejecting
-// anything that is not a real right so a typo cannot silently grant nothing,
-// and an invented name cannot be smuggled through.
+// packRightNames turns right names into the bitset, rejecting unknown names.
 func packRightNames(names []string) (model.ManagerRights, bool) {
 	byName := make(map[string]uint, model.ManagerRightsCount)
 	for bit, name := range model.ManagerRightsNames {
@@ -521,7 +511,6 @@ func packRightNames(names []string) (model.ManagerRights, bool) {
 }
 
 // CreateManager promotes an existing login to staff by attaching a manager row.
-// It never creates a user: the login must exist first.
 //
 //	@Id			CreateManager
 //	@Tags		Managers
@@ -639,8 +628,7 @@ func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
 	return s.getManager(c, int64(login), s.App.HttpResponseOK)
 }
 
-// DeleteManager removes the staff role. The user and its account survive; the
-// login simply stops being staff.
+// DeleteManager removes the staff role.
 //
 //	@Id			DeleteManager
 //	@Tags		Managers
@@ -666,8 +654,7 @@ func (s *HttpServer) DeleteManager(c *fiber.Ctx) error {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
-	// this login is no longer staff. Dropping its sessions is the whole point:
-	// otherwise it keeps back office access until the snapshot expires.
+	// this login is no longer staff.
 	if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

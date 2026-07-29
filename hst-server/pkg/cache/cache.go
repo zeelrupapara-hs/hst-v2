@@ -11,8 +11,7 @@ import (
 	"github.com/cespare/xxhash/v2"
 )
 
-// Snapshot is everything the middleware needs to authorise a request. It is
-// built once at login and read on every request after that.
+// Snapshot is everything the middleware needs to authorise a request.
 type Snapshot struct {
 	SessionId      string `json:"sid"`
 	Login          int64  `json:"login"`
@@ -23,8 +22,7 @@ type Snapshot struct {
 	ConnectionType int32  `json:"ct"`
 	Restricted     bool   `json:"rst"`
 	IsManager      bool   `json:"mgr"`
-	// ManagerRights is the 77 right_ columns packed into two words, so a
-	// permission check is a shift and an AND instead of a join.
+	// ManagerRights is the 77 right columns packed into two words.
 	ManagerRights model.ManagerRights `json:"mrights"`
 	Version       int64               `json:"ver"`
 	CreatedAt     int64               `json:"created_at"`
@@ -44,8 +42,7 @@ type bucket struct {
 	cap   int
 }
 
-// Stats is what the monitor endpoint reports, so MaxAccounts is tuned from
-// data rather than guessed.
+// Stats is what the monitor endpoint reports.
 type Stats struct {
 	Entries     int     `json:"entries"`
 	MaxAccounts int     `json:"max_accounts"`
@@ -58,8 +55,7 @@ type Stats struct {
 	Foreign     uint64  `json:"foreign"`
 }
 
-// DistributeCache holds the snapshots this instance owns. Redis stays the
-// source of truth, so a miss is only slower, never wrong.
+// DistributeCache holds the snapshots this instance owns.
 type DistributeCache struct {
 	shardId     uint64
 	shardCount  uint64
@@ -81,8 +77,7 @@ type DistributeCache struct {
 	once sync.Once
 }
 
-// New builds the cache. bucketCount shards the lock, shardCount shards the data
-// across instances; they are unrelated.
+// New builds the cache.
 func New(shardId, shardCount, maxAccounts, bucketCount int, ttl time.Duration) *DistributeCache {
 	if shardCount < 1 {
 		shardCount = 1
@@ -122,8 +117,6 @@ func New(shardId, shardCount, maxAccounts, bucketCount int, ttl time.Duration) *
 }
 
 // Owns reports whether this instance is the cache owner of the session.
-// Refusing foreign sessions is what bounds memory to this instance's share
-// rather than to fleet wide traffic.
 func (d *DistributeCache) Owns(sid string) bool {
 	return xxhash.Sum64String(sid)%d.shardCount == d.shardId
 }
@@ -172,9 +165,7 @@ func (d *DistributeCache) Put(snap *Snapshot) {
 		return
 	}
 
-	// LRU is the safety valve: shard ownership decides what to cache, this
-	// decides what to drop when MaxAccounts was set too low. Without it a bad
-	// estimate is an OOM.
+	// LRU is the safety valve:
 	for b.lru.Len() >= b.cap {
 		oldest := b.lru.Back()
 		if oldest == nil {
@@ -199,8 +190,7 @@ func (d *DistributeCache) Put(snap *Snapshot) {
 	d.index(snap.Login, sid)
 }
 
-// Invalidate drops one session. Called for every instance regardless of
-// ownership, since the pub/sub message is broadcast.
+// Invalidate drops one session.
 func (d *DistributeCache) Invalidate(sid string) {
 	b := d.bucketFor(sid)
 
@@ -290,8 +280,7 @@ func (d *DistributeCache) unindex(login int64, sid string) {
 	}
 }
 
-// janitor reclaims expired entries so an idle session does not hold memory
-// until it happens to be read again.
+// janitor reclaims expired entries so idle sessions free their memory.
 func (d *DistributeCache) janitor() {
 	ticker := time.NewTicker(d.ttl)
 	defer ticker.Stop()

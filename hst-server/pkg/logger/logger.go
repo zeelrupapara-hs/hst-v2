@@ -78,10 +78,6 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 }
 
 // Log writes an entry tagged with MT5 type and severity codes.
-// Pass actor (manager) and target (account) for audited actions.
-//
-// This is plain logging: the log file and stdout. The MT5 journal is a durable
-// audit trail and a separate thing entirely, still to be built.
 func (l *Logger) Log(t Type, c Code, msg string, kv ...any) {
 	fields := append([]any{"type", int(t), "code", int(c)}, kv...)
 	switch c {

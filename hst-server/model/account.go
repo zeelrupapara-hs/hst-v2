@@ -26,8 +26,6 @@ type Account struct {
 func (Account) TableName() string { return "hst.accounts" }
 
 // CalcFloating returns profit + storage + commission of open positions.
-// MT5 defines floating this way, omitting swap or commission makes the margin
-// level read high and stop out fire late.
 func CalcFloating(profit, storage, commission float64) float64 {
 	return profit + storage + commission
 }

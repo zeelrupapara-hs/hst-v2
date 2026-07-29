@@ -53,8 +53,7 @@ func (s *HttpServer) CheckSystemHealth(c *fiber.Ctx) error {
 		Checks:  checks,
 	}
 
-	// the status code is what a kubernetes probe reads, so it stays; the body
-	// carries the same envelope as every other endpoint
+	// the status code is what a kubernetes probe reads, so it stays.
 	if status != "ok" {
 		return c.Status(http.StatusInternalServerError).JSON(&http.HttpResponse{
 			Success: false,
@@ -79,8 +78,7 @@ func (s *HttpServer) CheckSystemLive(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, LiveResponse{Status: "alive"})
 }
 
-// CacheStats reports the session cache, so MAX_ACCOUNT_PER_SHARD is tuned from
-// data rather than guessed.
+// CacheStats reports the session cache, so the size can be tuned from data.
 //
 //	@Id			CacheStats
 //	@Tags		System

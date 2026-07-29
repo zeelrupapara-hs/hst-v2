@@ -34,8 +34,7 @@ var (
 	}
 )
 
-// Manager is the back office capability attached to a login. Its presence is
-// what makes a login staff. Every right is 1 granted or 0 not granted.
+// Manager is the back office capability attached to a login.
 type Manager struct {
 	Login               int64        `db:"login" json:"login"`
 	Name                string       `db:"name" json:"name"`
@@ -128,8 +127,7 @@ type Manager struct {
 
 func (Manager) TableName() string { return "hst.managers" }
 
-// PermitsTerminal reports whether this manager may connect with the given
-// terminal type. MT5 gates the admin and manager terminals separately.
+// PermitsTerminal reports whether this terminal type is allowed.
 func (m *Manager) PermitsTerminal(t UsersConnectionTypes) bool {
 	switch t {
 	case UsersConnectionTypes_admin, UsersConnectionTypes_admin_api:
@@ -143,7 +141,6 @@ func (m *Manager) PermitsTerminal(t UsersConnectionTypes) bool {
 }
 
 // CanDeal reports whether the manager may work the dealing desk.
-// MT5 requires trades_read before trades_dealer takes effect.
 func (m *Manager) CanDeal() bool {
 	return m.RightTradesRead == 1 && m.RightTradesDealer == 1
 }
@@ -164,12 +161,9 @@ func (m *Manager) CanDeleteAccounts() bool {
 }
 
 // ManagerRights packs the 77 right_ columns of hst.managers into two words.
-// Postgres keeps the columns readable and queryable; this is the in memory form
-// so a permission check costs a shift and an AND instead of a join.
 type ManagerRights [2]uint64
 
-// Bit indices follow the column order in the managers migration. They are
-// generated from it, so pruning a right in SQL cannot silently shift the rest.
+// Bit indices follow the column order in the managers migration.
 const (
 	MgrRightAdmin                  uint = 0
 	MgrRightManager                uint = 1
@@ -350,8 +344,7 @@ func (r ManagerRights) Set(bit uint) ManagerRights {
 	return r
 }
 
-// PermitsTerminal reports whether the manager may connect with this terminal
-// type. MT5 gates the admin and manager terminals separately.
+// PermitsTerminal reports whether the manager may connect with this terminal type.
 func (r ManagerRights) PermitsTerminal(t UsersConnectionTypes) bool {
 	switch t {
 	case UsersConnectionTypes_admin, UsersConnectionTypes_admin_api:
@@ -365,7 +358,6 @@ func (r ManagerRights) PermitsTerminal(t UsersConnectionTypes) bool {
 }
 
 // CanDeal reports whether the manager may work the dealing desk.
-// MT5 requires trades_read before trades_dealer takes effect.
 func (r ManagerRights) CanDeal() bool {
 	return r.Has(MgrRightTradesRead) && r.Has(MgrRightTradesDealer)
 }

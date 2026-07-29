@@ -18,8 +18,7 @@ import (
 // ErrSessionNotFound means the session is gone, so the client should refresh.
 var ErrSessionNotFound = errors.New("session not found")
 
-// redis keys. Every key is scoped by one id, so moving to redis cluster later
-// needs no application change.
+// redis keys.
 var (
 	KeySession = func(sid string) string { return "hst:auth:sess:" + sid }
 	KeyRefresh = func(hash string) string { return "hst:auth:rt:" + hash }
@@ -43,9 +42,7 @@ type RefreshRecord struct {
 	Used bool `json:"used"`
 }
 
-// LoadSnapshot reads the session from redis. It never falls back to postgres:
-// a missing session means refresh, and refresh is the only path allowed to
-// read the database.
+// LoadSnapshot reads the session from redis.
 func (o *OAuth2) LoadSnapshot(ctx context.Context, sid string) (*cache.Snapshot, error) {
 	raw, err := o.Redis.Client.Get(ctx, KeySession(sid)).Bytes()
 	if err == redis.Nil {
@@ -89,8 +86,7 @@ func (o *OAuth2) SaveSnapshot(ctx context.Context, snap *cache.Snapshot) error {
 	return nil
 }
 
-// SaveRefresh stores the refresh record under the hash of the token. The token
-// itself is never written anywhere.
+// SaveRefresh stores the refresh record under the hash of the token.
 func (o *OAuth2) SaveRefresh(ctx context.Context, token string, rec *RefreshRecord) error {
 	raw, err := json.Marshal(rec)
 	if err != nil {
@@ -129,8 +125,7 @@ func (o *OAuth2) LoadRefresh(ctx context.Context, token string) (*RefreshRecord,
 	return rec, nil
 }
 
-// MarkRefreshUsed leaves the old token behind as a tombstone rather than
-// deleting it, so replaying it is detectable instead of merely failing.
+// MarkRefreshUsed leaves the old token behind as a tombstone rather than deleting it.
 func (o *OAuth2) MarkRefreshUsed(ctx context.Context, token string, rec *RefreshRecord) error {
 	rec.Used = true
 
@@ -142,8 +137,7 @@ func (o *OAuth2) MarkRefreshUsed(ctx context.Context, token string, rec *Refresh
 	return o.Redis.Client.Set(ctx, KeyRefresh(crypto.HashTokenHex(token)), raw, time.Hour).Err()
 }
 
-// LockRefresh guards one rotation, so two parallel refreshes of the same token
-// do not both succeed and then look like theft.
+// LockRefresh guards one rotation.
 func (o *OAuth2) LockRefresh(ctx context.Context, token string) (bool, error) {
 	return o.Redis.Client.SetNX(ctx, KeyRTLock(crypto.HashTokenHex(token)), 1, 5*time.Second).Result()
 }
@@ -167,8 +161,7 @@ func (o *OAuth2) RevokeSession(ctx context.Context, sid string, reason string) e
 	return nil
 }
 
-// RevokeFamily kills every session in a rotation chain. This is the response to
-// a replayed refresh token: the whole family is assumed compromised.
+// RevokeFamily kills every session in a rotation chain.
 func (o *OAuth2) RevokeFamily(ctx context.Context, familyId string, reason string) error {
 	if _, err := o.DB.DB.Exec(ctx,
 		`UPDATE hst.sessions SET revoked_at = $1, revoked_reason = $2
@@ -195,8 +188,6 @@ func (o *OAuth2) RevokeFamily(ctx context.Context, familyId string, reason strin
 }
 
 // InvalidateLogin is called after any change to rights, group or a password.
-// Sessions are dropped rather than rewritten, so the next request rebuilds from
-// current data instead of trusting a snapshot that may already be wrong.
 func (o *OAuth2) InvalidateLogin(ctx context.Context, login int64, reason string) error {
 	sids, err := o.Redis.Client.SMembers(ctx, KeyUser(login)).Result()
 	if err != nil && err != redis.Nil {
@@ -223,8 +214,7 @@ func (o *OAuth2) InvalidateLogin(ctx context.Context, login int64, reason string
 	return o.Redis.Client.Del(ctx, KeyUser(login)).Err()
 }
 
-// RegisterFailure counts a bad password and locks the login once the limit is
-// reached. Returns true when the account is now locked.
+// RegisterFailure counts a bad password and locks the login once the limit is reached.
 func (o *OAuth2) RegisterFailure(ctx context.Context, login int64, ip string) (bool, error) {
 	count, err := o.Redis.Client.Incr(ctx, KeyFail(login)).Result()
 	if err != nil {

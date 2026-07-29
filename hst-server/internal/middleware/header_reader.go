@@ -9,7 +9,6 @@ import (
 )
 
 // HeaderReader pulls the bearer token and request metadata into Locals.
-// It performs no I/O, so an unauthenticated route costs nothing.
 func (m *Middleware) HeaderReader(c *fiber.Ctx) error {
 	authHeader := c.Get("Authorization")
 	if strings.HasPrefix(authHeader, "Bearer ") {

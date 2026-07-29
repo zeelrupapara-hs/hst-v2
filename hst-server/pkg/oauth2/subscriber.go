@@ -9,17 +9,14 @@ import (
 	"github.com/goccy/go-json"
 )
 
-// invalidateMessage is broadcast to every instance. Either one session or every
-// session of a login.
+// invalidateMessage is broadcast to every instance.
 type invalidateMessage struct {
 	Sid    string `json:"sid,omitempty"`
 	Login  int64  `json:"login,omitempty"`
 	Reason string `json:"reason,omitempty"`
 }
 
-// Subscribe applies revocations published by the other instances. Losing a
-// message costs at most one cache TTL of staleness; correctness never depends
-// on delivery.
+// Subscribe applies revocations published by the other instances.
 func (o *OAuth2) Subscribe() {
 	ctx := context.Background()
 	sub := o.Redis.Client.Subscribe(ctx, ChannelInvalidate)
@@ -66,8 +63,7 @@ func (o *OAuth2) publish(ctx context.Context, m invalidateMessage) {
 	}
 }
 
-// PackManagerRights turns the 77 columns into the two word bitset the snapshot
-// carries, in the column order the migration defines.
+// PackManagerRights turns the 77 right columns into the two word bitset.
 func PackManagerRights(m *model.Manager) model.ManagerRights {
 	var r model.ManagerRights
 

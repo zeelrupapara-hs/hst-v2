@@ -23,15 +23,13 @@ var (
 	// this name is one time only
 	service = "hstserver"
 
-	// this change as per git -tag -v everytime this will go into testing
-	// v1.0.0 Major.Minor.Batch or bug
+	// bumped per git tag: Major.Minor.Patch
 	version = "v1.0.0"
 )
 
 // Start boots the service and blocks until it has shut down cleanly.
 func Start() {
 	// run() owns the resources so its defers always run.
-	// Fatalf deeper down would skip them.
 	if code := Run(); code != 0 {
 		os.Exit(code)
 	}

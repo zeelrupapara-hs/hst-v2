@@ -15,11 +15,7 @@ import (
 	"hstserver/pkg/redis"
 )
 
-// Now server is a generic builder with http server as v1 every http, ws or any public interface should
-// move to v1 including routes,controlers
-// also model/v1 the same
-// all resources
-// remove any resources here that was in v1 and duplicated
+// Server wires the app together; every public interface lives under v1.
 type Server struct {
 	App *http.App
 	// Middleware
@@ -75,7 +71,6 @@ func (s *Server) Run() error {
 }
 
 // Shutdown drains in-flight requests, capped by ShutdownTimeout.
-// A plain Shutdown() would wait forever on a hung client.
 func (s *Server) Shutdown() error {
 	s.Log.Logger.Infow("draining in-flight requests",
 		"timeout", s.Cfg.HTTP.ShutdownTimeout.String())

@@ -1,6 +1,4 @@
 // Command genkeys prints an ed25519 key pair for AUTH_JWT_PRIVATE_KEY.
-// The seed signs, the public key only verifies, so the other services can be
-// given the public half and still never mint a token.
 package main
 
 import (

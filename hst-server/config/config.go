@@ -61,16 +61,13 @@ type Config struct {
 
 // Auth config
 type Auth struct {
-	// JwtPrivateKey is a base64 ed25519 seed. There is no default: an
-	// ephemeral dev key would invalidate every token on restart.
+	// JwtPrivateKey is a base64 ed25519 seed.
 	JwtPrivateKey string
 	JwtIssuer     string
 	// AccessTTL and RefreshTTL are read from the env in seconds
 	AccessTTL  time.Duration
 	RefreshTTL time.Duration
 	// RefreshAbsoluteTTL caps a whole rotation family however often it rotates.
-	// It must exceed RefreshTTL, otherwise rotating never extends the session
-	// and every family dies exactly RefreshTTL after the first login.
 	RefreshAbsoluteTTL time.Duration
 
 	Argon2MemoryKiB   int
@@ -83,8 +80,7 @@ type Auth struct {
 	LockoutDuration   time.Duration
 	// MaxFailedPerIP throttles credential stuffing across many logins
 	MaxFailedPerIP int
-	// FirstManagerPassword is the first administrator's password. Empty means
-	// do not seed, which is the right default once the server has run once.
+	// FirstManagerPassword is the first administrator's password.
 	FirstManagerPassword string
 }
 
@@ -96,8 +92,7 @@ type Cache struct {
 	ShardCount int
 	// MaxAccounts is the memory dial, measured 552 bytes per session
 	MaxAccounts int
-	// TTL is the staleness contract: how long a revoked right can survive
-	// if the invalidation message is lost
+	// TTL is the staleness contract:
 	TTL     time.Duration
 	Buckets int
 }
@@ -117,7 +112,6 @@ type Logger struct {
 	// LogDir holds one file per day named YYYYMMDD.log, as MT5 does
 	LogDir string
 	// LogMaxAgeDays prunes day files older than this; 0 keeps them forever.
-	// Mirrors MT5 RequestLimitLogs: 30, 90, 180, 365, 730, 1095.
 	LogMaxAgeDays int
 }
 

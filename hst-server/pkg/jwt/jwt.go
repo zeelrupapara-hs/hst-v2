@@ -15,8 +15,7 @@ var (
 	ErrInvalidKeySize = errors.New("ed25519 private key must be a 32 byte seed")
 )
 
-// Claims is the access token payload. Rights are deliberately absent: they must
-// stay revocable, and Ver makes checking for a downgrade free.
+// Claims is the access token payload.
 type Claims struct {
 	Sid        string `json:"sid"`
 	Cid        int64  `json:"cid"`
@@ -27,9 +26,7 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// Signer mints and verifies EdDSA access tokens. Ed25519 and not HMAC: with a
-// shared secret every service that verifies a token could also mint one, so a
-// compromised edge service could issue itself an admin token.
+// Signer mints and verifies EdDSA access tokens.
 type Signer struct {
 	private ed25519.PrivateKey
 	public  ed25519.PublicKey
@@ -55,8 +52,7 @@ func NewSigner(seedB64, issuer string, ttl time.Duration) (*Signer, error) {
 		public:  priv.Public().(ed25519.PublicKey),
 		issuer:  issuer,
 		ttl:     ttl,
-		// the algorithm allowlist is what stops an alg=none or alg=HS256
-		// token signed with our own public key from being accepted
+		// the allowlist stops alg=none and alg=HS256 forgeries
 		parser: jwt.NewParser(
 			jwt.WithValidMethods([]string{"EdDSA"}),
 			jwt.WithIssuer(issuer),
@@ -86,8 +82,7 @@ func (s *Signer) Sign(login int64, c *Claims) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodEdDSA, c).SignedString(s.private)
 }
 
-// Parse verifies the signature and the standard claims. It performs no I/O, so
-// a forged or expired token is rejected without touching redis or postgres.
+// Parse verifies the signature and the standard claims.
 func (s *Signer) Parse(token string) (*Claims, error) {
 	claims := &Claims{}
 

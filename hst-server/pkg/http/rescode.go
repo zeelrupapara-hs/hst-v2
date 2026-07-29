@@ -1,19 +1,12 @@
 package http
 
-// RetCode is an MT5 return code. It travels in the response body so a client
-// can tell "wrong password" from "must change password" without parsing text,
-// while the HTTP status stays in the header.
-//
-// Values verified against the MT5 API reference, Return Codes, Authentication:
-// support.metaquotes.net/en/docs/mt5/api/retcodes_authentication
+// RetCode is an MT5 return code.
 type RetCode int
 
 const (
 	RetOK RetCode = 0
 
-	// MT5 authentication block, 1000..1034. Only the codes this service can
-	// actually produce are listed; the rest of the block covers certificates,
-	// server identity and licensing, which are not our concerns.
+	// MT5 authentication block, 1000..1034.
 	RetAuthClientInvalid   RetCode = 1000 // invalid type of the terminal
 	RetAuthAccountInvalid  RetCode = 1001 // invalid account, our wrong password case
 	RetAuthAccountDisabled RetCode = 1002 // the account is disabled
@@ -26,9 +19,7 @@ const (
 	RetAuthOtpInvalid      RetCode = 1027 // invalid one time password
 	RetAuthApiDisabled     RetCode = 1034 // api connection prohibited, USER_RIGHT_API_ENABLED
 
-	// hst extensions. MT5 keeps a persistent authenticated connection and so
-	// has no code for an expired bearer session or a locked out login. These
-	// start at 60000 because the MT5 blocks run up to 15007.
+	// hst extensions.
 	RetSessionExpired RetCode = 60001 // the session is gone, refresh or log in again
 	RetAccountLocked  RetCode = 60002 // too many failed attempts, temporarily locked
 )

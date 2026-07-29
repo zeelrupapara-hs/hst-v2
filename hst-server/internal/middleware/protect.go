@@ -14,11 +14,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// Protect authenticates the request. It is the hot path, so the order matters:
-// a forged token is rejected on signature alone, with zero I/O.
-//
-// It never reads postgres. A missing session means the client should refresh,
-// and refresh is the only path allowed to touch the database.
+// Protect authenticates the request.
 func (m *Middleware) Protect(c *fiber.Ctx) error {
 	token, ok := utils.GetToken(c)
 	if !ok {
@@ -37,8 +33,7 @@ func (m *Middleware) Protect(c *fiber.Ctx) error {
 		case errors.Is(err, oauth2.ErrSessionNotFound):
 			return m.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 		case err != nil:
-			// the session store is down, not the client's fault. A 401 here
-			// would make it burn its refresh token on our outage.
+			// the session store is down, not the client's fault.
 			return m.App.HttpResponseServiceUnavailable(c, errs.ErrSessionStoreUnavailable)
 		}
 		m.OAuth2.Cache.Put(snap)

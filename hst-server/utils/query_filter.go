@@ -18,10 +18,7 @@ type Query struct {
 	SortBy string
 }
 
-// Sortable is the set of columns one endpoint may order by. Every table names
-// its timestamps differently, so the allowlist belongs to the caller, not here.
-// It is an allowlist and not interpolation because sort_by lands in the SQL
-// text, where a bind parameter cannot go.
+// Sortable is the set of columns one endpoint may order by.
 type Sortable map[string]struct{}
 
 // NewSortable builds the set from column names.
@@ -33,8 +30,7 @@ func NewSortable(columns ...string) Sortable {
 	return s
 }
 
-// QueryFilter parses page, limit, search and sort_by. defaultSort must be one
-// of the allowed columns, so a caller cannot ship a default that does not exist.
+// QueryFilter parses page, limit, search and sort_by.
 func QueryFilter(c *fiber.Ctx, sortable Sortable, defaultSort string) (*Query, error) {
 	page := c.QueryInt("page", 1)
 	if page < 1 {
