@@ -110,19 +110,19 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
 	}
 
-	// step 1, is this really them
+	// is this really them
 	user, err := s.checkPassword(ctx, login, password, ip)
 	if err != nil {
 		return s.loginFailed(c, err)
 	}
 
-	// step 2, may they open a back office session
-	manager, err := s.checkStaffAccess(ctx, login, model.UsersConnectionTypes(body.ConnectionType))
+	// do they have a manager row, and may it use this panel
+	manager, err := s.checkManagerAccess(ctx, login, model.UsersConnectionTypes(body.ConnectionType))
 	if err != nil {
 		return s.loginFailed(c, err)
 	}
 
-	// step 3, hand over the tokens
+	// hand over the tokens
 	view, err := s.openSession(ctx, user, manager, &oauth2.Config{
 		Login:          login,
 		ClientId:       user.ClientId,
@@ -191,10 +191,10 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 	return user, nil
 }
 
-// checkStaffAccess decides whether this login may use the admin or manager
-// panel. A login is staff only because a row exists for it in hst.managers,
-// so that row, and the terminal type it permits, is the whole decision.
-func (s *HttpServer) checkStaffAccess(ctx context.Context, login int64,
+// checkManagerAccess decides whether this login may use the admin or manager
+// panel. A login gets in only because a row exists for it in hst.managers, so
+// that row, and the terminal type it permits, is the whole decision.
+func (s *HttpServer) checkManagerAccess(ctx context.Context, login int64,
 	connType model.UsersConnectionTypes) (*model.Manager, error) {
 
 	if !connType.IsStaff() {
