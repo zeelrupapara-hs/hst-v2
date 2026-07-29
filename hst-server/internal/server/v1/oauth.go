@@ -46,6 +46,21 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" validate:"required,min=8,max=128"`
 }
 
+// loginDenied is a refusal with the status and MT5 code it should carry. Each
+// login step returns one of these instead of writing a response itself, which
+// is what keeps Login readable as a short list of steps.
+type loginDenied struct {
+	status int
+	code   http.RetCode
+	reason error
+}
+
+func (d *loginDenied) Error() string { return d.reason.Error() }
+
+func denied(status int, code http.RetCode, reason error) error {
+	return &loginDenied{status: status, code: code, reason: reason}
+}
+
 // ViewMe is the profile of the caller.
 type ViewMe struct {
 	Login          int64           `json:"login"`
@@ -85,106 +100,39 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	loginStr, _ := c.Locals(http.LocalsUsername).(string)
-	password, _ := c.Locals(http.LocalsPassword).(string)
-
-	login, err := strconv.ParseInt(loginStr, 10, 64)
-	if err != nil || login <= 0 {
-		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
+	login, password, err := basicCredentials(c)
+	if err != nil {
+		return s.loginFailed(c, err)
 	}
 
-	// stop credential stuffing before it reaches argon2
+	// stop credential stuffing before it ever reaches argon2
 	if s.OAuth2.IPThrottled(ctx, ip) {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
 	}
 
-	u := &model.User{}
-	err = s.DB.DB.QueryRow(ctx,
-		`SELECT login, COALESCE(client_id, 0), "group", rights,
-		        password_main, locked_until
-		   FROM hst.users WHERE login = $1`, login).
-		Scan(&u.Login, &u.ClientId, &u.Group, &u.Rights, &u.PasswordMain, &u.LockedUntil)
-
-	if errors.Is(err, pgx.ErrNoRows) {
-		// burn the same work as a real verify so a missing login and a wrong
-		// password cannot be told apart by timing
-		s.OAuth2.Hasher.VerifyDummy(password)
-		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
-	}
+	// step 1, is this really them
+	user, err := s.checkPassword(ctx, login, password, ip)
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return s.loginFailed(c, err)
 	}
 
-	if u.LockedUntil > time.Now().UnixNano() {
-		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
-	}
-
-	// managers authenticate with the main slot only. The investor and api slots
-	// belong to trader login, which this endpoint does not serve.
-	valid, needsRehash, err := s.OAuth2.Hasher.VerifyPassword(u.PasswordMain, password)
-	if errors.Is(err, crypto.ErrHasherBusy) {
-		return s.App.HttpResponseServiceUnavailable(c, errs.ErrServiceUnavailable)
-	}
-	if err != nil || !valid {
-		locked, ferr := s.OAuth2.RegisterFailure(ctx, login, ip)
-		if ferr != nil {
-			s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to record login failure",
-				"login", login, "error", ferr.Error())
-		}
-
-		s.Log.Log(logger.TypeUser, logger.CodeAtt, "failed login",
-			"login", login, "ip", ip, "locked", locked)
-
-		if locked {
-			return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
-		}
-		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetAuthAccountInvalid, errs.ErrInvalidCredentials)
-	}
-
-	if !u.Rights.CanConnect() {
-		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
-	}
-
-	connType := model.UsersConnectionTypes(body.ConnectionType)
-	if !connType.IsStaff() {
-		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
-	}
-
-	mgr, err := s.selectManager(ctx, login)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
-	}
+	// step 2, may they open a back office session
+	manager, err := s.checkStaffAccess(ctx, login, model.UsersConnectionTypes(body.ConnectionType))
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return s.loginFailed(c, err)
 	}
 
-	if !mgr.PermitsTerminal(connType) {
-		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
-	}
-
-	// upgrading the stored hash must never block the login
-	if needsRehash {
-		if hash, herr := s.OAuth2.Hasher.HashPassword(password); herr == nil {
-			if _, uerr := s.DB.DB.Exec(ctx,
-				`UPDATE hst.users SET password_main = $1 WHERE login = $2`, hash, login); uerr != nil {
-				s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to upgrade password hash",
-					"login", login, "error", uerr.Error())
-			}
-		}
-	}
-
-	cfg := &oauth2.Config{
+	// step 3, hand over the tokens
+	view, err := s.openSession(ctx, user, manager, &oauth2.Config{
 		Login:          login,
-		ClientId:       u.ClientId,
+		ClientId:       user.ClientId,
 		Scope:          int32(model.UsersPasswords_main),
 		ConnectionType: body.ConnectionType,
 		IpAddress:      ip,
 		UserAgent:      utils.GetUserAgent(c),
 		// MT5 reset_pass: the session opens, but it may only change the password
-		Restricted: u.Rights.MustChangePassword(),
-	}
-
-	view, err := s.openSession(ctx, u, mgr, cfg, "", "")
+		Restricted: user.Rights.MustChangePassword(),
+	}, "", "")
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -195,6 +143,137 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		"login", login, "ip", ip, "connection_type", body.ConnectionType)
 
 	return s.App.HttpResponseRetCode(c, view.Code, view)
+}
+
+// checkPassword loads the login and verifies the master password. It answers
+// one question only: is this really them, and is the account usable.
+func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, ip string) (*model.User, error) {
+	user := &model.User{}
+
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT login, COALESCE(client_id, 0), "group", rights, password_main, locked_until
+		   FROM hst.users WHERE login = $1`, login).
+		Scan(&user.Login, &user.ClientId, &user.Group, &user.Rights,
+			&user.PasswordMain, &user.LockedUntil)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		// burn the same work as a real verify, so a missing login and a wrong
+		// password take the same time and cannot be told apart
+		s.OAuth2.Hasher.VerifyDummy(password)
+		return nil, denied(http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if user.LockedUntil > time.Now().UnixNano() {
+		return nil, denied(http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
+	}
+
+	// staff authenticate with the master slot only. The investor and api slots
+	// belong to trader login, which this endpoint does not serve.
+	ok, needsRehash, err := s.OAuth2.Hasher.VerifyPassword(user.PasswordMain, password)
+	if errors.Is(err, crypto.ErrHasherBusy) {
+		return nil, denied(http.StatusServiceUnavailable, http.RetAuthServerBusy, errs.ErrServiceUnavailable)
+	}
+	if err != nil || !ok {
+		return nil, s.recordFailedLogin(ctx, login, ip)
+	}
+
+	if !user.Rights.CanConnect() {
+		return nil, denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+	}
+
+	if needsRehash {
+		s.upgradePasswordHash(ctx, login, password)
+	}
+
+	return user, nil
+}
+
+// checkStaffAccess decides whether this login may use the admin or manager
+// panel. A login is staff only because a row exists for it in hst.managers,
+// so that row, and the terminal type it permits, is the whole decision.
+func (s *HttpServer) checkStaffAccess(ctx context.Context, login int64,
+	connType model.UsersConnectionTypes) (*model.Manager, error) {
+
+	if !connType.IsStaff() {
+		return nil, denied(http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
+	}
+
+	manager, err := s.selectManager(ctx, login)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, denied(http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// admin and manager terminals are gated separately in MT5
+	if !manager.PermitsTerminal(connType) {
+		return nil, denied(http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
+	}
+
+	return manager, nil
+}
+
+// recordFailedLogin counts the attempt and returns what the caller should
+// answer: locked once the limit is reached, otherwise a plain bad password.
+func (s *HttpServer) recordFailedLogin(ctx context.Context, login int64, ip string) error {
+	locked, err := s.OAuth2.RegisterFailure(ctx, login, ip)
+	if err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to record login failure",
+			"login", login, "error", err.Error())
+	}
+
+	s.Log.Log(logger.TypeUser, logger.CodeAtt, "failed login",
+		"login", login, "ip", ip, "locked", locked)
+
+	if locked {
+		return denied(http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
+	}
+
+	return denied(http.StatusUnauthorized, http.RetAuthAccountInvalid, errs.ErrInvalidCredentials)
+}
+
+// upgradePasswordHash rewrites a hash made with weaker settings. It must never
+// block the login, so a failure is logged and otherwise ignored.
+func (s *HttpServer) upgradePasswordHash(ctx context.Context, login int64, password string) {
+	hash, err := s.OAuth2.Hasher.HashPassword(password)
+	if err != nil {
+		return
+	}
+
+	if _, err := s.DB.DB.Exec(ctx,
+		`UPDATE hst.users SET password_main = $1 WHERE login = $2`, hash, login); err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "failed to upgrade password hash",
+			"login", login, "error", err.Error())
+	}
+}
+
+// basicCredentials reads what BasicAuthParser put in Locals. MT5 logins are
+// numbers, so anything else is simply an unknown account.
+func basicCredentials(c *fiber.Ctx) (int64, string, error) {
+	loginStr, _ := c.Locals(http.LocalsUsername).(string)
+	password, _ := c.Locals(http.LocalsPassword).(string)
+
+	login, err := strconv.ParseInt(loginStr, 10, 64)
+	if err != nil || login <= 0 {
+		return 0, "", denied(http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
+	}
+
+	return login, password, nil
+}
+
+// loginFailed writes the refusal a step returned. Anything that is not a
+// deliberate refusal is a bug on our side, so it becomes a 500.
+func (s *HttpServer) loginFailed(c *fiber.Ctx, err error) error {
+	var d *loginDenied
+	if errors.As(err, &d) {
+		return s.App.HttpResponseDenied(c, d.status, d.code, d.reason)
+	}
+
+	return s.App.HttpResponseInternalServerErrorRequest(c, err)
 }
 
 // RefreshToken rotates the refresh token and issues a new access token.
