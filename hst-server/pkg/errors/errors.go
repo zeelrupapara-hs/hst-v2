@@ -33,6 +33,11 @@ const (
 	UnknownManagerRight          = "unknown manager right"
 	ClientHasFundedAccounts      = "this client has trading accounts holding funds, close or move them first"
 	ManagerIpBlocked             = "this ip address is not permitted for the manager"
+	LeverageNameExists           = "a leverage profile with this name already exists"
+	LeverageLimitReached         = "the maximum of 1024 leverage profiles has been reached"
+	LeverageRuleLimitReached     = "a leverage profile can hold at most 1024 rules"
+	RuleNotInProfile             = "the rule does not belong to this leverage profile"
+	ReorderMustListEveryRule     = "the reorder must list every rule of the profile exactly once"
 )
 
 var (
@@ -65,4 +70,9 @@ var (
 	ErrUnknownManagerRight          = errors.New(UnknownManagerRight)
 	ErrClientHasFundedAccounts      = errors.New(ClientHasFundedAccounts)
 	ErrManagerIpBlocked             = errors.New(ManagerIpBlocked)
+	ErrLeverageNameExists           = errors.New(LeverageNameExists)
+	ErrLeverageLimitReached         = errors.New(LeverageLimitReached)
+	ErrLeverageRuleLimitReached     = errors.New(LeverageRuleLimitReached)
+	ErrRuleNotInProfile             = errors.New(RuleNotInProfile)
+	ErrReorderMustListEveryRule     = errors.New(ReorderMustListEveryRule)
 )

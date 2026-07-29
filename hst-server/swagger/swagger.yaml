@@ -150,6 +150,65 @@ definitions:
     - contact_email
     - person_name
     type: object
+  internal_server_v1.CrtLeverage:
+    properties:
+      flags:
+        type: integer
+      name:
+        maxLength: 128
+        type: string
+      rules:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtLeverageRule'
+        maxItems: 1024
+        type: array
+    required:
+    - name
+    type: object
+  internal_server_v1.CrtLeverageRule:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 128
+        type: string
+      path:
+        maxLength: 128
+        type: string
+      range_mode:
+        maximum: 3
+        minimum: 0
+        type: integer
+      range_value_currency:
+        maxLength: 8
+        type: string
+      range_value_currency_digits:
+        maximum: 8
+        minimum: 0
+        type: integer
+      tiers:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtLeverageTier'
+        minItems: 1
+        type: array
+    required:
+    - name
+    - path
+    - tiers
+    type: object
+  internal_server_v1.CrtLeverageTier:
+    properties:
+      margin_rate_initial:
+        minimum: 0
+        type: number
+      margin_rate_maintenance:
+        minimum: 0
+        type: number
+      range_to:
+        minimum: 0
+        type: number
+    type: object
   internal_server_v1.CrtManager:
     properties:
       groups:
@@ -271,6 +330,16 @@ definitions:
         type: string
     required:
     - refresh_token
+    type: object
+  internal_server_v1.ReorderLeverageRules:
+    properties:
+      rule_ids:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - rule_ids
     type: object
   internal_server_v1.Response:
     properties:
@@ -407,6 +476,47 @@ definitions:
       person_wealth_source:
         $ref: '#/definitions/model.WealthSource'
     type: object
+  internal_server_v1.UptLeverage:
+    properties:
+      flags:
+        type: integer
+      name:
+        maxLength: 128
+        type: string
+      rules:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtLeverageRule'
+        maxItems: 1024
+        type: array
+    type: object
+  internal_server_v1.UptLeverageRule:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 128
+        type: string
+      path:
+        maxLength: 128
+        type: string
+      range_mode:
+        maximum: 3
+        minimum: 0
+        type: integer
+      range_value_currency:
+        maxLength: 8
+        type: string
+      range_value_currency_digits:
+        maximum: 8
+        minimum: 0
+        type: integer
+      tiers:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtLeverageTier'
+        minItems: 1
+        type: array
+    type: object
   internal_server_v1.UptManager:
     properties:
       groups:
@@ -500,6 +610,46 @@ definitions:
         type: string
       person_name:
         type: string
+    type: object
+  internal_server_v1.ViewLeverageDetail:
+    properties:
+      flags:
+        type: integer
+      leverage_id:
+        type: integer
+      name:
+        type: string
+      rules:
+        items:
+          $ref: '#/definitions/internal_server_v1.ViewLeverageRule'
+        type: array
+      timestamp:
+        type: integer
+    type: object
+  internal_server_v1.ViewLeverageRule:
+    properties:
+      config_index:
+        type: integer
+      description:
+        type: string
+      leverage_id:
+        type: integer
+      name:
+        type: string
+      path:
+        type: string
+      range_mode:
+        $ref: '#/definitions/model.RangeMode'
+      range_value_currency:
+        type: string
+      range_value_currency_digits:
+        type: integer
+      rule_id:
+        type: integer
+      tiers:
+        items:
+          $ref: '#/definitions/model.LeverageTier'
+        type: array
     type: object
   internal_server_v1.ViewManagerRights:
     properties:
@@ -870,6 +1020,32 @@ definitions:
     - KycStatus_undefined
     - KycStatus_approved
     - KycStatus_declined
+  model.Leverage:
+    properties:
+      flags:
+        type: integer
+      leverage_id:
+        type: integer
+      name:
+        type: string
+      timestamp:
+        type: integer
+    type: object
+  model.LeverageTier:
+    properties:
+      margin_rate_initial:
+        type: number
+      margin_rate_maintenance:
+        type: number
+      range_from:
+        type: number
+      range_to:
+        type: number
+      rule_id:
+        type: integer
+      tier_id:
+        type: integer
+    type: object
   model.Manager:
     properties:
       access:
@@ -1085,6 +1261,19 @@ definitions:
     - PreferredCommunication_phone
     - PreferredCommunication_phone_sms
     - PreferredCommunication_messenger
+  model.RangeMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - RangeMode_volume
+    - RangeMode_volume_per_symbol
+    - RangeMode_notional_value
+    - RangeMode_notional_value_per_symbol
   model.TradingExperience:
     enum:
     - 0
@@ -1465,6 +1654,442 @@ paths:
       - BearerAuth: []
       tags:
       - Clients
+  /api/v1/leverage-profiles:
+    get:
+      operationId: ListLeverageProfiles
+      parameters:
+      - description: page number, from 1
+        in: query
+        name: page
+        type: integer
+      - description: rows per page, max 500
+        in: query
+        name: limit
+        type: integer
+      - description: matches name
+        in: query
+        name: search
+        type: string
+      - description: leverage_id, name, timestamp
+        enum:
+        - leverage_id
+        - name
+        - timestamp
+        in: query
+        name: sort_by
+        type: string
+      - description: asc or desc
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/model.Leverage'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+    post:
+      consumes:
+      - application/json
+      operationId: CreateLeverageProfile
+      parameters:
+      - description: the profile to create, rules and tiers may be inlined
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtLeverage'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+  /api/v1/leverage-profiles/{id}:
+    delete:
+      operationId: DeleteLeverageProfile
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+    get:
+      operationId: GetLeverageProfile
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+    put:
+      consumes:
+      - application/json
+      operationId: UpdateLeverageProfile
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: only the fields to change. rules absent keeps them, [] clears
+          them, a list replaces them
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptLeverage'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+  /api/v1/leverage-profiles/{id}/rules:
+    post:
+      consumes:
+      - application/json
+      operationId: CreateLeverageRule
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: the rule to append, with its tiers
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtLeverageRule'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+  /api/v1/leverage-profiles/{id}/rules/{ruleId}:
+    delete:
+      operationId: DeleteLeverageRule
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: rule id, must belong to the profile
+        in: path
+        name: ruleId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+    put:
+      consumes:
+      - application/json
+      operationId: UpdateLeverageRule
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: rule id, must belong to the profile
+        in: path
+        name: ruleId
+        required: true
+        type: integer
+      - description: only the fields to change. a tiers list replaces the whole level
+          set
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptLeverageRule'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+  /api/v1/leverage-profiles/{id}/rules/reorder:
+    put:
+      consumes:
+      - application/json
+      operationId: ReorderLeverageRules
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: every rule id of the profile, exactly once, in the new evaluation
+          order
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.ReorderLeverageRules'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
   /api/v1/managers:
     get:
       operationId: ListManagers
