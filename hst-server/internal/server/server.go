@@ -65,6 +65,14 @@ func (s *Server) Run() error {
 	s.RegisterRoutes()
 
 	addr := s.Cfg.HTTP.Host + ":" + s.Cfg.HTTP.Port
+
+	// tls here is for serving https directly; behind an ingress that terminates
+	// it, leave the pair empty and let the proxy do it
+	if s.Cfg.HTTP.TlsCert != "" {
+		s.Log.Logger.Info("https server listening on ", addr)
+		return s.App.ListenTLS(addr, s.Cfg.HTTP.TlsCert, s.Cfg.HTTP.TlsKey)
+	}
+
 	s.Log.Logger.Info("http server listening on ", addr)
 
 	return s.App.Listen(addr)

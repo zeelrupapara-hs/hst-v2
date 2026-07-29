@@ -2,7 +2,9 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
 	"time"
 
 	"hstserver/config"
@@ -37,6 +39,15 @@ func NewRedisClient(cfg *config.Config, log *logger.Logger) (*Redis, error) {
 		MaxRetries:      3,
 		MinRetryBackoff: 8 * time.Millisecond,
 		MaxRetryBackoff: 512 * time.Millisecond,
+	}
+
+	// a managed redis normally requires tls; the server name is verified
+	if cfg.Redis.Tls {
+		host, _, err := net.SplitHostPort(cfg.Redis.RedisUrl)
+		if err != nil {
+			return nil, fmt.Errorf("invalid redis address %q: %w", cfg.Redis.RedisUrl, err)
+		}
+		opt.TLSConfig = &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
 	}
 
 	client := redis.NewClient(opt)

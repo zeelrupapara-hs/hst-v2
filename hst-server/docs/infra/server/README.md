@@ -66,7 +66,9 @@ spec:
               valueFrom:
                 secretKeyRef: {name: hst-auth, key: postgres-password}
             - name: POSTGRES_SSL_MODE
-              value: "require"
+              value: "require"          # verify-full if you pin the CA
+            - name: REDIS_TLS
+              value: "true"
             - name: SWAGGER_ENABLED
               value: "false"       # it exposes the whole api surface
             - name: CORS_ORIGINS
@@ -95,6 +97,29 @@ spec:
   selector: {app: hst-server}
   ports: [{port: 8080}]
 ```
+
+## TLS
+
+Terminate at the ingress and leave `HTTP_TLS_CERT` and `HTTP_TLS_KEY` empty.
+The pod then serves plain http inside the cluster and the app still sends HSTS,
+because it reads `X-Forwarded-Proto`.
+
+To serve https from the pod instead, mount a certificate and set both:
+
+```yaml
+            - name: HTTP_TLS_CERT
+              value: /tls/tls.crt
+            - name: HTTP_TLS_KEY
+              value: /tls/tls.key
+          volumeMounts:
+            - {name: tls, mountPath: /tls, readOnly: true}
+      volumes:
+        - name: tls
+          secret: {secretName: hst-server-tls}
+```
+
+Setting only one of the pair is a boot error, so a half-configured pod fails
+loudly instead of quietly serving http.
 
 ## Scaling is two commands, not one
 

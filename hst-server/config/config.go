@@ -2,6 +2,7 @@ package config
 
 // Config will use .ENV for docker-compose and load into config
 import (
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -50,6 +51,9 @@ const (
 	// #nosec G101 -- env var name, not a credential
 	AUTH_PASSWORD_PEPPER = "AUTH_PASSWORD_PEPPER"
 	SWAGGER_ENABLED      = "SWAGGER_ENABLED"
+	HTTP_TLS_CERT        = "HTTP_TLS_CERT"
+	HTTP_TLS_KEY         = "HTTP_TLS_KEY"
+	REDIS_TLS            = "REDIS_TLS"
 	CORS_ORIGINS         = "CORS_ORIGINS"
 )
 
@@ -137,6 +141,10 @@ type Http struct {
 	SwaggerEnabled bool
 	// CorsOrigins is the allowlist, never a wildcard.
 	CorsOrigins []string
+	// TlsCert and TlsKey serve https directly; leave both empty to serve plain
+	// http behind a proxy that terminates tls for you.
+	TlsCert string
+	TlsKey  string
 }
 
 // Postgres config
@@ -176,6 +184,8 @@ type Redis struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 
+	// Tls turns on tls to redis, which a managed redis normally requires.
+	Tls             bool
 	PoolSize        int
 	MinIdleConns    int
 	ConnMaxIdleTime time.Duration
@@ -184,6 +194,8 @@ type Redis struct {
 
 // NewConfig will load the env vars into the config struct
 func NewConfig() (*Config, error) {
+	badEnv = nil
+
 	// init config
 	http := Http{}
 	setting := Setting{}
@@ -219,8 +231,10 @@ func NewConfig() (*Config, error) {
 	c.HTTP.IdleTimeout = 120 * time.Second
 	c.HTTP.ShutdownTimeout = time.Duration(getEnvAsInt(HTTP_SHUTDOWN_TIMEOUT, 15)) * time.Second
 	c.HTTP.BodyLimit = getEnvAsInt(HTTP_BODY_LIMIT, 4*1024*1024)
-	c.HTTP.SwaggerEnabled = getEnv(SWAGGER_ENABLED, "false") == "true"
+	c.HTTP.SwaggerEnabled = getEnvAsBool(SWAGGER_ENABLED, false)
 	c.HTTP.CorsOrigins = splitCsv(getEnv(CORS_ORIGINS, "http://localhost:3000"))
+	c.HTTP.TlsCert = getEnv(HTTP_TLS_CERT, "")
+	c.HTTP.TlsKey = getEnv(HTTP_TLS_KEY, "")
 
 	// Postgres
 	c.Postgres.PostgresHost = getEnv(POSTGRES_HOST, "localhost")
@@ -250,6 +264,7 @@ func NewConfig() (*Config, error) {
 	c.Redis.ReadTimeout = 3 * time.Second
 	c.Redis.WriteTimeout = 3 * time.Second
 	c.Redis.PoolSize = getEnvAsInt(REDIS_POOL_SIZE, 10*runtime.NumCPU())
+	c.Redis.Tls = getEnvAsBool(REDIS_TLS, false)
 	c.Redis.MinIdleConns = 2
 	c.Redis.ConnMaxIdleTime = 30 * time.Minute
 	c.Redis.ConnMaxLifetime = time.Hour
@@ -287,12 +302,20 @@ func NewConfig() (*Config, error) {
 
 // validate refuses to boot on a configuration that would fail silently later.
 func (c *Config) validate() error {
+	if len(badEnv) > 0 {
+		return errors.Join(badEnv...)
+	}
+
 	if c.Auth.JwtPrivateKey == "" {
 		return fmt.Errorf("%s is required, run make gen-keys and put the seed in .env", AUTH_JWT_PRIVATE_KEY)
 	}
 	if c.Auth.RefreshAbsoluteTTL <= c.Auth.RefreshTTL {
 		return fmt.Errorf("%s must be shorter than the absolute family cap of %s",
 			AUTH_REFRESH_TTL, c.Auth.RefreshAbsoluteTTL)
+	}
+	// one without the other is a misconfiguration, not a fallback to http
+	if (c.HTTP.TlsCert == "") != (c.HTTP.TlsKey == "") {
+		return fmt.Errorf("%s and %s must be set together", HTTP_TLS_CERT, HTTP_TLS_KEY)
 	}
 	if c.Cache.ShardCount < 1 {
 		return fmt.Errorf("%s must be at least 1", SHARD_COUNT)
@@ -339,19 +362,50 @@ func getEnv(key string, defaultVal string) string {
 	return defaultVal
 }
 
+// badEnv collects every malformed value so the server can report them all at once.
+var badEnv []error
+
 // getEnvAsInt32 clamps to int32 range so a bad env value cannot overflow.
 func getEnvAsInt32(name string, defaultVal int32) int32 {
 	v := getEnvAsInt(name, int(defaultVal))
 	if v < 0 || v > math.MaxInt32 {
+		badEnv = append(badEnv, fmt.Errorf("%s must be between 0 and %d, got %d", name, math.MaxInt32, v))
 		return defaultVal
 	}
 	return int32(v)
 }
 
+// getEnvAsInt records a set but unparsable value rather than quietly using the
+// default, which is how a setting you think you changed never takes effect.
 func getEnvAsInt(name string, defaultVal int) int {
-	valueStr := getEnv(name, "")
-	if value, err := strconv.Atoi(valueStr); err == nil {
-		return value
+	raw, exists := os.LookupEnv(name)
+	raw = strings.TrimSpace(raw)
+	if !exists || raw == "" {
+		return defaultVal
 	}
-	return defaultVal
+
+	value, err := strconv.Atoi(raw)
+	if err != nil {
+		badEnv = append(badEnv, fmt.Errorf("%s must be a whole number, got %q", name, raw))
+		return defaultVal
+	}
+
+	return value
+}
+
+// getEnvAsBool accepts true or false and nothing else.
+func getEnvAsBool(name string, defaultVal bool) bool {
+	raw, exists := os.LookupEnv(name)
+	raw = strings.TrimSpace(raw)
+	if !exists || raw == "" {
+		return defaultVal
+	}
+
+	value, err := strconv.ParseBool(raw)
+	if err != nil {
+		badEnv = append(badEnv, fmt.Errorf("%s must be true or false, got %q", name, raw))
+		return defaultVal
+	}
+
+	return value
 }
