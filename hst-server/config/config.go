@@ -288,7 +288,7 @@ func NewConfig() (*Config, error) {
 // validate refuses to boot on a configuration that would fail silently later.
 func (c *Config) validate() error {
 	if c.Auth.JwtPrivateKey == "" {
-		return fmt.Errorf("%s is required, generate one with: make gen-keys", AUTH_JWT_PRIVATE_KEY)
+		return fmt.Errorf("%s is required, run make gen-keys and put the seed in .env", AUTH_JWT_PRIVATE_KEY)
 	}
 	if c.Auth.RefreshAbsoluteTTL <= c.Auth.RefreshTTL {
 		return fmt.Errorf("%s must be shorter than the absolute family cap of %s",

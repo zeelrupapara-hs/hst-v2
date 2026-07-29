@@ -27,10 +27,12 @@ All commands run from `hst-server/`.
 cd hst-server
 make tools     # migrate, staticcheck, errcheck, gosec, govulncheck
 cp .env.example .env
-make gen-keys  # put AUTH_JWT_PRIVATE_KEY into .env, the server won't boot without it
+make gen-keys  # copy the printed seed into AUTH_JWT_PRIVATE_KEY in .env
 ```
 
-Then set `FIRST_MANAGER_PASSWORD` in `.env`. On first boot, while `hst.managers`
+`make` loads `.env`, so `make run` picks it up. Values must not contain a `#`.
+
+`FIRST_MANAGER_PASSWORD` is already set in the example. On first boot, while `hst.managers`
 is empty, the server creates the administrator defined in `seed/manager.go`
 with that password: login **1000**, **First Admin**.
 

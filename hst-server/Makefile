@@ -3,6 +3,12 @@ MIGRATIONS := migrations
 STACK      := stack.yaml
 GOBIN      := $(shell go env GOPATH)/bin
 
+# load .env when it is there, so make run works after cp .env.example .env
+ifneq (,$(wildcard .env))
+include .env
+export
+endif
+
 # override from the environment or .env
 POSTGRES_USER     ?= hst
 POSTGRES_PASSWORD ?= hst
