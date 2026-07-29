@@ -28,6 +28,10 @@ jobs:
         image: redis:8-alpine
         ports:
           - 6379:6379
+      nats:
+        image: nats:2.12-alpine
+        ports:
+          - 4222:4222
 
     env:
       POSTGRES_HOST: localhost
@@ -38,6 +42,8 @@ jobs:
       POSTGRES_SSL_MODE: disable
       REDIS_URL: localhost:6379
       REDIS_DB: 0
+      NATS_HOST: localhost
+      NATS_PORT: 4222
       HTTP_HOST: 0.0.0.0
       HTTP_PORT: 8080
       BASE_URL: http://localhost:8080

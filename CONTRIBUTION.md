@@ -96,7 +96,7 @@ which drives a running server with curl and asserts both the HTTP status and
 the MT5 return code. It needs a fresh database and refuses to run against a
 dirty one. CI runs check and e2e on every push.
 
-Deploying to Kubernetes: see `docs/infra/server/README.md`.
+Deploying to Kubernetes: see `hst-server/docs/infra/server/README.md`.
 
 ## Other commands
 
