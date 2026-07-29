@@ -535,6 +535,280 @@ definitions:
       restricted:
         type: boolean
     type: object
+  internal_server_v1.ViewSymbol:
+    properties:
+      calc_mode:
+        type: integer
+      contract_size:
+        type: number
+      date_modified:
+        type: integer
+      description:
+        type: string
+      digits:
+        type: integer
+      exec_mode:
+        type: integer
+      path:
+        type: string
+      spread:
+        type: integer
+      symbol:
+        type: string
+      symbol_id:
+        type: integer
+      trade_mode:
+        type: integer
+    type: object
+  internal_server_v1.ViewSymbolDetail:
+    properties:
+      accrued_interest:
+        type: number
+      basis:
+        type: string
+      calc_mode:
+        $ref: '#/definitions/model.CalcMode'
+      category:
+        type: string
+      cfi:
+        type: string
+      color:
+        type: integer
+      color_background:
+        type: integer
+      contract_size:
+        type: number
+      country:
+        type: string
+      currency_base:
+        type: string
+      currency_base_digits:
+        type: integer
+      currency_margin:
+        type: string
+      currency_margin_digits:
+        type: integer
+      currency_profit:
+        type: string
+      currency_profit_digits:
+        type: integer
+      date_created:
+        type: integer
+      date_modified:
+        type: integer
+      description:
+        type: string
+      digits:
+        type: integer
+      exchange:
+        type: string
+      exec_mode:
+        $ref: '#/definitions/model.ExecMode'
+      expir_flags:
+        $ref: '#/definitions/model.ExpirationFlags'
+      face_value:
+        type: number
+      fill_flags:
+        $ref: '#/definitions/model.FillingFlags'
+      filter_discard:
+        type: integer
+      filter_gap:
+        type: integer
+      filter_gap_ticks:
+        type: integer
+      filter_hard:
+        type: integer
+      filter_hard_ticks:
+        type: integer
+      filter_soft:
+        type: integer
+      filter_soft_ticks:
+        type: integer
+      filter_spread_max:
+        type: integer
+      filter_spread_min:
+        type: integer
+      freeze_level:
+        type: integer
+      gtc_mode:
+        $ref: '#/definitions/model.GTCMode'
+      ie_check_mode:
+        $ref: '#/definitions/model.InstantMode'
+      ie_slip_losing:
+        type: integer
+      ie_slip_profit:
+        type: integer
+      ie_timeout:
+        type: integer
+      ie_volume_max:
+        type: integer
+      ie_volume_max_ext:
+        type: integer
+      industry:
+        $ref: '#/definitions/model.SymbolIndustry'
+      international:
+        type: string
+      isin:
+        type: string
+      margin_flags:
+        $ref: '#/definitions/model.SymbolMarginFlags'
+      margin_hedged:
+        type: number
+      margin_initial:
+        type: number
+      margin_initial_buy:
+        type: number
+      margin_initial_buy_limit:
+        type: number
+      margin_initial_buy_stop:
+        type: number
+      margin_initial_buy_stop_limit:
+        type: number
+      margin_initial_sell:
+        type: number
+      margin_initial_sell_limit:
+        type: number
+      margin_initial_sell_stop:
+        type: number
+      margin_initial_sell_stop_limit:
+        type: number
+      margin_maintenance:
+        type: number
+      margin_maintenance_buy:
+        type: number
+      margin_maintenance_buy_limit:
+        type: number
+      margin_maintenance_buy_stop:
+        type: number
+      margin_maintenance_buy_stop_limit:
+        type: number
+      margin_maintenance_sell:
+        type: number
+      margin_maintenance_sell_limit:
+        type: number
+      margin_maintenance_sell_stop:
+        type: number
+      margin_maintenance_sell_stop_limit:
+        type: number
+      margin_rate_currency:
+        type: number
+      margin_rate_liquidity:
+        type: number
+      multiply:
+        type: number
+      option_mode:
+        $ref: '#/definitions/model.OptionMode'
+      order_flags:
+        $ref: '#/definitions/model.OrderFlags'
+      page:
+        type: string
+      path:
+        type: string
+      point:
+        type: number
+      price_limit_max:
+        type: number
+      price_limit_min:
+        type: number
+      price_settle:
+        type: number
+      price_strike:
+        type: number
+      quotes_timeout:
+        type: integer
+      re_flags:
+        $ref: '#/definitions/model.RequestFlags'
+      re_timeout:
+        type: integer
+      sector:
+        $ref: '#/definitions/model.SymbolSector'
+      sessions:
+        items:
+          $ref: '#/definitions/model.SymbolSession'
+        type: array
+      source:
+        type: string
+      splice_time_days:
+        type: integer
+      splice_time_type:
+        $ref: '#/definitions/model.SpliceTimeType'
+      splice_type:
+        $ref: '#/definitions/model.SpliceType'
+      spread:
+        type: integer
+      spread_balance:
+        type: integer
+      spread_diff:
+        type: integer
+      spread_diff_balance:
+        type: integer
+      stops_level:
+        type: integer
+      subscriptions_delay:
+        type: integer
+      swap_flags:
+        $ref: '#/definitions/model.SwapFlags'
+      swap_long:
+        type: number
+      swap_mode:
+        $ref: '#/definitions/model.SwapMode'
+      swap_rate_friday:
+        type: number
+      swap_rate_monday:
+        type: number
+      swap_rate_saturday:
+        type: number
+      swap_rate_sunday:
+        type: number
+      swap_rate_thursday:
+        type: number
+      swap_rate_tuesday:
+        type: number
+      swap_rate_wednesday:
+        type: number
+      swap_short:
+        type: number
+      swap_year_day:
+        $ref: '#/definitions/model.SwapDays'
+      symbol:
+        type: string
+      symbol_id:
+        type: integer
+      tick_book_depth:
+        type: integer
+      tick_chart_mode:
+        $ref: '#/definitions/model.ChartMode'
+      tick_flags:
+        $ref: '#/definitions/model.TickFlags'
+      tick_size:
+        type: number
+      tick_value:
+        type: number
+      time_expiration:
+        type: integer
+      time_start:
+        type: integer
+      trade_flags:
+        $ref: '#/definitions/model.SymbolTradeFlags'
+      trade_mode:
+        $ref: '#/definitions/model.TradeMode'
+      volume_limit:
+        type: integer
+      volume_limit_ext:
+        type: integer
+      volume_max:
+        type: integer
+      volume_max_ext:
+        type: integer
+      volume_min:
+        type: integer
+      volume_min_ext:
+        type: integer
+      volume_step:
+        type: integer
+      volume_step_ext:
+        type: integer
+    type: object
   internal_server_v1.ViewToken:
     properties:
       access_token:
@@ -585,6 +859,48 @@ definitions:
       updated_at:
         type: integer
     type: object
+  model.CalcMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 32
+    - 33
+    - 34
+    - 35
+    - 36
+    - 37
+    - 64
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CalcMode_forex
+    - CalcMode_futures
+    - CalcMode_cfd
+    - CalcMode_cfdindex
+    - CalcMode_cfdleverage
+    - CalcMode_forex_no_leverage
+    - CalcMode_exch_stocks
+    - CalcMode_exch_futures
+    - CalcMode_exch_forts
+    - CalcMode_exch_options
+    - CalcMode_exch_options_margin
+    - CalcMode_exch_bonds
+    - CalcMode_serv_collateral
+  model.ChartMode:
+    enum:
+    - 0
+    - 1
+    - 255
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - ChartMode_bid_price
+    - ChartMode_last_price
+    - ChartMode_old
   model.Client:
     properties:
       address_city:
@@ -848,6 +1164,56 @@ definitions:
     - Employment_retired
     - Employment_student
     - Employment_other
+  model.ExecMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - ExecMode_request
+    - ExecMode_instant
+    - ExecMode_market
+    - ExecMode_exchange
+  model.ExpirationFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    - 8
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - ExpirationFlags_none
+    - ExpirationFlags_gtc
+    - ExpirationFlags_day
+    - ExpirationFlags_specified
+    - ExpirationFlags_specified_day
+  model.FillingFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - FillingFlags_none
+    - FillingFlags_fok
+    - FillingFlags_ioc
+  model.GTCMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - GTCMode_gtc
+    - GTCMode_daily
+    - GTCMode_daily_no_stops
   model.Gender:
     enum:
     - 0
@@ -859,6 +1225,13 @@ definitions:
     - Gender_unspecified
     - Gender_male
     - Gender_female
+  model.InstantMode:
+    enum:
+    - 0
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - InstantMode_check_normal
   model.KycStatus:
     enum:
     - 0
@@ -1070,6 +1443,40 @@ definitions:
     - ManagerLimit_year_1
     - ManagerLimit_year_2
     - ManagerLimit_year_3
+  model.OptionMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - OptionMode_european_call
+    - OptionMode_european_put
+    - OptionMode_american_call
+    - OptionMode_american_put
+  model.OrderFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - OrderFlags_none
+    - OrderFlags_market
+    - OrderFlags_limit
+    - OrderFlags_stop
+    - OrderFlags_stop_limit
+    - OrderFlags_sl
+    - OrderFlags_tp
+    - OrderFlags_closeby
   model.PreferredCommunication:
     enum:
     - 0
@@ -1085,6 +1492,208 @@ definitions:
     - PreferredCommunication_phone
     - PreferredCommunication_phone_sms
     - PreferredCommunication_messenger
+  model.RequestFlags:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - RequestFlags_none
+    - RequestFlags_order
+  model.SpliceTimeType:
+    enum:
+    - 0
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SpliceTimeType_expiration
+  model.SpliceType:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SpliceType_none
+    - SpliceType_unadjusted
+    - SpliceType_adjusted
+  model.SwapDays:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SwapDays_sunday
+    - SwapDays_monday
+    - SwapDays_tuesday
+    - SwapDays_wednesday
+    - SwapDays_thursday
+    - SwapDays_friday
+    - SwapDays_saturday
+    - SwapDays_disabled
+  model.SwapFlags:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SwapFlags_none
+    - SwapFlags_consider_holidays
+  model.SwapMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SwapMode_disabled
+    - SwapMode_by_points
+    - SwapMode_by_symbol_currency
+    - SwapMode_by_margin_currency
+    - SwapMode_by_group_currency
+    - SwapMode_by_interest_current
+    - SwapMode_by_interest_open
+    - SwapMode_reopen_by_close_price
+    - SwapMode_reopen_by_bid
+    - SwapMode_by_profit_currency
+  model.SymbolIndustry:
+    enum:
+    - 0
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolIndustry_undefined
+  model.SymbolMarginFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolMarginFlags_none
+    - SymbolMarginFlags_check_process
+    - SymbolMarginFlags_check_sltp
+    - SymbolMarginFlags_hedge_large_leg
+  model.SymbolSector:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolSector_undefined
+    - SymbolSector_basic_materials
+    - SymbolSector_communication_services
+    - SymbolSector_consumer_cyclical
+    - SymbolSector_consumer_defensive
+    - SymbolSector_energy
+    - SymbolSector_financial
+    - SymbolSector_healthcare
+    - SymbolSector_industrials
+    - SymbolSector_real_estate
+    - SymbolSector_technology
+    - SymbolSector_utilities
+    - SymbolSector_currency
+    - SymbolSector_currency_crypto
+    - SymbolSector_indexes
+    - SymbolSector_commodities
+  model.SymbolSession:
+    properties:
+      close:
+        type: integer
+      day:
+        type: integer
+      open:
+        type: integer
+      session_id:
+        type: integer
+      symbol_id:
+        type: integer
+      type:
+        $ref: '#/definitions/model.SymbolSessionType'
+    type: object
+  model.SymbolSessionType:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolSessionType_quote
+    - SymbolSessionType_trade
+  model.SymbolTradeFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolTradeFlags_none
+    - SymbolTradeFlags_profit_by_market
+    - SymbolTradeFlags_allow_signals
+  model.TickFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - TickFlags_none
+    - TickFlags_realtime
+    - TickFlags_collectraw
+    - TickFlags_feed_stats
+  model.TradeMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - TradeMode_disabled
+    - TradeMode_longonly
+    - TradeMode_shortonly
+    - TradeMode_closeonly
+    - TradeMode_full
   model.TradingExperience:
     enum:
     - 0
@@ -1683,6 +2292,159 @@ paths:
       - BearerAuth: []
       tags:
       - Managers
+  /api/v1/symbols:
+    get:
+      operationId: ListSymbols
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_server_v1.ViewSymbol'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Symbols
+    post:
+      consumes:
+      - application/json
+      operationId: CreateSymbol
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewSymbol'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Symbols
+  /api/v1/symbols/{id}:
+    delete:
+      operationId: DeleteSymbol
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Symbols
+    get:
+      operationId: GetSymbol
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewSymbolDetail'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Symbols
+    patch:
+      consumes:
+      - application/json
+      operationId: UpdateSymbol
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewSymbolDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Symbols
   /api/v1/system/monitor/cache:
     get:
       operationId: CacheStats
