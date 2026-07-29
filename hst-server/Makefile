@@ -15,9 +15,12 @@ POSTGRES_SSL_MODE ?= disable
 # in the wrong schema, losing all version state.
 DB_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=$(POSTGRES_SSL_MODE)&search_path=public
 
+# psql rejects search_path, which only golang-migrate understands
+PSQL_URL := postgres://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@$(POSTGRES_HOST):$(POSTGRES_PORT)/$(POSTGRES_DB)?sslmode=$(POSTGRES_SSL_MODE)
+
 MIGRATE := $(GOBIN)/migrate
 
-.PHONY: run build test tidy fmt vet check up down logs psql tools gen-keys swagger \
+.PHONY: run build test tidy fmt vet check e2e up down logs psql tools gen-keys swagger \
         migrate-create migrate-up migrate-down migrate-version migrate-force migrate-drop
 
 run:
@@ -44,6 +47,10 @@ check: fmt vet
 	$(GOBIN)/errcheck ./...
 	$(GOBIN)/gosec -quiet ./...
 	$(GOBIN)/govulncheck ./...
+
+# end to end suite against a running server; needs a fresh database, see the script header
+e2e:
+	E2E_DATABASE_URL="$(PSQL_URL)" ./scripts/e2e.sh
 
 # regenerates swagger/ from the handler annotations
 # output is swagger/ and not docs/, because docs/ is gitignored

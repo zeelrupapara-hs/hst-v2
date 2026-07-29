@@ -18,14 +18,12 @@ type Snapshot struct {
 	ClientId       int64  `json:"cid"`
 	Group          string `json:"grp"`
 	Rights         int64  `json:"rights"`
-	Scope          int32  `json:"scope"`
 	ConnectionType int32  `json:"ct"`
 	Restricted     bool   `json:"rst"`
 	IsManager      bool   `json:"mgr"`
 	// ManagerRights is the 77 right columns packed into two words.
 	ManagerRights model.ManagerRights `json:"mrights"`
 	Version       int64               `json:"ver"`
-	CreatedAt     int64               `json:"created_at"`
 	ExpiresAt     int64               `json:"expires_at"`
 }
 

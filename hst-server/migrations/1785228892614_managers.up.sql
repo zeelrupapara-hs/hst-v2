@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS hst.managers (
     request_limit_logs    SMALLINT     NOT NULL DEFAULT 0,
     request_limit_reports SMALLINT     NOT NULL DEFAULT 0,
     groups                TEXT[]       NOT NULL DEFAULT '{}',
+    access                INET[]       NOT NULL DEFAULT '{}',
 
     right_admin                    SMALLINT NOT NULL DEFAULT 0,
     right_manager                  SMALLINT NOT NULL DEFAULT 0,
@@ -97,6 +98,8 @@ ALTER TABLE hst.clients
 
 COMMENT ON TABLE hst.managers IS
     'Back-office logins. Every right_* column: 1 = granted, 0 = not granted.';
+COMMENT ON COLUMN hst.managers.access IS
+    'IP allowlist for manager login, empty array means any address is allowed';
 COMMENT ON COLUMN hst.managers.request_limit_logs IS
     'ManagerLimit: 0=all 1=1_month 2=3_months 3=6_months 4=1_year 5=2_years 6=3_years';
 COMMENT ON COLUMN hst.managers.request_limit_reports IS

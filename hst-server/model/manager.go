@@ -1,5 +1,7 @@
 package model
 
+import "net/netip"
+
 type ManagerLimit int32
 
 const (
@@ -43,6 +45,8 @@ type Manager struct {
 	RequestLimitLogs    ManagerLimit `db:"request_limit_logs" json:"request_limit_logs"`
 	RequestLimitReports ManagerLimit `db:"request_limit_reports" json:"request_limit_reports"`
 	Groups              []string     `db:"groups" json:"groups"`
+	// Access is the IP allowlist, an empty list means any address is allowed.
+	Access []netip.Prefix `db:"access" json:"access"`
 
 	RightAdmin                  int32 `db:"right_admin" json:"right_admin"`
 	RightManager                int32 `db:"right_manager" json:"right_manager"`
@@ -138,6 +142,26 @@ func (m *Manager) PermitsTerminal(t UsersConnectionTypes) bool {
 	default:
 		return false
 	}
+}
+
+// PermitsIP reports whether the manager may connect from this address.
+func (m *Manager) PermitsIP(ip string) bool {
+	if len(m.Access) == 0 {
+		return true
+	}
+
+	addr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return false
+	}
+
+	for _, allowed := range m.Access {
+		if allowed.Contains(addr) {
+			return true
+		}
+	}
+
+	return false
 }
 
 // CanDeal reports whether the manager may work the dealing desk.

@@ -19,10 +19,6 @@ type Config struct {
 	Login          int64
 	ClientId       int64
 	SessionId      string
-	FamilyId       string
-	AccessToken    string
-	RefreshToken   string
-	ExpiresIn      int
 	Scope          int32
 	ConnectionType int32
 	IpAddress      string
@@ -71,6 +67,7 @@ func NewOAuth2(rds *redis.Redis, database *db.PostgresDB, cfg *config.Config, lo
 			Parallelism: uint8(cfg.Auth.Argon2Parallelism), // #nosec G115
 			SaltLength:  uint32(cfg.Auth.Argon2SaltLength), // #nosec G115
 			KeyLength:   uint32(cfg.Auth.Argon2KeyLength),  // #nosec G115
+			Pepper:      cfg.Auth.Pepper,
 		}),
 		Redis:   rds,
 		DB:      database,

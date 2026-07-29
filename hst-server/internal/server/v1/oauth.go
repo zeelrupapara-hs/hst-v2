@@ -111,7 +111,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	}
 
 	// do they have a manager row, and may it use this panel
-	manager, err := s.checkManagerAccess(ctx, login, model.UsersConnectionTypes(body.ConnectionType))
+	manager, err := s.checkManagerAccess(ctx, login, model.UsersConnectionTypes(body.ConnectionType), ip)
 	if err != nil {
 		return s.loginFailed(c, err)
 	}
@@ -128,7 +128,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		Restricted: user.Rights.MustChangePassword(),
 	}, "", "")
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return s.loginFailed(c, err)
 	}
 
 	s.OAuth2.ClearFailures(ctx, login, ip)
@@ -184,7 +184,7 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 
 // checkManagerAccess decides whether this login may use the admin or manager panel.
 func (s *HttpServer) checkManagerAccess(ctx context.Context, login int64,
-	connType model.UsersConnectionTypes) (*model.Manager, error) {
+	connType model.UsersConnectionTypes, ip string) (*model.Manager, error) {
 
 	if !connType.IsStaff() {
 		return nil, denied(http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
@@ -201,6 +201,11 @@ func (s *HttpServer) checkManagerAccess(ctx context.Context, login int64,
 	// admin and manager terminals are gated separately in MT5
 	if !manager.PermitsTerminal(connType) {
 		return nil, denied(http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
+	}
+
+	// the allowlist is checked last, so a wrong ip never leaks that the login exists
+	if !manager.PermitsIP(ip) {
+		return nil, denied(http.StatusForbidden, http.RetAuthManagerIpBlock, errs.ErrManagerIpBlocked)
 	}
 
 	return manager, nil
@@ -562,7 +567,7 @@ func (s *HttpServer) openSession(ctx context.Context, u *model.User, mgr *model.
 
 	snap := oauth2.NewSnapshot(sid, u, mgr, cfg, expiresAt)
 	if err := s.OAuth2.SaveSnapshot(ctx, snap); err != nil {
-		return nil, err
+		return nil, denied(http.StatusServiceUnavailable, http.RetAuthServerBusy, errs.ErrSessionStoreUnavailable)
 	}
 
 	if err := s.OAuth2.SaveRefresh(ctx, refresh, &oauth2.RefreshRecord{
@@ -571,7 +576,7 @@ func (s *HttpServer) openSession(ctx context.Context, u *model.User, mgr *model.
 		Login:     u.Login,
 		ExpiresAt: expiresAt,
 	}); err != nil {
-		return nil, err
+		return nil, denied(http.StatusServiceUnavailable, http.RetAuthServerBusy, errs.ErrSessionStoreUnavailable)
 	}
 
 	access, err := s.OAuth2.Signer.Sign(u.Login, &jwt.Claims{

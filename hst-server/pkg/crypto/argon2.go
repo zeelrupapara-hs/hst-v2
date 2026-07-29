@@ -1,7 +1,9 @@
 package crypto
 
 import (
+	"crypto/hmac"
 	"crypto/rand"
+	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
 	"errors"
@@ -30,11 +32,13 @@ type Params struct {
 	Parallelism uint8
 	SaltLength  uint32
 	KeyLength   uint32
+	Pepper      string //  mixed into every password.
 }
 
 // Hasher serialises argon2 work.
 type Hasher struct {
 	params Params
+	pepper []byte
 	sem    chan struct{}
 	wait   time.Duration
 }
@@ -42,11 +46,15 @@ type Hasher struct {
 // dummyHash is verified for a missing login, so timing cannot probe for accounts.
 var dummyHash string
 
-// NewHasher bounds concurrent hashing to the core count.
+// NewHasher bounds concurrent hashing to the CPU limit this process may use.
 func NewHasher(p Params) *Hasher {
+	// GOMAXPROCS respects a container CPU limit, unlike the host core count
+	slots := max(runtime.GOMAXPROCS(0), 1)
+
 	h := &Hasher{
 		params: p,
-		sem:    make(chan struct{}, runtime.NumCPU()),
+		pepper: []byte(p.Pepper),
+		sem:    make(chan struct{}, slots),
 		wait:   2 * time.Second,
 	}
 
@@ -71,7 +79,7 @@ func (h *Hasher) HashPassword(password string) (string, error) {
 		return "", err
 	}
 
-	key := argon2.IDKey([]byte(password), salt,
+	key := argon2.IDKey(h.preHash(password), salt,
 		h.params.Time, h.params.MemoryKiB, h.params.Parallelism, h.params.KeyLength)
 
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
@@ -92,7 +100,7 @@ func (h *Hasher) VerifyPassword(encoded, password string) (ok bool, needsRehash 
 	}
 	defer h.release()
 
-	got := argon2.IDKey([]byte(password), salt, p.Time, p.MemoryKiB, p.Parallelism, p.KeyLength)
+	got := argon2.IDKey(h.preHash(password), salt, p.Time, p.MemoryKiB, p.Parallelism, p.KeyLength)
 	if subtle.ConstantTimeCompare(got, want) != 1 {
 		return false, false, nil
 	}
@@ -107,6 +115,19 @@ func (h *Hasher) VerifyDummy(password string) {
 		return
 	}
 	_, _, _ = h.VerifyPassword(dummyHash, password)
+}
+
+// preHash mixes in the pepper, and returns the raw password when there is none.
+func (h *Hasher) preHash(password string) []byte {
+	if len(h.pepper) == 0 {
+		return []byte(password)
+	}
+
+	// HMAC binds the two halves, so no length extension or null byte tricks
+	mac := hmac.New(sha256.New, h.pepper)
+	mac.Write([]byte(password))
+
+	return mac.Sum(nil)
 }
 
 // acquire takes a slot or gives up, so a login flood becomes 503 not an OOM.

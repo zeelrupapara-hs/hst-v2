@@ -80,11 +80,6 @@ func (r UsersRights) Clear(flag UsersRights) UsersRights { return r &^ flag }
 // CanConnect reports whether the account may log in at all.
 func (r UsersRights) CanConnect() bool { return r.Has(UsersRights_enabled) }
 
-// CanTrade folds the inverted trade_disabled flag so callers cannot get it backwards.
-func (r UsersRights) CanTrade() bool {
-	return r.Has(UsersRights_enabled) && !r.Has(UsersRights_trade_disabled)
-}
-
 // MustChangePassword reports whether the next login is limited to a password change.
 func (r UsersRights) MustChangePassword() bool { return r.Has(UsersRights_reset_pass) }
 
@@ -174,15 +169,3 @@ type User struct {
 }
 
 func (User) TableName() string { return "hst.users" }
-
-// PasswordFor returns the hash held in the given slot.
-func (u *User) PasswordFor(slot UsersPasswords) string {
-	switch slot {
-	case UsersPasswords_investor:
-		return u.PasswordInvestor
-	case UsersPasswords_api:
-		return u.PasswordApi
-	default:
-		return u.PasswordMain
-	}
-}

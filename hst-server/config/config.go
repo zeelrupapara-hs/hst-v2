@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -46,6 +47,10 @@ const (
 	MAX_ACCOUNT_PER_SHARD  = "MAX_ACCOUNT_PER_SHARD"
 	// #nosec G101 -- env var name, not a credential
 	FIRST_MANAGER_PASSWORD = "FIRST_MANAGER_PASSWORD"
+	// #nosec G101 -- env var name, not a credential
+	AUTH_PASSWORD_PEPPER = "AUTH_PASSWORD_PEPPER"
+	SWAGGER_ENABLED      = "SWAGGER_ENABLED"
+	CORS_ORIGINS         = "CORS_ORIGINS"
 )
 
 type Config struct {
@@ -70,6 +75,8 @@ type Auth struct {
 	// RefreshAbsoluteTTL caps a whole rotation family however often it rotates.
 	RefreshAbsoluteTTL time.Duration
 
+	// Pepper is mixed into every password hash so a database dump alone is not crackable.
+	Pepper            string
 	Argon2MemoryKiB   int
 	Argon2Time        int
 	Argon2Parallelism int
@@ -126,6 +133,10 @@ type Http struct {
 	ShutdownTimeout time.Duration
 	// BodyLimit is the max request body in bytes
 	BodyLimit int
+	// SwaggerEnabled serves the api docs, keep it off in production.
+	SwaggerEnabled bool
+	// CorsOrigins is the allowlist, never a wildcard.
+	CorsOrigins []string
 }
 
 // Postgres config
@@ -208,6 +219,8 @@ func NewConfig() (*Config, error) {
 	c.HTTP.IdleTimeout = 120 * time.Second
 	c.HTTP.ShutdownTimeout = time.Duration(getEnvAsInt(HTTP_SHUTDOWN_TIMEOUT, 15)) * time.Second
 	c.HTTP.BodyLimit = getEnvAsInt(HTTP_BODY_LIMIT, 4*1024*1024)
+	c.HTTP.SwaggerEnabled = getEnv(SWAGGER_ENABLED, "false") == "true"
+	c.HTTP.CorsOrigins = splitCsv(getEnv(CORS_ORIGINS, "http://localhost:3000"))
 
 	// Postgres
 	c.Postgres.PostgresHost = getEnv(POSTGRES_HOST, "localhost")
@@ -247,6 +260,7 @@ func NewConfig() (*Config, error) {
 	c.Auth.AccessTTL = time.Duration(getEnvAsInt(AUTH_ACCESS_TTL, 7200)) * time.Second
 	c.Auth.RefreshTTL = time.Duration(getEnvAsInt(AUTH_REFRESH_TTL, 604800)) * time.Second
 	c.Auth.RefreshAbsoluteTTL = 30 * 24 * time.Hour
+	c.Auth.Pepper = getEnv(AUTH_PASSWORD_PEPPER, "")
 	c.Auth.Argon2MemoryKiB = getEnvAsInt(AUTH_ARGON2_MEMORY_KIB, 65536)
 	c.Auth.Argon2Time = getEnvAsInt(AUTH_ARGON2_TIME, 3)
 	c.Auth.Argon2Parallelism = 2
@@ -304,6 +318,18 @@ func (p *Postgres) Dsn() string {
 	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
 		p.PostgresUser, p.PostgresPassword, p.PostgresHost,
 		p.PostgresPort, p.PostgresDB, p.PostgresSSLMode)
+}
+
+// splitCsv turns a comma separated env value into a list.
+func splitCsv(v string) []string {
+	parts := strings.Split(v, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func getEnv(key string, defaultVal string) string {

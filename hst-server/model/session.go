@@ -59,9 +59,6 @@ const staffBand UsersConnectionTypes = 32
 // IsStaff reports whether the connection came from an admin or manager terminal.
 func (t UsersConnectionTypes) IsStaff() bool { return t >= staffBand }
 
-// IsClient reports whether the connection came from a trader terminal.
-func (t UsersConnectionTypes) IsClient() bool { return t < staffBand }
-
 // Session is the durable record of a login. Live state lives in redis.
 type Session struct {
 	SessionId      string               `db:"session_id" json:"session_id"`
@@ -89,9 +86,3 @@ const (
 )
 
 func (Session) TableName() string { return "hst.sessions" }
-
-// IsReadOnly reports whether the session was opened with the investor password.
-func (s *Session) IsReadOnly() bool { return s.Scope == UsersPasswords_investor }
-
-// IsRevoked reports whether the session has been killed.
-func (s *Session) IsRevoked() bool { return s.RevokedAt != 0 }

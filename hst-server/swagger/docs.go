@@ -1873,6 +1873,13 @@ const docTemplate = `{
         "model.Manager": {
             "type": "object",
             "properties": {
+                "access": {
+                    "description": "Access is the IP allowlist, an empty list means any address is allowed.",
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/netip.Prefix"
+                    }
+                },
                 "groups": {
                     "type": "array",
                     "items": {
@@ -2246,6 +2253,9 @@ const docTemplate = `{
                 "WealthSource_inheritance",
                 "WealthSource_other"
             ]
+        },
+        "netip.Prefix": {
+            "type": "object"
         }
     },
     "securityDefinitions": {

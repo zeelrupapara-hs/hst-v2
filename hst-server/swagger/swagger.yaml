@@ -514,6 +514,12 @@ definitions:
     - KycStatus_declined
   model.Manager:
     properties:
+      access:
+        description: Access is the IP allowlist, an empty list means any address is
+          allowed.
+        items:
+          $ref: '#/definitions/netip.Prefix'
+        type: array
       groups:
         items:
           type: string
@@ -786,6 +792,8 @@ definitions:
     - WealthSource_savings
     - WealthSource_inheritance
     - WealthSource_other
+  netip.Prefix:
+    type: object
 info:
   contact:
     email: support@hybridsolutions.com

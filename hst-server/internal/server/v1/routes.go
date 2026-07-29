@@ -10,14 +10,17 @@ import (
 func (s *HttpServer) RegisterV1() {
 
 	// Root group with the requests logger and the header reader
-	root := s.App.Group("/", s.Middleware.RequestsLogger, s.Middleware.HeaderReader)
+	root := s.App.Group("/", s.Middleware.SecurityHeaders, s.Middleware.CORS(s.Cfg.HTTP.CorsOrigins),
+		s.Middleware.RequestsLogger, s.Middleware.HeaderReader)
 
 	oauth := root.Group("/auth/v1/oauth2")
 	oauth.Post("/login", s.Middleware.BasicAuthParser, s.Login)
 	oauth.Post("/refresh", s.RefreshToken)
 
-	// swagger ui, served from the generated swagger package
-	root.Get("/swagger/*", swagger.HandlerDefault)
+	// swagger exposes the whole api surface, so it is off unless asked for
+	if s.Cfg.HTTP.SwaggerEnabled {
+		root.Get("/swagger/*", swagger.HandlerDefault)
+	}
 
 	// api group
 	api := root.Group("/api")

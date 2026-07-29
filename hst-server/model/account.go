@@ -1,6 +1,7 @@
 package model
 
 // Account is the live money state of a login, one row per user.
+// Floating must include storage and commission, or margin level reads high and stop-out fires late.
 type Account struct {
 	Login             int64   `db:"login" json:"login"`
 	CurrencyDigits    int32   `db:"currency_digits" json:"currency_digits"`
@@ -24,21 +25,3 @@ type Account struct {
 }
 
 func (Account) TableName() string { return "hst.accounts" }
-
-// CalcFloating returns profit + storage + commission of open positions.
-func CalcFloating(profit, storage, commission float64) float64 {
-	return profit + storage + commission
-}
-
-// CalcEquity returns balance + credit + floating.
-func CalcEquity(balance, credit, floating float64) float64 {
-	return balance + credit + floating
-}
-
-// CalcMarginLevel returns equity / margin as a percentage, 0 when no margin is used.
-func CalcMarginLevel(equity, margin float64) float64 {
-	if margin == 0 {
-		return 0
-	}
-	return equity / margin * 100
-}

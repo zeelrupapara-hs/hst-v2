@@ -1,6 +1,10 @@
 package http
 
 import (
+	"crypto/rand"
+	"math/big"
+	"strconv"
+
 	"hstserver/pkg/errors"
 	"hstserver/pkg/logger"
 
@@ -74,12 +78,23 @@ func (a *App) HttpResponseConflict(c *fiber.Ctx, message error) error {
 
 // http 429
 func (a *App) HttpResponseTooManyRequests(c *fiber.Ctx, message error) error {
+	setRetryAfter(c)
 	return a.fail(c, StatusTooManyRequests, RetAuthServerBusy, ErrTooManyRequests, message)
 }
 
 // http 503
 func (a *App) HttpResponseServiceUnavailable(c *fiber.Ctx, message error) error {
+	setRetryAfter(c)
 	return a.fail(c, StatusServiceUnavailable, RetAuthServerBusy, ErrServiceUnavailable, message)
+}
+
+// setRetryAfter tells the client to wait 3 to 7 whole seconds, jittered so rejected clients do not all come back together.
+func setRetryAfter(c *fiber.Ctx) {
+	wait := 3
+	if n, err := rand.Int(rand.Reader, big.NewInt(5)); err == nil {
+		wait += int(n.Int64())
+	}
+	c.Set(fiber.HeaderRetryAfter, strconv.Itoa(wait))
 }
 
 // http 500.
@@ -110,6 +125,12 @@ func (a *App) HttpResponseDenied(c *fiber.Ctx, status int, code RetCode, message
 	if status == StatusUnauthorized {
 		errStr = ErrUnauthorized
 	}
+
+	// a refusal for load, not for the caller, so tell it when to come back
+	if status == StatusServiceUnavailable || status == StatusTooManyRequests {
+		setRetryAfter(c)
+	}
+
 	return a.fail(c, status, code, errStr, message)
 }
 

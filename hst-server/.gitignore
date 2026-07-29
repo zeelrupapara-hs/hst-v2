@@ -6,4 +6,6 @@ coverage.out
 hstserver.log
 logs/
 docs/
+!docs/infra/
+!docs/infra/**
 

@@ -1,0 +1,97 @@
+name: CI
+
+on: [push, pull_request]
+
+defaults:
+  run:
+    working-directory: hst-server
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: hst
+          POSTGRES_PASSWORD: hst
+          POSTGRES_DB: hst
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U hst -d hst"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports:
+          - 6379:6379
+
+    env:
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: hst
+      POSTGRES_PASSWORD: hst
+      POSTGRES_DB: hst
+      POSTGRES_SSL_MODE: disable
+      REDIS_URL: localhost:6379
+      REDIS_DB: 0
+      HTTP_HOST: 0.0.0.0
+      HTTP_PORT: 8080
+      BASE_URL: http://localhost:8080
+      LOG_DIR: logs
+      AUTH_ACCESS_TTL: 7200
+      AUTH_REFRESH_TTL: 604800
+      # small argon2 cost so the runner stays fast
+      AUTH_ARGON2_MEMORY_KIB: 16384
+      AUTH_ARGON2_TIME: 1
+      SHARD_ID: 0
+      SHARD_COUNT: 1
+      MAX_ACCOUNT_PER_SHARD: 100
+      FIRST_MANAGER_PASSWORD: Bootstrap-Admin-2026!
+      E2E_ADMIN_PASSWORD: Bootstrap-Admin-2026!
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: hst-server/go.mod
+
+      - name: Install the postgres client
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Install the project tools
+        run: make tools
+
+      - name: Quality and security gate
+        run: make check
+
+      - name: Run the migrations
+        run: make migrate-up
+
+      - name: Generate a signing key
+        run: make gen-keys | grep AUTH_JWT_PRIVATE_KEY >> "$GITHUB_ENV"
+
+      - name: Start the server
+        run: |
+          nohup go run ./cmd > server.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:8080/api/v1/system/monitor/health > /dev/null; then
+              echo "server is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "server never became healthy"
+          cat server.log
+          exit 1
+
+      - name: End to end suite
+        run: make e2e
+
+      - name: Server log
+        if: always()
+        run: cat server.log || true

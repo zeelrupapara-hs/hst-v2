@@ -13,7 +13,7 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // CrtManager promotes an existing login to staff.
@@ -154,7 +154,7 @@ func (s *HttpServer) selectManager(ctx context.Context, login int64) (*model.Man
 
 	err := s.DB.DB.QueryRow(ctx,
 		`SELECT login, name, mailbox, server, request_limit_logs,
-		        request_limit_reports, groups,
+		        request_limit_reports, groups, access,
 		        right_admin, right_manager, right_cfg_time, right_cfg_holidays,
 		        right_cfg_groups, right_cfg_managers, right_cfg_requests,
 		        right_cfg_gateways, right_cfg_datafeeds, right_cfg_reports,
@@ -186,7 +186,7 @@ func (s *HttpServer) selectManager(ctx context.Context, login int64) (*model.Man
 		        right_comments_create, right_comments_delete
 		   FROM hst.managers WHERE login = $1`, login).
 		Scan(&m.Login, &m.Name, &m.Mailbox, &m.Server, &m.RequestLimitLogs,
-			&m.RequestLimitReports, &m.Groups,
+			&m.RequestLimitReports, &m.Groups, &m.Access,
 			&m.RightAdmin,
 			&m.RightManager,
 			&m.RightCfgTime,
@@ -298,11 +298,6 @@ const managerRightColumns = `
 		right_documents_files_delete, right_comments_access, right_comments_create,
 		right_comments_delete`
 
-// execer is satisfied by both the pool and a transaction.
-type execer interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-}
-
 // b renders a right as the 1 or 0 the schema stores.
 func b(granted bool) int32 {
 	if granted {
@@ -312,7 +307,7 @@ func b(granted bool) int32 {
 }
 
 // insertManager attaches the staff role to an existing login.
-func insertManager(ctx context.Context, q execer, login int64, m *CrtManager,
+func insertManager(ctx context.Context, q *pgxpool.Pool, login int64, m *CrtManager,
 	r model.ManagerRights, now int64) error {
 
 	// groups is NOT NULL, and an omitted json array arrives as nil.
@@ -388,7 +383,7 @@ func insertManager(ctx context.Context, q execer, login int64, m *CrtManager,
 }
 
 // updateManager rewrites the whole record.
-func updateManager(ctx context.Context, q execer, login int64, m *UptManager,
+func updateManager(ctx context.Context, q *pgxpool.Pool, login int64, m *UptManager,
 	r model.ManagerRights, now int64) (int64, error) {
 
 	groups := m.Groups

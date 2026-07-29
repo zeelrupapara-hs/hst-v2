@@ -32,6 +32,7 @@ const (
 	SessionStoreUnavailable      = "the session store is unavailable"
 	UnknownManagerRight          = "unknown manager right"
 	ClientHasFundedAccounts      = "this client has trading accounts holding funds, close or move them first"
+	ManagerIpBlocked             = "this ip address is not permitted for the manager"
 )
 
 var (
@@ -63,4 +64,5 @@ var (
 	ErrSessionStoreUnavailable      = errors.New(SessionStoreUnavailable)
 	ErrUnknownManagerRight          = errors.New(UnknownManagerRight)
 	ErrClientHasFundedAccounts      = errors.New(ClientHasFundedAccounts)
+	ErrManagerIpBlocked             = errors.New(ManagerIpBlocked)
 )

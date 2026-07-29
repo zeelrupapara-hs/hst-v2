@@ -273,11 +273,9 @@ func NewSnapshot(sid string, u *model.User, mgr *model.Manager, cfg *Config, exp
 		ClientId:       u.ClientId,
 		Group:          u.Group,
 		Rights:         int64(u.Rights),
-		Scope:          cfg.Scope,
 		ConnectionType: cfg.ConnectionType,
 		Restricted:     cfg.Restricted,
 		Version:        1,
-		CreatedAt:      time.Now().UnixNano(),
 		ExpiresAt:      expiresAt,
 	}
 
