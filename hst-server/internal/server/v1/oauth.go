@@ -76,10 +76,11 @@ type ViewMe struct {
 //	@Tags			Auth
 //	@Accept			json
 //	@Produce		json
-//	@Success		200	{object}	Response{data=ViewToken}
-//	@Failure		401	{object}	Response
-//	@Failure		403	{object}	Response
-//	@Failure		500	{object}	Response
+//	@Param			body	body		LoginRequest	true	"terminal type: 32 admin, 33 manager"
+//	@Success		200		{object}	Response{data=ViewToken}
+//	@Failure		401		{object}	Response
+//	@Failure		403		{object}	Response
+//	@Failure		500		{object}	Response
 //	@Security		BasicAuth
 //	@Router			/auth/v1/oauth2/login [post]
 func (s *HttpServer) Login(c *fiber.Ctx) error {
@@ -272,9 +273,10 @@ func (s *HttpServer) loginFailed(c *fiber.Ctx, err error) error {
 //	@Tags		Auth
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	Response{data=ViewToken}
-//	@Failure	401	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		body	body		RefreshRequest	true	"the refresh token from login"
+//	@Success	200		{object}	Response{data=ViewToken}
+//	@Failure	401		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Router		/auth/v1/oauth2/refresh [post]
 func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	ctx := c.UserContext()
@@ -453,10 +455,11 @@ func (s *HttpServer) Me(c *fiber.Ctx) error {
 //	@Tags		Auth
 //	@Accept		json
 //	@Produce	json
-//	@Success	204	{object}	Response
-//	@Failure	400	{object}	Response
-//	@Failure	401	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		body	body		ChangePasswordRequest	true	"old and new password"
+//	@Success	204		{object}	Response
+//	@Failure	400		{object}	Response
+//	@Failure	401		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/auth/oauth2/change-password [post]
 func (s *HttpServer) ChangePassword(c *fiber.Ctx) error {

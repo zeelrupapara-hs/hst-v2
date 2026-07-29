@@ -82,10 +82,11 @@ const userJoin = ` FROM hst.users u LEFT JOIN hst.managers m ON m.login = u.logi
 //	@Tags		Users
 //	@Accept		json
 //	@Produce	json
-//	@Success	201	{object}	Response{data=ViewUser}
-//	@Failure	400	{object}	Response
-//	@Failure	403	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		body	body		CrtUser	true	"the user to create, an account row is created with it"
+//	@Success	201		{object}	Response{data=ViewUser}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users [post]
 func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
@@ -151,10 +152,15 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 //	@Id			ListUsers
 //	@Tags		Users
 //	@Produce	json
-//	@Success	200	{object}	Response{data=[]ViewUser}
-//	@Failure	400	{object}	Response
-//	@Failure	403	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		page	query		int		false	"page number, from 1"
+//	@Param		limit	query		int		false	"rows per page, max 500"
+//	@Param		search	query		string	false	"matches name or email"
+//	@Param		sort_by	query		string	false	"login, client_id, name, email, registration, last_access, updated_at, balance"	Enums(login, client_id, name, email, registration, last_access, updated_at, balance)
+//	@Param		order	query		string	false	"asc or desc"																	Enums(asc, desc)
+//	@Success	200		{object}	Response{data=[]ViewUser}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users [get]
 func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
@@ -195,9 +201,10 @@ func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
 //	@Id			GetUser
 //	@Tags		Users
 //	@Produce	json
-//	@Success	200	{object}	Response{data=ViewUser}
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		login	path		int	true	"login number"
+//	@Success	200		{object}	Response{data=ViewUser}
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [get]
 func (s *HttpServer) GetUser(c *fiber.Ctx) error {
@@ -215,10 +222,12 @@ func (s *HttpServer) GetUser(c *fiber.Ctx) error {
 //	@Tags		Users
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	Response{data=ViewUser}
-//	@Failure	400	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		login	path		int		true	"login number"
+//	@Param		body	body		UptUser	true	"only the fields to change"
+//	@Success	200		{object}	Response{data=ViewUser}
+//	@Failure	400		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [patch]
 func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
@@ -277,9 +286,10 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 //	@Id			DeleteUser
 //	@Tags		Users
 //	@Produce	json
-//	@Success	204	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		login	path		int	true	"login number"
+//	@Success	204		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [delete]
 func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {

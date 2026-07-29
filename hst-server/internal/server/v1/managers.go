@@ -53,9 +53,10 @@ type ViewManagerRights struct {
 //	@Id			GetManager
 //	@Tags		Managers
 //	@Produce	json
-//	@Success	200	{object}	Response{data=model.Manager}
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		login	path		int	true	"login number"
+//	@Success	200		{object}	Response{data=model.Manager}
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login} [get]
 func (s *HttpServer) GetManager(c *fiber.Ctx) error {
@@ -80,9 +81,10 @@ func (s *HttpServer) GetManager(c *fiber.Ctx) error {
 //	@Id			GetManagerRights
 //	@Tags		Managers
 //	@Produce	json
-//	@Success	200	{object}	Response{data=ViewManagerRights}
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		login	path		int	true	"login number"
+//	@Success	200		{object}	Response{data=ViewManagerRights}
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login}/rights [get]
 func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
@@ -112,9 +114,11 @@ func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
 //	@Id			ListManagers
 //	@Tags		Managers
 //	@Produce	json
-//	@Success	200	{object}	Response{data=[]ViewManagerRights}
-//	@Failure	400	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		page	query		int	false	"page number, from 1"
+//	@Param		limit	query		int	false	"rows per page, max 500"
+//	@Success	200		{object}	Response{data=[]ViewManagerRights}
+//	@Failure	400		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers [get]
 func (s *HttpServer) ListManagers(c *fiber.Ctx) error {
@@ -126,8 +130,9 @@ func (s *HttpServer) ListManagers(c *fiber.Ctx) error {
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT m.login, m.name, m.groups
 		   FROM hst.managers m
-		  ORDER BY m.login
-		  LIMIT $1 OFFSET $2`, q.Limit, q.Offset)
+		  WHERE ($1 = '' OR m.name ILIKE '%'||$1||'%')
+		  ORDER BY m.`+q.SortBy+`
+		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -511,11 +516,12 @@ func packRightNames(names []string) (model.ManagerRights, bool) {
 //	@Tags		Managers
 //	@Accept		json
 //	@Produce	json
-//	@Success	201	{object}	Response{data=model.Manager}
-//	@Failure	400	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	409	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		body	body		CrtManager	true	"an existing login to promote to staff"
+//	@Success	201		{object}	Response{data=model.Manager}
+//	@Failure	400		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	409		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers [post]
 func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
@@ -575,10 +581,12 @@ func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
 //	@Tags		Managers
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	Response{data=model.Manager}
-//	@Failure	400	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		login	path		int			true	"login number"
+//	@Param		body	body		UptManager	true	"replaces name, groups and the whole right list"
+//	@Success	200		{object}	Response{data=model.Manager}
+//	@Failure	400		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login} [patch]
 func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
@@ -628,9 +636,10 @@ func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
 //	@Id			DeleteManager
 //	@Tags		Managers
 //	@Produce	json
-//	@Success	204	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		login	path		int	true	"login number"
+//	@Success	204		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login} [delete]
 func (s *HttpServer) DeleteManager(c *fiber.Ctx) error {

@@ -82,6 +82,166 @@ definitions:
       shard_id:
         type: integer
     type: object
+  internal_server_v1.ChangePasswordRequest:
+    properties:
+      new_password:
+        maxLength: 128
+        minLength: 8
+        type: string
+      old_password:
+        type: string
+    required:
+    - new_password
+    - old_password
+    type: object
+  internal_server_v1.CrtClient:
+    properties:
+      address_city:
+        maxLength: 64
+        type: string
+      address_country:
+        maxLength: 64
+        type: string
+      address_postcode:
+        maxLength: 32
+        type: string
+      address_street:
+        maxLength: 1024
+        type: string
+      assigned_manager:
+        type: integer
+      client_status:
+        minimum: 0
+        type: integer
+      client_type:
+        maximum: 3
+        minimum: 0
+        type: integer
+      comment:
+        maxLength: 4096
+        type: string
+      company_name:
+        maxLength: 255
+        type: string
+      contact_email:
+        maxLength: 255
+        type: string
+      contact_phone:
+        maxLength: 64
+        type: string
+      kyc_status:
+        minimum: 0
+        type: integer
+      person_birth_date:
+        type: integer
+      person_citizenship:
+        maxLength: 64
+        type: string
+      person_last_name:
+        maxLength: 64
+        type: string
+      person_middle_name:
+        maxLength: 64
+        type: string
+      person_name:
+        maxLength: 128
+        type: string
+    required:
+    - contact_email
+    - person_name
+    type: object
+  internal_server_v1.CrtManager:
+    properties:
+      groups:
+        items:
+          type: string
+        type: array
+      login:
+        type: integer
+      mailbox:
+        maxLength: 128
+        type: string
+      name:
+        maxLength: 128
+        type: string
+      request_limit_logs:
+        allOf:
+        - $ref: '#/definitions/model.ManagerLimit'
+        maximum: 6
+        minimum: 0
+      request_limit_reports:
+        allOf:
+        - $ref: '#/definitions/model.ManagerLimit'
+        maximum: 6
+        minimum: 0
+      rights:
+        description: Rights are column names from ManagerRightsNames; anything else
+          is rejected
+        items:
+          type: string
+        type: array
+      server:
+        type: integer
+    required:
+    - login
+    - name
+    type: object
+  internal_server_v1.CrtUser:
+    properties:
+      city:
+        maxLength: 64
+        type: string
+      client_id:
+        type: integer
+      comment:
+        maxLength: 4096
+        type: string
+      country:
+        maxLength: 64
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      first_name:
+        maxLength: 64
+        type: string
+      group:
+        maxLength: 128
+        type: string
+      last_name:
+        maxLength: 64
+        type: string
+      leverage:
+        maximum: 10000
+        minimum: 1
+        type: integer
+      name:
+        maxLength: 128
+        type: string
+      password_api:
+        maxLength: 128
+        minLength: 8
+        type: string
+      password_investor:
+        maxLength: 128
+        minLength: 8
+        type: string
+      password_main:
+        maxLength: 128
+        minLength: 8
+        type: string
+      phone:
+        maxLength: 64
+        type: string
+      rights:
+        type: integer
+    required:
+    - email
+    - group
+    - name
+    - password_investor
+    - password_main
+    type: object
   internal_server_v1.HealthResponse:
     properties:
       checks:
@@ -98,6 +258,20 @@ definitions:
       status:
         type: string
     type: object
+  internal_server_v1.LoginRequest:
+    properties:
+      connection_type:
+        type: integer
+    required:
+    - connection_type
+    type: object
+  internal_server_v1.RefreshRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
   internal_server_v1.Response:
     properties:
       code:
@@ -109,6 +283,190 @@ definitions:
         type: string
       success:
         type: boolean
+    type: object
+  internal_server_v1.UptClient:
+    properties:
+      address_city:
+        type: string
+      address_country:
+        type: string
+      address_postcode:
+        type: string
+      address_state:
+        type: string
+      address_street:
+        type: string
+      assigned_manager:
+        type: integer
+      client_origin:
+        $ref: '#/definitions/model.ClientOrigin'
+      client_origin_login:
+        type: integer
+      client_status:
+        $ref: '#/definitions/model.ClientStatus'
+      client_type:
+        $ref: '#/definitions/model.ClientType'
+      comment:
+        type: string
+      company_address:
+        type: string
+      company_country:
+        type: string
+      company_lei:
+        type: string
+      company_license_authority:
+        type: string
+      company_license_number:
+        type: string
+      company_name:
+        type: string
+      company_reg_authority:
+        type: string
+      company_reg_date:
+        type: string
+      company_reg_number:
+        type: string
+      company_vat:
+        type: string
+      company_website:
+        type: string
+      compliance_approved_by:
+        type: integer
+      compliance_client_category:
+        type: string
+      compliance_date_approval:
+        type: integer
+      compliance_date_termination:
+        type: integer
+      contact_email:
+        type: string
+      contact_language:
+        type: string
+      contact_last_date:
+        type: integer
+      contact_messengers:
+        type: string
+      contact_phone:
+        type: string
+      contact_preferred:
+        $ref: '#/definitions/model.PreferredCommunication'
+      contact_social_networks:
+        type: string
+      experience_cfd:
+        $ref: '#/definitions/model.TradingExperience'
+      experience_futures:
+        $ref: '#/definitions/model.TradingExperience'
+      experience_fx:
+        $ref: '#/definitions/model.TradingExperience'
+      experience_stocks:
+        $ref: '#/definitions/model.TradingExperience'
+      introducer:
+        type: integer
+      kyc_status:
+        $ref: '#/definitions/model.KycStatus'
+      lead_campaign:
+        type: string
+      lead_source:
+        type: string
+      person_annual_deposit:
+        type: number
+      person_annual_income:
+        type: number
+      person_birth_date:
+        type: integer
+      person_citizenship:
+        type: string
+      person_document_date:
+        type: integer
+      person_document_extra:
+        type: string
+      person_document_number:
+        type: string
+      person_document_type:
+        type: string
+      person_education:
+        $ref: '#/definitions/model.EducationLevel'
+      person_employment:
+        $ref: '#/definitions/model.Employment'
+      person_gender:
+        $ref: '#/definitions/model.Gender'
+      person_industry:
+        $ref: '#/definitions/model.ClientIndustry'
+      person_last_name:
+        type: string
+      person_middle_name:
+        type: string
+      person_name:
+        type: string
+      person_net_worth:
+        type: number
+      person_tax_id:
+        type: string
+      person_title:
+        type: string
+      person_wealth_source:
+        $ref: '#/definitions/model.WealthSource'
+    type: object
+  internal_server_v1.UptManager:
+    properties:
+      groups:
+        items:
+          type: string
+        type: array
+      mailbox:
+        maxLength: 128
+        type: string
+      name:
+        maxLength: 128
+        type: string
+      request_limit_logs:
+        allOf:
+        - $ref: '#/definitions/model.ManagerLimit'
+        maximum: 6
+        minimum: 0
+      request_limit_reports:
+        allOf:
+        - $ref: '#/definitions/model.ManagerLimit'
+        maximum: 6
+        minimum: 0
+      rights:
+        items:
+          type: string
+        type: array
+      server:
+        type: integer
+    required:
+    - name
+    type: object
+  internal_server_v1.UptUser:
+    properties:
+      city:
+        maxLength: 64
+        type: string
+      comment:
+        maxLength: 4096
+        type: string
+      country:
+        maxLength: 64
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      group:
+        maxLength: 128
+        type: string
+      leverage:
+        maximum: 10000
+        minimum: 1
+        type: integer
+      name:
+        maxLength: 128
+        type: string
+      phone:
+        maxLength: 64
+        type: string
+      rights:
+        type: integer
     type: object
   internal_server_v1.ViewClient:
     properties:
@@ -860,6 +1218,13 @@ paths:
       consumes:
       - application/json
       operationId: ChangePassword
+      parameters:
+      - description: old and new password
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.ChangePasswordRequest'
       produces:
       - application/json
       responses:
@@ -886,6 +1251,39 @@ paths:
   /api/v1/clients:
     get:
       operationId: ListClients
+      parameters:
+      - description: page number, from 1
+        in: query
+        name: page
+        type: integer
+      - description: rows per page, max 500
+        in: query
+        name: limit
+        type: integer
+      - description: matches person_name or contact_email
+        in: query
+        name: search
+        type: string
+      - description: client_id, date_created, date_modified, person_name, contact_email,
+          client_status, kyc_status
+        enum:
+        - client_id
+        - date_created
+        - date_modified
+        - person_name
+        - contact_email
+        - client_status
+        - kyc_status
+        in: query
+        name: sort_by
+        type: string
+      - description: asc or desc
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -920,6 +1318,13 @@ paths:
       consumes:
       - application/json
       operationId: CreateClient
+      parameters:
+      - description: the client to create
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtClient'
       produces:
       - application/json
       responses:
@@ -951,6 +1356,16 @@ paths:
   /api/v1/clients/{id}:
     delete:
       operationId: DeleteClient
+      parameters:
+      - description: client id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: detach users whose accounts are empty
+        in: query
+        name: force
+        type: boolean
       produces:
       - application/json
       responses:
@@ -976,6 +1391,12 @@ paths:
       - Clients
     get:
       operationId: GetClient
+      parameters:
+      - description: client id
+        in: path
+        name: id
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -1004,6 +1425,18 @@ paths:
       consumes:
       - application/json
       operationId: UpdateClient
+      parameters:
+      - description: client id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: only the fields to change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptClient'
       produces:
       - application/json
       responses:
@@ -1035,6 +1468,15 @@ paths:
   /api/v1/managers:
     get:
       operationId: ListManagers
+      parameters:
+      - description: page number, from 1
+        in: query
+        name: page
+        type: integer
+      - description: rows per page, max 500
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
@@ -1065,6 +1507,13 @@ paths:
       consumes:
       - application/json
       operationId: CreateManager
+      parameters:
+      - description: an existing login to promote to staff
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtManager'
       produces:
       - application/json
       responses:
@@ -1100,6 +1549,12 @@ paths:
   /api/v1/managers/{login}:
     delete:
       operationId: DeleteManager
+      parameters:
+      - description: login number
+        in: path
+        name: login
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -1121,6 +1576,12 @@ paths:
       - Managers
     get:
       operationId: GetManager
+      parameters:
+      - description: login number
+        in: path
+        name: login
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -1149,6 +1610,18 @@ paths:
       consumes:
       - application/json
       operationId: UpdateManager
+      parameters:
+      - description: login number
+        in: path
+        name: login
+        required: true
+        type: integer
+      - description: replaces name, groups and the whole right list
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptManager'
       produces:
       - application/json
       responses:
@@ -1180,6 +1653,12 @@ paths:
   /api/v1/managers/{login}/rights:
     get:
       operationId: GetManagerRights
+      parameters:
+      - description: login number
+        in: path
+        name: login
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -1274,6 +1753,40 @@ paths:
   /api/v1/users:
     get:
       operationId: ListUsers
+      parameters:
+      - description: page number, from 1
+        in: query
+        name: page
+        type: integer
+      - description: rows per page, max 500
+        in: query
+        name: limit
+        type: integer
+      - description: matches name or email
+        in: query
+        name: search
+        type: string
+      - description: login, client_id, name, email, registration, last_access, updated_at,
+          balance
+        enum:
+        - login
+        - client_id
+        - name
+        - email
+        - registration
+        - last_access
+        - updated_at
+        - balance
+        in: query
+        name: sort_by
+        type: string
+      - description: asc or desc
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -1308,6 +1821,13 @@ paths:
       consumes:
       - application/json
       operationId: CreateUser
+      parameters:
+      - description: the user to create, an account row is created with it
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtUser'
       produces:
       - application/json
       responses:
@@ -1339,6 +1859,12 @@ paths:
   /api/v1/users/{login}:
     delete:
       operationId: DeleteUser
+      parameters:
+      - description: login number
+        in: path
+        name: login
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -1360,6 +1886,12 @@ paths:
       - Users
     get:
       operationId: GetUser
+      parameters:
+      - description: login number
+        in: path
+        name: login
+        required: true
+        type: integer
       produces:
       - application/json
       responses:
@@ -1388,6 +1920,18 @@ paths:
       consumes:
       - application/json
       operationId: UpdateUser
+      parameters:
+      - description: login number
+        in: path
+        name: login
+        required: true
+        type: integer
+      - description: only the fields to change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptUser'
       produces:
       - application/json
       responses:
@@ -1422,6 +1966,13 @@ paths:
       - application/json
       description: Login with a manager account using basic auth
       operationId: Login
+      parameters:
+      - description: 'terminal type: 32 admin, 33 manager'
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.LoginRequest'
       produces:
       - application/json
       responses:
@@ -1455,6 +2006,13 @@ paths:
       consumes:
       - application/json
       operationId: RefreshToken
+      parameters:
+      - description: the refresh token from login
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.RefreshRequest'
       produces:
       - application/json
       responses:

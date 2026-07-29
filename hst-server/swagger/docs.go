@@ -124,6 +124,17 @@ const docTemplate = `{
                     "Auth"
                 ],
                 "operationId": "ChangePassword",
+                "parameters": [
+                    {
+                        "description": "old and new password",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.ChangePasswordRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "204": {
                         "description": "No Content",
@@ -166,6 +177,51 @@ const docTemplate = `{
                     "Clients"
                 ],
                 "operationId": "ListClients",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page number, from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "rows per page, max 500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "matches person_name or contact_email",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "client_id",
+                            "date_created",
+                            "date_modified",
+                            "person_name",
+                            "contact_email",
+                            "client_status",
+                            "kyc_status"
+                        ],
+                        "type": "string",
+                        "description": "client_id, date_created, date_modified, person_name, contact_email, client_status, kyc_status",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "asc or desc",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -224,6 +280,17 @@ const docTemplate = `{
                     "Clients"
                 ],
                 "operationId": "CreateClient",
+                "parameters": [
+                    {
+                        "description": "the client to create",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.CrtClient"
+                        }
+                    }
+                ],
                 "responses": {
                     "201": {
                         "description": "Created",
@@ -278,6 +345,15 @@ const docTemplate = `{
                     "Clients"
                 ],
                 "operationId": "GetClient",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -324,6 +400,21 @@ const docTemplate = `{
                     "Clients"
                 ],
                 "operationId": "DeleteClient",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "detach users whose accounts are empty",
+                        "name": "force",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "204": {
                         "description": "No Content",
@@ -367,6 +458,24 @@ const docTemplate = `{
                     "Clients"
                 ],
                 "operationId": "UpdateClient",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "client id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "only the fields to change",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.UptClient"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -421,6 +530,20 @@ const docTemplate = `{
                     "Managers"
                 ],
                 "operationId": "ListManagers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page number, from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "rows per page, max 500",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -473,6 +596,17 @@ const docTemplate = `{
                     "Managers"
                 ],
                 "operationId": "CreateManager",
+                "parameters": [
+                    {
+                        "description": "an existing login to promote to staff",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.CrtManager"
+                        }
+                    }
+                ],
                 "responses": {
                     "201": {
                         "description": "Created",
@@ -533,6 +667,15 @@ const docTemplate = `{
                     "Managers"
                 ],
                 "operationId": "GetManager",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "login number",
+                        "name": "login",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -579,6 +722,15 @@ const docTemplate = `{
                     "Managers"
                 ],
                 "operationId": "DeleteManager",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "login number",
+                        "name": "login",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "204": {
                         "description": "No Content",
@@ -616,6 +768,24 @@ const docTemplate = `{
                     "Managers"
                 ],
                 "operationId": "UpdateManager",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "login number",
+                        "name": "login",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "replaces name, groups and the whole right list",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.UptManager"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -670,6 +840,15 @@ const docTemplate = `{
                     "Managers"
                 ],
                 "operationId": "GetManagerRights",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "login number",
+                        "name": "login",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -836,6 +1015,52 @@ const docTemplate = `{
                     "Users"
                 ],
                 "operationId": "ListUsers",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page number, from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "rows per page, max 500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "matches name or email",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "login",
+                            "client_id",
+                            "name",
+                            "email",
+                            "registration",
+                            "last_access",
+                            "updated_at",
+                            "balance"
+                        ],
+                        "type": "string",
+                        "description": "login, client_id, name, email, registration, last_access, updated_at, balance",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "asc or desc",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -894,6 +1119,17 @@ const docTemplate = `{
                     "Users"
                 ],
                 "operationId": "CreateUser",
+                "parameters": [
+                    {
+                        "description": "the user to create, an account row is created with it",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.CrtUser"
+                        }
+                    }
+                ],
                 "responses": {
                     "201": {
                         "description": "Created",
@@ -948,6 +1184,15 @@ const docTemplate = `{
                     "Users"
                 ],
                 "operationId": "GetUser",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "login number",
+                        "name": "login",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -994,6 +1239,15 @@ const docTemplate = `{
                     "Users"
                 ],
                 "operationId": "DeleteUser",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "login number",
+                        "name": "login",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
                 "responses": {
                     "204": {
                         "description": "No Content",
@@ -1031,6 +1285,24 @@ const docTemplate = `{
                     "Users"
                 ],
                 "operationId": "UpdateUser",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "login number",
+                        "name": "login",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "only the fields to change",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.UptUser"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1089,6 +1361,17 @@ const docTemplate = `{
                     "Auth"
                 ],
                 "operationId": "Login",
+                "parameters": [
+                    {
+                        "description": "terminal type: 32 admin, 33 manager",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.LoginRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1141,6 +1424,17 @@ const docTemplate = `{
                     "Auth"
                 ],
                 "operationId": "RefreshToken",
+                "parameters": [
+                    {
+                        "description": "the refresh token from login",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.RefreshRequest"
+                        }
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1275,6 +1569,227 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_server_v1.ChangePasswordRequest": {
+            "type": "object",
+            "required": [
+                "new_password",
+                "old_password"
+            ],
+            "properties": {
+                "new_password": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 8
+                },
+                "old_password": {
+                    "type": "string"
+                }
+            }
+        },
+        "internal_server_v1.CrtClient": {
+            "type": "object",
+            "required": [
+                "contact_email",
+                "person_name"
+            ],
+            "properties": {
+                "address_city": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "address_country": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "address_postcode": {
+                    "type": "string",
+                    "maxLength": 32
+                },
+                "address_street": {
+                    "type": "string",
+                    "maxLength": 1024
+                },
+                "assigned_manager": {
+                    "type": "integer"
+                },
+                "client_status": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "client_type": {
+                    "type": "integer",
+                    "maximum": 3,
+                    "minimum": 0
+                },
+                "comment": {
+                    "type": "string",
+                    "maxLength": 4096
+                },
+                "company_name": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "contact_email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "contact_phone": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "kyc_status": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "person_birth_date": {
+                    "type": "integer"
+                },
+                "person_citizenship": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "person_last_name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "person_middle_name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "person_name": {
+                    "type": "string",
+                    "maxLength": 128
+                }
+            }
+        },
+        "internal_server_v1.CrtManager": {
+            "type": "object",
+            "required": [
+                "login",
+                "name"
+            ],
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "login": {
+                    "type": "integer"
+                },
+                "mailbox": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "request_limit_logs": {
+                    "maximum": 6,
+                    "minimum": 0,
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.ManagerLimit"
+                        }
+                    ]
+                },
+                "request_limit_reports": {
+                    "maximum": 6,
+                    "minimum": 0,
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.ManagerLimit"
+                        }
+                    ]
+                },
+                "rights": {
+                    "description": "Rights are column names from ManagerRightsNames; anything else is rejected",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "server": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_server_v1.CrtUser": {
+            "type": "object",
+            "required": [
+                "email",
+                "group",
+                "name",
+                "password_investor",
+                "password_main"
+            ],
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "client_id": {
+                    "type": "integer"
+                },
+                "comment": {
+                    "type": "string",
+                    "maxLength": 4096
+                },
+                "country": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "first_name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "group": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "last_name": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "leverage": {
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 1
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "password_api": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 8
+                },
+                "password_investor": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 8
+                },
+                "password_main": {
+                    "type": "string",
+                    "maxLength": 128,
+                    "minLength": 8
+                },
+                "phone": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "rights": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_server_v1.HealthResponse": {
             "type": "object",
             "properties": {
@@ -1300,6 +1815,28 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_server_v1.LoginRequest": {
+            "type": "object",
+            "required": [
+                "connection_type"
+            ],
+            "properties": {
+                "connection_type": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_server_v1.RefreshRequest": {
+            "type": "object",
+            "required": [
+                "refresh_token"
+            ],
+            "properties": {
+                "refresh_token": {
+                    "type": "string"
+                }
+            }
+        },
         "internal_server_v1.Response": {
             "type": "object",
             "properties": {
@@ -1315,6 +1852,281 @@ const docTemplate = `{
                 },
                 "success": {
                     "type": "boolean"
+                }
+            }
+        },
+        "internal_server_v1.UptClient": {
+            "type": "object",
+            "properties": {
+                "address_city": {
+                    "type": "string"
+                },
+                "address_country": {
+                    "type": "string"
+                },
+                "address_postcode": {
+                    "type": "string"
+                },
+                "address_state": {
+                    "type": "string"
+                },
+                "address_street": {
+                    "type": "string"
+                },
+                "assigned_manager": {
+                    "type": "integer"
+                },
+                "client_origin": {
+                    "$ref": "#/definitions/model.ClientOrigin"
+                },
+                "client_origin_login": {
+                    "type": "integer"
+                },
+                "client_status": {
+                    "$ref": "#/definitions/model.ClientStatus"
+                },
+                "client_type": {
+                    "$ref": "#/definitions/model.ClientType"
+                },
+                "comment": {
+                    "type": "string"
+                },
+                "company_address": {
+                    "type": "string"
+                },
+                "company_country": {
+                    "type": "string"
+                },
+                "company_lei": {
+                    "type": "string"
+                },
+                "company_license_authority": {
+                    "type": "string"
+                },
+                "company_license_number": {
+                    "type": "string"
+                },
+                "company_name": {
+                    "type": "string"
+                },
+                "company_reg_authority": {
+                    "type": "string"
+                },
+                "company_reg_date": {
+                    "type": "string"
+                },
+                "company_reg_number": {
+                    "type": "string"
+                },
+                "company_vat": {
+                    "type": "string"
+                },
+                "company_website": {
+                    "type": "string"
+                },
+                "compliance_approved_by": {
+                    "type": "integer"
+                },
+                "compliance_client_category": {
+                    "type": "string"
+                },
+                "compliance_date_approval": {
+                    "type": "integer"
+                },
+                "compliance_date_termination": {
+                    "type": "integer"
+                },
+                "contact_email": {
+                    "type": "string"
+                },
+                "contact_language": {
+                    "type": "string"
+                },
+                "contact_last_date": {
+                    "type": "integer"
+                },
+                "contact_messengers": {
+                    "type": "string"
+                },
+                "contact_phone": {
+                    "type": "string"
+                },
+                "contact_preferred": {
+                    "$ref": "#/definitions/model.PreferredCommunication"
+                },
+                "contact_social_networks": {
+                    "type": "string"
+                },
+                "experience_cfd": {
+                    "$ref": "#/definitions/model.TradingExperience"
+                },
+                "experience_futures": {
+                    "$ref": "#/definitions/model.TradingExperience"
+                },
+                "experience_fx": {
+                    "$ref": "#/definitions/model.TradingExperience"
+                },
+                "experience_stocks": {
+                    "$ref": "#/definitions/model.TradingExperience"
+                },
+                "introducer": {
+                    "type": "integer"
+                },
+                "kyc_status": {
+                    "$ref": "#/definitions/model.KycStatus"
+                },
+                "lead_campaign": {
+                    "type": "string"
+                },
+                "lead_source": {
+                    "type": "string"
+                },
+                "person_annual_deposit": {
+                    "type": "number"
+                },
+                "person_annual_income": {
+                    "type": "number"
+                },
+                "person_birth_date": {
+                    "type": "integer"
+                },
+                "person_citizenship": {
+                    "type": "string"
+                },
+                "person_document_date": {
+                    "type": "integer"
+                },
+                "person_document_extra": {
+                    "type": "string"
+                },
+                "person_document_number": {
+                    "type": "string"
+                },
+                "person_document_type": {
+                    "type": "string"
+                },
+                "person_education": {
+                    "$ref": "#/definitions/model.EducationLevel"
+                },
+                "person_employment": {
+                    "$ref": "#/definitions/model.Employment"
+                },
+                "person_gender": {
+                    "$ref": "#/definitions/model.Gender"
+                },
+                "person_industry": {
+                    "$ref": "#/definitions/model.ClientIndustry"
+                },
+                "person_last_name": {
+                    "type": "string"
+                },
+                "person_middle_name": {
+                    "type": "string"
+                },
+                "person_name": {
+                    "type": "string"
+                },
+                "person_net_worth": {
+                    "type": "number"
+                },
+                "person_tax_id": {
+                    "type": "string"
+                },
+                "person_title": {
+                    "type": "string"
+                },
+                "person_wealth_source": {
+                    "$ref": "#/definitions/model.WealthSource"
+                }
+            }
+        },
+        "internal_server_v1.UptManager": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "groups": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "mailbox": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "request_limit_logs": {
+                    "maximum": 6,
+                    "minimum": 0,
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.ManagerLimit"
+                        }
+                    ]
+                },
+                "request_limit_reports": {
+                    "maximum": 6,
+                    "minimum": 0,
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/model.ManagerLimit"
+                        }
+                    ]
+                },
+                "rights": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "server": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_server_v1.UptUser": {
+            "type": "object",
+            "properties": {
+                "city": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "comment": {
+                    "type": "string",
+                    "maxLength": 4096
+                },
+                "country": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "email": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "group": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "leverage": {
+                    "type": "integer",
+                    "maximum": 10000,
+                    "minimum": 1
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "phone": {
+                    "type": "string",
+                    "maxLength": 64
+                },
+                "rights": {
+                    "type": "integer"
                 }
             }
         },

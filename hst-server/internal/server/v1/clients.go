@@ -152,10 +152,11 @@ const clientColumns = `client_id, client_type, client_status, kyc_status,
 //	@Tags		Clients
 //	@Accept		json
 //	@Produce	json
-//	@Success	201	{object}	Response{data=ViewClient}
-//	@Failure	400	{object}	Response
-//	@Failure	403	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		body	body		CrtClient	true	"the client to create"
+//	@Success	201		{object}	Response{data=ViewClient}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients [post]
 func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
@@ -205,10 +206,15 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 //	@Id			ListClients
 //	@Tags		Clients
 //	@Produce	json
-//	@Success	200	{object}	Response{data=[]ViewClient}
-//	@Failure	400	{object}	Response
-//	@Failure	403	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		page	query		int		false	"page number, from 1"
+//	@Param		limit	query		int		false	"rows per page, max 500"
+//	@Param		search	query		string	false	"matches person_name or contact_email"
+//	@Param		sort_by	query		string	false	"client_id, date_created, date_modified, person_name, contact_email, client_status, kyc_status"	Enums(client_id, date_created, date_modified, person_name, contact_email, client_status, kyc_status)
+//	@Param		order	query		string	false	"asc or desc"																					Enums(asc, desc)
+//	@Success	200		{object}	Response{data=[]ViewClient}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients [get]
 func (s *HttpServer) ListClients(c *fiber.Ctx) error {
@@ -252,6 +258,7 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 //	@Id			GetClient
 //	@Tags		Clients
 //	@Produce	json
+//	@Param		id	path		int	true	"client id"
 //	@Success	200	{object}	Response{data=model.Client}
 //	@Failure	404	{object}	Response
 //	@Failure	500	{object}	Response
@@ -306,10 +313,12 @@ func (s *HttpServer) selectClient(ctx context.Context, id int64) (*model.Client,
 //	@Tags		Clients
 //	@Accept		json
 //	@Produce	json
-//	@Success	200	{object}	Response{data=model.Client}
-//	@Failure	400	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		id		path		int			true	"client id"
+//	@Param		body	body		UptClient	true	"only the fields to change"
+//	@Success	200		{object}	Response{data=model.Client}
+//	@Failure	400		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [patch]
 func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
@@ -427,10 +436,12 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 //	@Id			DeleteClient
 //	@Tags		Clients
 //	@Produce	json
-//	@Success	204	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	409	{object}	Response
-//	@Failure	500	{object}	Response
+//	@Param		id		path		int		true	"client id"
+//	@Param		force	query		bool	false	"detach users whose accounts are empty"
+//	@Success	204		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	409		{object}	Response
+//	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [delete]
 func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
