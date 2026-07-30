@@ -5,16 +5,21 @@ The microservice template. An independent Go module, laid out the same way
 rename the module, and start writing the service.
 
 Nothing domain specific is here. What is here is the plumbing every service
-needs — config, logging, postgres, nats, redis, graceful shutdown — plus the
-build, the quality gate and the local stack.
+needs — config, logging, postgres, nats, redis, a worker pool, and a lifecycle
+that shuts down cleanly — plus the build, the quality gate and the local stack.
 
 ## Layout
 
 ```
 hst-core/
   cmd/          entry point, nothing but app.Start()
-  app/          boots config, logger, postgres, nats, redis, then blocks
+  app/          boots config, logger, postgres, nats, redis, starts the handler
   config/       every env var, read once and validated at boot
+  handler/
+    handler.go  the service: one struct holding every dependency, New/Start/Stop
+    nats.go     every subject and queue group, as constants
+  internal/
+    worker/     fixed goroutine pool over one job queue
   pkg/
     db/         pgx pool
     logger/     zap, one log file per day
@@ -27,10 +32,58 @@ hst-core/
   .env.example
 ```
 
-Everything else — `model/`, `internal/`, `migrations/`, `utils/`, `proto/` —
-belongs to whatever service is built from this, not to the template. Follow
-`hst-server` for the shape of each, so a change of service does not mean a
-change of habits.
+`model/`, `migrations/`, `utils/`, `proto/` and the rest of `internal/` belong
+to whatever service is built from this, not to the template. Follow
+`hst-server` for the shape of each.
+
+## The handler
+
+`app.go` builds the world and hands it to `handler.New`. Everything the service
+does hangs off that one struct, so a method never reaches for a global and a
+test can build a `Handler` with fakes. Add a file per concern beside
+`handler.go` and keep `handler.go` to the lifecycle.
+
+```go
+h := handler.New(cfg, log, database, natsClient, redisClient)
+if err := h.Start(context.Background()); err != nil { ... }
+defer h.Stop()
+```
+
+`Start` does three things in an order that matters: load state into memory,
+start the workers, subscribe last — so no message arrives before the state it
+reads. `Stop` reverses it and is safe to call twice.
+
+What the template fixes versus the pattern it came from:
+
+- **A failed subscribe returns an error, it does not `Fatal`.** A service that
+  cannot hear its own subject should refuse to boot, not run deaf, and the
+  caller decides which.
+- **Subscriptions are recorded and unsubscribed on `Stop`,** so shutdown does
+  not leave a consumer attached to a connection that is about to drain.
+- **`h.Go(f)` instead of a bare `go f()`,** so `Stop` can wait for it.
+- **No `panic(0)` to exit.** The signal is handled in `app.go` and every defer
+  runs.
+
+## The worker pool
+
+`internal/worker` is a fixed pool of goroutines over one job channel. A
+goroutine per message is fine until traffic spikes and the process is holding a
+hundred thousand of them; a fixed pool bounds that. The pool defaults to
+`runtime.NumCPU()` workers with a queue 64 times deeper.
+
+```go
+h.Workers.Submit(func(ctx context.Context) {
+    // the job gets the pool's context, so it can notice shutdown
+})
+```
+
+- **`Submit` returns false on a full queue instead of blocking.** The caller is
+  usually a nats callback that must not stall. A false return is a real signal
+  — log it, count it, shed load. `Pending()` is the metric to export: it is the
+  first number that moves when the service falls behind.
+- **A panicking job is recovered,** so one bad message does not take the pool
+  down.
+- **`Stop` drains the queue.** An accepted job is a promise; queued work runs.
 
 ## Starting a new service from it
 
@@ -59,6 +112,3 @@ can fail at boot.
 | `up` `down` `logs` | the local stack in `stack.yaml` |
 | `psql` | a shell on the configured database |
 | `docker` `push-dev` `push-staging` `push-prod` | image build and multi arch push |
-
-`app/app.go` has a marked spot where the server is built and started;
-everything above it is plumbing that will not change.

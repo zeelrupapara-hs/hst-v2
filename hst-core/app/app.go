@@ -1,12 +1,14 @@
 package app
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"hstcore/config"
+	"hstcore/handler"
 	"hstcore/pkg/db"
 	"hstcore/pkg/logger"
 	"hstcore/pkg/nats"
@@ -95,9 +97,17 @@ func Run() int {
 
 	log.Logger.Info("redis connected")
 
-	// TODO: build the server here and start it in a goroutine, the way
-	// hst-server does in internal/server. Everything above is the plumbing
-	// every service needs; what this one actually serves goes below.
+	// the service itself, everything above is plumbing
+	h := handler.New(cfg, log, database, natsClient, redisClient)
+	if err := h.Start(context.Background()); err != nil {
+		log.Logger.Errorf("failed to start the handler %v", err)
+		return 1
+	}
+	// stopped before the connections it uses are closed
+	defer func() {
+		log.Logger.Info("stopping handler")
+		h.Stop()
+	}()
 
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
