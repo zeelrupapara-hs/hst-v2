@@ -29,13 +29,13 @@ MIGRATE := $(GOBIN)/migrate
 .PHONY: run build test tidy fmt vet check up down logs psql tools gen-keys swagger \
         migrate-create migrate-up migrate-down migrate-version migrate-force migrate-drop
 
-run:
+run: swagger
 	go run ./cmd
 
-build:
-	go build -o $(BIN) ./cmdgo
+build: swagger
+	go build -o $(BIN) ./cmd
 
-test:
+test: swagger
 	go test ./... -race -cover
 
 tidy:
@@ -48,14 +48,13 @@ vet:
 	go vet ./...
 
 # security and quality gate
-check: fmt vet
+check: swagger fmt vet
 	$(GOBIN)/staticcheck ./...
 	$(GOBIN)/errcheck ./...
 	$(GOBIN)/gosec -quiet ./...
 	$(GOBIN)/govulncheck ./...
 
-# regenerates swagger/ from the handler annotations
-# output is swagger/ and not docs/, because docs/ is gitignored
+# regenerates swagger/ from handler annotations (gitignored; run before build/check)
 swagger:
 	@$(GOBIN)/swag fmt -g cmd/main.go
 	@$(GOBIN)/swag init -g cmd/main.go -o swagger --parseDependency --parseInternal

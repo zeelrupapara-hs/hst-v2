@@ -21,5 +21,8 @@ jobs:
       - name: Install the project tools
         run: make tools
 
+      - name: Generate swagger docs
+        run: make swagger
+
       - name: Quality and security gate
         run: make check
