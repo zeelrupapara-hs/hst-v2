@@ -116,6 +116,10 @@ func (s *HttpServer) RegisterV1() {
 	groups.Patch("/:id/symbols/:symbolId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.UpdateGroupSymbol)
 	groups.Delete("/:id/symbols/:symbolId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.DeleteGroupSymbol)
 
+	// server journal
+	journal := v1.Group("/journal", s.Middleware.Protect, s.Middleware.RequireManager)
+	journal.Get("/", s.Middleware.Authorization(model.MgrRightSrvJournals), s.ListJournal)
+
 	// group commissions
 	groups.Get("/:id/commissions", s.Middleware.Authorization(model.MgrRightGroupCommission), s.ListGroupCommissions)
 	groups.Post("/:id/commissions", s.Middleware.Authorization(model.MgrRightGroupCommission), s.CreateGroupCommission)
