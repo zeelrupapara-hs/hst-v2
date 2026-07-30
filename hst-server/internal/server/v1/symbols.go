@@ -508,11 +508,6 @@ func validateSessions(sessions []CrtSymbolSession) error {
 	return nil
 }
 
-func isUniqueViolation(err error) bool {
-	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
-}
-
 // CreateSymbol registers a server-wide instrument.
 //
 //	@Id			CreateSymbol
@@ -616,7 +611,7 @@ func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
 			&view.TradeMode, &view.CalcMode, &view.ExecMode, &view.Spread, &view.ContractSize,
 			&view.DateModified)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
 		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -1236,7 +1231,7 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 		body.TickChartMode,
 		time.Now().UnixNano())
 	if err != nil {
-		if isUniqueViolation(err) {
+		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
 		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)

@@ -516,6 +516,715 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/leverage-profiles": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "ListLeverageProfiles",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page number, from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "rows per page, max 500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "matches name",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "leverage_id",
+                            "name",
+                            "timestamp"
+                        ],
+                        "type": "string",
+                        "description": "leverage_id, name, timestamp",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "asc or desc",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.Leverage"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "CreateLeverageProfile",
+                "parameters": [
+                    {
+                        "description": "the profile to create, rules and tiers may be inlined",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.CrtLeverage"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_server_v1.ViewLeverageDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leverage-profiles/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "GetLeverageProfile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leverage profile id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_server_v1.ViewLeverageDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "UpdateLeverageProfile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leverage profile id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "only the fields to change. rules absent keeps them, [] clears them, a list replaces them",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.UptLeverage"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_server_v1.ViewLeverageDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "DeleteLeverageProfile",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leverage profile id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leverage-profiles/{id}/rules": {
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "CreateLeverageRule",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leverage profile id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "the rule to append, with its tiers",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.CrtLeverageRule"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_server_v1.ViewLeverageDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leverage-profiles/{id}/rules/reorder": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "ReorderLeverageRules",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leverage profile id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "every rule id of the profile, exactly once, in the new evaluation order",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.ReorderLeverageRules"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_server_v1.ViewLeverageDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/leverage-profiles/{id}/rules/{ruleId}": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "UpdateLeverageRule",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leverage profile id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "rule id, must belong to the profile",
+                        "name": "ruleId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "only the fields to change. a tiers list replaces the whole level set",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.UptLeverageRule"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_server_v1.ViewLeverageDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Leverages"
+                ],
+                "operationId": "DeleteLeverageRule",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "leverage profile id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "description": "rule id, must belong to the profile",
+                        "name": "ruleId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_server_v1.ViewLeverageDetail"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/managers": {
             "get": {
                 "security": [
@@ -644,6 +1353,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -670,8 +1385,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "login number",
-                        "name": "login",
+                        "description": "symbol id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -693,6 +1408,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
                     "404": {
@@ -725,8 +1446,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "login number",
-                        "name": "login",
+                        "description": "symbol id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -734,6 +1455,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
@@ -771,8 +1498,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "login number",
-                        "name": "login",
+                        "description": "symbol id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -817,6 +1544,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -849,6 +1582,7 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
+                "operationId": "CacheStats",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2030,6 +2764,88 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_server_v1.CrtLeverage": {
+            "type": "object",
+            "required": [
+                "name"
+            ],
+            "properties": {
+                "flags": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "rules": {
+                    "type": "array",
+                    "maxItems": 1024,
+                    "items": {
+                        "$ref": "#/definitions/internal_server_v1.CrtLeverageRule"
+                    }
+                }
+            }
+        },
+        "internal_server_v1.CrtLeverageRule": {
+            "type": "object",
+            "required": [
+                "name",
+                "path",
+                "tiers"
+            ],
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "path": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "range_mode": {
+                    "type": "integer",
+                    "maximum": 3,
+                    "minimum": 0
+                },
+                "range_value_currency": {
+                    "type": "string",
+                    "maxLength": 8
+                },
+                "range_value_currency_digits": {
+                    "type": "integer",
+                    "maximum": 8,
+                    "minimum": 0
+                },
+                "tiers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/internal_server_v1.CrtLeverageTier"
+                    }
+                }
+            }
+        },
+        "internal_server_v1.CrtLeverageTier": {
+            "type": "object",
+            "properties": {
+                "margin_rate_initial": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "margin_rate_maintenance": {
+                    "type": "number",
+                    "minimum": 0
+                },
+                "range_to": {
+                    "type": "number",
+                    "minimum": 0
+                }
+            }
+        },
         "internal_server_v1.CrtManager": {
             "type": "object",
             "required": [
@@ -2382,6 +3198,21 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_server_v1.ReorderLeverageRules": {
+            "type": "object",
+            "required": [
+                "rule_ids"
+            ],
+            "properties": {
+                "rule_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
+                }
+            }
+        },
         "internal_server_v1.Response": {
             "type": "object",
             "properties": {
@@ -2582,6 +3413,63 @@ const docTemplate = `{
                 },
                 "person_wealth_source": {
                     "$ref": "#/definitions/model.WealthSource"
+                }
+            }
+        },
+        "internal_server_v1.UptLeverage": {
+            "type": "object",
+            "properties": {
+                "flags": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "rules": {
+                    "type": "array",
+                    "maxItems": 1024,
+                    "items": {
+                        "$ref": "#/definitions/internal_server_v1.CrtLeverageRule"
+                    }
+                }
+            }
+        },
+        "internal_server_v1.UptLeverageRule": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string",
+                    "maxLength": 255
+                },
+                "name": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "path": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "range_mode": {
+                    "type": "integer",
+                    "maximum": 3,
+                    "minimum": 0
+                },
+                "range_value_currency": {
+                    "type": "string",
+                    "maxLength": 8
+                },
+                "range_value_currency_digits": {
+                    "type": "integer",
+                    "maximum": 8,
+                    "minimum": 0
+                },
+                "tiers": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/definitions/internal_server_v1.CrtLeverageTier"
+                    }
                 }
             }
         },
@@ -2978,6 +3866,17 @@ const docTemplate = `{
                 },
                 "volume_max_ext": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_server_v1.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "volume_min": {
                     "type": "integer"
@@ -3081,6 +3980,67 @@ const docTemplate = `{
                 },
                 "person_name": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_server_v1.ViewLeverageDetail": {
+            "type": "object",
+            "properties": {
+                "flags": {
+                    "type": "integer"
+                },
+                "leverage_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "rules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_server_v1.ViewLeverageRule"
+                    }
+                },
+                "timestamp": {
+                    "type": "integer"
+                }
+            }
+        },
+        "internal_server_v1.ViewLeverageRule": {
+            "type": "object",
+            "properties": {
+                "config_index": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "leverage_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "path": {
+                    "type": "string"
+                },
+                "range_mode": {
+                    "$ref": "#/definitions/model.RangeMode"
+                },
+                "range_value_currency": {
+                    "type": "string"
+                },
+                "range_value_currency_digits": {
+                    "type": "integer"
+                },
+                "rule_id": {
+                    "type": "integer"
+                },
+                "tiers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/model.LeverageTier"
+                    }
                 }
             }
         },
@@ -4080,6 +5040,68 @@ const docTemplate = `{
                 "GTCMode_daily_no_stops"
             ]
         },
+        "model.ExecMode": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "ExecMode_request",
+                "ExecMode_instant",
+                "ExecMode_market",
+                "ExecMode_exchange"
+            ]
+        },
+        "model.ExpirationFlags": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                4,
+                8
+            ],
+            "x-enum-varnames": [
+                "ExpirationFlags_none",
+                "ExpirationFlags_gtc",
+                "ExpirationFlags_day",
+                "ExpirationFlags_specified",
+                "ExpirationFlags_specified_day"
+            ]
+        },
+        "model.FillingFlags": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "FillingFlags_none",
+                "FillingFlags_fok",
+                "FillingFlags_ioc"
+            ]
+        },
+        "model.GTCMode": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "GTCMode_gtc",
+                "GTCMode_daily",
+                "GTCMode_daily_no_stops"
+            ]
+        },
         "model.Gender": {
             "type": "integer",
             "format": "int32",
@@ -4117,6 +5139,46 @@ const docTemplate = `{
                 "KycStatus_approved",
                 "KycStatus_declined"
             ]
+        },
+        "model.Leverage": {
+            "type": "object",
+            "properties": {
+                "flags": {
+                    "type": "integer"
+                },
+                "leverage_id": {
+                    "type": "integer"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.LeverageTier": {
+            "type": "object",
+            "properties": {
+                "margin_rate_initial": {
+                    "type": "number"
+                },
+                "margin_rate_maintenance": {
+                    "type": "number"
+                },
+                "range_from": {
+                    "type": "number"
+                },
+                "range_to": {
+                    "type": "number"
+                },
+                "rule_id": {
+                    "type": "integer"
+                },
+                "tier_id": {
+                    "type": "integer"
+                }
+            }
         },
         "model.Manager": {
             "type": "object",
@@ -4466,6 +5528,22 @@ const docTemplate = `{
                 "PreferredCommunication_phone",
                 "PreferredCommunication_phone_sms",
                 "PreferredCommunication_messenger"
+            ]
+        },
+        "model.RangeMode": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "RangeMode_volume",
+                "RangeMode_volume_per_symbol",
+                "RangeMode_notional_value",
+                "RangeMode_notional_value_per_symbol"
             ]
         },
         "model.RequestFlags": {
