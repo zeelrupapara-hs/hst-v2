@@ -1353,6 +1353,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1379,8 +1385,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "login number",
-                        "name": "login",
+                        "description": "symbol id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -1402,6 +1408,12 @@ const docTemplate = `{
                                     }
                                 }
                             ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
                     "404": {
@@ -1434,8 +1446,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "login number",
-                        "name": "login",
+                        "description": "symbol id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -1443,6 +1455,12 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
@@ -1480,8 +1498,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "login number",
-                        "name": "login",
+                        "description": "symbol id",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     },
@@ -1526,6 +1544,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1558,6 +1582,7 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
+                "operationId": "CacheStats",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -3841,6 +3866,17 @@ const docTemplate = `{
                 },
                 "volume_max_ext": {
                     "type": "integer"
+                }
+            }
+        },
+        "internal_server_v1.HealthResponse": {
+            "type": "object",
+            "properties": {
+                "checks": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
                 },
                 "volume_min": {
                     "type": "integer"
@@ -4940,6 +4976,68 @@ const docTemplate = `{
                 "Employment_retired",
                 "Employment_student",
                 "Employment_other"
+            ]
+        },
+        "model.ExecMode": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                3
+            ],
+            "x-enum-varnames": [
+                "ExecMode_request",
+                "ExecMode_instant",
+                "ExecMode_market",
+                "ExecMode_exchange"
+            ]
+        },
+        "model.ExpirationFlags": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2,
+                4,
+                8
+            ],
+            "x-enum-varnames": [
+                "ExpirationFlags_none",
+                "ExpirationFlags_gtc",
+                "ExpirationFlags_day",
+                "ExpirationFlags_specified",
+                "ExpirationFlags_specified_day"
+            ]
+        },
+        "model.FillingFlags": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "FillingFlags_none",
+                "FillingFlags_fok",
+                "FillingFlags_ioc"
+            ]
+        },
+        "model.GTCMode": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1,
+                2
+            ],
+            "x-enum-varnames": [
+                "GTCMode_gtc",
+                "GTCMode_daily",
+                "GTCMode_daily_no_stops"
             ]
         },
         "model.ExecMode": {
