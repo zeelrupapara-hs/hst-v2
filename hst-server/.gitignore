@@ -5,6 +5,7 @@ coverage.out
 .DS_Store
 hstserver.log
 logs/
+swagger/
 docs/*
 !docs/auth/
 !docs/infra/
