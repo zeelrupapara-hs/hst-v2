@@ -480,7 +480,7 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 		o.PermissionsFlags, o.PermissionsBookDepth, o.REFlags,
 	))
 	if err != nil {
-		if isUniqueViolation(err) {
+		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
 		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)

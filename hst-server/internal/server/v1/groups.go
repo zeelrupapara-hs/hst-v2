@@ -416,7 +416,7 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 		ptrOr(body.LimitSymbols, int32(0)), ptrOr(body.LimitPositions, int32(0)), ptrOr(body.LimitPositionsVolume, 0.0),
 		now))
 	if err != nil {
-		if isUniqueViolation(err) {
+		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
 		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
