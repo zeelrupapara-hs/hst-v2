@@ -79,7 +79,21 @@ func (s *HttpServer) RegisterV1() {
 	managers.Patch("/:login", s.Middleware.Authorization(model.MgrRightCfgManagers), s.UpdateManager)
 	managers.Delete("/:login", s.Middleware.Authorization(model.MgrRightCfgManagers), s.DeleteManager)
 
-	// symbols
+	// floating leverage profiles
+	leverages := v1.Group("/leverage-profiles", s.Middleware.Protect, s.Middleware.RequireManager)
+	leverages.Get("/", s.Middleware.Authorization(model.MgrRightCfgGroups), s.ListLeverageProfiles)
+	leverages.Post("/", s.Middleware.Authorization(model.MgrRightCfgGroups), s.CreateLeverageProfile)
+	leverages.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.GetLeverageProfile)
+	leverages.Put("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.UpdateLeverageProfile)
+	leverages.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.DeleteLeverageProfile)
+
+	// leverage rules and tiers
+	leverages.Post("/:id/rules", s.Middleware.Authorization(model.MgrRightCfgGroups), s.CreateLeverageRule)
+	leverages.Put("/:id/rules/reorder", s.Middleware.Authorization(model.MgrRightCfgGroups), s.ReorderLeverageRules)
+	leverages.Put("/:id/rules/:ruleId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.UpdateLeverageRule)
+	leverages.Delete("/:id/rules/:ruleId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.DeleteLeverageRule)
+
+	// universal symbols
 	symbols := v1.Group("/symbols", s.Middleware.Protect, s.Middleware.RequireManager)
 	symbols.Get("/", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.ListSymbols)
 	symbols.Post("/", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.CreateSymbol)

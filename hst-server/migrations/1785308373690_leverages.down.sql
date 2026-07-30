@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS hst.leverage_tiers CASCADE;
+DROP TABLE IF EXISTS hst.leverage_rules CASCADE;
+DROP TABLE IF EXISTS hst.leverages CASCADE;

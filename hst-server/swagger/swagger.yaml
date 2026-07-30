@@ -150,298 +150,64 @@ definitions:
     - contact_email
     - person_name
     type: object
-  internal_server_v1.CrtCommission:
+  internal_server_v1.CrtLeverage:
     properties:
-      description:
-        maxLength: 64
-        type: string
-      mode:
-        $ref: '#/definitions/model.CommissionMode'
-      mode_action:
-        $ref: '#/definitions/model.CommissionActionMode'
-      mode_charge:
-        $ref: '#/definitions/model.CommissionChargeMode'
-      mode_entry:
-        $ref: '#/definitions/model.CommissionEntryMode'
-      mode_profit:
-        $ref: '#/definitions/model.CommissionProfitMode'
-      mode_range:
-        $ref: '#/definitions/model.CommissionRangeMode'
-      mode_reason:
-        $ref: '#/definitions/model.CommissionReasonFlags'
+      flags:
+        type: integer
       name:
-        maxLength: 64
+        maxLength: 128
         type: string
-      path:
-        maxLength: 255
-        type: string
-      tiers:
+      rules:
         items:
-          $ref: '#/definitions/internal_server_v1.CrtCommissionTier'
+          $ref: '#/definitions/internal_server_v1.CrtLeverageRule'
+        maxItems: 1024
         type: array
-      turnover_currency:
-        maxLength: 16
-        type: string
     required:
     - name
     type: object
-  internal_server_v1.CrtCommissionTier:
+  internal_server_v1.CrtLeverageRule:
     properties:
-      currency:
-        maxLength: 16
+      description:
+        maxLength: 255
         type: string
-      minimal:
+      name:
+        maxLength: 128
+        type: string
+      path:
+        maxLength: 128
+        type: string
+      range_mode:
+        maximum: 3
+        minimum: 0
+        type: integer
+      range_value_currency:
+        maxLength: 8
+        type: string
+      range_value_currency_digits:
+        maximum: 8
+        minimum: 0
+        type: integer
+      tiers:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtLeverageTier'
+        minItems: 1
+        type: array
+    required:
+    - name
+    - path
+    - tiers
+    type: object
+  internal_server_v1.CrtLeverageTier:
+    properties:
+      margin_rate_initial:
+        minimum: 0
         type: number
-      mode:
-        $ref: '#/definitions/model.CommissionTierMode'
-      range_from:
+      margin_rate_maintenance:
+        minimum: 0
         type: number
       range_to:
+        minimum: 0
         type: number
-      type:
-        $ref: '#/definitions/model.CommissionTierType'
-      value:
-        type: number
-    type: object
-  internal_server_v1.CrtGroup:
-    properties:
-      auth_mode:
-        $ref: '#/definitions/model.AuthMode'
-      auth_password_min:
-        type: integer
-      company:
-        maxLength: 255
-        type: string
-      company_catalog:
-        maxLength: 255
-        type: string
-      company_email:
-        maxLength: 255
-        type: string
-      company_page:
-        type: string
-      company_support_email:
-        maxLength: 255
-        type: string
-      company_support_page:
-        type: string
-      currency:
-        maxLength: 16
-        type: string
-      currency_digits:
-        type: integer
-      demo_deposit:
-        type: number
-      demo_leverage:
-        type: integer
-      group:
-        maxLength: 255
-        type: string
-      limit_history:
-        $ref: '#/definitions/model.HistoryLimit'
-      limit_orders:
-        type: integer
-      limit_positions:
-        type: integer
-      limit_positions_volume:
-        type: number
-      limit_symbols:
-        type: integer
-      mail_mode:
-        $ref: '#/definitions/model.MailMode'
-      margin_call:
-        type: number
-      margin_flags:
-        $ref: '#/definitions/model.GroupMarginFlags'
-      margin_free_mode:
-        $ref: '#/definitions/model.FreeMarginMode'
-      margin_free_profit_mode:
-        $ref: '#/definitions/model.MarginFreeProfitMode'
-      margin_mode:
-        $ref: '#/definitions/model.MarginMode'
-      margin_so_mode:
-        $ref: '#/definitions/model.StopOutMode'
-      margin_stop_out:
-        type: number
-      news_category:
-        type: string
-      news_langs:
-        items:
-          type: integer
-        type: array
-      news_mode:
-        $ref: '#/definitions/model.NewsMode'
-      parent_id:
-        type: integer
-      permission_flags:
-        $ref: '#/definitions/model.PermissionsFlags'
-      reports_email:
-        maxLength: 255
-        type: string
-      reports_flags:
-        $ref: '#/definitions/model.ReportsFlags'
-      reports_mode:
-        $ref: '#/definitions/model.ReportsMode'
-      reports_smtp:
-        type: string
-      reports_smtp_login:
-        type: string
-      root:
-        type: boolean
-      status:
-        enum:
-        - active
-        - inactive
-        - enabled
-        - disabled
-        type: string
-      trade_flags:
-        $ref: '#/definitions/model.GroupTradeFlags'
-      trade_interest_rate:
-        type: number
-      trade_transfer_mode:
-        $ref: '#/definitions/model.TransferMode'
-      trade_virtual_credit:
-        type: number
-    required:
-    - group
-    type: object
-  internal_server_v1.CrtGroupSymbol:
-    properties:
-      base_symbol_id:
-        type: integer
-      config_index:
-        type: integer
-      exec_mode:
-        $ref: '#/definitions/model.ExecMode'
-      expir_flags:
-        $ref: '#/definitions/model.ExpirationFlags'
-      fill_flags:
-        $ref: '#/definitions/model.FillingFlags'
-      freeze_level:
-        type: integer
-      ie_check_mode:
-        $ref: '#/definitions/model.InstantMode'
-      ie_flags:
-        type: integer
-      ie_slip_losing:
-        type: integer
-      ie_slip_profit:
-        type: integer
-      ie_timeout:
-        type: integer
-      ie_volume_max:
-        type: integer
-      ie_volume_max_ext:
-        type: integer
-      margin_currency:
-        type: string
-      margin_flags:
-        $ref: '#/definitions/model.SymbolMarginFlags'
-      margin_hedged:
-        type: number
-      margin_initial:
-        type: number
-      margin_initial_buy:
-        type: number
-      margin_initial_buy_limit:
-        type: number
-      margin_initial_buy_stop:
-        type: number
-      margin_initial_buy_stop_limit:
-        type: number
-      margin_initial_sell:
-        type: number
-      margin_initial_sell_limit:
-        type: number
-      margin_initial_sell_stop:
-        type: number
-      margin_initial_sell_stop_limit:
-        type: number
-      margin_liquidity:
-        type: number
-      margin_maintenance:
-        type: number
-      margin_maintenance_buy:
-        type: number
-      margin_maintenance_buy_limit:
-        type: number
-      margin_maintenance_buy_stop:
-        type: number
-      margin_maintenance_buy_stop_limit:
-        type: number
-      margin_maintenance_sell:
-        type: number
-      margin_maintenance_sell_limit:
-        type: number
-      margin_maintenance_sell_stop:
-        type: number
-      margin_maintenance_sell_stop_limit:
-        type: number
-      order_flags:
-        $ref: '#/definitions/model.OrderFlags'
-      path:
-        maxLength: 255
-        type: string
-      permissions_book_depth:
-        type: integer
-      permissions_flags:
-        type: integer
-      re_flags:
-        $ref: '#/definitions/model.RequestFlags'
-      re_timeout:
-        type: integer
-      spread_diff:
-        type: integer
-      spread_diff_balance:
-        type: integer
-      stops_level:
-        type: integer
-      swap_flags:
-        $ref: '#/definitions/model.SwapFlags'
-      swap_long:
-        type: number
-      swap_mode:
-        $ref: '#/definitions/model.SwapMode'
-      swap_rate_friday:
-        type: number
-      swap_rate_monday:
-        type: number
-      swap_rate_saturday:
-        type: number
-      swap_rate_sunday:
-        type: number
-      swap_rate_thursday:
-        type: number
-      swap_rate_tuesday:
-        type: number
-      swap_rate_wednesday:
-        type: number
-      swap_short:
-        type: number
-      swap_year_day:
-        type: integer
-      symbol:
-        maxLength: 64
-        type: string
-      trade_mode:
-        $ref: '#/definitions/model.TradeMode'
-      volume_limit:
-        type: integer
-      volume_limit_ext:
-        type: integer
-      volume_max:
-        type: integer
-      volume_max_ext:
-        type: integer
-      volume_min:
-        type: integer
-      volume_min_ext:
-        type: integer
-      volume_step:
-        type: integer
-      volume_step_ext:
-        type: integer
     type: object
   internal_server_v1.CrtManager:
     properties:
@@ -697,6 +463,16 @@ definitions:
     required:
     - refresh_token
     type: object
+  internal_server_v1.ReorderLeverageRules:
+    properties:
+      rule_ids:
+        items:
+          type: integer
+        minItems: 1
+        type: array
+    required:
+    - rule_ids
+    type: object
   internal_server_v1.Response:
     properties:
       code:
@@ -832,7 +608,48 @@ definitions:
       person_wealth_source:
         $ref: '#/definitions/model.WealthSource'
     type: object
-  internal_server_v1.UptCommission:
+  internal_server_v1.UptLeverage:
+    properties:
+      flags:
+        type: integer
+      name:
+        maxLength: 128
+        type: string
+      rules:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtLeverageRule'
+        maxItems: 1024
+        type: array
+    type: object
+  internal_server_v1.UptLeverageRule:
+    properties:
+      description:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 128
+        type: string
+      path:
+        maxLength: 128
+        type: string
+      range_mode:
+        maximum: 3
+        minimum: 0
+        type: integer
+      range_value_currency:
+        maxLength: 8
+        type: string
+      range_value_currency_digits:
+        maximum: 8
+        minimum: 0
+        type: integer
+      tiers:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtLeverageTier'
+        minItems: 1
+        type: array
+    type: object
+  internal_server_v1.UptManager:
     properties:
       description:
         maxLength: 64
@@ -1436,7 +1253,47 @@ definitions:
       person_name:
         type: string
     type: object
-  internal_server_v1.ViewCommission:
+  internal_server_v1.ViewLeverageDetail:
+    properties:
+      flags:
+        type: integer
+      leverage_id:
+        type: integer
+      name:
+        type: string
+      rules:
+        items:
+          $ref: '#/definitions/internal_server_v1.ViewLeverageRule'
+        type: array
+      timestamp:
+        type: integer
+    type: object
+  internal_server_v1.ViewLeverageRule:
+    properties:
+      config_index:
+        type: integer
+      description:
+        type: string
+      leverage_id:
+        type: integer
+      name:
+        type: string
+      path:
+        type: string
+      range_mode:
+        $ref: '#/definitions/model.RangeMode'
+      range_value_currency:
+        type: string
+      range_value_currency_digits:
+        type: integer
+      rule_id:
+        type: integer
+      tiers:
+        items:
+          $ref: '#/definitions/model.LeverageTier'
+        type: array
+    type: object
+  internal_server_v1.ViewManagerRights:
     properties:
       commission_id:
         type: integer
@@ -2668,15 +2525,32 @@ definitions:
     - KycStatus_undefined
     - KycStatus_approved
     - KycStatus_declined
-  model.MailMode:
-    enum:
-    - 0
-    - 1
-    format: int32
-    type: integer
-    x-enum-varnames:
-    - MailMode_disabled
-    - MailMode_full
+  model.Leverage:
+    properties:
+      flags:
+        type: integer
+      leverage_id:
+        type: integer
+      name:
+        type: string
+      timestamp:
+        type: integer
+    type: object
+  model.LeverageTier:
+    properties:
+      margin_rate_initial:
+        type: number
+      margin_rate_maintenance:
+        type: number
+      range_from:
+        type: number
+      range_to:
+        type: number
+      rule_id:
+        type: integer
+      tier_id:
+        type: integer
+    type: object
   model.Manager:
     properties:
       access:
@@ -3200,6 +3074,258 @@ definitions:
     format: int32
     type: integer
     x-enum-varnames:
+    - ManagerLimit_all
+    - ManagerLimit_months_1
+    - ManagerLimit_months_3
+    - ManagerLimit_months_6
+    - ManagerLimit_year_1
+    - ManagerLimit_year_2
+    - ManagerLimit_year_3
+  model.OptionMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - OptionMode_european_call
+    - OptionMode_european_put
+    - OptionMode_american_call
+    - OptionMode_american_put
+  model.OrderFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - OrderFlags_none
+    - OrderFlags_market
+    - OrderFlags_limit
+    - OrderFlags_stop
+    - OrderFlags_stop_limit
+    - OrderFlags_sl
+    - OrderFlags_tp
+    - OrderFlags_closeby
+  model.PreferredCommunication:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - PreferredCommunication_undefined
+    - PreferredCommunication_email
+    - PreferredCommunication_phone
+    - PreferredCommunication_phone_sms
+    - PreferredCommunication_messenger
+  model.RangeMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - RangeMode_volume
+    - RangeMode_volume_per_symbol
+    - RangeMode_notional_value
+    - RangeMode_notional_value_per_symbol
+  model.RequestFlags:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - RequestFlags_none
+    - RequestFlags_order
+  model.SpliceTimeType:
+    enum:
+    - 0
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SpliceTimeType_expiration
+  model.SpliceType:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SpliceType_none
+    - SpliceType_unadjusted
+    - SpliceType_adjusted
+  model.SwapDays:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SwapDays_sunday
+    - SwapDays_monday
+    - SwapDays_tuesday
+    - SwapDays_wednesday
+    - SwapDays_thursday
+    - SwapDays_friday
+    - SwapDays_saturday
+    - SwapDays_disabled
+  model.SwapFlags:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SwapFlags_none
+    - SwapFlags_consider_holidays
+  model.SwapMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SwapMode_disabled
+    - SwapMode_by_points
+    - SwapMode_by_symbol_currency
+    - SwapMode_by_margin_currency
+    - SwapMode_by_group_currency
+    - SwapMode_by_interest_current
+    - SwapMode_by_interest_open
+    - SwapMode_reopen_by_close_price
+    - SwapMode_reopen_by_bid
+    - SwapMode_by_profit_currency
+  model.SymbolIndustry:
+    enum:
+    - 0
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolIndustry_undefined
+  model.SymbolMarginFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolMarginFlags_none
+    - SymbolMarginFlags_check_process
+    - SymbolMarginFlags_check_sltp
+    - SymbolMarginFlags_hedge_large_leg
+  model.SymbolSector:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+    - 8
+    - 9
+    - 10
+    - 11
+    - 12
+    - 13
+    - 14
+    - 15
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolSector_undefined
+    - SymbolSector_basic_materials
+    - SymbolSector_communication_services
+    - SymbolSector_consumer_cyclical
+    - SymbolSector_consumer_defensive
+    - SymbolSector_energy
+    - SymbolSector_financial
+    - SymbolSector_healthcare
+    - SymbolSector_industrials
+    - SymbolSector_real_estate
+    - SymbolSector_technology
+    - SymbolSector_utilities
+    - SymbolSector_currency
+    - SymbolSector_currency_crypto
+    - SymbolSector_indexes
+    - SymbolSector_commodities
+  model.SymbolSession:
+    properties:
+      close:
+        type: integer
+      day:
+        type: integer
+      open:
+        type: integer
+      session_id:
+        type: integer
+      symbol_id:
+        type: integer
+      type:
+        $ref: '#/definitions/model.SymbolSessionType'
+    type: object
+  model.SymbolSessionType:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolSessionType_quote
+    - SymbolSessionType_trade
+  model.SymbolTradeFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - SymbolTradeFlags_none
+    - SymbolTradeFlags_profit_by_market
+    - SymbolTradeFlags_allow_signals
+  model.TickFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    format: int32
+    type: integer
+    x-enum-varnames:
     - TickFlags_none
     - TickFlags_realtime
     - TickFlags_collectraw
@@ -3230,19 +3356,6 @@ definitions:
     - TradingExperience_less_1_year
     - TradingExperience_1_3_year
     - TradingExperience_above_3_year
-  model.TransferMode:
-    enum:
-    - 0
-    - 1
-    - 2
-    - 3
-    format: int32
-    type: integer
-    x-enum-varnames:
-    - TransferMode_disabled
-    - TransferMode_by_name
-    - TransferMode_group
-    - TransferMode_name_group
   model.UsersRights:
     enum:
     - 0
@@ -3612,14 +3725,37 @@ paths:
       - BearerAuth: []
       tags:
       - Clients
-  /api/v1/groups:
+  /api/v1/leverage-profiles:
     get:
-      operationId: ListGroups
+      operationId: ListLeverageProfiles
       parameters:
-      - description: 1 = flat list
+      - description: page number, from 1
         in: query
-        name: flat
+        name: page
         type: integer
+      - description: rows per page, max 500
+        in: query
+        name: limit
+        type: integer
+      - description: matches name
+        in: query
+        name: search
+        type: string
+      - description: leverage_id, name, timestamp
+        enum:
+        - leverage_id
+        - name
+        - timestamp
+        in: query
+        name: sort_by
+        type: string
+      - description: asc or desc
+        enum:
+        - asc
+        - desc
+        in: query
+        name: order
+        type: string
       produces:
       - application/json
       responses:
@@ -3631,9 +3767,13 @@ paths:
             - properties:
                 data:
                   items:
-                    $ref: '#/definitions/internal_server_v1.ViewGroup'
+                    $ref: '#/definitions/model.Leverage'
                   type: array
               type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
         "403":
           description: Forbidden
           schema:
@@ -3645,18 +3785,18 @@ paths:
       security:
       - BearerAuth: []
       tags:
-      - Groups
+      - Leverages
     post:
       consumes:
       - application/json
-      operationId: CreateGroup
+      operationId: CreateLeverageProfile
       parameters:
-      - description: group path is required; other fields optional
+      - description: the profile to create, rules and tiers may be inlined
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_server_v1.CrtGroup'
+          $ref: '#/definitions/internal_server_v1.CrtLeverage'
       produces:
       - application/json
       responses:
@@ -3667,7 +3807,7 @@ paths:
             - $ref: '#/definitions/internal_server_v1.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_server_v1.ViewGroup'
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
               type: object
         "400":
           description: Bad Request
@@ -3688,12 +3828,12 @@ paths:
       security:
       - BearerAuth: []
       tags:
-      - Groups
-  /api/v1/groups/{id}:
+      - Leverages
+  /api/v1/leverage-profiles/{id}:
     delete:
-      operationId: DeleteGroup
+      operationId: DeleteLeverageProfile
       parameters:
-      - description: group id
+      - description: leverage profile id
         in: path
         name: id
         required: true
@@ -3707,6 +3847,99 @@ paths:
             $ref: '#/definitions/internal_server_v1.Response'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+    get:
+      operationId: GetLeverageProfile
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Leverages
+    put:
+      consumes:
+      - application/json
+      operationId: UpdateLeverageProfile
+      parameters:
+      - description: leverage profile id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: only the fields to change. rules absent keeps them, [] clears
+          them, a list replaces them
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptLeverage'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_server_v1.Response'
         "404":
@@ -3724,142 +3957,24 @@ paths:
       security:
       - BearerAuth: []
       tags:
-      - Groups
-    get:
-      operationId: GetGroup
-      parameters:
-      - description: group id
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_server_v1.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/internal_server_v1.ViewGroup'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-      security:
-      - BearerAuth: []
-      tags:
-      - Groups
-    patch:
-      consumes:
-      - application/json
-      operationId: UpdateGroup
-      parameters:
-      - description: group id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: only the fields to change
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/internal_server_v1.UptGroup'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_server_v1.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/internal_server_v1.ViewGroup'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-      security:
-      - BearerAuth: []
-      tags:
-      - Groups
-  /api/v1/groups/{id}/commissions:
-    get:
-      operationId: ListGroupCommissions
-      parameters:
-      - description: group id
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_server_v1.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/internal_server_v1.ViewCommission'
-                  type: array
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-      security:
-      - BearerAuth: []
-      tags:
-      - Groups
+      - Leverages
+  /api/v1/leverage-profiles/{id}/rules:
     post:
       consumes:
       - application/json
-      operationId: CreateGroupCommission
+      operationId: CreateLeverageRule
       parameters:
-      - description: group id
+      - description: leverage profile id
         in: path
         name: id
         required: true
         type: integer
-      - description: name required; tiers optional
+      - description: the rule to append, with its tiers
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_server_v1.CrtCommission'
+          $ref: '#/definitions/internal_server_v1.CrtLeverageRule'
       produces:
       - application/json
       responses:
@@ -3870,14 +3985,22 @@ paths:
             - $ref: '#/definitions/internal_server_v1.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_server_v1.ViewCommission'
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
               type: object
         "400":
           description: Bad Request
           schema:
             $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
         "404":
           description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
           schema:
             $ref: '#/definitions/internal_server_v1.Response'
         "500":
@@ -3887,55 +4010,19 @@ paths:
       security:
       - BearerAuth: []
       tags:
-      - Groups
-  /api/v1/groups/{id}/commissions/{commissionId}:
+      - Leverages
+  /api/v1/leverage-profiles/{id}/rules/{ruleId}:
     delete:
-      operationId: DeleteGroupCommission
+      operationId: DeleteLeverageRule
       parameters:
-      - description: group id
+      - description: leverage profile id
         in: path
         name: id
         required: true
         type: integer
-      - description: commission id
+      - description: rule id, must belong to the profile
         in: path
-        name: commissionId
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-      security:
-      - BearerAuth: []
-      tags:
-      - Groups
-    get:
-      operationId: GetGroupCommission
-      parameters:
-      - description: group id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: commission id
-        in: path
-        name: commissionId
+        name: ruleId
         required: true
         type: integer
       produces:
@@ -3948,10 +4035,14 @@ paths:
             - $ref: '#/definitions/internal_server_v1.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_server_v1.ViewCommission'
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
               type: object
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_server_v1.Response'
         "404":
@@ -3965,28 +4056,29 @@ paths:
       security:
       - BearerAuth: []
       tags:
-      - Groups
-    patch:
+      - Leverages
+    put:
       consumes:
       - application/json
-      operationId: UpdateGroupCommission
+      operationId: UpdateLeverageRule
       parameters:
-      - description: group id
+      - description: leverage profile id
         in: path
         name: id
         required: true
         type: integer
-      - description: commission id
+      - description: rule id, must belong to the profile
         in: path
-        name: commissionId
+        name: ruleId
         required: true
         type: integer
-      - description: fields to change
+      - description: only the fields to change. a tiers list replaces the whole level
+          set
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_server_v1.UptCommission'
+          $ref: '#/definitions/internal_server_v1.UptLeverageRule'
       produces:
       - application/json
       responses:
@@ -3997,10 +4089,14 @@ paths:
             - $ref: '#/definitions/internal_server_v1.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_server_v1.ViewCommission'
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
               type: object
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_server_v1.Response'
         "404":
@@ -4014,140 +4110,25 @@ paths:
       security:
       - BearerAuth: []
       tags:
-      - Groups
-  /api/v1/groups/{id}/symbols:
-    get:
-      operationId: ListGroupSymbols
-      parameters:
-      - description: group id
-        in: path
-        name: id
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_server_v1.Response'
-            - properties:
-                data:
-                  items:
-                    $ref: '#/definitions/internal_server_v1.ViewGroupSymbol'
-                  type: array
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-      security:
-      - BearerAuth: []
-      tags:
-      - Groups
-    post:
+      - Leverages
+  /api/v1/leverage-profiles/{id}/rules/reorder:
+    put:
       consumes:
       - application/json
-      operationId: CreateGroupSymbol
+      operationId: ReorderLeverageRules
       parameters:
-      - description: group id
+      - description: leverage profile id
         in: path
         name: id
         required: true
         type: integer
-      - description: path, symbol, or base_symbol_id; omitted override fields inherit
+      - description: every rule id of the profile, exactly once, in the new evaluation
+          order
         in: body
         name: body
         required: true
         schema:
-          $ref: '#/definitions/internal_server_v1.CrtGroupSymbol'
-      produces:
-      - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_server_v1.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/internal_server_v1.ViewGroupSymbol'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-      security:
-      - BearerAuth: []
-      tags:
-      - Groups
-  /api/v1/groups/{id}/symbols/{symbolId}:
-    delete:
-      operationId: DeleteGroupSymbol
-      parameters:
-      - description: group id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: groups_symbols row id
-        in: path
-        name: symbolId
-        required: true
-        type: integer
-      produces:
-      - application/json
-      responses:
-        "204":
-          description: No Content
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-      security:
-      - BearerAuth: []
-      tags:
-      - Groups
-    get:
-      operationId: GetGroupSymbol
-      parameters:
-      - description: group id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: groups_symbols row id
-        in: path
-        name: symbolId
-        required: true
-        type: integer
+          $ref: '#/definitions/internal_server_v1.ReorderLeverageRules'
       produces:
       - application/json
       responses:
@@ -4158,10 +4139,14 @@ paths:
             - $ref: '#/definitions/internal_server_v1.Response'
             - properties:
                 data:
-                  $ref: '#/definitions/internal_server_v1.ViewGroupSymbol'
+                  $ref: '#/definitions/internal_server_v1.ViewLeverageDetail'
               type: object
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/internal_server_v1.Response'
         "404":
@@ -4175,56 +4160,7 @@ paths:
       security:
       - BearerAuth: []
       tags:
-      - Groups
-    patch:
-      consumes:
-      - application/json
-      operationId: UpdateGroupSymbol
-      parameters:
-      - description: group id
-        in: path
-        name: id
-        required: true
-        type: integer
-      - description: groups_symbols row id
-        in: path
-        name: symbolId
-        required: true
-        type: integer
-      - description: fields to change; use_default_* clears inherit clusters
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/internal_server_v1.UptGroupSymbol'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            allOf:
-            - $ref: '#/definitions/internal_server_v1.Response'
-            - properties:
-                data:
-                  $ref: '#/definitions/internal_server_v1.ViewGroupSymbol'
-              type: object
-        "400":
-          description: Bad Request
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "404":
-          description: Not Found
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-        "500":
-          description: Internal Server Error
-          schema:
-            $ref: '#/definitions/internal_server_v1.Response'
-      security:
-      - BearerAuth: []
-      tags:
-      - Groups
+      - Leverages
   /api/v1/managers:
     get:
       operationId: ListManagers
