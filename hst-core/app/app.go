@@ -2,13 +2,16 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"hstcore/config"
 	"hstcore/handler"
+	"hstcore/internal/health"
 	"hstcore/pkg/db"
 	"hstcore/pkg/logger"
 	"hstcore/pkg/nats"
@@ -97,6 +100,30 @@ func Run() int {
 
 	log.Logger.Info("redis connected")
 
+	// probes, started before the handler so a slow boot reads as "not ready"
+	// rather than as a dead pod
+	probes := health.New(cfg, log, map[string]health.Check{
+		"postgres": func(ctx context.Context) error { return database.DB.Ping(ctx) },
+		"redis":    redisClient.Health,
+		"nats": func(context.Context) error {
+			if !natsClient.NC.IsConnected() {
+				return errors.New("nats is not connected")
+			}
+			return nil
+		},
+	})
+	if err := probes.Start(); err != nil {
+		log.Logger.Errorf("failed to start the probe server %v", err)
+		return 1
+	}
+	defer func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		if err := probes.Stop(ctx); err != nil {
+			log.Logger.Errorf("failed to stop the probe server %v", err)
+		}
+	}()
+
 	// the service itself, everything above is plumbing
 	h := handler.New(cfg, log, database, natsClient, redisClient)
 	if err := h.Start(context.Background()); err != nil {
@@ -109,12 +136,22 @@ func Run() int {
 		h.Stop()
 	}()
 
+	// boot is done, start taking traffic
+	probes.Ready()
+
 	// Graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	sig := <-quit
 	log.Logger.Infow("shutdown signal received", "signal", sig.String())
+
+	// fail readiness first and give the endpoints controller time to route
+	// away. Shutting down immediately means traffic is still arriving at a pod
+	// that has stopped answering.
+	probes.Draining()
+	log.Logger.Infow("draining before shutdown", "wait", cfg.Health.DrainWait.String())
+	time.Sleep(cfg.Health.DrainWait)
 
 	log.Logger.Info("server stopped for service: ", service+"@"+version)
 	return 0

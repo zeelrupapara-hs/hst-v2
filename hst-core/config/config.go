@@ -31,6 +31,10 @@ const (
 	POSTGRES_MAX_CONN = "POSTGRES_MAX_CONN"
 	POSTGRES_MIN_CONN = "POSTGRES_MIN_CONN"
 
+	HEALTH_HOST       = "HEALTH_HOST"
+	HEALTH_PORT       = "HEALTH_PORT"
+	HEALTH_DRAIN_WAIT = "HEALTH_DRAIN_WAIT"
+
 	NATS_HOST = "NATS_HOST"
 	NATS_PORT = "NATS_PORT"
 	NATS_NAME = "NATS_NAME"
@@ -48,6 +52,7 @@ type Config struct {
 	Setting  Setting
 	Logger   Logger
 	GRPC     GRPC
+	Health   Health
 	Postgres Postgres
 	Nats     Nats
 	Redis    Redis
@@ -75,6 +80,16 @@ type GRPC struct {
 	Port string
 	// ShutdownTimeout caps how long we wait for in-flight rpcs to drain
 	ShutdownTimeout time.Duration
+}
+
+// Health config for the probe listener
+type Health struct {
+	Host string
+	Port string
+	// DrainWait is the pause between failing readiness and actually shutting
+	// down, so the endpoints controller stops routing first. Set it to at
+	// least twice the readiness probe period.
+	DrainWait time.Duration
 }
 
 // Postgres config
@@ -139,6 +154,11 @@ func NewConfig() (*Config, error) {
 	c.GRPC.Host = getEnv(GRPC_HOST, "0.0.0.0")
 	c.GRPC.Port = getEnv(GRPC_PORT, "3001")
 	c.GRPC.ShutdownTimeout = time.Duration(getEnvAsInt(GRPC_SHUTDOWN_TIMEOUT, 15)) * time.Second
+
+	// Health
+	c.Health.Host = getEnv(HEALTH_HOST, "0.0.0.0")
+	c.Health.Port = getEnv(HEALTH_PORT, "8081")
+	c.Health.DrainWait = time.Duration(getEnvAsInt(HEALTH_DRAIN_WAIT, 5)) * time.Second
 
 	// Postgres
 	c.Postgres.PostgresHost = getEnv(POSTGRES_HOST, "localhost")

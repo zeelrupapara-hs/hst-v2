@@ -19,6 +19,7 @@ hst-core/
     handler.go  the service: one struct holding every dependency, New/Start/Stop
     nats.go     every subject and queue group, as constants
   internal/
+    health/     /healthz and /readyz, on their own port
     worker/     fixed goroutine pool over one job queue
   pkg/
     db/         pgx pool
@@ -63,6 +64,33 @@ Rules the lifecycle holds to, each one a failure mode worth avoiding:
 - **`h.Go(f)` instead of a bare `go f()`,** so `Stop` can wait for it.
 - **Nothing panics or calls `os.Exit` to shut down.** The signal is handled in
   `app.go` and every defer runs.
+
+## Probes and shutdown
+
+`internal/health` serves two endpoints on their own port (`HEALTH_PORT`, 8081
+by default), so a probe never queues behind application traffic and the port
+can stay off the public service.
+
+- **`/healthz` checks nothing.** It answers as long as the process runs. Fail
+  it and kubernetes restarts the pod — so wiring a dependency check in here is
+  how one database blip restarts every replica at once.
+- **`/readyz` checks everything:** boot finished, shutdown not started, and
+  every registered dependency answering within 2 seconds. Fail it and traffic
+  is routed away, the pod is left alone.
+
+Shutdown fails readiness *first*, waits `HEALTH_DRAIN_WAIT`, and only then
+unwinds. Without that pause the endpoints controller is still sending traffic
+to a pod that has already stopped answering — the usual source of 502s during
+a rolling deploy. Set the wait to at least twice the readiness probe period.
+
+```yaml
+livenessProbe:
+  httpGet: { path: /healthz, port: 8081 }
+  periodSeconds: 10
+readinessProbe:
+  httpGet: { path: /readyz, port: 8081 }
+  periodSeconds: 2
+```
 
 ## The worker pool
 
