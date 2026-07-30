@@ -516,6 +516,516 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/holidays": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Holidays"
+                ],
+                "operationId": "ListHolidays",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "page number, from 1",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "rows per page, max 500",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "matches description",
+                        "name": "search",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "holiday_id",
+                            "config_index",
+                            "year",
+                            "month",
+                            "day",
+                            "timestamp"
+                        ],
+                        "type": "string",
+                        "description": "holiday_id, config_index, year, month, day, timestamp",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            "asc",
+                            "desc"
+                        ],
+                        "type": "string",
+                        "description": "asc or desc, asc by default because the list order is data",
+                        "name": "order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.Holiday"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Holidays"
+                ],
+                "operationId": "CreateHoliday",
+                "parameters": [
+                    {
+                        "description": "the holiday to create",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.CrtHoliday"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.Holiday"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/holidays/check": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Holidays"
+                ],
+                "operationId": "CheckHoliday",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "symbol name, its path is looked up so group masks match",
+                        "name": "symbol",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "YYYY-MM-DD, today by default",
+                        "name": "date",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/internal_server_v1.ViewHolidayCheck"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/holidays/reorder": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Holidays"
+                ],
+                "operationId": "ReorderHolidays",
+                "parameters": [
+                    {
+                        "description": "every holiday id, exactly once, in the new list order",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.ReorderHolidays"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/definitions/model.Holiday"
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/holidays/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Holidays"
+                ],
+                "operationId": "GetHoliday",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "holiday id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.Holiday"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Holidays"
+                ],
+                "operationId": "DeleteHoliday",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "holiday id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "204": {
+                        "description": "No Content",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            },
+            "patch": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Holidays"
+                ],
+                "operationId": "UpdateHoliday",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "holiday id",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "only the fields to change. a symbols list replaces the whole mask set",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.UptHoliday"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/internal_server_v1.Response"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/model.Holiday"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/internal_server_v1.Response"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/leverage-profiles": {
             "get": {
                 "security": [
@@ -1353,12 +1863,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/internal_server_v1.Response"
-                        }
-                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1385,8 +1889,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "symbol id",
-                        "name": "id",
+                        "description": "login number",
+                        "name": "login",
                         "in": "path",
                         "required": true
                     }
@@ -1408,12 +1912,6 @@ const docTemplate = `{
                                     }
                                 }
                             ]
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
                     "404": {
@@ -1446,8 +1944,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "symbol id",
-                        "name": "id",
+                        "description": "login number",
+                        "name": "login",
                         "in": "path",
                         "required": true
                     }
@@ -1455,12 +1953,6 @@ const docTemplate = `{
                 "responses": {
                     "204": {
                         "description": "No Content",
-                        "schema": {
-                            "$ref": "#/definitions/internal_server_v1.Response"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
                         "schema": {
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
@@ -1498,8 +1990,8 @@ const docTemplate = `{
                 "parameters": [
                     {
                         "type": "integer",
-                        "description": "symbol id",
-                        "name": "id",
+                        "description": "login number",
+                        "name": "login",
                         "in": "path",
                         "required": true
                     },
@@ -1544,12 +2036,6 @@ const docTemplate = `{
                             "$ref": "#/definitions/internal_server_v1.Response"
                         }
                     },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "$ref": "#/definitions/internal_server_v1.Response"
-                        }
-                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1582,7 +2068,6 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
-                "operationId": "CacheStats",
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -2764,6 +3249,60 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_server_v1.CrtHoliday": {
+            "type": "object",
+            "required": [
+                "day",
+                "month",
+                "symbols"
+            ],
+            "properties": {
+                "day": {
+                    "type": "integer",
+                    "maximum": 31,
+                    "minimum": 1
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "from": {
+                    "type": "integer",
+                    "maximum": 1439,
+                    "minimum": 0
+                },
+                "mode": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ]
+                },
+                "month": {
+                    "type": "integer",
+                    "maximum": 12,
+                    "minimum": 1
+                },
+                "symbols": {
+                    "type": "array",
+                    "maxItems": 128,
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "to": {
+                    "type": "integer",
+                    "maximum": 1439,
+                    "minimum": 0
+                },
+                "year": {
+                    "type": "integer",
+                    "maximum": 9999,
+                    "minimum": 0
+                }
+            }
+        },
         "internal_server_v1.CrtLeverage": {
             "type": "object",
             "required": [
@@ -3168,6 +3707,17 @@ const docTemplate = `{
                 }
             }
         },
+        "internal_server_v1.HolidayWindow": {
+            "type": "object",
+            "properties": {
+                "from": {
+                    "type": "integer"
+                },
+                "to": {
+                    "type": "integer"
+                }
+            }
+        },
         "internal_server_v1.LiveResponse": {
             "type": "object",
             "properties": {
@@ -3195,6 +3745,21 @@ const docTemplate = `{
             "properties": {
                 "refresh_token": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_server_v1.ReorderHolidays": {
+            "type": "object",
+            "required": [
+                "holiday_ids"
+            ],
+            "properties": {
+                "holiday_ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "integer"
+                    }
                 }
             }
         },
@@ -3413,6 +3978,58 @@ const docTemplate = `{
                 },
                 "person_wealth_source": {
                     "$ref": "#/definitions/model.WealthSource"
+                }
+            }
+        },
+        "internal_server_v1.UptHoliday": {
+            "type": "object",
+            "required": [
+                "symbols"
+            ],
+            "properties": {
+                "day": {
+                    "type": "integer",
+                    "maximum": 31,
+                    "minimum": 1
+                },
+                "description": {
+                    "type": "string",
+                    "maxLength": 128
+                },
+                "from": {
+                    "type": "integer",
+                    "maximum": 1439,
+                    "minimum": 0
+                },
+                "mode": {
+                    "type": "integer",
+                    "enum": [
+                        0,
+                        1
+                    ]
+                },
+                "month": {
+                    "type": "integer",
+                    "maximum": 12,
+                    "minimum": 1
+                },
+                "symbols": {
+                    "type": "array",
+                    "maxItems": 128,
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "to": {
+                    "type": "integer",
+                    "maximum": 1439,
+                    "minimum": 0
+                },
+                "year": {
+                    "type": "integer",
+                    "maximum": 9999,
+                    "minimum": 0
                 }
             }
         },
@@ -3866,17 +4483,6 @@ const docTemplate = `{
                 },
                 "volume_max_ext": {
                     "type": "integer"
-                }
-            }
-        },
-        "internal_server_v1.HealthResponse": {
-            "type": "object",
-            "properties": {
-                "checks": {
-                    "type": "object",
-                    "additionalProperties": {
-                        "type": "string"
-                    }
                 },
                 "volume_min": {
                     "type": "integer"
@@ -3980,6 +4586,38 @@ const docTemplate = `{
                 },
                 "person_name": {
                     "type": "string"
+                }
+            }
+        },
+        "internal_server_v1.ViewHolidayCheck": {
+            "type": "object",
+            "properties": {
+                "closed": {
+                    "type": "boolean"
+                },
+                "date": {
+                    "type": "string"
+                },
+                "holiday": {
+                    "type": "boolean"
+                },
+                "matched": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "path": {
+                    "type": "string"
+                },
+                "symbol": {
+                    "type": "string"
+                },
+                "windows": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/internal_server_v1.HolidayWindow"
+                    }
                 }
             }
         },
@@ -5040,68 +5678,6 @@ const docTemplate = `{
                 "GTCMode_daily_no_stops"
             ]
         },
-        "model.ExecMode": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-                0,
-                1,
-                2,
-                3
-            ],
-            "x-enum-varnames": [
-                "ExecMode_request",
-                "ExecMode_instant",
-                "ExecMode_market",
-                "ExecMode_exchange"
-            ]
-        },
-        "model.ExpirationFlags": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-                0,
-                1,
-                2,
-                4,
-                8
-            ],
-            "x-enum-varnames": [
-                "ExpirationFlags_none",
-                "ExpirationFlags_gtc",
-                "ExpirationFlags_day",
-                "ExpirationFlags_specified",
-                "ExpirationFlags_specified_day"
-            ]
-        },
-        "model.FillingFlags": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-                0,
-                1,
-                2
-            ],
-            "x-enum-varnames": [
-                "FillingFlags_none",
-                "FillingFlags_fok",
-                "FillingFlags_ioc"
-            ]
-        },
-        "model.GTCMode": {
-            "type": "integer",
-            "format": "int32",
-            "enum": [
-                0,
-                1,
-                2
-            ],
-            "x-enum-varnames": [
-                "GTCMode_gtc",
-                "GTCMode_daily",
-                "GTCMode_daily_no_stops"
-            ]
-        },
         "model.Gender": {
             "type": "integer",
             "format": "int32",
@@ -5114,6 +5690,59 @@ const docTemplate = `{
                 "Gender_unspecified",
                 "Gender_male",
                 "Gender_female"
+            ]
+        },
+        "model.Holiday": {
+            "type": "object",
+            "properties": {
+                "config_index": {
+                    "type": "integer"
+                },
+                "day": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "from": {
+                    "type": "integer"
+                },
+                "holiday_id": {
+                    "type": "integer"
+                },
+                "mode": {
+                    "$ref": "#/definitions/model.HolidayMode"
+                },
+                "month": {
+                    "type": "integer"
+                },
+                "symbols": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "timestamp": {
+                    "type": "integer"
+                },
+                "to": {
+                    "type": "integer"
+                },
+                "year": {
+                    "type": "integer"
+                }
+            }
+        },
+        "model.HolidayMode": {
+            "type": "integer",
+            "format": "int32",
+            "enum": [
+                0,
+                1
+            ],
+            "x-enum-varnames": [
+                "HolidayMode_disabled",
+                "HolidayMode_enabled"
             ]
         },
         "model.InstantMode": {
