@@ -1,8 +1,8 @@
 # hstcore
 
-The microservice template. An independent Go module, laid out the same way
-`vfxcore` is, on the same conventions as `hst-server`. Copy this folder,
-rename the module, and start writing the service.
+The microservice template. An independent Go module following the same
+conventions as `hst-server`. Copy this folder, rename the module, and start
+writing the service.
 
 Nothing domain specific is here. What is here is the plumbing every service
 needs — config, logging, postgres, nats, redis, a worker pool, and a lifecycle
@@ -53,7 +53,7 @@ defer h.Stop()
 start the workers, subscribe last — so no message arrives before the state it
 reads. `Stop` reverses it and is safe to call twice.
 
-What the template fixes versus the pattern it came from:
+Rules the lifecycle holds to, each one a failure mode worth avoiding:
 
 - **A failed subscribe returns an error, it does not `Fatal`.** A service that
   cannot hear its own subject should refuse to boot, not run deaf, and the
@@ -61,8 +61,8 @@ What the template fixes versus the pattern it came from:
 - **Subscriptions are recorded and unsubscribed on `Stop`,** so shutdown does
   not leave a consumer attached to a connection that is about to drain.
 - **`h.Go(f)` instead of a bare `go f()`,** so `Stop` can wait for it.
-- **No `panic(0)` to exit.** The signal is handled in `app.go` and every defer
-  runs.
+- **Nothing panics or calls `os.Exit` to shut down.** The signal is handled in
+  `app.go` and every defer runs.
 
 ## The worker pool
 
