@@ -87,12 +87,23 @@ func (s *HttpServer) RegisterV1() {
 	symbols.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.UpdateSymbol)
 	symbols.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.DeleteSymbol)
 
-	// groups (config templates + per-group symbol overrides)
+	// groups (config templates + per-group symbol overrides + commissions)
 	groups := v1.Group("/groups", s.Middleware.Protect, s.Middleware.RequireManager)
 	groups.Get("/", s.Middleware.Authorization(model.MgrRightCfgGroups), s.ListGroups)
 	groups.Post("/", s.Middleware.Authorization(model.MgrRightCfgGroups), s.CreateGroup)
 	groups.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.GetGroup)
 	groups.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.UpdateGroup)
 	groups.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgGroups), s.DeleteGroup)
+
 	groups.Get("/:id/symbols", s.Middleware.Authorization(model.MgrRightCfgGroups), s.ListGroupSymbols)
+	groups.Post("/:id/symbols", s.Middleware.Authorization(model.MgrRightCfgGroups), s.CreateGroupSymbol)
+	groups.Get("/:id/symbols/:symbolId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.GetGroupSymbol)
+	groups.Patch("/:id/symbols/:symbolId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.UpdateGroupSymbol)
+	groups.Delete("/:id/symbols/:symbolId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.DeleteGroupSymbol)
+
+	groups.Get("/:id/commissions", s.Middleware.Authorization(model.MgrRightGroupCommission), s.ListGroupCommissions)
+	groups.Post("/:id/commissions", s.Middleware.Authorization(model.MgrRightGroupCommission), s.CreateGroupCommission)
+	groups.Get("/:id/commissions/:commissionId", s.Middleware.Authorization(model.MgrRightGroupCommission), s.GetGroupCommission)
+	groups.Patch("/:id/commissions/:commissionId", s.Middleware.Authorization(model.MgrRightGroupCommission), s.UpdateGroupCommission)
+	groups.Delete("/:id/commissions/:commissionId", s.Middleware.Authorization(model.MgrRightGroupCommission), s.DeleteGroupCommission)
 }

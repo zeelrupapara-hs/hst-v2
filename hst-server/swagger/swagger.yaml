@@ -150,6 +150,292 @@ definitions:
     - contact_email
     - person_name
     type: object
+  internal_server_v1.CrtCommission:
+    properties:
+      description:
+        maxLength: 64
+        type: string
+      mode:
+        $ref: '#/definitions/model.CommissionMode'
+      mode_action:
+        $ref: '#/definitions/model.CommissionActionMode'
+      mode_charge:
+        $ref: '#/definitions/model.CommissionChargeMode'
+      mode_entry:
+        $ref: '#/definitions/model.CommissionEntryMode'
+      mode_profit:
+        $ref: '#/definitions/model.CommissionProfitMode'
+      mode_range:
+        $ref: '#/definitions/model.CommissionRangeMode'
+      mode_reason:
+        $ref: '#/definitions/model.CommissionReasonFlags'
+      name:
+        maxLength: 64
+        type: string
+      path:
+        maxLength: 255
+        type: string
+      tiers:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtCommissionTier'
+        type: array
+      turnover_currency:
+        maxLength: 16
+        type: string
+    required:
+    - name
+    type: object
+  internal_server_v1.CrtCommissionTier:
+    properties:
+      currency:
+        maxLength: 16
+        type: string
+      minimal:
+        type: number
+      mode:
+        $ref: '#/definitions/model.CommissionTierMode'
+      range_from:
+        type: number
+      range_to:
+        type: number
+      type:
+        $ref: '#/definitions/model.CommissionTierType'
+      value:
+        type: number
+    type: object
+  internal_server_v1.CrtGroup:
+    properties:
+      auth_mode:
+        $ref: '#/definitions/model.AuthMode'
+      auth_password_min:
+        type: integer
+      company:
+        maxLength: 255
+        type: string
+      company_catalog:
+        maxLength: 255
+        type: string
+      company_email:
+        maxLength: 255
+        type: string
+      company_page:
+        type: string
+      company_support_email:
+        maxLength: 255
+        type: string
+      company_support_page:
+        type: string
+      currency:
+        maxLength: 16
+        type: string
+      currency_digits:
+        type: integer
+      demo_deposit:
+        type: number
+      demo_leverage:
+        type: integer
+      group:
+        maxLength: 255
+        type: string
+      limit_history:
+        $ref: '#/definitions/model.HistoryLimit'
+      limit_orders:
+        type: integer
+      limit_positions:
+        type: integer
+      limit_positions_volume:
+        type: number
+      limit_symbols:
+        type: integer
+      mail_mode:
+        $ref: '#/definitions/model.MailMode'
+      margin_call:
+        type: number
+      margin_flags:
+        $ref: '#/definitions/model.GroupMarginFlags'
+      margin_free_mode:
+        $ref: '#/definitions/model.FreeMarginMode'
+      margin_free_profit_mode:
+        $ref: '#/definitions/model.MarginFreeProfitMode'
+      margin_mode:
+        $ref: '#/definitions/model.MarginMode'
+      margin_so_mode:
+        $ref: '#/definitions/model.StopOutMode'
+      margin_stop_out:
+        type: number
+      news_category:
+        type: string
+      news_langs:
+        items:
+          type: integer
+        type: array
+      news_mode:
+        $ref: '#/definitions/model.NewsMode'
+      parent_id:
+        type: integer
+      permission_flags:
+        $ref: '#/definitions/model.PermissionsFlags'
+      reports_email:
+        maxLength: 255
+        type: string
+      reports_flags:
+        $ref: '#/definitions/model.ReportsFlags'
+      reports_mode:
+        $ref: '#/definitions/model.ReportsMode'
+      reports_smtp:
+        type: string
+      reports_smtp_login:
+        type: string
+      root:
+        type: boolean
+      status:
+        enum:
+        - active
+        - inactive
+        - enabled
+        - disabled
+        type: string
+      trade_flags:
+        $ref: '#/definitions/model.GroupTradeFlags'
+      trade_interest_rate:
+        type: number
+      trade_transfer_mode:
+        $ref: '#/definitions/model.TransferMode'
+      trade_virtual_credit:
+        type: number
+    required:
+    - group
+    type: object
+  internal_server_v1.CrtGroupSymbol:
+    properties:
+      config_index:
+        type: integer
+      exec_mode:
+        $ref: '#/definitions/model.ExecMode'
+      expir_flags:
+        $ref: '#/definitions/model.ExpirationFlags'
+      fill_flags:
+        $ref: '#/definitions/model.FillingFlags'
+      freeze_level:
+        type: integer
+      ie_check_mode:
+        $ref: '#/definitions/model.InstantMode'
+      ie_flags:
+        type: integer
+      ie_slip_losing:
+        type: integer
+      ie_slip_profit:
+        type: integer
+      ie_timeout:
+        type: integer
+      ie_volume_max:
+        type: integer
+      ie_volume_max_ext:
+        type: integer
+      margin_currency:
+        type: string
+      margin_flags:
+        $ref: '#/definitions/model.SymbolMarginFlags'
+      margin_hedged:
+        type: number
+      margin_initial:
+        type: number
+      margin_initial_buy_limit:
+        type: number
+      margin_initial_buy_stop:
+        type: number
+      margin_initial_buy_stop_limit:
+        type: number
+      margin_initial_sell_limit:
+        type: number
+      margin_initial_sell_stop:
+        type: number
+      margin_initial_sell_stop_limit:
+        type: number
+      margin_liquidity:
+        type: number
+      margin_maintenance:
+        type: number
+      margin_maintenance_buy:
+        type: number
+      margin_maintenance_buy_limit:
+        type: number
+      margin_maintenance_buy_stop:
+        type: number
+      margin_maintenance_buy_stop_limit:
+        type: number
+      margin_maintenance_sell:
+        type: number
+      margin_maintenance_sell_limit:
+        type: number
+      margin_maintenance_sell_stop:
+        type: number
+      margin_maintenance_sell_stop_limit:
+        type: number
+      order_flags:
+        $ref: '#/definitions/model.OrderFlags'
+      path:
+        maxLength: 255
+        type: string
+      permissions_book_depth:
+        type: integer
+      permissions_flags:
+        type: integer
+      re_flags:
+        $ref: '#/definitions/model.RequestFlags'
+      re_timeout:
+        type: integer
+      spread_diff:
+        type: integer
+      spread_diff_balance:
+        type: integer
+      stops_level:
+        type: integer
+      swap_flags:
+        $ref: '#/definitions/model.SwapFlags'
+      swap_long:
+        type: number
+      swap_mode:
+        $ref: '#/definitions/model.SwapMode'
+      swap_rate_friday:
+        type: number
+      swap_rate_monday:
+        type: number
+      swap_rate_saturday:
+        type: number
+      swap_rate_sunday:
+        type: number
+      swap_rate_thursday:
+        type: number
+      swap_rate_tuesday:
+        type: number
+      swap_rate_wednesday:
+        type: number
+      swap_short:
+        type: number
+      swap_year_day:
+        type: integer
+      trade_mode:
+        $ref: '#/definitions/model.TradeMode'
+      volume_limit:
+        type: integer
+      volume_limit_ext:
+        type: integer
+      volume_max:
+        type: integer
+      volume_max_ext:
+        type: integer
+      volume_min:
+        type: integer
+      volume_min_ext:
+        type: integer
+      volume_step:
+        type: integer
+      volume_step_ext:
+        type: integer
+    required:
+    - path
+    type: object
   internal_server_v1.CrtManager:
     properties:
       groups:
@@ -539,6 +825,273 @@ definitions:
       person_wealth_source:
         $ref: '#/definitions/model.WealthSource'
     type: object
+  internal_server_v1.UptCommission:
+    properties:
+      description:
+        maxLength: 64
+        type: string
+      mode:
+        $ref: '#/definitions/model.CommissionMode'
+      mode_action:
+        $ref: '#/definitions/model.CommissionActionMode'
+      mode_charge:
+        $ref: '#/definitions/model.CommissionChargeMode'
+      mode_entry:
+        $ref: '#/definitions/model.CommissionEntryMode'
+      mode_profit:
+        $ref: '#/definitions/model.CommissionProfitMode'
+      mode_range:
+        $ref: '#/definitions/model.CommissionRangeMode'
+      mode_reason:
+        $ref: '#/definitions/model.CommissionReasonFlags'
+      name:
+        maxLength: 64
+        type: string
+      path:
+        maxLength: 255
+        type: string
+      tiers:
+        items:
+          $ref: '#/definitions/internal_server_v1.CrtCommissionTier'
+        type: array
+      turnover_currency:
+        maxLength: 16
+        type: string
+    type: object
+  internal_server_v1.UptGroup:
+    properties:
+      auth_mode:
+        $ref: '#/definitions/model.AuthMode'
+      auth_password_min:
+        type: integer
+      company:
+        maxLength: 255
+        type: string
+      company_catalog:
+        maxLength: 255
+        type: string
+      company_email:
+        maxLength: 255
+        type: string
+      company_page:
+        type: string
+      company_support_email:
+        maxLength: 255
+        type: string
+      company_support_page:
+        type: string
+      currency:
+        maxLength: 16
+        type: string
+      currency_digits:
+        type: integer
+      demo_deposit:
+        type: number
+      demo_leverage:
+        type: integer
+      limit_history:
+        $ref: '#/definitions/model.HistoryLimit'
+      limit_orders:
+        type: integer
+      limit_positions:
+        type: integer
+      limit_positions_volume:
+        type: number
+      limit_symbols:
+        type: integer
+      mail_mode:
+        $ref: '#/definitions/model.MailMode'
+      margin_call:
+        type: number
+      margin_flags:
+        $ref: '#/definitions/model.GroupMarginFlags'
+      margin_free_mode:
+        $ref: '#/definitions/model.FreeMarginMode'
+      margin_free_profit_mode:
+        $ref: '#/definitions/model.MarginFreeProfitMode'
+      margin_mode:
+        $ref: '#/definitions/model.MarginMode'
+      margin_so_mode:
+        $ref: '#/definitions/model.StopOutMode'
+      margin_stop_out:
+        type: number
+      news_category:
+        type: string
+      news_langs:
+        items:
+          type: integer
+        type: array
+      news_mode:
+        $ref: '#/definitions/model.NewsMode'
+      permission_flags:
+        $ref: '#/definitions/model.PermissionsFlags'
+      reports_email:
+        maxLength: 255
+        type: string
+      reports_flags:
+        $ref: '#/definitions/model.ReportsFlags'
+      reports_mode:
+        $ref: '#/definitions/model.ReportsMode'
+      reports_smtp:
+        type: string
+      reports_smtp_login:
+        type: string
+      status:
+        enum:
+        - active
+        - inactive
+        - enabled
+        - disabled
+        type: string
+      trade_flags:
+        $ref: '#/definitions/model.GroupTradeFlags'
+      trade_interest_rate:
+        type: number
+      trade_transfer_mode:
+        $ref: '#/definitions/model.TransferMode'
+      trade_virtual_credit:
+        type: number
+    type: object
+  internal_server_v1.UptGroupSymbol:
+    properties:
+      config_index:
+        type: integer
+      exec_mode:
+        $ref: '#/definitions/model.ExecMode'
+      expir_flags:
+        $ref: '#/definitions/model.ExpirationFlags'
+      fill_flags:
+        $ref: '#/definitions/model.FillingFlags'
+      freeze_level:
+        type: integer
+      ie_check_mode:
+        $ref: '#/definitions/model.InstantMode'
+      ie_flags:
+        type: integer
+      ie_slip_losing:
+        type: integer
+      ie_slip_profit:
+        type: integer
+      ie_timeout:
+        type: integer
+      ie_volume_max:
+        type: integer
+      ie_volume_max_ext:
+        type: integer
+      margin_currency:
+        type: string
+      margin_flags:
+        $ref: '#/definitions/model.SymbolMarginFlags'
+      margin_hedged:
+        type: number
+      margin_initial:
+        type: number
+      margin_initial_buy_limit:
+        type: number
+      margin_initial_buy_stop:
+        type: number
+      margin_initial_buy_stop_limit:
+        type: number
+      margin_initial_sell_limit:
+        type: number
+      margin_initial_sell_stop:
+        type: number
+      margin_initial_sell_stop_limit:
+        type: number
+      margin_liquidity:
+        type: number
+      margin_maintenance:
+        type: number
+      margin_maintenance_buy:
+        type: number
+      margin_maintenance_buy_limit:
+        type: number
+      margin_maintenance_buy_stop:
+        type: number
+      margin_maintenance_buy_stop_limit:
+        type: number
+      margin_maintenance_sell:
+        type: number
+      margin_maintenance_sell_limit:
+        type: number
+      margin_maintenance_sell_stop:
+        type: number
+      margin_maintenance_sell_stop_limit:
+        type: number
+      order_flags:
+        $ref: '#/definitions/model.OrderFlags'
+      path:
+        maxLength: 255
+        type: string
+      permissions_book_depth:
+        type: integer
+      permissions_flags:
+        type: integer
+      re_flags:
+        $ref: '#/definitions/model.RequestFlags'
+      re_timeout:
+        type: integer
+      spread_diff:
+        type: integer
+      spread_diff_balance:
+        type: integer
+      stops_level:
+        type: integer
+      swap_flags:
+        $ref: '#/definitions/model.SwapFlags'
+      swap_long:
+        type: number
+      swap_mode:
+        $ref: '#/definitions/model.SwapMode'
+      swap_rate_friday:
+        type: number
+      swap_rate_monday:
+        type: number
+      swap_rate_saturday:
+        type: number
+      swap_rate_sunday:
+        type: number
+      swap_rate_thursday:
+        type: number
+      swap_rate_tuesday:
+        type: number
+      swap_rate_wednesday:
+        type: number
+      swap_short:
+        type: number
+      swap_year_day:
+        type: integer
+      trade_mode:
+        $ref: '#/definitions/model.TradeMode'
+      use_default_common:
+        type: boolean
+      use_default_execution:
+        type: boolean
+      use_default_margin:
+        type: boolean
+      use_default_margin_rate:
+        type: boolean
+      use_default_swaps:
+        type: boolean
+      use_default_trade:
+        type: boolean
+      volume_limit:
+        type: integer
+      volume_limit_ext:
+        type: integer
+      volume_max:
+        type: integer
+      volume_max_ext:
+        type: integer
+      volume_min:
+        type: integer
+      volume_min_ext:
+        type: integer
+      volume_step:
+        type: integer
+      volume_step_ext:
+        type: integer
+    type: object
   internal_server_v1.UptManager:
     properties:
       groups:
@@ -871,6 +1424,292 @@ definitions:
         type: string
       person_name:
         type: string
+    type: object
+  internal_server_v1.ViewCommission:
+    properties:
+      commission_id:
+        type: integer
+      description:
+        type: string
+      group_id:
+        type: integer
+      mode:
+        $ref: '#/definitions/model.CommissionMode'
+      mode_action:
+        $ref: '#/definitions/model.CommissionActionMode'
+      mode_charge:
+        $ref: '#/definitions/model.CommissionChargeMode'
+      mode_entry:
+        $ref: '#/definitions/model.CommissionEntryMode'
+      mode_profit:
+        $ref: '#/definitions/model.CommissionProfitMode'
+      mode_range:
+        $ref: '#/definitions/model.CommissionRangeMode'
+      mode_reason:
+        $ref: '#/definitions/model.CommissionReasonFlags'
+      name:
+        type: string
+      path:
+        type: string
+      tiers:
+        items:
+          $ref: '#/definitions/internal_server_v1.ViewCommissionTier'
+        type: array
+      turnover_currency:
+        type: string
+      updated_at:
+        type: integer
+    type: object
+  internal_server_v1.ViewCommissionTier:
+    properties:
+      commission_id:
+        type: integer
+      currency:
+        type: string
+      minimal:
+        type: number
+      mode:
+        $ref: '#/definitions/model.CommissionTierMode'
+      range_from:
+        type: number
+      range_to:
+        type: number
+      tier_id:
+        type: integer
+      type:
+        $ref: '#/definitions/model.CommissionTierType'
+      value:
+        type: number
+    type: object
+  internal_server_v1.ViewGroup:
+    properties:
+      auth_mode:
+        $ref: '#/definitions/model.AuthMode'
+      auth_password_min:
+        type: integer
+      company:
+        type: string
+      company_catalog:
+        type: string
+      company_email:
+        type: string
+      company_page:
+        type: string
+      company_support_email:
+        type: string
+      company_support_page:
+        type: string
+      currency:
+        type: string
+      currency_digits:
+        type: integer
+      demo_deposit:
+        type: number
+      demo_leverage:
+        type: integer
+      group:
+        type: string
+      group_id:
+        type: integer
+      groups:
+        items:
+          $ref: '#/definitions/internal_server_v1.ViewGroup'
+        type: array
+      limit_history:
+        $ref: '#/definitions/model.HistoryLimit'
+      limit_orders:
+        type: integer
+      limit_positions:
+        type: integer
+      limit_positions_volume:
+        type: number
+      limit_symbols:
+        type: integer
+      mail_mode:
+        $ref: '#/definitions/model.MailMode'
+      margin_call:
+        type: number
+      margin_flags:
+        $ref: '#/definitions/model.GroupMarginFlags'
+      margin_free_mode:
+        $ref: '#/definitions/model.FreeMarginMode'
+      margin_free_profit_mode:
+        $ref: '#/definitions/model.MarginFreeProfitMode'
+      margin_mode:
+        $ref: '#/definitions/model.MarginMode'
+      margin_so_mode:
+        $ref: '#/definitions/model.StopOutMode'
+      margin_stop_out:
+        type: number
+      news_category:
+        type: string
+      news_langs:
+        items:
+          type: integer
+        type: array
+      news_mode:
+        $ref: '#/definitions/model.NewsMode'
+      parent_id:
+        type: integer
+      permission_flags:
+        $ref: '#/definitions/model.PermissionsFlags'
+      reports_email:
+        type: string
+      reports_flags:
+        $ref: '#/definitions/model.ReportsFlags'
+      reports_mode:
+        $ref: '#/definitions/model.ReportsMode'
+      reports_smtp:
+        type: string
+      reports_smtp_login:
+        type: string
+      root:
+        type: boolean
+      status:
+        type: string
+      trade_flags:
+        $ref: '#/definitions/model.GroupTradeFlags'
+      trade_interest_rate:
+        type: number
+      trade_transfer_mode:
+        $ref: '#/definitions/model.TransferMode'
+      trade_virtual_credit:
+        type: number
+      updated_at:
+        type: integer
+    type: object
+  internal_server_v1.ViewGroupSymbol:
+    properties:
+      config_index:
+        type: integer
+      exec_mode:
+        $ref: '#/definitions/model.ExecMode'
+      expir_flags:
+        $ref: '#/definitions/model.ExpirationFlags'
+      fill_flags:
+        $ref: '#/definitions/model.FillingFlags'
+      freeze_level:
+        type: integer
+      group_id:
+        type: integer
+      ie_check_mode:
+        $ref: '#/definitions/model.InstantMode'
+      ie_flags:
+        type: integer
+      ie_slip_losing:
+        type: integer
+      ie_slip_profit:
+        type: integer
+      ie_timeout:
+        type: integer
+      ie_volume_max:
+        type: integer
+      ie_volume_max_ext:
+        type: integer
+      margin_currency:
+        type: string
+      margin_flags:
+        $ref: '#/definitions/model.SymbolMarginFlags'
+      margin_hedged:
+        type: number
+      margin_initial:
+        type: number
+      margin_initial_buy_limit:
+        type: number
+      margin_initial_buy_stop:
+        type: number
+      margin_initial_buy_stop_limit:
+        type: number
+      margin_initial_sell_limit:
+        type: number
+      margin_initial_sell_stop:
+        type: number
+      margin_initial_sell_stop_limit:
+        type: number
+      margin_liquidity:
+        type: number
+      margin_maintenance:
+        type: number
+      margin_maintenance_buy:
+        type: number
+      margin_maintenance_buy_limit:
+        type: number
+      margin_maintenance_buy_stop:
+        type: number
+      margin_maintenance_buy_stop_limit:
+        type: number
+      margin_maintenance_sell:
+        type: number
+      margin_maintenance_sell_limit:
+        type: number
+      margin_maintenance_sell_stop:
+        type: number
+      margin_maintenance_sell_stop_limit:
+        type: number
+      order_flags:
+        $ref: '#/definitions/model.OrderFlags'
+      path:
+        type: string
+      permissions_book_depth:
+        type: integer
+      permissions_flags:
+        type: integer
+      re_flags:
+        $ref: '#/definitions/model.RequestFlags'
+      re_timeout:
+        type: integer
+      spread_diff:
+        type: integer
+      spread_diff_balance:
+        type: integer
+      stops_level:
+        type: integer
+      swap_flags:
+        $ref: '#/definitions/model.SwapFlags'
+      swap_long:
+        type: number
+      swap_mode:
+        $ref: '#/definitions/model.SwapMode'
+      swap_rate_friday:
+        type: number
+      swap_rate_monday:
+        type: number
+      swap_rate_saturday:
+        type: number
+      swap_rate_sunday:
+        type: number
+      swap_rate_thursday:
+        type: number
+      swap_rate_tuesday:
+        type: number
+      swap_rate_wednesday:
+        type: number
+      swap_short:
+        type: number
+      swap_year_day:
+        type: integer
+      symbol_id:
+        type: integer
+      trade_mode:
+        $ref: '#/definitions/model.TradeMode'
+      updated_at:
+        type: integer
+      volume_limit:
+        type: integer
+      volume_limit_ext:
+        type: integer
+      volume_max:
+        type: integer
+      volume_max_ext:
+        type: integer
+      volume_min:
+        type: integer
+      volume_min_ext:
+        type: integer
+      volume_step:
+        type: integer
+      volume_step_ext:
+        type: integer
     type: object
   internal_server_v1.ViewManagerRights:
     properties:
@@ -1230,6 +2069,17 @@ definitions:
       updated_at:
         type: integer
     type: object
+  model.AuthMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - AuthMode_standard
+    - AuthMode_rsa1024
+    - AuthMode_rsa2048
   model.CalcMode:
     enum:
     - 0
@@ -1501,6 +2351,123 @@ definitions:
     - ClientType_individual
     - ClientType_corporate
     - ClientType_fund
+  model.CommissionActionMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionActionMode_all
+    - CommissionActionMode_buy
+    - CommissionActionMode_sell
+  model.CommissionChargeMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionChargeMode_daily
+    - CommissionChargeMode_monthly
+    - CommissionChargeMode_instant
+  model.CommissionEntryMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionEntryMode_all
+    - CommissionEntryMode_in
+    - CommissionEntryMode_out
+  model.CommissionMode:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionMode_standard
+    - CommissionMode_agent
+  model.CommissionProfitMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionProfitMode_all
+    - CommissionProfitMode_profit
+    - CommissionProfitMode_loss
+  model.CommissionRangeMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionRangeMode_volume
+    - CommissionRangeMode_turnover_money
+    - CommissionRangeMode_turnover_volume
+  model.CommissionReasonFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+    - 128
+    - 256
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionReasonFlags_none
+    - CommissionReasonFlags_client
+    - CommissionReasonFlags_expert
+    - CommissionReasonFlags_dealer
+    - CommissionReasonFlags_external
+    - CommissionReasonFlags_mobile
+    - CommissionReasonFlags_web
+    - CommissionReasonFlags_signal
+    - CommissionReasonFlags_gateway
+    - CommissionReasonFlags_ultency
+  model.CommissionTierMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionTierMode_deposit_currency
+    - CommissionTierMode_base_currency
+    - CommissionTierMode_profit_currency
+    - CommissionTierMode_margin_currency
+    - CommissionTierMode_points
+    - CommissionTierMode_percent
+    - CommissionTierMode_specified
+  model.CommissionTierType:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - CommissionTierType_per_trade
+    - CommissionTierType_per_volume
   model.EducationLevel:
     enum:
     - 0
@@ -1574,6 +2541,19 @@ definitions:
     - FillingFlags_none
     - FillingFlags_fok
     - FillingFlags_ioc
+  model.FreeMarginMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - FreeMarginMode_not_use_pl
+    - FreeMarginMode_use_pl
+    - FreeMarginMode_profit
+    - FreeMarginMode_loss
   model.GTCMode:
     enum:
     - 0
@@ -1596,6 +2576,65 @@ definitions:
     - Gender_unspecified
     - Gender_male
     - Gender_female
+  model.GroupMarginFlags:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - GroupMarginFlags_none
+    - GroupMarginFlags_clear_acc
+  model.GroupTradeFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+    - 128
+    - 256
+    - 512
+    - 1024
+    - 2048
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - GroupTradeFlags_none
+    - GroupTradeFlags_swaps
+    - GroupTradeFlags_trailing
+    - GroupTradeFlags_experts
+    - GroupTradeFlags_expiration
+    - GroupTradeFlags_signals_all
+    - GroupTradeFlags_signals_own
+    - GroupTradeFlags_so_compensation
+    - GroupTradeFlags_so_fully_hedged
+    - GroupTradeFlags_fifo_close
+    - GroupTradeFlags_hedge_prohibit
+    - GroupTradeFlags_deal_cost
+    - GroupTradeFlags_so_compensation_credit
+  model.HistoryLimit:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - HistoryLimit_all
+    - HistoryLimit_months_1
+    - HistoryLimit_months_3
+    - HistoryLimit_months_6
+    - HistoryLimit_year_1
+    - HistoryLimit_year_2
+    - HistoryLimit_year_3
   model.InstantMode:
     enum:
     - 0
@@ -1614,6 +2653,15 @@ definitions:
     - KycStatus_undefined
     - KycStatus_approved
     - KycStatus_declined
+  model.MailMode:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - MailMode_disabled
+    - MailMode_full
   model.Manager:
     properties:
       access:
@@ -1814,6 +2862,37 @@ definitions:
     - ManagerLimit_year_1
     - ManagerLimit_year_2
     - ManagerLimit_year_3
+  model.MarginFreeProfitMode:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - MarginFreeProfitMode_pl
+    - MarginFreeProfitMode_loss
+  model.MarginMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - MarginMode_retail
+    - MarginMode_exchange_discount
+    - MarginMode_retail_hedged
+  model.NewsMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - NewsMode_disabled
+    - NewsMode_headers
+    - NewsMode_full
   model.OptionMode:
     enum:
     - 0
@@ -1848,6 +2927,31 @@ definitions:
     - OrderFlags_sl
     - OrderFlags_tp
     - OrderFlags_closeby
+  model.PermissionsFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    - 8
+    - 16
+    - 32
+    - 64
+    - 128
+    - 256
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - PermissionsFlags_none
+    - PermissionsFlags_cert_confirm
+    - PermissionsFlags_enable_connection
+    - PermissionsFlags_reset_password
+    - PermissionsFlags_forced_otp_usage
+    - PermissionsFlags_risk_warning
+    - PermissionsFlags_regulation_protect
+    - PermissionsFlags_notify_deals
+    - PermissionsFlags_notify_orders
+    - PermissionsFlags_notify_balances
   model.PreferredCommunication:
     enum:
     - 0
@@ -1863,6 +2967,32 @@ definitions:
     - PreferredCommunication_phone
     - PreferredCommunication_phone_sms
     - PreferredCommunication_messenger
+  model.ReportsFlags:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 4
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - ReportsFlags_none
+    - ReportsFlags_email
+    - ReportsFlags_support
+    - ReportsFlags_statements
+  model.ReportsMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - ReportsMode_disabled
+    - ReportsMode_full
+    - ReportsMode_day_only
+    - ReportsMode_month_only
   model.RequestFlags:
     enum:
     - 0
@@ -1890,6 +3020,15 @@ definitions:
     - SpliceType_none
     - SpliceType_unadjusted
     - SpliceType_adjusted
+  model.StopOutMode:
+    enum:
+    - 0
+    - 1
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - StopOutMode_percent
+    - StopOutMode_money
   model.SwapDays:
     enum:
     - 0
@@ -2076,6 +3215,19 @@ definitions:
     - TradingExperience_less_1_year
     - TradingExperience_1_3_year
     - TradingExperience_above_3_year
+  model.TransferMode:
+    enum:
+    - 0
+    - 1
+    - 2
+    - 3
+    format: int32
+    type: integer
+    x-enum-varnames:
+    - TransferMode_disabled
+    - TransferMode_by_name
+    - TransferMode_group
+    - TransferMode_name_group
   model.UsersRights:
     enum:
     - 0
@@ -2445,6 +3597,619 @@ paths:
       - BearerAuth: []
       tags:
       - Clients
+  /api/v1/groups:
+    get:
+      operationId: ListGroups
+      parameters:
+      - description: 1 = flat list
+        in: query
+        name: flat
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_server_v1.ViewGroup'
+                  type: array
+              type: object
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    post:
+      consumes:
+      - application/json
+      operationId: CreateGroup
+      parameters:
+      - description: group path is required; other fields optional
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtGroup'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewGroup'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+  /api/v1/groups/{id}:
+    delete:
+      operationId: DeleteGroup
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    get:
+      operationId: GetGroup
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewGroup'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    patch:
+      consumes:
+      - application/json
+      operationId: UpdateGroup
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: only the fields to change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptGroup'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewGroup'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+  /api/v1/groups/{id}/commissions:
+    get:
+      operationId: ListGroupCommissions
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_server_v1.ViewCommission'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    post:
+      consumes:
+      - application/json
+      operationId: CreateGroupCommission
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: name required; tiers optional
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtCommission'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewCommission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+  /api/v1/groups/{id}/commissions/{commissionId}:
+    delete:
+      operationId: DeleteGroupCommission
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: commission id
+        in: path
+        name: commissionId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    get:
+      operationId: GetGroupCommission
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: commission id
+        in: path
+        name: commissionId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewCommission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    patch:
+      consumes:
+      - application/json
+      operationId: UpdateGroupCommission
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: commission id
+        in: path
+        name: commissionId
+        required: true
+        type: integer
+      - description: fields to change
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptCommission'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewCommission'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+  /api/v1/groups/{id}/symbols:
+    get:
+      operationId: ListGroupSymbols
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/internal_server_v1.ViewGroupSymbol'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    post:
+      consumes:
+      - application/json
+      operationId: CreateGroupSymbol
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: path required; omitted override fields inherit
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.CrtGroupSymbol'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewGroupSymbol'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+  /api/v1/groups/{id}/symbols/{symbolId}:
+    delete:
+      operationId: DeleteGroupSymbol
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: groups_symbols row id
+        in: path
+        name: symbolId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    get:
+      operationId: GetGroupSymbol
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: groups_symbols row id
+        in: path
+        name: symbolId
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewGroupSymbol'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
+    patch:
+      consumes:
+      - application/json
+      operationId: UpdateGroupSymbol
+      parameters:
+      - description: group id
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: groups_symbols row id
+        in: path
+        name: symbolId
+        required: true
+        type: integer
+      - description: fields to change; use_default_* clears inherit clusters
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/internal_server_v1.UptGroupSymbol'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/internal_server_v1.Response'
+            - properties:
+                data:
+                  $ref: '#/definitions/internal_server_v1.ViewGroupSymbol'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/internal_server_v1.Response'
+      security:
+      - BearerAuth: []
+      tags:
+      - Groups
   /api/v1/managers:
     get:
       operationId: ListManagers
