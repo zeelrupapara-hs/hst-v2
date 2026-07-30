@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -41,6 +42,8 @@ type ViewGroupSymbol struct {
 	MarginFlags                    *model.SymbolMarginFlags `json:"margin_flags,omitempty"`
 	MarginInitial                  *float64                 `json:"margin_initial,omitempty"`
 	MarginMaintenance              *float64                 `json:"margin_maintenance,omitempty"`
+	MarginInitialBuy               *float64                 `json:"margin_initial_buy,omitempty"`
+	MarginInitialSell              *float64                 `json:"margin_initial_sell,omitempty"`
 	MarginInitialBuyLimit          *float64                 `json:"margin_initial_buy_limit,omitempty"`
 	MarginInitialSellLimit         *float64                 `json:"margin_initial_sell_limit,omitempty"`
 	MarginInitialBuyStop           *float64                 `json:"margin_initial_buy_stop,omitempty"`
@@ -85,9 +88,12 @@ type ViewGroupSymbol struct {
 }
 
 // CrtGroupSymbol creates a path-mask override. Omitted override fields stay NULL (inherit).
+// Provide path directly, or base_symbol_id / symbol to assign from the global catalog.
 type CrtGroupSymbol struct {
-	Path        string `json:"path" validate:"required,max=255"`
-	ConfigIndex *int32 `json:"config_index"`
+	Path         string `json:"path" validate:"omitempty,max=255"`
+	BaseSymbolID *int64 `json:"base_symbol_id"`
+	Symbol       string `json:"symbol" validate:"omitempty,max=64"`
+	ConfigIndex  *int32 `json:"config_index"`
 	groupSymbolOverrides
 }
 
@@ -127,6 +133,8 @@ type groupSymbolOverrides struct {
 	MarginFlags                    *model.SymbolMarginFlags `json:"margin_flags"`
 	MarginInitial                  *float64                 `json:"margin_initial"`
 	MarginMaintenance              *float64                 `json:"margin_maintenance"`
+	MarginInitialBuy               *float64                 `json:"margin_initial_buy"`
+	MarginInitialSell              *float64                 `json:"margin_initial_sell"`
 	MarginInitialBuyLimit          *float64                 `json:"margin_initial_buy_limit"`
 	MarginInitialSellLimit         *float64                 `json:"margin_initial_sell_limit"`
 	MarginInitialBuyStop           *float64                 `json:"margin_initial_buy_stop"`
@@ -176,6 +184,7 @@ const groupSymbolColumns = `symbol_id, group_id, updated_at, path, config_index,
 	volume_min, volume_min_ext, volume_max, volume_max_ext,
 	volume_step, volume_step_ext, volume_limit, volume_limit_ext,
 	margin_flags, margin_initial, margin_maintenance,
+	margin_initial_buy, margin_initial_sell,
 	margin_initial_buy_limit, margin_initial_sell_limit,
 	margin_initial_buy_stop, margin_initial_sell_stop,
 	margin_initial_buy_stop_limit, margin_initial_sell_stop_limit,
@@ -200,6 +209,7 @@ func scanViewGroupSymbol(row pgx.Row) (*ViewGroupSymbol, error) {
 		&v.VolumeMin, &v.VolumeMinExt, &v.VolumeMax, &v.VolumeMaxExt,
 		&v.VolumeStep, &v.VolumeStepExt, &v.VolumeLimit, &v.VolumeLimitExt,
 		&v.MarginFlags, &v.MarginInitial, &v.MarginMaintenance,
+		&v.MarginInitialBuy, &v.MarginInitialSell,
 		&v.MarginInitialBuyLimit, &v.MarginInitialSellLimit,
 		&v.MarginInitialBuyStop, &v.MarginInitialSellStop,
 		&v.MarginInitialBuyStopLimit, &v.MarginInitialSellStopLimit,
@@ -231,7 +241,7 @@ func groupExists(c *fiber.Ctx, s *HttpServer, groupID int) error {
 	return err
 }
 
-// ListGroupSymbols lists symbol overrides for one group.
+// ListGroupSymbols lists sparse symbol overrides for one group (NULL fields inherit from base symbol).
 //
 //	@Id			ListGroupSymbols
 //	@Tags		Groups
@@ -277,7 +287,7 @@ func (s *HttpServer) ListGroupSymbols(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, out)
 }
 
-// GetGroupSymbol returns one override row.
+// GetGroupSymbol returns one sparse override row (merge with GET /symbols/:id on the client).
 //
 //	@Id			GetGroupSymbol
 //	@Tags		Groups
@@ -309,7 +319,58 @@ func (s *HttpServer) GetGroupSymbol(c *fiber.Ctx) error {
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
+
 	return s.App.HttpResponseOK(c, v)
+}
+
+func normalizeSymbolPath(p string) string {
+	return strings.ReplaceAll(p, "/", `\`)
+}
+
+func (s *HttpServer) loadBaseSymbolByName(ctx context.Context, name string) (*model.Symbol, error) {
+	var id int64
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT symbol_id FROM hst.symbols WHERE symbol = $1`, strings.TrimSpace(name)).Scan(&id)
+	if err != nil {
+		return nil, err
+	}
+	return s.loadBaseSymbolByID(ctx, id)
+}
+
+func (s *HttpServer) loadBaseSymbolByID(ctx context.Context, id int64) (*model.Symbol, error) {
+	detail, err := s.selectSymbolDetail(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return &detail.Symbol, nil
+}
+
+func resolveCreateGroupSymbolPath(c *fiber.Ctx, s *HttpServer, body CrtGroupSymbol) (string, error) {
+	path := normalizeSymbolPath(strings.TrimSpace(body.Path))
+	if path != "" {
+		return path, nil
+	}
+	if body.BaseSymbolID != nil {
+		base, err := s.loadBaseSymbolByID(c.UserContext(), *body.BaseSymbolID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", errs.ErrNotFound
+		}
+		if err != nil {
+			return "", err
+		}
+		return base.Path, nil
+	}
+	if sym := strings.TrimSpace(body.Symbol); sym != "" {
+		base, err := s.loadBaseSymbolByName(c.UserContext(), sym)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return "", errs.ErrNotFound
+		}
+		if err != nil {
+			return "", err
+		}
+		return base.Path, nil
+	}
+	return "", errs.ErrRequiredParams
 }
 
 // CreateGroupSymbol inserts a path-mask override under a group.
@@ -319,7 +380,7 @@ func (s *HttpServer) GetGroupSymbol(c *fiber.Ctx) error {
 //	@Accept		json
 //	@Produce	json
 //	@Param		id		path		int				true	"group id"
-//	@Param		body	body		CrtGroupSymbol	true	"path required; omitted override fields inherit"
+//	@Param		body	body		CrtGroupSymbol	true	"path, symbol, or base_symbol_id; omitted override fields inherit"
 //	@Success	201		{object}	Response{data=ViewGroupSymbol}
 //	@Failure	400		{object}	Response
 //	@Failure	404		{object}	Response
@@ -345,9 +406,15 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
-	path := strings.TrimSpace(body.Path)
-	if path == "" {
+	path, err := resolveCreateGroupSymbolPath(c, s, body)
+	if errors.Is(err, errs.ErrNotFound) {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+	if errors.Is(err, errs.ErrRequiredParams) {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	o := body.groupSymbolOverrides
@@ -360,6 +427,7 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 		    volume_min, volume_min_ext, volume_max, volume_max_ext,
 		    volume_step, volume_step_ext, volume_limit, volume_limit_ext,
 		    margin_flags, margin_initial, margin_maintenance,
+		    margin_initial_buy, margin_initial_sell,
 		    margin_initial_buy_limit, margin_initial_sell_limit,
 		    margin_initial_buy_stop, margin_initial_sell_stop,
 		    margin_initial_buy_stop_limit, margin_initial_sell_stop_limit,
@@ -380,14 +448,14 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 		    $9,$10,$11,$12,
 		    $13,$14,$15,$16,
 		    $17,$18,$19,$20,
-		    $21,$22,$23,
-		    $24,$25,$26,$27,$28,$29,
-		    $30,$31,$32,$33,$34,$35,$36,$37,
+		    $21,$22,$23,$24,$25,
+		    $26,$27,$28,$29,$30,$31,
+		    $32,$33,$34,$35,$36,$37,
 		    $38,$39,$40,
 		    $41,$42,$43,$44,$45,
 		    $46,$47,$48,$49,$50,$51,$52,
 		    $53,$54,$55,$56,$57,$58,$59,$60,$61,
-		    $62,$63,$64
+		    $62,$63,$64,$65,$66
 		 ) RETURNING `+groupSymbolColumns,
 		groupID, now, path, ptrOr(body.ConfigIndex, int32(0)),
 		o.TradeMode, o.ExecMode, o.FillFlags, o.ExpirFlags,
@@ -395,6 +463,7 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 		o.VolumeMin, o.VolumeMinExt, o.VolumeMax, o.VolumeMaxExt,
 		o.VolumeStep, o.VolumeStepExt, o.VolumeLimit, o.VolumeLimitExt,
 		o.MarginFlags, o.MarginInitial, o.MarginMaintenance,
+		o.MarginInitialBuy, o.MarginInitialSell,
 		o.MarginInitialBuyLimit, o.MarginInitialSellLimit,
 		o.MarginInitialBuyStop, o.MarginInitialSellStop,
 		o.MarginInitialBuyStopLimit, o.MarginInitialSellStopLimit,
@@ -411,6 +480,9 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 		o.PermissionsFlags, o.PermissionsBookDepth, o.REFlags,
 	))
 	if err != nil {
+		if isUniqueViolation(err) {
+			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
+		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
@@ -498,31 +570,33 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 		    margin_currency = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($43, margin_currency) END,
 		    margin_maintenance_buy = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($44, margin_maintenance_buy) END,
 		    margin_maintenance_sell = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($45, margin_maintenance_sell) END,
-		    margin_initial_buy_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($46, margin_initial_buy_limit) END,
-		    margin_initial_sell_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($47, margin_initial_sell_limit) END,
-		    margin_initial_buy_stop = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($48, margin_initial_buy_stop) END,
-		    margin_initial_sell_stop = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($49, margin_initial_sell_stop) END,
-		    margin_initial_buy_stop_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($50, margin_initial_buy_stop_limit) END,
-		    margin_initial_sell_stop_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($51, margin_initial_sell_stop_limit) END,
-		    margin_maintenance_buy_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($52, margin_maintenance_buy_limit) END,
-		    margin_maintenance_sell_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($53, margin_maintenance_sell_limit) END,
-		    margin_maintenance_buy_stop = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($54, margin_maintenance_buy_stop) END,
-		    margin_maintenance_sell_stop = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($55, margin_maintenance_sell_stop) END,
-		    margin_maintenance_buy_stop_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($56, margin_maintenance_buy_stop_limit) END,
-		    margin_maintenance_sell_stop_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($57, margin_maintenance_sell_stop_limit) END,
-		    swap_mode = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($59, swap_mode) END,
-		    swap_long = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($60, swap_long) END,
-		    swap_short = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($61, swap_short) END,
-		    swap_year_day = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($62, swap_year_day) END,
-		    swap_flags = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($63, swap_flags) END,
-		    swap_rate_sunday = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($64, swap_rate_sunday) END,
-		    swap_rate_monday = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($65, swap_rate_monday) END,
-		    swap_rate_tuesday = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($66, swap_rate_tuesday) END,
-		    swap_rate_wednesday = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($67, swap_rate_wednesday) END,
-		    swap_rate_thursday = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($68, swap_rate_thursday) END,
-		    swap_rate_friday = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($69, swap_rate_friday) END,
-		    swap_rate_saturday = CASE WHEN $58::boolean THEN NULL ELSE COALESCE($70, swap_rate_saturday) END,
-		    updated_at = $71
+		    margin_initial_buy = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($46, margin_initial_buy) END,
+		    margin_initial_sell = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($47, margin_initial_sell) END,
+		    margin_initial_buy_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($48, margin_initial_buy_limit) END,
+		    margin_initial_sell_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($49, margin_initial_sell_limit) END,
+		    margin_initial_buy_stop = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($50, margin_initial_buy_stop) END,
+		    margin_initial_sell_stop = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($51, margin_initial_sell_stop) END,
+		    margin_initial_buy_stop_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($52, margin_initial_buy_stop_limit) END,
+		    margin_initial_sell_stop_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($53, margin_initial_sell_stop_limit) END,
+		    margin_maintenance_buy_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($54, margin_maintenance_buy_limit) END,
+		    margin_maintenance_sell_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($55, margin_maintenance_sell_limit) END,
+		    margin_maintenance_buy_stop = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($56, margin_maintenance_buy_stop) END,
+		    margin_maintenance_sell_stop = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($57, margin_maintenance_sell_stop) END,
+		    margin_maintenance_buy_stop_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($58, margin_maintenance_buy_stop_limit) END,
+		    margin_maintenance_sell_stop_limit = CASE WHEN $41::boolean THEN NULL ELSE COALESCE($59, margin_maintenance_sell_stop_limit) END,
+		    swap_mode = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($61, swap_mode) END,
+		    swap_long = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($62, swap_long) END,
+		    swap_short = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($63, swap_short) END,
+		    swap_year_day = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($64, swap_year_day) END,
+		    swap_flags = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($65, swap_flags) END,
+		    swap_rate_sunday = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($66, swap_rate_sunday) END,
+		    swap_rate_monday = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($67, swap_rate_monday) END,
+		    swap_rate_tuesday = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($68, swap_rate_tuesday) END,
+		    swap_rate_wednesday = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($69, swap_rate_wednesday) END,
+		    swap_rate_thursday = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($70, swap_rate_thursday) END,
+		    swap_rate_friday = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($71, swap_rate_friday) END,
+		    swap_rate_saturday = CASE WHEN $60::boolean THEN NULL ELSE COALESCE($72, swap_rate_saturday) END,
+		    updated_at = $73
 		  WHERE group_id = $1 AND symbol_id = $2
 		  RETURNING `+groupSymbolColumns,
 		groupID, symbolID, body.Path, body.ConfigIndex,
@@ -541,6 +615,7 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 		ptrOr(body.UseDefaultMarginRate, false),
 		o.MarginLiquidity, o.MarginCurrency,
 		o.MarginMaintenanceBuy, o.MarginMaintenanceSell,
+		o.MarginInitialBuy, o.MarginInitialSell,
 		o.MarginInitialBuyLimit, o.MarginInitialSellLimit,
 		o.MarginInitialBuyStop, o.MarginInitialSellStop,
 		o.MarginInitialBuyStopLimit, o.MarginInitialSellStopLimit,

@@ -1273,7 +1273,7 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "path required; omitted override fields inherit",
+                        "description": "path, symbol, or base_symbol_id; omitted override fields inherit",
                         "name": "body",
                         "in": "body",
                         "required": true,
@@ -3272,10 +3272,10 @@ const docTemplate = `{
         },
         "internal_server_v1.CrtGroupSymbol": {
             "type": "object",
-            "required": [
-                "path"
-            ],
             "properties": {
+                "base_symbol_id": {
+                    "type": "integer"
+                },
                 "config_index": {
                     "type": "integer"
                 },
@@ -3324,6 +3324,9 @@ const docTemplate = `{
                 "margin_initial": {
                     "type": "number"
                 },
+                "margin_initial_buy": {
+                    "type": "number"
+                },
                 "margin_initial_buy_limit": {
                     "type": "number"
                 },
@@ -3331,6 +3334,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "margin_initial_buy_stop_limit": {
+                    "type": "number"
+                },
+                "margin_initial_sell": {
                     "type": "number"
                 },
                 "margin_initial_sell_limit": {
@@ -3435,6 +3441,10 @@ const docTemplate = `{
                 },
                 "swap_year_day": {
                     "type": "integer"
+                },
+                "symbol": {
+                    "type": "string",
+                    "maxLength": 64
                 },
                 "trade_mode": {
                     "$ref": "#/definitions/model.TradeMode"
@@ -4256,6 +4266,9 @@ const docTemplate = `{
                 "margin_initial": {
                     "type": "number"
                 },
+                "margin_initial_buy": {
+                    "type": "number"
+                },
                 "margin_initial_buy_limit": {
                     "type": "number"
                 },
@@ -4263,6 +4276,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "margin_initial_buy_stop_limit": {
+                    "type": "number"
+                },
+                "margin_initial_sell": {
                     "type": "number"
                 },
                 "margin_initial_sell_limit": {
@@ -5199,6 +5215,9 @@ const docTemplate = `{
                 "margin_initial": {
                     "type": "number"
                 },
+                "margin_initial_buy": {
+                    "type": "number"
+                },
                 "margin_initial_buy_limit": {
                     "type": "number"
                 },
@@ -5206,6 +5225,9 @@ const docTemplate = `{
                     "type": "number"
                 },
                 "margin_initial_buy_stop_limit": {
+                    "type": "number"
+                },
+                "margin_initial_sell": {
                     "type": "number"
                 },
                 "margin_initial_sell_limit": {

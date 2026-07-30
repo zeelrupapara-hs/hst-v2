@@ -308,6 +308,8 @@ definitions:
     type: object
   internal_server_v1.CrtGroupSymbol:
     properties:
+      base_symbol_id:
+        type: integer
       config_index:
         type: integer
       exec_mode:
@@ -340,11 +342,15 @@ definitions:
         type: number
       margin_initial:
         type: number
+      margin_initial_buy:
+        type: number
       margin_initial_buy_limit:
         type: number
       margin_initial_buy_stop:
         type: number
       margin_initial_buy_stop_limit:
+        type: number
+      margin_initial_sell:
         type: number
       margin_initial_sell_limit:
         type: number
@@ -415,6 +421,9 @@ definitions:
         type: number
       swap_year_day:
         type: integer
+      symbol:
+        maxLength: 64
+        type: string
       trade_mode:
         $ref: '#/definitions/model.TradeMode'
       volume_limit:
@@ -433,8 +442,6 @@ definitions:
         type: integer
       volume_step_ext:
         type: integer
-    required:
-    - path
     type: object
   internal_server_v1.CrtManager:
     properties:
@@ -986,11 +993,15 @@ definitions:
         type: number
       margin_initial:
         type: number
+      margin_initial_buy:
+        type: number
       margin_initial_buy_limit:
         type: number
       margin_initial_buy_stop:
         type: number
       margin_initial_buy_stop_limit:
+        type: number
+      margin_initial_sell:
         type: number
       margin_initial_sell_limit:
         type: number
@@ -1614,11 +1625,15 @@ definitions:
         type: number
       margin_initial:
         type: number
+      margin_initial_buy:
+        type: number
       margin_initial_buy_limit:
         type: number
       margin_initial_buy_stop:
         type: number
       margin_initial_buy_stop_limit:
+        type: number
+      margin_initial_sell:
         type: number
       margin_initial_sell_limit:
         type: number
@@ -4049,7 +4064,7 @@ paths:
         name: id
         required: true
         type: integer
-      - description: path required; omitted override fields inherit
+      - description: path, symbol, or base_symbol_id; omitted override fields inherit
         in: body
         name: body
         required: true

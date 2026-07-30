@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS hst.groups_symbols (
     margin_flags                       INTEGER,
     margin_initial                     NUMERIC(20,8),
     margin_maintenance                 NUMERIC(20,8),
+    margin_initial_buy                 NUMERIC(20,8),
+    margin_initial_sell                NUMERIC(20,8),
     margin_initial_buy_limit           NUMERIC(20,8),
     margin_initial_sell_limit          NUMERIC(20,8),
     margin_initial_buy_stop            NUMERIC(20,8),

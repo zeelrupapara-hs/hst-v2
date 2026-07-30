@@ -85,6 +85,8 @@ type GroupSymbol struct {
 	MarginFlags                    *SymbolMarginFlags `db:"margin_flags" json:"margin_flags,omitempty"`
 	MarginInitial                  *float64           `db:"margin_initial" json:"margin_initial,omitempty"`
 	MarginMaintenance              *float64           `db:"margin_maintenance" json:"margin_maintenance,omitempty"`
+	MarginInitialBuy               *float64           `db:"margin_initial_buy" json:"margin_initial_buy,omitempty"`
+	MarginInitialSell              *float64           `db:"margin_initial_sell" json:"margin_initial_sell,omitempty"`
 	MarginInitialBuyLimit          *float64           `db:"margin_initial_buy_limit" json:"margin_initial_buy_limit,omitempty"`
 	MarginInitialSellLimit         *float64           `db:"margin_initial_sell_limit" json:"margin_initial_sell_limit,omitempty"`
 	MarginInitialBuyStop           *float64           `db:"margin_initial_buy_stop" json:"margin_initial_buy_stop,omitempty"`
