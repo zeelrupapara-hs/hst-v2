@@ -119,6 +119,17 @@ func (s *HttpServer) RegisterV1() {
 	symbols.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.UpdateSymbol)
 	symbols.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.DeleteSymbol)
 
+	// routing
+	routing := v1.Group("/routing", s.Middleware.Protect, s.Middleware.RequireManager)
+	routing.Get("/", s.Middleware.Authorization(model.MgrRightCfgRequests), s.ListRouting)
+	routing.Post("/", s.Middleware.Authorization(model.MgrRightCfgRequests), s.CreateRouting)
+	routing.Put("/order", s.Middleware.Authorization(model.MgrRightCfgRequests), s.ReorderRouting)
+	routing.Post("/:id/move-up", s.Middleware.Authorization(model.MgrRightCfgRequests), s.MoveRoutingUp)
+	routing.Post("/:id/move-down", s.Middleware.Authorization(model.MgrRightCfgRequests), s.MoveRoutingDown)
+	routing.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgRequests), s.GetRouting)
+	routing.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgRequests), s.UpdateRouting)
+	routing.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgRequests), s.DeleteRouting)
+
 	// groups
 	groups := v1.Group("/groups", s.Middleware.Protect, s.Middleware.RequireManager)
 	groups.Get("/", s.Middleware.Authorization(model.MgrRightCfgGroups), s.ListGroups)

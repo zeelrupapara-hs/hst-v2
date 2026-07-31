@@ -42,6 +42,8 @@ const (
 	RightsBeyondOwn              = "a manager cannot be granted a right you do not hold"
 	HolidayDateInvalid           = "the month and day are not a real calendar date"
 	ReorderMustListEveryHoliday  = "the reorder must list every holiday exactly once"
+	RoutingAlreadyFirst          = "the routing rule is already first"
+	RoutingAlreadyLast           = "the routing rule is already last"
 )
 
 var (
@@ -83,4 +85,6 @@ var (
 	ErrRightsBeyondOwn              = errors.New(RightsBeyondOwn)
 	ErrHolidayDateInvalid           = errors.New(HolidayDateInvalid)
 	ErrReorderMustListEveryHoliday  = errors.New(ReorderMustListEveryHoliday)
+	ErrRoutingAlreadyFirst          = errors.New(RoutingAlreadyFirst)
+	ErrRoutingAlreadyLast           = errors.New(RoutingAlreadyLast)
 )
