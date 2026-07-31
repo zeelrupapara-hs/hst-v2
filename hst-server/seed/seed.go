@@ -32,6 +32,9 @@ func (s *Seeder) Seed(ctx context.Context) error {
 	if err := s.SeedSymbols(ctx); err != nil {
 		return err
 	}
+	if err := s.SeedRouting(ctx); err != nil {
+		return err
+	}
 
 	return nil
 }
