@@ -1,8 +1,9 @@
-package v1
+package admin
 
 import (
 	"context"
 	"errors"
+	v1 "hstserver/internal/server/v1"
 	"time"
 
 	"hstserver/model"
@@ -60,13 +61,13 @@ type ViewManagerRights struct {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login} [get]
-func (s *HttpServer) GetManager(c *fiber.Ctx) error {
+func (s *Server) GetManager(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	m, err := s.selectManager(c.UserContext(), int64(login))
+	m, err := s.SelectManager(c.UserContext(), int64(login))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
@@ -88,13 +89,13 @@ func (s *HttpServer) GetManager(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login}/rights [get]
-func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
+func (s *Server) GetManagerRights(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	m, err := s.selectManager(c.UserContext(), int64(login))
+	m, err := s.SelectManager(c.UserContext(), int64(login))
 	if err == pgx.ErrNoRows {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
@@ -122,7 +123,7 @@ func (s *HttpServer) GetManagerRights(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers [get]
-func (s *HttpServer) ListManagers(c *fiber.Ctx) error {
+func (s *Server) ListManagers(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, utils.NewSortable("login", "name"), "login")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
@@ -152,126 +153,6 @@ func (s *HttpServer) ListManagers(c *fiber.Ctx) error {
 	}
 
 	return s.App.HttpResponseOK(c, out)
-}
-
-// selectManager reads the whole right set in one round trip.
-func (s *HttpServer) selectManager(ctx context.Context, login int64) (*model.Manager, error) {
-	m := &model.Manager{}
-
-	err := s.DB.DB.QueryRow(ctx,
-		`SELECT login, name, mailbox, server, request_limit_logs,
-		        request_limit_reports, groups, access,
-		        right_admin, right_manager, right_cfg_time, right_cfg_holidays,
-		        right_cfg_groups, right_cfg_managers, right_cfg_requests,
-		        right_cfg_gateways, right_cfg_datafeeds, right_cfg_reports,
-		        right_cfg_symbols, right_cfg_web_services, right_cfg_messengers,
-		        right_cfg_kyc, right_cfg_automations, right_cfg_allocations,
-		        right_cfg_corporate, right_cfg_payments, right_cfg_mails,
-		        right_cfg_streaming, right_srv_journals, right_srv_reports,
-		        right_charts, right_email, right_news, right_export,
-		        right_techsupport, right_market, right_accountant, right_acc_read,
-		        right_acc_details_name, right_acc_details_location,
-		        right_acc_details_address, right_acc_details_id,
-		        right_acc_details_email, right_acc_details_phone,
-		        right_acc_details_general, right_acc_technical,
-		        right_acc_tech_modify, right_acc_manager, right_acc_delete,
-		        right_acc_online, right_confirm_actions, right_notifications,
-		        right_trades_read, right_trades_manager, right_trades_delete,
-		        right_trades_dealer, right_trades_supervisor, right_quotes_raw,
-		        right_quotes, right_symbol_details, right_risk_manager,
-		        right_group_margin, right_group_commission, right_reports,
-		        right_clients_access, right_clients_create, right_clients_edit,
-		        right_clients_delete, right_clients_kyc,
-		        right_clients_details_name, right_clients_details_location,
-		        right_clients_details_address, right_clients_details_id,
-		        right_clients_details_email, right_clients_details_phone,
-		        right_clients_details_general, right_documents_access,
-		        right_documents_create, right_documents_edit,
-		        right_documents_delete, right_documents_files_add,
-		        right_documents_files_delete, right_comments_access,
-		        right_comments_create, right_comments_delete
-		   FROM hst.managers WHERE login = $1`, login).
-		Scan(&m.Login, &m.Name, &m.Mailbox, &m.Server, &m.RequestLimitLogs,
-			&m.RequestLimitReports, &m.Groups, &m.Access,
-			&m.RightAdmin,
-			&m.RightManager,
-			&m.RightCfgTime,
-			&m.RightCfgHolidays,
-			&m.RightCfgGroups,
-			&m.RightCfgManagers,
-			&m.RightCfgRequests,
-			&m.RightCfgGateways,
-			&m.RightCfgDatafeeds,
-			&m.RightCfgReports,
-			&m.RightCfgSymbols,
-			&m.RightCfgWebServices,
-			&m.RightCfgMessengers,
-			&m.RightCfgKyc,
-			&m.RightCfgAutomations,
-			&m.RightCfgAllocations,
-			&m.RightCfgCorporate,
-			&m.RightCfgPayments,
-			&m.RightCfgMails,
-			&m.RightCfgStreaming,
-			&m.RightSrvJournals,
-			&m.RightSrvReports,
-			&m.RightCharts,
-			&m.RightEmail,
-			&m.RightNews,
-			&m.RightExport,
-			&m.RightTechsupport,
-			&m.RightMarket,
-			&m.RightAccountant,
-			&m.RightAccRead,
-			&m.RightAccDetailsName,
-			&m.RightAccDetailsLocation,
-			&m.RightAccDetailsAddress,
-			&m.RightAccDetailsId,
-			&m.RightAccDetailsEmail,
-			&m.RightAccDetailsPhone,
-			&m.RightAccDetailsGeneral,
-			&m.RightAccTechnical,
-			&m.RightAccTechModify,
-			&m.RightAccManager,
-			&m.RightAccDelete,
-			&m.RightAccOnline,
-			&m.RightConfirmActions,
-			&m.RightNotifications,
-			&m.RightTradesRead,
-			&m.RightTradesManager,
-			&m.RightTradesDelete,
-			&m.RightTradesDealer,
-			&m.RightTradesSupervisor,
-			&m.RightQuotesRaw,
-			&m.RightQuotes,
-			&m.RightSymbolDetails,
-			&m.RightRiskManager,
-			&m.RightGroupMargin,
-			&m.RightGroupCommission,
-			&m.RightReports,
-			&m.RightClientsAccess,
-			&m.RightClientsCreate,
-			&m.RightClientsEdit,
-			&m.RightClientsDelete,
-			&m.RightClientsKyc,
-			&m.RightClientsDetailsName,
-			&m.RightClientsDetailsLocation,
-			&m.RightClientsDetailsAddress,
-			&m.RightClientsDetailsId,
-			&m.RightClientsDetailsEmail,
-			&m.RightClientsDetailsPhone,
-			&m.RightClientsDetailsGeneral,
-			&m.RightDocumentsAccess,
-			&m.RightDocumentsCreate,
-			&m.RightDocumentsEdit,
-			&m.RightDocumentsDelete,
-			&m.RightDocumentsFilesAdd,
-			&m.RightDocumentsFilesDelete,
-			&m.RightCommentsAccess,
-			&m.RightCommentsCreate,
-			&m.RightCommentsDelete)
-
-	return m, err
 }
 
 // managerRightColumns is every right column, in the order the migration declares them.
@@ -525,7 +406,7 @@ func packRightNames(names []string) (model.ManagerRights, bool) {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers [post]
-func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
+func (s *Server) CreateManager(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	var body CrtManager
@@ -595,7 +476,7 @@ func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login} [patch]
-func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
+func (s *Server) UpdateManager(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	login, err := c.ParamsInt("login")
@@ -653,7 +534,7 @@ func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/managers/{login} [delete]
-func (s *HttpServer) DeleteManager(c *fiber.Ctx) error {
+func (s *Server) DeleteManager(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	login, err := c.ParamsInt("login")
@@ -678,7 +559,7 @@ func (s *HttpServer) DeleteManager(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "manager removed",
 		"actor", snap.Login, "target", login)
 
-	ref := ViewManagerRef{Login: int64(login)}
+	ref := v1.ViewManagerRef{Login: int64(login)}
 	s.NotifyWS(model.SubjectManager, model.EventManagerDeleted, ref)
 	s.NotifySystem(model.SubjectSystemManagerDeleted, ref)
 	s.JournalEntry(c, logger.CodeWarn, journal.ManagerDeletedMsg(snap.Login, int64(login)), ref)
@@ -687,10 +568,10 @@ func (s *HttpServer) DeleteManager(c *fiber.Ctx) error {
 }
 
 // getManager reads one manager and answers with the given responder.
-func (s *HttpServer) getManager(c *fiber.Ctx, login int64,
+func (s *Server) getManager(c *fiber.Ctx, login int64,
 	respond func(*fiber.Ctx, interface{}) error) error {
 
-	m, err := s.selectManager(c.UserContext(), login)
+	m, err := s.SelectManager(c.UserContext(), login)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
@@ -702,7 +583,7 @@ func (s *HttpServer) getManager(c *fiber.Ctx, login int64,
 }
 
 // NotifyManager announces a manager change on the way out, so the record is loaded once.
-func (s *HttpServer) NotifyManager(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
+func (s *Server) NotifyManager(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
 	return func(c *fiber.Ctx, v interface{}) error {
 		s.NotifyWS(model.SubjectManager, event, v)
 		s.NotifySystem(systemSubject, v)
@@ -716,7 +597,7 @@ func (s *HttpServer) NotifyManager(event, systemSubject, message string, created
 }
 
 // withinOwnScope refuses to grant more than the acting manager holds.
-func (s *HttpServer) withinOwnScope(c *fiber.Ctx, groups []string, rights model.ManagerRights) error {
+func (s *Server) withinOwnScope(c *fiber.Ctx, groups []string, rights model.ManagerRights) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return errs.ErrCouldNotParseClientCfg

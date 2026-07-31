@@ -1,6 +1,7 @@
-package v1
+package trader
 
 import (
+	v1 "hstserver/internal/server/v1"
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
 	"hstserver/pkg/journal"
@@ -48,7 +49,7 @@ type ViewRegister struct {
 //	@Failure	429		{object}	Response
 //	@Failure	500		{object}	Response
 //	@Router		/auth/v1/register [post]
-func (s *HttpServer) Register(c *fiber.Ctx) error {
+func (s *Server) Register(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	ip := utils.GetRealIP(c)
 
@@ -73,7 +74,7 @@ func (s *HttpServer) Register(c *fiber.Ctx) error {
 	// a signup is enabled and owns its password, and nothing else: rights are not the caller's to choose
 	rights := int64(model.UsersRights_enabled | model.UsersRights_password)
 
-	login, status, err := s.OpenLogin(ctx, NewLogin{
+	login, status, err := s.OpenLogin(ctx, v1.NewLogin{
 		Group:            group,
 		Rights:           rights,
 		Name:             body.Name,
@@ -102,7 +103,7 @@ func (s *HttpServer) Register(c *fiber.Ctx) error {
 }
 
 // RegistrationGroup is where a signup of this type lands.
-func (s *HttpServer) RegistrationGroup(accountType string) (string, error) {
+func (s *Server) RegistrationGroup(accountType string) (string, error) {
 	var group string
 	switch accountType {
 	case AccountTypeDemo:

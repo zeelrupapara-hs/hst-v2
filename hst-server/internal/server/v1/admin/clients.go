@@ -1,8 +1,9 @@
-package v1
+package admin
 
 import (
 	"context"
 	"errors"
+	v1 "hstserver/internal/server/v1"
 	"time"
 
 	"hstserver/model"
@@ -160,7 +161,7 @@ const clientColumns = `client_id, client_type, client_status, kyc_status,
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients [post]
-func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
+func (s *Server) CreateClient(c *fiber.Ctx) error {
 	var body CrtClient
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -222,7 +223,7 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients [get]
-func (s *HttpServer) ListClients(c *fiber.Ctx) error {
+func (s *Server) ListClients(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, clientsSortable, "date_created")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
@@ -284,7 +285,7 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [get]
-func (s *HttpServer) GetClient(c *fiber.Ctx) error {
+func (s *Server) GetClient(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -302,7 +303,7 @@ func (s *HttpServer) GetClient(c *fiber.Ctx) error {
 }
 
 // selectClient reads every column into the model.
-func (s *HttpServer) selectClient(ctx context.Context, id int64) (*model.Client, error) {
+func (s *Server) selectClient(ctx context.Context, id int64) (*model.Client, error) {
 	c := &model.Client{}
 
 	err := s.DB.DB.QueryRow(ctx,
@@ -341,7 +342,7 @@ func (s *HttpServer) selectClient(ctx context.Context, id int64) (*model.Client,
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [patch]
-func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
+func (s *Server) UpdateClient(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -468,7 +469,7 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/clients/{id} [delete]
-func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
+func (s *Server) DeleteClient(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -511,7 +512,7 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 		"actor", snap.Login, "client_id", id, "users_detached", users)
 
 	// the logins were detached above, so the groups are read before the delete; see NotifyClient
-	ref := ViewClientRef{ClientId: int64(id)}
+	ref := v1.ViewClientRef{ClientId: int64(id)}
 	s.NotifyClientIn(groups, model.EventClientDeleted, ref)
 	s.NotifySystem(model.SubjectSystemClientDeleted, ref)
 	s.JournalEntry(c, logger.CodeWarn, journal.ClientDeletedMsg(snap.Login, int64(id)), ref)

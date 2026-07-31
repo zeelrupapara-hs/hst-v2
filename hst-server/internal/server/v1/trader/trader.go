@@ -1,8 +1,9 @@
-package v1
+package trader
 
 import (
 	"context"
 	"errors"
+	v1 "hstserver/internal/server/v1"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
@@ -63,7 +64,7 @@ type ViewTraderProfile struct {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/trader/v1/account [get]
-func (s *HttpServer) MyAccount(c *fiber.Ctx) error {
+func (s *Server) MyAccount(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -81,7 +82,7 @@ func (s *HttpServer) MyAccount(c *fiber.Ctx) error {
 //
 // The login is an argument rather than a request field, so the trader route can pass the session's
 // own and a staff route can later pass somebody else's without either repeating the query.
-func (s *HttpServer) TraderAccount(ctx context.Context, login int64) (*ViewTraderAccount, int, error) {
+func (s *Server) TraderAccount(ctx context.Context, login int64) (*ViewTraderAccount, int, error) {
 	v := &ViewTraderAccount{}
 	err := s.DB.DB.QueryRow(ctx,
 		`SELECT a.login, u."group", COALESCE(g.currency, ''), a.currency_digits,
@@ -117,7 +118,7 @@ func (s *HttpServer) TraderAccount(ctx context.Context, login int64) (*ViewTrade
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/trader/v1/profile [get]
-func (s *HttpServer) MyProfile(c *fiber.Ctx) error {
+func (s *Server) MyProfile(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -149,12 +150,12 @@ func (s *HttpServer) MyProfile(c *fiber.Ctx) error {
 //	@Id			MySymbols
 //	@Tags		Trader
 //	@Produce	json
-//	@Success	200	{object}	Response{data=[]ViewSymbol}
+//	@Success	200	{object}	Response{data=[]v1.ViewSymbol}
 //	@Failure	403	{object}	Response
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/trader/v1/symbols [get]
-func (s *HttpServer) MySymbols(c *fiber.Ctx) error {
+func (s *Server) MySymbols(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -179,9 +180,9 @@ func (s *HttpServer) MySymbols(c *fiber.Ctx) error {
 	}
 	defer rows.Close()
 
-	out := []ViewSymbol{}
+	out := []v1.ViewSymbol{}
 	for rows.Next() {
-		var v ViewSymbol
+		var v v1.ViewSymbol
 		if err := rows.Scan(&v.SymbolId, &v.Symbol, &v.Path, &v.Description, &v.Digits,
 			&v.TradeMode, &v.CalcMode, &v.ExecMode, &v.Spread, &v.ContractSize,
 			&v.DateModified); err != nil {
@@ -202,9 +203,9 @@ func (s *HttpServer) MySymbols(c *fiber.Ctx) error {
 // the type follows, with nothing to keep in step.
 func AccountTypeOf(group string) string {
 	switch {
-	case IsDemoGroup(group):
+	case v1.IsDemoGroup(group):
 		return AccountTypeDemo
-	case IsPreliminaryGroup(group):
+	case v1.IsPreliminaryGroup(group):
 		return "preliminary"
 	default:
 		return AccountTypeReal

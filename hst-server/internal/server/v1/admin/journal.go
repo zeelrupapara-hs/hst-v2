@@ -1,4 +1,4 @@
-package v1
+package admin
 
 import (
 	"fmt"
@@ -40,7 +40,7 @@ const journalColumns = `journal_id, created_at, type, code, login,
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/journal [get]
-func (s *HttpServer) MyJournal(c *fiber.Ctx) error {
+func (s *Server) MyJournal(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseUnauthorized(c, errs.ErrInvalidSession)

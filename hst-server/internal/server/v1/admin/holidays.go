@@ -1,8 +1,9 @@
-package v1
+package admin
 
 import (
 	"errors"
 	"fmt"
+	v1 "hstserver/internal/server/v1"
 	"sort"
 	"strings"
 	"time"
@@ -96,7 +97,7 @@ const holidayColumns = `holiday_id, year, month, day, "from", "to",
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/holidays [post]
-func (s *HttpServer) CreateHoliday(c *fiber.Ctx) error {
+func (s *Server) CreateHoliday(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	var body CrtHoliday
@@ -173,7 +174,7 @@ func (s *HttpServer) CreateHoliday(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/holidays [get]
-func (s *HttpServer) ListHolidays(c *fiber.Ctx) error {
+func (s *Server) ListHolidays(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, holidaysSortable, "config_index")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
@@ -218,7 +219,7 @@ func (s *HttpServer) ListHolidays(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/holidays/{id} [get]
-func (s *HttpServer) GetHoliday(c *fiber.Ctx) error {
+func (s *Server) GetHoliday(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -254,7 +255,7 @@ func (s *HttpServer) GetHoliday(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/holidays/{id} [patch]
-func (s *HttpServer) UpdateHoliday(c *fiber.Ctx) error {
+func (s *Server) UpdateHoliday(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -367,7 +368,7 @@ func (s *HttpServer) UpdateHoliday(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/holidays/{id} [delete]
-func (s *HttpServer) DeleteHoliday(c *fiber.Ctx) error {
+func (s *Server) DeleteHoliday(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -410,7 +411,7 @@ func (s *HttpServer) DeleteHoliday(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "holiday deleted",
 		"actor", snap.Login, "target", id)
 
-	ref := ViewHolidayRef{HolidayId: id}
+	ref := v1.ViewHolidayRef{HolidayId: id}
 	s.NotifyWS(model.SubjectHoliday, model.EventHolidayDeleted, ref)
 	s.NotifySystem(model.SubjectSystemHolidayDeleted, ref)
 	s.JournalEntry(c, logger.CodeWarn, journal.HolidayDeletedMsg(snap.Login, id), ref)
@@ -433,7 +434,7 @@ func (s *HttpServer) DeleteHoliday(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/holidays/reorder [put]
-func (s *HttpServer) ReorderHolidays(c *fiber.Ctx) error {
+func (s *Server) ReorderHolidays(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	var body ReorderHolidays
@@ -540,7 +541,7 @@ func (s *HttpServer) ReorderHolidays(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/holidays/check [get]
-func (s *HttpServer) CheckHoliday(c *fiber.Ctx) error {
+func (s *Server) CheckHoliday(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	symbol := c.Query("symbol")

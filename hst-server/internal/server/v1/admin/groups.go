@@ -1,8 +1,9 @@
-package v1
+package admin
 
 import (
 	"context"
 	"errors"
+	v1 "hstserver/internal/server/v1"
 	"strings"
 	"time"
 
@@ -263,13 +264,6 @@ func ViewGroupTree(flat []ViewGroup) []*ViewGroup {
 	return roots
 }
 
-func ptrOr[T any](p *T, def T) T {
-	if p != nil {
-		return *p
-	}
-	return def
-}
-
 // ListGroups returns the group tree, or a flat list when ?flat=1.
 //
 //	@Id			ListGroups
@@ -281,7 +275,7 @@ func ptrOr[T any](p *T, def T) T {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups [get]
-func (s *HttpServer) ListGroups(c *fiber.Ctx) error {
+func (s *Server) ListGroups(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -327,7 +321,7 @@ func (s *HttpServer) ListGroups(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id} [get]
-func (s *HttpServer) GetGroup(c *fiber.Ctx) error {
+func (s *Server) GetGroup(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -358,7 +352,7 @@ func (s *HttpServer) GetGroup(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups [post]
-func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
+func (s *Server) CreateGroup(c *fiber.Ctx) error {
 	var body CrtGroup
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -415,21 +409,21 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 		    $37,$38,$39,$40
 		 ) RETURNING `+groupColumns,
 		path,
-		flags, ptrOr(body.AuthMode, model.AuthMode_standard), ptrOr(body.AuthPasswordMin, int32(0)),
+		flags, v1.PtrOr(body.AuthMode, model.AuthMode_standard), v1.PtrOr(body.AuthPasswordMin, int32(0)),
 		body.Company, body.CompanyPage, body.CompanyEmail, body.CompanySupportPage, body.CompanySupportEmail, body.CompanyCatalog,
-		currency, ptrOr(body.CurrencyDigits, int32(2)),
-		ptrOr(body.ReportsMode, model.ReportsMode_disabled), ptrOr(body.ReportsFlags, model.ReportsFlags_none),
+		currency, v1.PtrOr(body.CurrencyDigits, int32(2)),
+		v1.PtrOr(body.ReportsMode, model.ReportsMode_disabled), v1.PtrOr(body.ReportsFlags, model.ReportsFlags_none),
 		body.ReportsEmail, body.ReportsSMTP, body.ReportsSMTPLogin,
-		ptrOr(body.NewsMode, model.NewsMode_disabled), body.NewsCategory, newsLangs, ptrOr(body.MailMode, model.MailMode_disabled),
-		ptrOr(body.TradeFlags, model.GroupTradeFlags_none), ptrOr(body.TradeInterestRate, 0.0),
-		ptrOr(body.TradeVirtualCredit, 0.0), ptrOr(body.TradeTransferMode, model.TransferMode_disabled),
-		ptrOr(body.MarginFreeMode, model.FreeMarginMode_not_use_pl), ptrOr(body.MarginSOMode, model.StopOutMode_percent),
-		ptrOr(body.MarginCall, 0.0), ptrOr(body.MarginStopOut, 0.0),
-		ptrOr(body.MarginFreeProfitMode, model.MarginFreeProfitMode_pl),
-		ptrOr(body.MarginMode, model.MarginMode_retail), ptrOr(body.MarginFlags, model.GroupMarginFlags_none),
+		v1.PtrOr(body.NewsMode, model.NewsMode_disabled), body.NewsCategory, newsLangs, v1.PtrOr(body.MailMode, model.MailMode_disabled),
+		v1.PtrOr(body.TradeFlags, model.GroupTradeFlags_none), v1.PtrOr(body.TradeInterestRate, 0.0),
+		v1.PtrOr(body.TradeVirtualCredit, 0.0), v1.PtrOr(body.TradeTransferMode, model.TransferMode_disabled),
+		v1.PtrOr(body.MarginFreeMode, model.FreeMarginMode_not_use_pl), v1.PtrOr(body.MarginSOMode, model.StopOutMode_percent),
+		v1.PtrOr(body.MarginCall, 0.0), v1.PtrOr(body.MarginStopOut, 0.0),
+		v1.PtrOr(body.MarginFreeProfitMode, model.MarginFreeProfitMode_pl),
+		v1.PtrOr(body.MarginMode, model.MarginMode_retail), v1.PtrOr(body.MarginFlags, model.GroupMarginFlags_none),
 		body.DemoLeverage, body.DemoDeposit,
-		ptrOr(body.LimitHistory, model.HistoryLimit_all), ptrOr(body.LimitOrders, int32(0)),
-		ptrOr(body.LimitSymbols, int32(0)), ptrOr(body.LimitPositions, int32(0)), ptrOr(body.LimitPositionsVolume, 0.0),
+		v1.PtrOr(body.LimitHistory, model.HistoryLimit_all), v1.PtrOr(body.LimitOrders, int32(0)),
+		v1.PtrOr(body.LimitSymbols, int32(0)), v1.PtrOr(body.LimitPositions, int32(0)), v1.PtrOr(body.LimitPositionsVolume, 0.0),
 		now))
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
@@ -466,7 +460,7 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id} [patch]
-func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
+func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -573,7 +567,7 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id} [delete]
-func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
+func (s *Server) DeleteGroup(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -621,7 +615,7 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group deleted",
 		"actor", snap.Login, "group_id", id, "group", path)
 
-	ref := ViewGroupRef{GroupID: id, Group: path}
+	ref := v1.ViewGroupRef{GroupID: id, Group: path}
 	s.NotifyWS(model.SubjectGroup(path), model.EventGroupDeleted, ref)
 	s.NotifySystem(model.SubjectSystemGroupDeleted, ref)
 	s.JournalEntry(c, logger.CodeWarn, journal.GroupDeletedMsg(snap.Login, path), ref)
@@ -630,7 +624,7 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 }
 
 // a manager permitted to create groups but granted none would not see what it made
-func (s *HttpServer) grantCreatorAccess(ctx context.Context, login int64, path string) {
+func (s *Server) grantCreatorAccess(ctx context.Context, login int64, path string) {
 	tag, err := s.DB.DB.Exec(ctx,
 		`UPDATE hst.managers
 		    SET groups = ARRAY[$2], updated_at = $3
@@ -650,7 +644,7 @@ func (s *HttpServer) grantCreatorAccess(ctx context.Context, login int64, path s
 		"login", login, "group", path)
 
 	// the access just widened, and the session carries a copy of it.
-	mgr, err := s.selectManager(ctx, login)
+	mgr, err := s.SelectManager(ctx, login)
 	if err != nil {
 		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not reload the manager after granting access",
 			"login", login, "error", err.Error())

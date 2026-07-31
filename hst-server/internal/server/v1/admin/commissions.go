@@ -1,8 +1,9 @@
-package v1
+package admin
 
 import (
 	"context"
 	"errors"
+	v1 "hstserver/internal/server/v1"
 	"strings"
 	"time"
 
@@ -111,7 +112,7 @@ func scanViewCommission(row pgx.Row) (*ViewCommission, error) {
 	return v, nil
 }
 
-func loadCommissionTiers(ctx context.Context, s *HttpServer, commissionID int64) ([]ViewCommissionTier, error) {
+func loadCommissionTiers(ctx context.Context, s *Server, commissionID int64) ([]ViewCommissionTier, error) {
 	rows, err := s.DB.DB.Query(ctx,
 		`SELECT `+commissionTierColumns+` FROM hst.commissions_tiers
 		  WHERE commission_id = $1 ORDER BY range_from, tier_id`, commissionID)
@@ -146,7 +147,7 @@ func loadCommissionTiers(ctx context.Context, s *HttpServer, commissionID int64)
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/commissions [get]
-func (s *HttpServer) ListGroupCommissions(c *fiber.Ctx) error {
+func (s *Server) ListGroupCommissions(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -199,7 +200,7 @@ func (s *HttpServer) ListGroupCommissions(c *fiber.Ctx) error {
 //	@Failure	500				{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/commissions/{commissionId} [get]
-func (s *HttpServer) GetGroupCommission(c *fiber.Ctx) error {
+func (s *Server) GetGroupCommission(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -241,7 +242,7 @@ func (s *HttpServer) GetGroupCommission(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/commissions [post]
-func (s *HttpServer) CreateGroupCommission(c *fiber.Ctx) error {
+func (s *Server) CreateGroupCommission(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -281,14 +282,14 @@ func (s *HttpServer) CreateGroupCommission(c *fiber.Ctx) error {
 		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
 		 RETURNING `+commissionColumns,
 		groupID, now, name, body.Description, body.Path,
-		ptrOr(body.Mode, model.CommissionMode_standard),
-		ptrOr(body.ModeRange, model.CommissionRangeMode_volume),
-		ptrOr(body.ModeCharge, model.CommissionChargeMode_daily),
+		v1.PtrOr(body.Mode, model.CommissionMode_standard),
+		v1.PtrOr(body.ModeRange, model.CommissionRangeMode_volume),
+		v1.PtrOr(body.ModeCharge, model.CommissionChargeMode_daily),
 		body.TurnoverCurrency,
-		ptrOr(body.ModeEntry, model.CommissionEntryMode_all),
-		ptrOr(body.ModeAction, model.CommissionActionMode_all),
-		ptrOr(body.ModeProfit, model.CommissionProfitMode_all),
-		ptrOr(body.ModeReason, model.CommissionReasonFlags_none),
+		v1.PtrOr(body.ModeEntry, model.CommissionEntryMode_all),
+		v1.PtrOr(body.ModeAction, model.CommissionActionMode_all),
+		v1.PtrOr(body.ModeProfit, model.CommissionProfitMode_all),
+		v1.PtrOr(body.ModeReason, model.CommissionReasonFlags_none),
 	))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -340,7 +341,7 @@ func (s *HttpServer) CreateGroupCommission(c *fiber.Ctx) error {
 //	@Failure	500				{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/commissions/{commissionId} [patch]
-func (s *HttpServer) UpdateGroupCommission(c *fiber.Ctx) error {
+func (s *Server) UpdateGroupCommission(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -444,7 +445,7 @@ func (s *HttpServer) UpdateGroupCommission(c *fiber.Ctx) error {
 //	@Failure	500				{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/commissions/{commissionId} [delete]
-func (s *HttpServer) DeleteGroupCommission(c *fiber.Ctx) error {
+func (s *Server) DeleteGroupCommission(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -469,7 +470,7 @@ func (s *HttpServer) DeleteGroupCommission(c *fiber.Ctx) error {
 		"actor", snap.Login, "group_id", groupID, "commission_id", commissionID)
 
 	path := s.GroupPath(c, groupID)
-	ref := ViewCommissionRef{GroupID: groupID, CommissionID: commissionID}
+	ref := v1.ViewCommissionRef{GroupID: groupID, CommissionID: commissionID}
 	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionDeleted, ref)
 	s.NotifySystem(model.SubjectSystemGroupCommissionDeleted, ref)
 	s.JournalEntry(c, logger.CodeWarn, journal.GroupCommissionDeletedMsg(snap.Login, path), ref)

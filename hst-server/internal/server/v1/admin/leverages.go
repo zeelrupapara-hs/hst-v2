@@ -1,9 +1,10 @@
-package v1
+package admin
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	v1 "hstserver/internal/server/v1"
 	"time"
 
 	"hstserver/model"
@@ -116,7 +117,7 @@ const leverageTierColumns = `tier_id, rule_id, range_from, range_to,
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles [post]
-func (s *HttpServer) CreateLeverageProfile(c *fiber.Ctx) error {
+func (s *Server) CreateLeverageProfile(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	var body CrtLeverage
@@ -187,7 +188,7 @@ func (s *HttpServer) CreateLeverageProfile(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles [get]
-func (s *HttpServer) ListLeverageProfiles(c *fiber.Ctx) error {
+func (s *Server) ListLeverageProfiles(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, leveragesSortable, "leverage_id")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
@@ -234,7 +235,7 @@ func (s *HttpServer) ListLeverageProfiles(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles/{id} [get]
-func (s *HttpServer) GetLeverageProfile(c *fiber.Ctx) error {
+func (s *Server) GetLeverageProfile(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -260,7 +261,7 @@ func (s *HttpServer) GetLeverageProfile(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles/{id} [put]
-func (s *HttpServer) UpdateLeverageProfile(c *fiber.Ctx) error {
+func (s *Server) UpdateLeverageProfile(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -324,7 +325,7 @@ func (s *HttpServer) UpdateLeverageProfile(c *fiber.Ctx) error {
 		"actor", snap.Login, "target", id, "rules_replaced", body.Rules != nil)
 
 	return s.getLeverageProfile(c, int64(id), s.NotifyLeverage(model.EventLeverageUpdated,
-		model.SubjectSystemLeverageUpdated, journal.LeverageUpdatedMsg(snap.Login, ptrOr(body.Name, "")), false))
+		model.SubjectSystemLeverageUpdated, journal.LeverageUpdatedMsg(snap.Login, v1.PtrOr(body.Name, "")), false))
 }
 
 // DeleteLeverageProfile removes a configuration. Its rules and levels cascade.
@@ -340,7 +341,7 @@ func (s *HttpServer) UpdateLeverageProfile(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles/{id} [delete]
-func (s *HttpServer) DeleteLeverageProfile(c *fiber.Ctx) error {
+func (s *Server) DeleteLeverageProfile(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -359,7 +360,7 @@ func (s *HttpServer) DeleteLeverageProfile(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "leverage profile deleted",
 		"actor", snap.Login, "target", id)
 
-	ref := ViewLeverageRef{LeverageId: id}
+	ref := v1.ViewLeverageRef{LeverageId: id}
 	s.NotifyWS(model.SubjectLeverage, model.EventLeverageDeleted, ref)
 	s.NotifySystem(model.SubjectSystemLeverageDeleted, ref)
 	s.JournalEntry(c, logger.CodeWarn, journal.LeverageDeletedMsg(snap.Login, id), ref)
@@ -384,7 +385,7 @@ func (s *HttpServer) DeleteLeverageProfile(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles/{id}/rules [post]
-func (s *HttpServer) CreateLeverageRule(c *fiber.Ctx) error {
+func (s *Server) CreateLeverageRule(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -465,7 +466,7 @@ func (s *HttpServer) CreateLeverageRule(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles/{id}/rules/{ruleId} [put]
-func (s *HttpServer) UpdateLeverageRule(c *fiber.Ctx) error {
+func (s *Server) UpdateLeverageRule(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -576,7 +577,7 @@ func (s *HttpServer) UpdateLeverageRule(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles/{id}/rules/{ruleId} [delete]
-func (s *HttpServer) DeleteLeverageRule(c *fiber.Ctx) error {
+func (s *Server) DeleteLeverageRule(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -645,7 +646,7 @@ func (s *HttpServer) DeleteLeverageRule(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/leverage-profiles/{id}/rules/reorder [put]
-func (s *HttpServer) ReorderLeverageRules(c *fiber.Ctx) error {
+func (s *Server) ReorderLeverageRules(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -743,7 +744,7 @@ func (s *HttpServer) ReorderLeverageRules(c *fiber.Ctx) error {
 
 // getLeverageProfile reads the whole tree and answers with the given responder.
 // Three queries rather than one per rule, the tree is small but nested.
-func (s *HttpServer) getLeverageProfile(c *fiber.Ctx, id int64,
+func (s *Server) getLeverageProfile(c *fiber.Ctx, id int64,
 	respond func(*fiber.Ctx, interface{}) error) error {
 
 	ctx := c.UserContext()
@@ -916,7 +917,7 @@ func validateTiers(tiers []CrtLeverageTier) error {
 }
 
 // NotifyLeverage announces a leverage change on the way out, so the profile is loaded once.
-func (s *HttpServer) NotifyLeverage(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
+func (s *Server) NotifyLeverage(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
 	return func(c *fiber.Ctx, v interface{}) error {
 		s.NotifyWS(model.SubjectLeverage, event, v)
 		s.NotifySystem(systemSubject, v)
