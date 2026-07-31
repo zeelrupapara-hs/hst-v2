@@ -5,7 +5,10 @@ CREATE TABLE IF NOT EXISTS hst.managers (
     server                INTEGER      NOT NULL DEFAULT 0,
     request_limit_logs    SMALLINT     NOT NULL DEFAULT 0,
     request_limit_reports SMALLINT     NOT NULL DEFAULT 0,
-    groups                TEXT[]       NOT NULL DEFAULT '{}',
+    -- no default: group access is granted, never assumed. An empty array is a
+    -- manager who sees no group at all, which is the safe reading and has to
+    -- be written deliberately by whoever creates the row.
+    groups                TEXT[]       NOT NULL,
     access                INET[]       NOT NULL DEFAULT '{}',
 
     right_admin                    SMALLINT NOT NULL DEFAULT 0,
