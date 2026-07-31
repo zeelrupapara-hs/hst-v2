@@ -198,7 +198,7 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "client created",
 		"actor", snap.Login, "client_id", view.ClientId)
 
-	s.notifyClient(c.UserContext(), view.ClientId, model.EventCreated, view)
+	s.notifyClient(c.UserContext(), view.ClientId, model.EventClientCreated, view)
 
 	return s.App.HttpResponseCreated(c, view)
 }
@@ -448,7 +448,7 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "client updated",
 		"actor", snap.Login, "client_id", id)
 
-	s.notifyClient(c.UserContext(), int64(id), model.EventUpdated, client)
+	s.notifyClient(c.UserContext(), int64(id), model.EventClientUpdated, client)
 
 	return s.App.HttpResponseOK(c, client)
 }
@@ -510,7 +510,7 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 
 	// the logins were detached above, so the groups are read before the
 	// delete; see notifyClient
-	s.notifyClientIn(groups, model.EventDeleted,
+	s.notifyClientIn(groups, model.EventClientDeleted,
 		ViewClientRef{ClientId: int64(id)})
 
 	return s.App.HttpResponseNoContent(c)

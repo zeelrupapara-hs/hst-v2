@@ -98,13 +98,29 @@ var (
 // The event types a record change carries. They ride in the event rather than
 // in the subject, so a reader that wants everything about a group subscribes
 // once instead of once per verb.
+//
+// Each one names the record as well as the verb. A reader handling group_created
+// and user_created off the same connection should not have to look at where a
+// message arrived to know which of the two it is holding.
 const (
-	EventCreated = "created"
-	EventUpdated = "updated"
-	EventDeleted = "deleted"
-	// EventMoved goes to the group a record has left, so the managers losing
-	// it hear that it is gone rather than nothing at all.
-	EventMoved = "moved"
+	EventGroupCreated = "group_created"
+	EventGroupUpdated = "group_updated"
+	EventGroupDeleted = "group_deleted"
+
+	EventGroupSymbolCreated = "group_symbol_created"
+	EventGroupSymbolUpdated = "group_symbol_updated"
+	EventGroupSymbolDeleted = "group_symbol_deleted"
+
+	EventUserCreated = "user_created"
+	EventUserUpdated = "user_updated"
+	EventUserDeleted = "user_deleted"
+	EventUserMoved   = "user_moved"
+
+	EventClientCreated = "client_created"
+	EventClientUpdated = "client_updated"
+	EventClientDeleted = "client_deleted"
+
+	EventAccountUpdated = "account_updated"
 )
 
 // subject builds a group scoped subject. The named builders above are the only
@@ -133,7 +149,7 @@ func subject(f family, groupPath string) string {
 // A trailing * becomes >, because "everything below here" is what the mask
 // means and > is the token that says so. A * in the middle stays *, which
 // matches exactly one segment in both notations.
-func maskSubject(f family, mask string) []string {
+func buildSubjectPatterns(f family, mask string) []string {
 	prefix := SubjectGroupRoot + "." + string(f) + "."
 
 	segs := segments(mask)
@@ -175,7 +191,7 @@ func Subscriptions(rights ManagerRights, masks []string) []string {
 			continue
 		}
 		for _, mask := range masks {
-			out = append(out, maskSubject(f, mask)...)
+			out = append(out, buildSubjectPatterns(f, mask)...)
 		}
 	}
 

@@ -452,7 +452,7 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 
 	// every manager whose access covers this path hears about it, including
 	// the ones granted a parent long before this group existed
-	s.NotifyWS(model.SubjectGroup(v.Group), model.EventCreated, v)
+	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupCreated, v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -558,7 +558,7 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group updated",
 		"actor", snap.Login, "group_id", v.GroupID)
 
-	s.NotifyWS(model.SubjectGroup(v.Group), model.EventUpdated, v)
+	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupUpdated, v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -625,7 +625,7 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group deleted",
 		"actor", snap.Login, "group_id", id, "group", path)
 
-	s.NotifyWS(model.SubjectGroup(path), model.EventDeleted, ViewGroupRef{GroupID: id, Group: path})
+	s.NotifyWS(model.SubjectGroup(path), model.EventGroupDeleted, ViewGroupRef{GroupID: id, Group: path})
 
 	return s.App.HttpResponseNoContent(c)
 }

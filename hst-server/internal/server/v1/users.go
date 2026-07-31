@@ -144,7 +144,7 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, login, s.notifyUser(model.EventCreated))
+	return s.getUserByLogin(c, login, s.notifyUser(model.EventUserCreated))
 }
 
 // ListUsers returns a page of logins.
@@ -306,11 +306,11 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	// a group change has two audiences: the managers who just lost the record
 	// hear it left, the ones who gained it hear the update below
 	if oldGroup != "" {
-		s.NotifyWS(model.SubjectUser(oldGroup), model.EventMoved,
+		s.NotifyWS(model.SubjectUser(oldGroup), model.EventUserMoved,
 			ViewUserRef{Login: int64(login), Group: oldGroup})
 	}
 
-	return s.getUserByLogin(c, int64(login), s.notifyUser(model.EventUpdated))
+	return s.getUserByLogin(c, int64(login), s.notifyUser(model.EventUserUpdated))
 }
 
 // DeleteUser removes a login.
@@ -353,7 +353,7 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "user deleted",
 		"actor", snap.Login, "target", login)
 
-	s.NotifyWS(model.SubjectUser(gone), model.EventDeleted,
+	s.NotifyWS(model.SubjectUser(gone), model.EventUserDeleted,
 		ViewUserRef{Login: int64(login), Group: gone})
 
 	return s.App.HttpResponseNoContent(c)
@@ -369,7 +369,7 @@ func (s *HttpServer) notifyUser(event string) func(*fiber.Ctx, interface{}) erro
 		if u, ok := v.(*ViewUser); ok {
 			s.NotifyWS(model.SubjectUser(u.Group), event, u)
 		}
-		if event == model.EventCreated {
+		if event == model.EventUserCreated {
 			return s.App.HttpResponseCreated(c, v)
 		}
 		return s.App.HttpResponseOK(c, v)
