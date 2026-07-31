@@ -43,6 +43,13 @@ type OAuth2 struct {
 	// Cfg
 	Cfg *config.Config
 
+	// OnInvalidate runs when a session or a login is revoked, on every
+	// instance. The websocket hub hangs off this: a revoked session that keeps
+	// its socket open would go on receiving events it is no longer entitled
+	// to. Optional, and set after construction to keep pkg/oauth2 free of a
+	// dependency on the transport.
+	OnInvalidate func(sid string, login int64)
+
 	// touchCh batches last_seen_at writes so the hot path stays free of SQL
 	touchCh chan string
 	stop    chan struct{}

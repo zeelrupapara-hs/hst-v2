@@ -10,6 +10,7 @@ import (
 	"hstserver/pkg/nats"
 	"hstserver/pkg/oauth2"
 	"hstserver/pkg/redis"
+	"hstserver/pkg/ws"
 
 	"github.com/go-playground/validator/v10"
 )
@@ -39,12 +40,15 @@ type HttpServer struct {
 	OAuth2 *oauth2.OAuth2
 	// Validator
 	Validate *validator.Validate
+	// Hub holds the live websocket connections
+	Hub *ws.Hub
 }
 
 func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *nats.Nats, rds *redis.Redis, middleware *middleware.Middleware, oauth *oauth2.OAuth2, cfg *config.Config, validate *validator.Validate) *HttpServer {
 
 	h := &HttpServer{
 		Middleware: middleware,
+		Hub:        ws.NewHub(log),
 		App:        app,
 		DB:         database,
 		Log:        log,

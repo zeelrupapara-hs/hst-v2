@@ -46,6 +46,18 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 	// v1 http server
 	web := v1.NewHTTP(app, database, log, nats, rds, newMiddleware, oauth, cfg, validate)
 
+	// a revoked session must lose its socket too, or it keeps receiving events
+	// it is no longer entitled to. Fires on every instance, since the
+	// revocation is broadcast over redis.
+	oauth.OnInvalidate = func(sid string, login int64) {
+		switch {
+		case sid != "":
+			web.Hub.CloseSession(sid)
+		case login != 0:
+			web.Hub.CloseLogin(login)
+		}
+	}
+
 	return &Server{
 		App:        app,
 		Middleware: newMiddleware,
@@ -80,6 +92,11 @@ func (s *Server) Run() error {
 
 // Shutdown drains in-flight requests, capped by ShutdownTimeout.
 func (s *Server) Shutdown() error {
+	// websockets are long lived by definition and never finish on their own,
+	// so fiber would wait out the whole timeout on every deploy. Close them
+	// first and the drain is only about real in-flight requests again.
+	s.Web.Hub.Shutdown()
+
 	s.Log.Logger.Infow("draining in-flight requests",
 		"timeout", s.Cfg.HTTP.ShutdownTimeout.String())
 	return s.App.ShutdownWithTimeout(s.Cfg.HTTP.ShutdownTimeout)

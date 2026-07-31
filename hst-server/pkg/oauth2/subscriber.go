@@ -46,6 +46,12 @@ func (o *OAuth2) Subscribe() {
 			case m.Login != 0:
 				o.Cache.InvalidateLogin(m.Login)
 			}
+
+			// the cache is only half of it; anything holding the session open
+			// has to be told as well
+			if o.OnInvalidate != nil {
+				o.OnInvalidate(m.Sid, m.Login)
+			}
 		}
 	}
 }
