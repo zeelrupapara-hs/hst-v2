@@ -10,11 +10,17 @@ package handler
 
 import (
 	"context"
+	"os"
 	"runtime"
 	"sync"
 
 	"hstcore/config"
+	"hstcore/internal/book"
+	"hstcore/internal/quote"
+	"hstcore/internal/settings"
+	"hstcore/internal/shardmap"
 	"hstcore/internal/worker"
+	"hstcore/model"
 	"hstcore/pkg/db"
 	"hstcore/pkg/logger"
 	"hstcore/pkg/nats"
@@ -44,6 +50,22 @@ type Handler struct {
 	// Workers runs the background jobs this service queues
 	Workers *worker.Pool
 
+	// Quotes is the last price for every symbol. Every pod holds every price.
+	Quotes *quote.Book
+	// Settings is groups, symbols and the group's overrides of them, already folded together.
+	Settings *settings.Store
+	// Accounts is the slice of accounts this pod is responsible for.
+	Accounts *book.Book
+
+	// Shards says which accounts belong here. Rebuilt whenever the set of live pods changes.
+	Shards *shardmap.Map
+	// name is how this pod is known on the ring
+	name string
+
+	// rules is the routing list, in evaluation order. Replaced wholesale on reload, never
+	// edited in place, so a request already walking it sees one consistent list.
+	rules []model.RoutingRule
+
 	// subs are unsubscribed on Stop, so a shutdown does not leave a consumer
 	// attached to a connection that is about to drain
 	subs []*natscore.Subscription
@@ -58,12 +80,16 @@ type Handler struct {
 // goroutines cannot be used in a test without also shutting it down.
 func New(cfg *config.Config, log *logger.Logger, database *db.PostgresDB, nc *nats.Nats, rds *redis.Redis) *Handler {
 	return &Handler{
-		Cfg:     cfg,
-		Log:     log,
-		DB:      database,
-		Nats:    nc,
-		Redis:   rds,
-		Workers: worker.New(NumCPU, log),
+		Cfg:      cfg,
+		Log:      log,
+		DB:       database,
+		Nats:     nc,
+		Redis:    rds,
+		Workers:  worker.New(NumCPU, log),
+		Quotes:   quote.New(),
+		Settings: settings.New(),
+		Accounts: book.New(),
+		name:     podName(),
 	}
 }
 
@@ -167,4 +193,20 @@ func (h *Handler) Go(f func()) {
 		defer h.wg.Done()
 		f()
 	}()
+}
+
+// podName is how this instance is known on the shard ring.
+//
+// In Kubernetes the pod name is unique and stable for the life of the pod, which is exactly
+// what the ring needs. Falling back to the hostname keeps a local run working.
+func podName() string {
+	if n := os.Getenv("POD_NAME"); n != "" {
+		return n
+	}
+
+	if h, err := os.Hostname(); err == nil && h != "" {
+		return h
+	}
+
+	return "hst-core"
 }
