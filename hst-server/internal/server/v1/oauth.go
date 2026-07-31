@@ -352,6 +352,17 @@ func (s *HttpServer) RefreshSession(c *fiber.Ctx, staffOnly bool) error {
 		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 	}
 
+	old, err := s.selectSession(ctx, rec.SessionId)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	// a session refreshes on the panel that issued it, and being on the wrong one is a plain
+	// refusal: the token is not locked yet, so a misaddressed client does not lose its session
+	if model.UsersConnectionTypes(old.ConnectionType).IsStaff() != staffOnly {
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel)
+	}
+
 	// lock now, so two parallel refreshes cannot both rotate
 	locked, err := s.OAuth2.LockRefresh(ctx, body.RefreshToken)
 	if err != nil {
@@ -377,16 +388,6 @@ func (s *HttpServer) RefreshSession(c *fiber.Ctx, staffOnly bool) error {
 				"family_id", rec.FamilyId, "error", rerr.Error())
 		}
 		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
-	}
-
-	old, err := s.selectSession(ctx, rec.SessionId)
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
-	// a session refreshes on the panel that issued it
-	if model.UsersConnectionTypes(old.ConnectionType).IsStaff() != staffOnly {
-		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel)
 	}
 
 	// only a staff session carries a manager row, so a trader is not asked for one
