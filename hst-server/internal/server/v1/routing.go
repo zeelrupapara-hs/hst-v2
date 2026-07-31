@@ -9,6 +9,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -43,22 +44,22 @@ type CrtRouting struct {
 	Conditions   []CrtRoutingCondition `json:"conditions" validate:"dive"`
 }
 
-// UptRouting patches a rule. conditions replaces all rows when present.
-type UptRouting struct {
-	Name         *string                `json:"name" validate:"omitempty,max=128"`
-	Mode         *int16                 `json:"mode" validate:"omitempty,gte=0,lte=1"`
-	Request      *int32                 `json:"request"`
-	Type         *int32                 `json:"type"`
-	Flags        *int32                 `json:"flags"`
-	Action       *int32                 `json:"action"`
-	ActionValue  *string                `json:"action_value" validate:"omitempty,max=1024"`
-	RoutingIndex *int32                 `json:"routing_index" validate:"omitempty,gte=0"`
-	Conditions   *[]CrtRoutingCondition `json:"conditions" validate:"omitempty,dive"`
+// SwapRoutingRulePriorityRequest swaps evaluation order between two rules.
+type SwapRoutingRulePriorityRequest struct {
+	RoutingId1 int64 `json:"routing_id_1" validate:"required"`
+	RoutingId2 int64 `json:"routing_id_2" validate:"required"`
 }
 
-// ReorderRouting carries the new top-to-bottom evaluation order.
-type ReorderRouting struct {
-	RoutingIds []int64 `json:"routing_ids" validate:"required,min=1"`
+// UptRouting patches a rule. conditions replaces all rows when present.
+type UptRouting struct {
+	Name        *string                `json:"name" validate:"omitempty,max=128"`
+	Mode        *int16                 `json:"mode" validate:"omitempty,gte=0,lte=1"`
+	Request     *int32                 `json:"request"`
+	Type        *int32                 `json:"type"`
+	Flags       *int32                 `json:"flags"`
+	Action      *int32                 `json:"action"`
+	ActionValue *string                `json:"action_value" validate:"omitempty,max=1024"`
+	Conditions  *[]CrtRoutingCondition `json:"conditions" validate:"omitempty,dive"`
 }
 
 // ViewRouting is one row in the list.
@@ -175,7 +176,16 @@ func (s *HttpServer) CreateRouting(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rule created",
 		"actor", snap.Login, "target", body.Name, "conditions", len(body.Conditions))
 
-	return s.getRoutingDetail(c, id, s.App.HttpResponseCreated)
+	detail, err := s.loadRoutingDetail(ctx, id)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	s.NotifyWS(model.SubjectRouting, model.EventRoutingCreated, detail)
+	s.NotifySystem(model.SubjectSystemRoutingCreated, detail)
+	s.JournalEntry(c, logger.CodeOK, journal.RoutingCreatedMsg(snap.Login, detail.Name), detail)
+
+	return s.App.HttpResponseCreated(c, detail)
 }
 
 // ListRouting returns routing rules in evaluation order.
@@ -318,19 +328,6 @@ func (s *HttpServer) UpdateRouting(c *fiber.Ctx) error {
 		}
 	}
 
-	if body.RoutingIndex != nil {
-		var current int32
-		if err := tx.QueryRow(ctx,
-			`SELECT routing_index FROM hst.routing WHERE routing_id = $1`, id).Scan(&current); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
-		}
-		if *body.RoutingIndex != current {
-			if err := moveRoutingIndex(ctx, tx, int64(id), current, *body.RoutingIndex); err != nil {
-				return s.App.HttpResponseInternalServerErrorRequest(c, err)
-			}
-		}
-	}
-
 	tag, err := tx.Exec(ctx,
 		`UPDATE hst.routing SET
 		    name          = COALESCE($2, name),
@@ -377,7 +374,16 @@ func (s *HttpServer) UpdateRouting(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rule updated",
 		"actor", snap.Login, "target", target, "conditions_replaced", body.Conditions != nil)
 
-	return s.getRoutingDetail(c, int64(id), s.App.HttpResponseOK)
+	detail, err := s.loadRoutingDetail(ctx, int64(id))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	s.NotifyWS(model.SubjectRouting, model.EventRoutingUpdated, detail)
+	s.NotifySystem(model.SubjectSystemRoutingUpdated, detail)
+	s.JournalEntry(c, logger.CodeOK, journal.RoutingUpdatedMsg(snap.Login, detail.Name), detail)
+
+	return s.App.HttpResponseOK(c, detail)
 }
 
 // DeleteRouting removes a rule and compacts the remaining indices.
@@ -432,39 +438,40 @@ func (s *HttpServer) DeleteRouting(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "routing rule deleted",
 		"actor", snap.Login, "target", name)
 
+	ref := ViewRoutingRef{RoutingId: int64(id), Name: name}
+	s.NotifyWS(model.SubjectRouting, model.EventRoutingDeleted, ref)
+	s.NotifySystem(model.SubjectSystemRoutingDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.RoutingDeletedMsg(snap.Login, name), ref)
+
 	return s.App.HttpResponseNoContent(c)
 }
 
-// ReorderRouting rewrites the evaluation order for every rule.
+// SwapRoutingRulePriority swaps evaluation order between two rules.
 //
-//	@Id			ReorderRouting
+//	@Id			SwapRoutingRulePriority
 //	@Tags		Routing
 //	@Accept		json
 //	@Produce	json
-//	@Param		body	body		ReorderRouting	true	"every routing id exactly once, in the new order"
+//	@Param		body	body		SwapRoutingRulePriorityRequest	true	"two routing rule ids to swap"
 //	@Success	200		{object}	Response{data=[]ViewRouting}
 //	@Failure	400		{object}	Response
 //	@Failure	403		{object}	Response
+//	@Failure	404		{object}	Response
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
-//	@Router		/api/v1/routing/order [put]
-func (s *HttpServer) ReorderRouting(c *fiber.Ctx) error {
+//	@Router		/api/v1/routing/swap [put]
+func (s *HttpServer) SwapRoutingRulePriority(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
-	var body ReorderRouting
+	var body SwapRoutingRulePriorityRequest
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
 	}
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
-
-	seen := make(map[int64]struct{}, len(body.RoutingIds))
-	for _, rid := range body.RoutingIds {
-		if _, dup := seen[rid]; dup {
-			return s.App.HttpResponseBadRequest(c, errs.ErrReorderMustListEveryRule)
-		}
-		seen[rid] = struct{}{}
+	if body.RoutingId1 == body.RoutingId2 {
+		return s.App.HttpResponseBadRequest(c, errs.ErrRoutingSwapRule)
 	}
 
 	tx, err := s.DB.DB.Begin(ctx)
@@ -473,106 +480,7 @@ func (s *HttpServer) ReorderRouting(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var total int
-	if err := tx.QueryRow(ctx, `SELECT count(*) FROM hst.routing`).Scan(&total); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	if total != len(body.RoutingIds) {
-		return s.App.HttpResponseBadRequest(c, errs.ErrReorderMustListEveryRule)
-	}
-
-	var owned int
-	if err := tx.QueryRow(ctx,
-		`SELECT count(*) FROM hst.routing WHERE routing_id = ANY($1)`,
-		body.RoutingIds).Scan(&owned); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	if owned != len(body.RoutingIds) {
-		return s.App.HttpResponseBadRequest(c, errs.ErrReorderMustListEveryRule)
-	}
-
-	if _, err := tx.Exec(ctx,
-		`UPDATE hst.routing SET routing_index = -(routing_index + 1)`); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	now := time.Now().UnixNano()
-	for i, rid := range body.RoutingIds {
-		if _, err := tx.Exec(ctx,
-			`UPDATE hst.routing SET routing_index = $1, date_modified = $2
-			  WHERE routing_id = $3`, i, now, rid); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
-		}
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
-	snap, _ := utils.GetClient(c)
-	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rules reordered",
-		"actor", snap.Login, "rules", len(body.RoutingIds))
-
-	out, err := s.listRoutingOrdered(ctx)
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
-	return s.App.HttpResponseOK(c, out)
-}
-
-// MoveRoutingUp swaps the rule one step toward the top of the evaluation list.
-//
-//	@Id			MoveRoutingUp
-//	@Tags		Routing
-//	@Produce	json
-//	@Param		id	path		int	true	"routing rule id"
-//	@Success	200	{object}	Response{data=[]ViewRouting}
-//	@Failure	400	{object}	Response
-//	@Failure	403	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/v1/routing/{id}/move-up [post]
-func (s *HttpServer) MoveRoutingUp(c *fiber.Ctx) error {
-	return s.moveRoutingOneStep(c, -1)
-}
-
-// MoveRoutingDown swaps the rule one step toward the bottom of the evaluation list.
-//
-//	@Id			MoveRoutingDown
-//	@Tags		Routing
-//	@Produce	json
-//	@Param		id	path		int	true	"routing rule id"
-//	@Success	200	{object}	Response{data=[]ViewRouting}
-//	@Failure	400	{object}	Response
-//	@Failure	403	{object}	Response
-//	@Failure	404	{object}	Response
-//	@Failure	500	{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/v1/routing/{id}/move-down [post]
-func (s *HttpServer) MoveRoutingDown(c *fiber.Ctx) error {
-	return s.moveRoutingOneStep(c, 1)
-}
-
-func (s *HttpServer) moveRoutingOneStep(c *fiber.Ctx, delta int32) error {
-	ctx := c.UserContext()
-
-	id, err := c.ParamsInt("id")
-	if err != nil {
-		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
-	}
-
-	tx, err := s.DB.DB.Begin(ctx)
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	var name string
-	var current int32
-	err = tx.QueryRow(ctx,
-		`SELECT name, routing_index FROM hst.routing WHERE routing_id = $1 FOR UPDATE`, id).
-		Scan(&name, &current)
+	name1, idx1, name2, idx2, err := swapRoutingRulePriority(ctx, tx, body.RoutingId1, body.RoutingId2)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
@@ -580,65 +488,80 @@ func (s *HttpServer) moveRoutingOneStep(c *fiber.Ctx, delta int32) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	target := current + delta
-	if delta < 0 && current == 0 {
-		return s.App.HttpResponseBadRequest(c, errs.ErrRoutingAlreadyFirst)
-	}
-	if delta > 0 {
-		var maxIndex int32
-		if err := tx.QueryRow(ctx, `SELECT COALESCE(MAX(routing_index), 0) FROM hst.routing`).Scan(&maxIndex); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
-		}
-		if current >= maxIndex {
-			return s.App.HttpResponseBadRequest(c, errs.ErrRoutingAlreadyLast)
-		}
-	}
-
-	var neighborId int64
-	err = tx.QueryRow(ctx,
-		`SELECT routing_id FROM hst.routing WHERE routing_index = $1`, target).Scan(&neighborId)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseInternalServerErrorRequest(c, fmt.Errorf("routing neighbor at index %d not found", target))
-	}
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
-	now := time.Now().UnixNano()
-	// Swap through a unique negative slot so routing_index stays unique mid-update.
-	if _, err := tx.Exec(ctx,
-		`UPDATE hst.routing SET routing_index = -routing_id WHERE routing_id = $1`, id); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	if _, err := tx.Exec(ctx,
-		`UPDATE hst.routing SET routing_index = $1, date_modified = $2
-		  WHERE routing_id = $3`, current, now, neighborId); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	if _, err := tx.Exec(ctx,
-		`UPDATE hst.routing SET routing_index = $1, date_modified = $2
-		  WHERE routing_id = $3`, target, now, id); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
 	if err := tx.Commit(ctx); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	snap, _ := utils.GetClient(c)
-	dir := "down"
-	if delta < 0 {
-		dir = "up"
-	}
-	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rule moved "+dir,
-		"actor", snap.Login, "target", name, "from", current, "to", target)
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rule priorities swapped",
+		"actor", snap.Login,
+		"rule1", name1, "index1", idx1,
+		"rule2", name2, "index2", idx2)
 
 	out, err := s.listRoutingOrdered(ctx)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	s.NotifyWS(model.SubjectRouting, model.EventRoutingSwapped, out)
+	s.NotifySystem(model.SubjectSystemRoutingSwapped, out)
+	s.JournalEntry(c, logger.CodeOK, journal.RoutingSwappedMsg(snap.Login, body.RoutingId1, body.RoutingId2), out)
+
 	return s.App.HttpResponseOK(c, out)
+}
+
+func swapRoutingRulePriority(ctx context.Context, tx pgx.Tx, id1, id2 int64) (name1 string, idx1 int32, name2 string, idx2 int32, err error) {
+	rows, err := tx.Query(ctx,
+		`SELECT routing_id, name, routing_index FROM hst.routing
+		  WHERE routing_id IN ($1, $2)
+		  ORDER BY routing_id FOR UPDATE`, id1, id2)
+	if err != nil {
+		return "", 0, "", 0, err
+	}
+	defer rows.Close()
+
+	type ruleRow struct {
+		id    int64
+		name  string
+		index int32
+	}
+	found := make(map[int64]ruleRow, 2)
+	for rows.Next() {
+		var r ruleRow
+		if err := rows.Scan(&r.id, &r.name, &r.index); err != nil {
+			return "", 0, "", 0, err
+		}
+		found[r.id] = r
+	}
+	if err := rows.Err(); err != nil {
+		return "", 0, "", 0, err
+	}
+	r1, ok1 := found[id1]
+	r2, ok2 := found[id2]
+	if !ok1 || !ok2 {
+		return "", 0, "", 0, pgx.ErrNoRows
+	}
+	if r1.index == r2.index {
+		return r1.name, r1.index, r2.name, r2.index, nil
+	}
+
+	now := time.Now().UnixNano()
+	if _, err := tx.Exec(ctx,
+		`UPDATE hst.routing SET routing_index = -routing_id WHERE routing_id = $1`, id1); err != nil {
+		return "", 0, "", 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE hst.routing SET routing_index = $1, date_modified = $2
+		  WHERE routing_id = $3`, r1.index, now, id2); err != nil {
+		return "", 0, "", 0, err
+	}
+	if _, err := tx.Exec(ctx,
+		`UPDATE hst.routing SET routing_index = $1, date_modified = $2
+		  WHERE routing_id = $3`, r2.index, now, id1); err != nil {
+		return "", 0, "", 0, err
+	}
+
+	return r1.name, r2.index, r2.name, r1.index, nil
 }
 
 func (s *HttpServer) listRoutingOrdered(ctx context.Context) ([]ViewRouting, error) {
@@ -664,7 +587,18 @@ func (s *HttpServer) listRoutingOrdered(ctx context.Context) ([]ViewRouting, err
 func (s *HttpServer) getRoutingDetail(c *fiber.Ctx, id int64,
 	respond func(*fiber.Ctx, interface{}) error) error {
 
-	ctx := c.UserContext()
+	out, err := s.loadRoutingDetail(c.UserContext(), id)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return respond(c, out)
+}
+
+func (s *HttpServer) loadRoutingDetail(ctx context.Context, id int64) (*ViewRoutingDetail, error) {
 	out := &ViewRoutingDetail{Conditions: []model.RoutingCondition{}}
 
 	err := s.DB.DB.QueryRow(ctx,
@@ -672,18 +606,15 @@ func (s *HttpServer) getRoutingDetail(c *fiber.Ctx, id int64,
 		Scan(&out.RoutingId, &out.Name, &out.Mode, &out.Request, &out.Type, &out.Flags,
 			&out.Action, &out.ActionValue,
 			&out.RoutingIndex, &out.DateCreated, &out.DateModified)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
-	}
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return nil, err
 	}
 
 	rows, err := s.DB.DB.Query(ctx,
 		`SELECT `+routingCondColumns+`
 		   FROM hst.routing_conds WHERE routing_id = $1 ORDER BY condition_id`, id)
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -691,15 +622,15 @@ func (s *HttpServer) getRoutingDetail(c *fiber.Ctx, id int64,
 		var cond model.RoutingCondition
 		if err := rows.Scan(&cond.ConditionId, &cond.RoutingId, &cond.Condition, &cond.Rule,
 			&cond.Value); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+			return nil, err
 		}
 		out.Conditions = append(out.Conditions, cond)
 	}
-	if rows.Err() != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
-	return respond(c, out)
+	return out, nil
 }
 
 func insertRoutingConditions(ctx context.Context, tx pgx.Tx, routingId int64,
@@ -788,32 +719,5 @@ func shiftRoutingIndices(ctx context.Context, tx pgx.Tx, at int32, delta int32) 
 	_, err := tx.Exec(ctx,
 		`UPDATE hst.routing SET routing_index = -routing_index + $1
 		  WHERE routing_index < 0`, delta-1)
-	return err
-}
-
-// moveRoutingIndex repositions one rule within the ordered list.
-func moveRoutingIndex(ctx context.Context, tx pgx.Tx, id int64, from, to int32) error {
-	if from == to {
-		return nil
-	}
-	if _, err := tx.Exec(ctx,
-		`UPDATE hst.routing SET routing_index = -routing_id WHERE routing_id = $1`, id); err != nil {
-		return err
-	}
-	if from < to {
-		if _, err := tx.Exec(ctx,
-			`UPDATE hst.routing SET routing_index = routing_index - 1
-			  WHERE routing_index > $1 AND routing_index <= $2`, from, to); err != nil {
-			return err
-		}
-	} else {
-		if _, err := tx.Exec(ctx,
-			`UPDATE hst.routing SET routing_index = routing_index + 1
-			  WHERE routing_index >= $2 AND routing_index < $1`, from, to); err != nil {
-			return err
-		}
-	}
-	_, err := tx.Exec(ctx,
-		`UPDATE hst.routing SET routing_index = $2 WHERE routing_id = $1`, id, to)
 	return err
 }

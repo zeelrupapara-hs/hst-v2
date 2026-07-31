@@ -56,4 +56,11 @@ var (
 	LeverageRuleUpdatedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rule updated", login, id) }
 	LeverageRuleDeletedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rule deleted", login, id) }
 	LeverageReorderedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rules reordered", login, id) }
+
+	RoutingCreatedMsg = func(login int64, name string) string { return fmt.Sprintf("%d: %s routing rule created", login, name) }
+	RoutingUpdatedMsg = func(login int64, name string) string { return fmt.Sprintf("%d: %s routing rule updated", login, name) }
+	RoutingDeletedMsg = func(login int64, name string) string { return fmt.Sprintf("%d: %s routing rule deleted", login, name) }
+	RoutingSwappedMsg = func(login int64, id1, id2 int64) string {
+		return fmt.Sprintf("%d: routing rules %d and %d swapped", login, id1, id2)
+	}
 )

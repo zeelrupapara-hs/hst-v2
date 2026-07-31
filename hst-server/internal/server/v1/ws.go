@@ -25,6 +25,7 @@ var rightSubjects = []struct {
 	{model.MgrRightCfgSymbols, model.SubjectSymbol},
 	{model.MgrRightCfgHolidays, model.SubjectHoliday},
 	{model.MgrRightCfgGroups, model.SubjectLeverage},
+	{model.MgrRightCfgRequests, model.SubjectRouting},
 	{model.MgrRightCfgManagers, model.SubjectManager},
 }
 
@@ -329,6 +330,12 @@ type ViewLeverageRef struct {
 // ViewHolidayRef identifies a holiday that no longer exists.
 type ViewHolidayRef struct {
 	HolidayId int `json:"holiday_id"`
+}
+
+// ViewRoutingRef identifies a routing rule that no longer exists.
+type ViewRoutingRef struct {
+	RoutingId int64  `json:"routing_id"`
+	Name      string `json:"name"`
 }
 
 // ViewSymbolRef identifies a symbol that no longer exists.

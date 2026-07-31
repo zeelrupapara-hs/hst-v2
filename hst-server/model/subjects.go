@@ -73,6 +73,7 @@ const (
 	SubjectSymbol   = "ws.right.symbols"
 	SubjectHoliday  = "ws.right.holidays"
 	SubjectLeverage = "ws.right.leverages"
+	SubjectRouting  = "ws.right.routing"
 	SubjectManager  = "ws.right.managers"
 )
 
@@ -111,6 +112,11 @@ const (
 	SubjectSystemLeverageUpdated   = "system.leverage.updated"
 	SubjectSystemLeverageDeleted   = "system.leverage.deleted"
 	SubjectSystemLeverageReordered = "system.leverage.reordered"
+
+	SubjectSystemRoutingCreated = "system.routing.created"
+	SubjectSystemRoutingUpdated = "system.routing.updated"
+	SubjectSystemRoutingDeleted = "system.routing.deleted"
+	SubjectSystemRoutingSwapped = "system.routing.swapped"
 
 	SubjectSystemManagerCreated = "system.manager.created"
 	SubjectSystemManagerUpdated = "system.manager.updated"
@@ -165,6 +171,11 @@ const (
 	EventLeverageRuleUpdated = "leverage_rule_updated"
 	EventLeverageRuleDeleted = "leverage_rule_deleted"
 	EventLeverageReordered   = "leverage_reordered"
+
+	EventRoutingCreated = "routing_created"
+	EventRoutingUpdated = "routing_updated"
+	EventRoutingDeleted = "routing_deleted"
+	EventRoutingSwapped = "routing_swapped"
 
 	EventManagerCreated = "manager_created"
 	EventManagerUpdated = "manager_updated"
