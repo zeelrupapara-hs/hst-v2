@@ -19,8 +19,10 @@ type Snapshot struct {
 	Group          string `json:"grp"`
 	Rights         int64  `json:"rights"`
 	ConnectionType int32  `json:"ct"`
-	Restricted     bool   `json:"rst"`
-	IsManager      bool   `json:"mgr"`
+	// Scope is the password slot the session authenticated with: investor is read-only.
+	Scope      int32 `json:"scope"`
+	Restricted bool  `json:"rst"`
+	IsManager  bool  `json:"mgr"`
 	// ManagerRights is the 77 right columns packed into two words.
 	ManagerRights model.ManagerRights `json:"mrights"`
 	// ManagerGroups is the group access, a list of masks like demo\*.

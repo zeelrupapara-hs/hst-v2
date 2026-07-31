@@ -18,6 +18,9 @@ func (s *HttpServer) RegisterV1() {
 	oauth.Post("/login", s.Middleware.BasicAuthParser, s.Login)
 	oauth.Post("/refresh", s.RefreshToken)
 
+	// public signup, rate limited by ip like the login above it
+	root.Post("/auth/v1/register", s.Register)
+
 	// swagger exposes the whole api surface, so it is off unless asked for
 	if s.Cfg.HTTP.SwaggerEnabled {
 		root.Get("/swagger/*", swagger.New(swagger.Config{
@@ -45,6 +48,12 @@ func (s *HttpServer) RegisterV1() {
 
 	// api/v1 group
 	v1 := api.Group("/v1")
+
+	// the trader panel is its own tree: one account, no group masks, no manager rights
+	trader := api.Group("/trader/v1", s.Middleware.Protect, s.Middleware.RequireTrader)
+	trader.Get("/account", s.MyAccount)
+	trader.Get("/profile", s.MyProfile)
+	trader.Get("/symbols", s.MySymbols)
 
 	// system group
 	system := v1.Group("/system")

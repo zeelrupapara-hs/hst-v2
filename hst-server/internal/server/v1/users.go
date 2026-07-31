@@ -94,8 +94,6 @@ const userJoin = ` FROM hst.users u LEFT JOIN hst.managers m ON m.login = u.logi
 //	@Security	BearerAuth
 //	@Router		/api/v1/users [post]
 func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
-	ctx := c.UserContext()
-
 	var body CrtUser
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -104,21 +102,57 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	// the group is what the account opens with, so it is read before anything is written
-	deposit, leverage, status, err := s.OpeningBalance(ctx, body.Group)
+	// the request and the core carry the same fields, so the body is the argument
+	login, status, err := s.OpenLogin(c.UserContext(), NewLogin(body))
 	if err != nil {
 		return s.App.HttpResponseStatus(c, status, err)
 	}
 
-	// hash before opening the transaction.
-	hashes, err := s.hashPasswords(body.PasswordMain, body.PasswordInvestor, body.PasswordApi)
+	snap, _ := utils.GetClient(c)
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
+		"actor", snap.Login, "target", login)
+
+	return s.getUserByLogin(c, login, s.NotifyUser(model.EventUserCreated))
+}
+
+// NewLogin is a login to open, from a manager creating one or from a public signup.
+type NewLogin struct {
+	ClientId         *int64
+	Group            string
+	Rights           int64
+	Name             string
+	FirstName        string
+	LastName         string
+	Email            string
+	Phone            string
+	Country          string
+	City             string
+	Comment          string
+	PasswordMain     string
+	PasswordInvestor string
+	PasswordApi      string
+}
+
+// OpenLogin creates a login and the account row that holds its money, in one transaction.
+//
+// The group decides what the account opens with, so a demo signup lands funded and everything
+// else lands empty. A login without an account row has no money state, so neither is optional.
+func (s *HttpServer) OpenLogin(ctx context.Context, n NewLogin) (int64, int, error) {
+	// the group is what the account opens with, so it is read before anything is written
+	deposit, leverage, status, err := s.OpeningBalance(ctx, n.Group)
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return 0, status, err
+	}
+
+	// hash before opening the transaction.
+	hashes, err := s.hashPasswords(n.PasswordMain, n.PasswordInvestor, n.PasswordApi)
+	if err != nil {
+		return 0, nethttp.StatusInternalServerError, err
 	}
 
 	tx, err := s.DB.DB.Begin(ctx)
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return 0, nethttp.StatusInternalServerError, err
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
@@ -133,28 +167,23 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 		    registration, last_pass_change, updated_at, balance)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16,$16,$17)
 		 RETURNING login`,
-		body.ClientId, body.Group, body.Rights, body.Name, body.FirstName, body.LastName,
-		body.Email, body.Phone, body.Country, body.City, body.Comment, leverage,
+		n.ClientId, n.Group, n.Rights, n.Name, n.FirstName, n.LastName,
+		n.Email, n.Phone, n.Country, n.City, n.Comment, leverage,
 		hashes[0], hashes[1], hashes[2], now, deposit).Scan(&login); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return 0, nethttp.StatusInternalServerError, err
 	}
 
-	// the account row is not optional: a login without one has no money state
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO hst.accounts (login, currency_digits, margin_leverage, balance, equity, updated_at)
 		 VALUES ($1, 2, $2, $3, $3, $4)`, login, leverage, deposit, now); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return 0, nethttp.StatusInternalServerError, err
 	}
 
 	if err := tx.Commit(ctx); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return 0, nethttp.StatusInternalServerError, err
 	}
 
-	snap, _ := utils.GetClient(c)
-	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
-		"actor", snap.Login, "target", login)
-
-	return s.getUserByLogin(c, login, s.NotifyUser(model.EventUserCreated))
+	return login, nethttp.StatusCreated, nil
 }
 
 // ListUsers returns a page of logins.
@@ -367,6 +396,7 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 
 	ref := ViewUserRef{Login: int64(login), Group: gone}
 	s.NotifyWS(model.SubjectUser(gone), model.EventUserDeleted, ref)
+	s.NotifyWS(model.SubjectTraderProfile(int64(login)), model.EventUserDeleted, ref)
 	s.NotifySystem(model.SubjectSystemUserDeleted, ref)
 	s.JournalEntry(c, logger.CodeWarn, journal.UserDeletedMsg(snap.Login, int64(login)), ref)
 
@@ -378,6 +408,8 @@ func (s *HttpServer) NotifyUser(event string) func(*fiber.Ctx, interface{}) erro
 	return func(c *fiber.Ctx, v interface{}) error {
 		if u, ok := v.(*ViewUser); ok {
 			s.NotifyWS(model.SubjectUser(u.Group), event, u)
+			// the account itself is told about its own record, on the root only it can hear
+			s.NotifyWS(model.SubjectTraderProfile(u.Login), event, u)
 			s.NotifySystem(SystemUserSubject(event), u)
 			s.JournalEntry(c, logger.CodeOK, UserMsg(c, event, u), u)
 		}
@@ -462,6 +494,9 @@ func UserMsg(c *fiber.Ctx, event string, u *ViewUser) string {
 // demoSection is the group tree whose accounts open funded, as MT5 names it.
 const demoSection = "demo"
 
+// preliminarySection is the tree a real signup waits in until it is approved.
+const preliminarySection = "preliminary"
+
 // defaultLeverage is what an account gets when the group names none: 1, which is no leverage at all.
 const defaultLeverage int32 = 1
 
@@ -507,6 +542,12 @@ func (s *HttpServer) GroupExists(ctx context.Context, group string) error {
 		return errs.ErrGroupNotFound
 	}
 	return nil
+}
+
+// IsPreliminaryGroup reports whether the path opens onto the tree where accounts await approval.
+func IsPreliminaryGroup(group string) bool {
+	head, _, _ := strings.Cut(strings.TrimSpace(group), model.GroupSep)
+	return strings.EqualFold(head, preliminarySection)
 }
 
 // IsDemoGroup reports whether the path opens onto the demo tree.

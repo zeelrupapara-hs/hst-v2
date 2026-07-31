@@ -4,6 +4,10 @@ import "fmt"
 
 // Journal messages. The first argument is the manager who acted, the second names the record; the rest is in the detail.
 var (
+	RegisteredMsg = func(login int64, accountType string) string {
+		return fmt.Sprintf("%d: %s account registered", login, accountType)
+	}
+
 	GroupCreatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group created", login, path) }
 	GroupUpdatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group updated", login, path) }
 	GroupDeletedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group deleted", login, path) }

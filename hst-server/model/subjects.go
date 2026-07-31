@@ -10,6 +10,9 @@ const (
 	// SubjectGroupRoot prefixes every group scoped subject.
 	SubjectGroupRoot = "ws.g"
 
+	// SubjectTraderRoot prefixes every subject a trading account listens on.
+	SubjectTraderRoot = "ws.t"
+
 	// GroupSep separates the segments of a group path.
 	GroupSep = `\`
 )
@@ -63,6 +66,11 @@ var (
 	SubjectClient          = func(path string) string { return subject(familyClients, path) }
 	SubjectAccount         = func(path string) string { return subject(familyAccounts, path) }
 	SubjectGroupCommission = func(path string) string { return subject(familyGroupCommissions, path) }
+
+	// SubjectTrader is everything one trading account hears: its own and nothing else.
+	SubjectTrader = func(login int64) string { return fmt.Sprintf("%s.%d.>", SubjectTraderRoot, login) }
+	// SubjectTraderProfile carries a change to one account's own record.
+	SubjectTraderProfile = func(login int64) string { return fmt.Sprintf("%s.%d.profile", SubjectTraderRoot, login) }
 
 	// SubjectJournal carries a manager's own journal lines: it records what that manager did, so nobody else is listening.
 	SubjectJournal = func(login int64) string { return fmt.Sprintf("websocket.%d.journal", login) }

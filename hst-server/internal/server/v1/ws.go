@@ -81,12 +81,15 @@ func (s *HttpServer) subjectsFor(c *ws.Client, rights model.ManagerRights, group
 		model.SubjectSession(c.SessionId),
 		model.SubjectLogin(c.Login),
 		model.SubjectBroadcast(),
-		model.SubjectJournal(c.Login),
 	}
 
+	// a trading account hears about itself and nothing else: it holds no rights and covers no tree
 	if !c.IsManager {
-		return subjects
+		return append(subjects, model.SubjectTrader(c.Login))
 	}
+
+	// the journal is the staff record of who did what
+	subjects = append(subjects, model.SubjectJournal(c.Login))
 
 	// one subject per right, for records that have no group: symbols, other managers, the server journal
 	for _, r := range rightSubjects {
@@ -195,6 +198,12 @@ func (s *HttpServer) JournalEntry(c *fiber.Ctx, code logger.Code, message string
 		login = snap.Login
 	}
 
+	s.WriteJournal(c.UserContext(), login, utils.GetRealIP(c), code, message, detail)
+}
+
+// WriteJournal records a line for an actor that is not a session, such as a public signup.
+func (s *HttpServer) WriteJournal(ctx context.Context, login int64, ip string, code logger.Code, message string, detail any) {
+
 	raw, err := json.Marshal(detail)
 	if err != nil {
 		// a detail that cannot be encoded is the caller's bug, and losing the whole entry over it would hide what actually happened
@@ -203,12 +212,12 @@ func (s *HttpServer) JournalEntry(c *fiber.Ctx, code logger.Code, message string
 		raw = nil
 	}
 
-	if err := s.Journal.Entry(c.UserContext(), &model.Journal{
+	if err := s.Journal.Entry(ctx, &model.Journal{
 		Type: int32(logger.TypeCfg),
 		// #nosec G115 -- a logger code is 0..4, far inside the column
 		Code:    int32(code),
 		Login:   login,
-		Ip:      utils.GetRealIP(c),
+		Ip:      ip,
 		Message: message,
 		Detail:  raw,
 	}); err != nil {

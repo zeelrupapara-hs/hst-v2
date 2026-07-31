@@ -22,7 +22,8 @@ import (
 
 // LoginRequest carries the terminal type.
 type LoginRequest struct {
-	ConnectionType int32 `json:"connection_type" validate:"required"`
+	// zero is a real terminal type, the trader one, so the value is checked against the enum instead
+	ConnectionType int32 `json:"connection_type"`
 }
 
 // ViewToken is what a successful login or refresh returns.
@@ -100,19 +101,29 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		return s.loginFailed(c, err)
 	}
 
+	// staff and traders are admitted by different rules, and a terminal says which is asking
+	connType := model.UsersConnectionTypes(body.ConnectionType)
+	if _, ok := model.UsersConnectionTypes_name[body.ConnectionType]; !ok {
+		return s.App.HttpResponseBadRequest(c, errs.ErrInvalidConnectionType)
+	}
+
 	// stop credential stuffing before it ever reaches argon2
 	if s.OAuth2.IPThrottled(ctx, ip) {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
 	}
 
 	// is this really them
-	user, err := s.checkPassword(ctx, login, password, ip)
+	user, scope, err := s.checkPassword(ctx, login, password, ip, connType)
 	if err != nil {
 		return s.loginFailed(c, err)
 	}
 
-	// do they have a manager row, and may it use this panel
-	manager, err := s.checkManagerAccess(ctx, login, model.UsersConnectionTypes(body.ConnectionType), ip)
+	var manager *model.Manager
+	if connType.IsStaff() {
+		manager, err = s.checkManagerAccess(ctx, login, connType, ip)
+	} else {
+		err = s.checkTraderAccess(user)
+	}
 	if err != nil {
 		return s.loginFailed(c, err)
 	}
@@ -121,7 +132,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	view, err := s.openSession(ctx, user, manager, &oauth2.Config{
 		Login:          login,
 		ClientId:       user.ClientId,
-		Scope:          int32(model.UsersPasswords_main),
+		Scope:          int32(scope),
 		ConnectionType: body.ConnectionType,
 		IpAddress:      ip,
 		UserAgent:      utils.GetUserAgent(c),
@@ -140,47 +151,82 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
 
-// checkPassword loads the login and verifies the master password.
-func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, ip string) (*model.User, error) {
+// checkPassword loads the login, verifies the password, and reports which slot answered.
+//
+// Staff authenticate with the master slot only. A trading terminal may also present the investor
+// password, which opens a session that sees everything and trades nothing.
+func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, ip string,
+	connType model.UsersConnectionTypes) (*model.User, model.UsersPasswords, error) {
 	user := &model.User{}
 
 	err := s.DB.DB.QueryRow(ctx,
-		`SELECT login, COALESCE(client_id, 0), "group", rights, password_main, locked_until
+		`SELECT login, COALESCE(client_id, 0), "group", rights, password_main, password_investor, locked_until
 		   FROM hst.users WHERE login = $1`, login).
 		Scan(&user.Login, &user.ClientId, &user.Group, &user.Rights,
-			&user.PasswordMain, &user.LockedUntil)
+			&user.PasswordMain, &user.PasswordInvestor, &user.LockedUntil)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// burn the same work as a real verify.
 		s.OAuth2.Hasher.VerifyDummy(password)
-		return nil, denied(http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
+		return nil, 0, denied(http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
 	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if user.LockedUntil > time.Now().UnixNano() {
-		return nil, denied(http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
+		return nil, 0, denied(http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
 	}
 
-	// staff authenticate with the master slot only.
-	ok, needsRehash, err := s.OAuth2.Hasher.VerifyPassword(user.PasswordMain, password)
-	if errors.Is(err, crypto.ErrHasherBusy) {
-		return nil, denied(http.StatusServiceUnavailable, http.RetAuthServerBusy, errs.ErrServiceUnavailable)
-	}
-	if err != nil || !ok {
-		return nil, s.recordFailedLogin(ctx, login, ip)
-	}
-
-	if !user.Rights.CanConnect() {
-		return nil, denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+	slots := []struct {
+		scope model.UsersPasswords
+		hash  string
+	}{{model.UsersPasswords_main, user.PasswordMain}}
+	if !connType.IsStaff() && user.PasswordInvestor != "" {
+		slots = append(slots, struct {
+			scope model.UsersPasswords
+			hash  string
+		}{model.UsersPasswords_investor, user.PasswordInvestor})
 	}
 
-	if needsRehash {
-		s.upgradePasswordHash(ctx, login, password)
+	for _, slot := range slots {
+		ok, needsRehash, err := s.OAuth2.Hasher.VerifyPassword(slot.hash, password)
+		if errors.Is(err, crypto.ErrHasherBusy) {
+			return nil, 0, denied(http.StatusServiceUnavailable, http.RetAuthServerBusy, errs.ErrServiceUnavailable)
+		}
+		if err != nil || !ok {
+			continue
+		}
+
+		if !user.Rights.CanConnect() {
+			return nil, 0, denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+		}
+
+		// only the master slot is rehashed in place, because that is the one the user is asked to change
+		if needsRehash && slot.scope == model.UsersPasswords_main {
+			s.upgradePasswordHash(ctx, login, password)
+		}
+
+		return user, slot.scope, nil
 	}
 
-	return user, nil
+	return nil, 0, s.recordFailedLogin(ctx, login, ip)
+}
+
+// checkTraderAccess decides whether this login may use the trader panel.
+//
+// A trader needs no manager row; what it needs is an account that may connect and that somebody
+// has approved. A preliminary account exists but has not been approved, so it may not trade yet.
+func (s *HttpServer) checkTraderAccess(u *model.User) error {
+	if !u.Rights.CanConnect() {
+		return denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+	}
+
+	if IsPreliminaryGroup(u.Group) {
+		return denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountPending)
+	}
+
+	return nil
 }
 
 // checkManagerAccess decides whether this login may use the admin or manager panel.

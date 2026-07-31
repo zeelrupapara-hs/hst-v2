@@ -75,6 +75,10 @@ const (
 	// ip address whatever request comes to nginx it will be the ip address of the nginx proxy
 	// it will be trusted by the server
 	TRUSTED_PROXIES = "TRUSTED_PROXIES"
+
+	// registration
+	REGISTER_DEMO_GROUP        = "REGISTER_DEMO_GROUP"
+	REGISTER_PRELIMINARY_GROUP = "REGISTER_PRELIMINARY_GROUP"
 )
 
 type Config struct {
@@ -86,6 +90,14 @@ type Config struct {
 	Redis    Redis
 	Auth     Auth
 	Cache    Cache
+	Register Register
+}
+
+// Register config for public signups.
+type Register struct {
+	// DemoGroup and PreliminaryGroup are where a signup lands; blank disables that type.
+	DemoGroup        string
+	PreliminaryGroup string
 }
 
 // Auth config
@@ -310,6 +322,10 @@ func NewConfig() (*Config, error) {
 	c.Auth.LockoutDuration = 15 * time.Minute
 	c.Auth.MaxFailedPerIP = 50
 	c.Auth.FirstManagerPassword = getEnv(FIRST_MANAGER_PASSWORD, "")
+
+	// Register
+	c.Register.DemoGroup = getEnv(REGISTER_DEMO_GROUP, "demo")
+	c.Register.PreliminaryGroup = getEnv(REGISTER_PRELIMINARY_GROUP, "preliminary")
 
 	// Cache
 	c.Cache.ShardId = getEnvAsInt(SHARD_ID, 0)
