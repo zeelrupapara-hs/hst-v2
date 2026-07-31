@@ -49,6 +49,10 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 	// a revoked session must lose its socket too, or it keeps receiving events
 	// it is no longer entitled to. Fires on every instance, since the
 	// revocation is broadcast over redis.
+	// a widened access keeps its connection: the sockets of that login rebuild
+	// what they listen to, in place
+	oauth.OnRefresh = web.RefreshLogin
+
 	oauth.OnInvalidate = func(sid string, login int64) {
 		switch {
 		case sid != "":

@@ -29,12 +29,6 @@ type Client struct {
 	Login int64
 	// Ip is the address resolved by the header reader.
 	Ip string
-	// Rights are the manager rights the session held at connect time.
-	Rights model.ManagerRights
-	// Groups is the group access the session held at connect time, a list of
-	// masks. Changing it revokes the session, which closes this socket, so it
-	// can never drift from what the manager is actually allowed.
-	Groups []string
 	// IsManager is false for a trading account.
 	IsManager bool
 	// ConnectedAt is when the socket was accepted.
@@ -54,9 +48,61 @@ type Client struct {
 	// dropped counts events discarded because egress was full. A client that
 	// keeps dropping is disconnected rather than left silently lossy.
 	dropped atomic.Int64
+
+	// access guards everything the manager's configuration decides, because a
+	// change to it arrives on another goroutine while this socket is running.
+	access sync.Mutex
+	// rights and groups are what the session held when the subscriptions below
+	// were opened, kept so a refresh can tell whether they still match.
+	rights model.ManagerRights
+	groups []string
 	// subs are the nats subscriptions opened for this socket, unsubscribed on
 	// close so a disconnect does not leak a consumer.
 	subs []Unsubscriber
+}
+
+// Access is the manager configuration these subscriptions were built from.
+func (c *Client) Access() (model.ManagerRights, []string) {
+	c.access.Lock()
+	defer c.access.Unlock()
+
+	groups := make([]string, len(c.groups))
+	copy(groups, c.groups)
+	return c.rights, groups
+}
+
+// Rights is the manager rights this socket holds.
+func (c *Client) Rights() model.ManagerRights {
+	rights, _ := c.Access()
+	return rights
+}
+
+// Groups is the group access this socket holds.
+func (c *Client) Groups() []string {
+	_, groups := c.Access()
+	return groups
+}
+
+// ReplaceSubs swaps the subscriptions for a new set and closes the old ones.
+//
+// This is what a widened access looks like from the socket's side: the
+// connection is never dropped, it simply starts listening somewhere else. The
+// old subscriptions are closed after the new ones are open, so no event falls
+// between the two.
+func (c *Client) ReplaceSubs(rights model.ManagerRights, groups []string, subs []Unsubscriber) {
+	c.access.Lock()
+	old := c.subs
+	c.subs = subs
+	c.rights = rights
+	c.groups = groups
+	c.access.Unlock()
+
+	for _, s := range old {
+		if err := s.Unsubscribe(); err != nil {
+			c.log.Log(logger.TypeNet, logger.CodeWarn, "websocket unsubscribe failed",
+				"session_id", c.SessionId, "error", err.Error())
+		}
+	}
 }
 
 // Unsubscriber is the part of a nats subscription this package needs. Keeping
@@ -99,9 +145,13 @@ func (c *Client) Dropped() int64 { return c.dropped.Load() }
 
 // AddSub records a subscription to be closed with the connection.
 func (c *Client) AddSub(s Unsubscriber) {
-	if s != nil {
-		c.subs = append(c.subs, s)
+	if s == nil {
+		return
 	}
+
+	c.access.Lock()
+	defer c.access.Unlock()
+	c.subs = append(c.subs, s)
 }
 
 // close tears the connection down exactly once.
@@ -109,7 +159,12 @@ func (c *Client) close() {
 	c.once.Do(func() {
 		close(c.closing)
 
-		for _, s := range c.subs {
+		c.access.Lock()
+		subs := c.subs
+		c.subs = nil
+		c.access.Unlock()
+
+		for _, s := range subs {
 			if err := s.Unsubscribe(); err != nil {
 				c.log.Log(logger.TypeNet, logger.CodeWarn, "websocket unsubscribe failed",
 					"session_id", c.SessionId, "error", err.Error())

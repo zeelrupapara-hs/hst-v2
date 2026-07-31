@@ -9,6 +9,10 @@ import (
 	"github.com/goccy/go-json"
 )
 
+// ReasonRefreshed marks a broadcast that widens or rewrites a session rather
+// than ending it. Everything else is a revocation.
+const ReasonRefreshed = "refreshed"
+
 // invalidateMessage is broadcast to every instance.
 type invalidateMessage struct {
 	Sid    string `json:"sid,omitempty"`
@@ -48,7 +52,14 @@ func (o *OAuth2) Subscribe() {
 			}
 
 			// the cache is only half of it; anything holding the session open
-			// has to be told as well
+			// has to be told as well, and told which of the two happened: a
+			// refreshed session keeps its connection, a revoked one loses it
+			if m.Reason == ReasonRefreshed {
+				if o.OnRefresh != nil {
+					o.OnRefresh(m.Login)
+				}
+				continue
+			}
 			if o.OnInvalidate != nil {
 				o.OnInvalidate(m.Sid, m.Login)
 			}

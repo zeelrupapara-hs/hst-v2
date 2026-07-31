@@ -214,6 +214,59 @@ func (o *OAuth2) InvalidateLogin(ctx context.Context, login int64, reason string
 	return o.Redis.Client.Del(ctx, KeyUser(login)).Err()
 }
 
+// RefreshLogin rewrites the live sessions of one login with its current manager
+// configuration, instead of revoking them.
+//
+// Losing a session is the right answer when access is taken away or the account
+// is disabled: everything the session was allowed to do has to be re-decided.
+// It is the wrong answer when access is merely widened, which is what happens
+// when a manager creates its first group. Signing somebody out for gaining a
+// permission teaches them to fear the button.
+//
+// The per-session fields are kept as they are; only what the manager row owns
+// is replaced, and the version is bumped so a reader can tell the snapshot
+// changed.
+func (o *OAuth2) RefreshLogin(ctx context.Context, login int64, mgr *model.Manager) error {
+	sids, err := o.Redis.Client.SMembers(ctx, KeyUser(login)).Result()
+	if err != nil && err != redis.Nil {
+		return err
+	}
+
+	for _, sid := range sids {
+		snap, err := o.LoadSnapshot(ctx, sid)
+		if err != nil {
+			// an expired or already dropped session is not an error here
+			continue
+		}
+
+		snap.ManagerRights = PackManagerRights(mgr)
+		snap.ManagerGroups = mgr.Groups
+		snap.Version++
+
+		if err := o.SaveSnapshot(ctx, snap); err != nil {
+			o.Log.Log(logger.TypeUser, logger.CodeWarn, "could not refresh a session",
+				"session_id", sid, "error", err.Error())
+			continue
+		}
+
+		// drop the local copy so the next request reads what was just written
+		o.Cache.Invalidate(sid)
+	}
+
+	// this instance first, and before returning: the caller usually publishes
+	// an event about the very change that widened the access, and going the
+	// long way round redis would let that event overtake the subscription that
+	// was supposed to receive it
+	if o.OnRefresh != nil {
+		o.OnRefresh(login)
+	}
+
+	// then the others, which hold their own copies and their own connections
+	o.publish(ctx, invalidateMessage{Login: login, Reason: ReasonRefreshed})
+
+	return nil
+}
+
 // RegisterFailure counts a bad password and locks the login once the limit is reached.
 func (o *OAuth2) RegisterFailure(ctx context.Context, login int64, ip string) (bool, error) {
 	count, err := o.Redis.Client.Incr(ctx, KeyFail(login)).Result()

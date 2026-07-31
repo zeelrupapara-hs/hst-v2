@@ -671,11 +671,17 @@ func (s *HttpServer) grantCreatorAccess(ctx context.Context, login int64, path s
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "granted the creator access to its first group",
 		"login", login, "group", path)
 
-	// the access just changed, and the session carries a copy of it: revoking
-	// it is what makes the manager come back with the new mask, on every
-	// instance and on the websocket as well
-	if err := s.OAuth2.InvalidateLogin(ctx, login, model.SessionRevokedRightsChanged); err != nil {
-		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not revoke the session after granting access",
+	// the access just widened, and the session carries a copy of it. Nobody is
+	// signed out for gaining a permission: the sessions are rewritten in place
+	// and the websockets rebuild their subscriptions, on every instance.
+	mgr, err := s.selectManager(ctx, login)
+	if err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not reload the manager after granting access",
+			"login", login, "error", err.Error())
+		return
+	}
+	if err := s.OAuth2.RefreshLogin(ctx, login, mgr); err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not refresh the session after granting access",
 			"login", login, "error", err.Error())
 	}
 }

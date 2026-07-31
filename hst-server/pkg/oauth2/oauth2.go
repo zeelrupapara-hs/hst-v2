@@ -50,6 +50,12 @@ type OAuth2 struct {
 	// dependency on the transport.
 	OnInvalidate func(sid string, login int64)
 
+	// OnRefresh runs when a login's access was rewritten rather than revoked.
+	// The websocket hub rebuilds that login's subscriptions in place, so a
+	// manager that gains access keeps its connection instead of being signed
+	// out for it.
+	OnRefresh func(login int64)
+
 	// touchCh batches last_seen_at writes so the hot path stays free of SQL
 	touchCh chan string
 	stop    chan struct{}

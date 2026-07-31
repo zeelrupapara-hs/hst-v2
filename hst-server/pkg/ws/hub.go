@@ -65,8 +65,8 @@ func (h *Hub) Add(conn *websocket.Conn, snap Session, ip string) *Client {
 		SessionId:   snap.SessionId,
 		Login:       snap.Login,
 		Ip:          ip,
-		Rights:      snap.ManagerRights,
-		Groups:      snap.ManagerGroups,
+		rights:      snap.ManagerRights,
+		groups:      snap.ManagerGroups,
 		IsManager:   snap.IsManager,
 		ConnectedAt: time.Now(),
 		conn:        conn,
@@ -151,6 +151,23 @@ func (h *Hub) CloseSession(sessionId string) {
 		c.Send(&model.Event{Type: model.EventSessionRevoked, At: time.Now().UnixNano()})
 		h.Remove(sessionId, c.Id)
 	}
+}
+
+// Login returns every connection belonging to one login, for a refresh that
+// has to rebuild what they listen to.
+func (h *Hub) Login(login int64) []*Client {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	var out []*Client
+	for _, list := range h.clients {
+		for _, c := range list {
+			if c.Login == login {
+				out = append(out, c)
+			}
+		}
+	}
+	return out
 }
 
 // CloseLogin drops every connection belonging to one login, however many

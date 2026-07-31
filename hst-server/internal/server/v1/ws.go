@@ -78,55 +78,100 @@ func (s *HttpServer) ServeWS(c *websocket.Conn) {
 // failure part way through is not left half wired: the caller removes the
 // client, which unsubscribes whatever was already opened.
 func (s *HttpServer) subscribe(c *ws.Client) error {
-	// its own session, and every session of its login
-	if err := s.subscribeTo(c, model.SubjectSession(c.SessionId)); err != nil {
-		return err
-	}
-	if err := s.subscribeTo(c, model.SubjectLogin(c.Login)); err != nil {
-		return err
-	}
-	if err := s.subscribeTo(c, model.SubjectBroadcast()); err != nil {
+	rights, groups := c.Access()
+
+	subs, err := s.openSubs(c, rights, groups)
+	if err != nil {
+		closeSubs(subs)
 		return err
 	}
 
+	c.ReplaceSubs(rights, groups, subs)
+	return nil
+}
+
+// subjectsFor is everything one socket listens on, given what its session
+// holds. Building the list separately from opening it lets a refresh compare
+// the two without touching the connection.
+func (s *HttpServer) subjectsFor(c *ws.Client, rights model.ManagerRights, groups []string) []string {
+	// its own session, every session of its login, and the whole floor
+	subjects := []string{
+		model.SubjectSession(c.SessionId),
+		model.SubjectLogin(c.Login),
+		model.SubjectBroadcast(),
+	}
+
 	if !c.IsManager {
-		return nil
+		return subjects
 	}
 
 	// one subject per right, for records that have no group: symbols, other
 	// managers, the server journal
 	for _, r := range rightSubjects {
-		if !c.Rights.Has(r.right) {
-			continue
-		}
-		if err := s.subscribeTo(c, model.SubjectRight(r.name)); err != nil {
-			return err
+		if rights.Has(r.right) {
+			subjects = append(subjects, model.SubjectRight(r.name))
 		}
 	}
 
 	// and one per family it may see, crossed with each group mask it holds.
 	// The mask is the subscription, so a group created later under a granted
 	// path is covered without anyone re-subscribing.
-	for _, subject := range model.Subscriptions(c.Rights, c.Groups) {
-		if err := s.subscribeTo(c, subject); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return append(subjects, model.Subscriptions(rights, groups)...)
 }
 
-// subscribeTo wires one subject into one socket.
-func (s *HttpServer) subscribeTo(c *ws.Client, subject string) error {
-	sub, err := s.Nats.NC.Subscribe(subject, func(msg *natscore.Msg) {
-		c.Send(eventFromMsg(msg))
-	})
-	if err != nil {
-		return err
+// openSubs subscribes to every subject the access allows. On a failure part way
+// through it returns what it managed to open, for the caller to close.
+func (s *HttpServer) openSubs(c *ws.Client, rights model.ManagerRights, groups []string) ([]ws.Unsubscriber, error) {
+	subjects := s.subjectsFor(c, rights, groups)
+
+	subs := make([]ws.Unsubscriber, 0, len(subjects))
+	for _, subject := range subjects {
+		sub, err := s.Nats.NC.Subscribe(subject, func(msg *natscore.Msg) {
+			c.Send(eventFromMsg(msg))
+		})
+		if err != nil {
+			return subs, err
+		}
+		subs = append(subs, sub)
 	}
 
-	c.AddSub(sub)
-	return nil
+	return subs, nil
+}
+
+func closeSubs(subs []ws.Unsubscriber) {
+	for _, sub := range subs {
+		_ = sub.Unsubscribe()
+	}
+}
+
+// RefreshLogin rebuilds the subscriptions of every socket of one login, after
+// its access was rewritten.
+//
+// The connection survives. A manager that gains a group starts receiving that
+// group's events on the socket it already had, which is the whole point of
+// refreshing a session rather than revoking it.
+func (s *HttpServer) RefreshLogin(login int64) {
+	for _, c := range s.Hub.Login(login) {
+		snap, err := s.OAuth2.LoadSnapshot(context.Background(), c.SessionId)
+		if err != nil {
+			// the session is gone rather than changed, so the socket goes too
+			s.Hub.Remove(c.SessionId, c.Id)
+			continue
+		}
+
+		subs, err := s.openSubs(c, snap.ManagerRights, snap.ManagerGroups)
+		if err != nil {
+			closeSubs(subs)
+			s.Log.Log(logger.TypeNet, logger.CodeErr, "could not resubscribe a websocket",
+				"session_id", c.SessionId, "error", err.Error())
+			continue
+		}
+
+		c.ReplaceSubs(snap.ManagerRights, snap.ManagerGroups, subs)
+
+		s.Log.Log(logger.TypeNet, logger.CodeOK, "websocket access refreshed",
+			"session_id", c.SessionId, "login", login, "subjects", len(subs))
+	}
 }
 
 // eventFromMsg turns a nats message into the event the client receives.
