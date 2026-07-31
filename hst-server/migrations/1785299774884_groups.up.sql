@@ -57,8 +57,9 @@ CREATE TABLE IF NOT EXISTS hst.groups (
     margin_mode             INTEGER      NOT NULL DEFAULT 0,
     margin_flags            INTEGER      NOT NULL DEFAULT 0,
 
-    demo_leverage           INTEGER      NOT NULL DEFAULT 0,
-    demo_deposit            NUMERIC(20,8) NOT NULL DEFAULT 0,
+    -- both are genuinely unset when empty, which is not the same as zero: no deposit is a zero balance, no leverage is 1
+    demo_leverage           INTEGER       NULL,
+    demo_deposit            NUMERIC(20,8) NULL,
 
     limit_history           INTEGER      NOT NULL DEFAULT 0,
     limit_orders            INTEGER      NOT NULL DEFAULT 0,

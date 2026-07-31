@@ -5,8 +5,12 @@ import (
 	"sync"
 	"time"
 
+	"context"
+	"strings"
+
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	nethttp "hstserver/pkg/http"
 	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
@@ -28,7 +32,6 @@ type CrtUser struct {
 	Country          string `json:"country" validate:"max=64"`
 	City             string `json:"city" validate:"max=64"`
 	Comment          string `json:"comment" validate:"max=4096"`
-	Leverage         int32  `json:"leverage" validate:"gte=1,lte=10000"`
 	PasswordMain     string `json:"password_main" validate:"required,min=8,max=128"`
 	PasswordInvestor string `json:"password_investor" validate:"required,min=8,max=128"`
 	PasswordApi      string `json:"password_api" validate:"omitempty,min=8,max=128"`
@@ -101,6 +104,12 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
+	// the group is what the account opens with, so it is read before anything is written
+	deposit, leverage, status, err := s.OpeningBalance(ctx, body.Group)
+	if err != nil {
+		return s.App.HttpResponseStatus(c, status, err)
+	}
+
 	// hash before opening the transaction.
 	hashes, err := s.hashPasswords(body.PasswordMain, body.PasswordInvestor, body.PasswordApi)
 	if err != nil {
@@ -121,19 +130,19 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 		   (client_id, "group", rights, name, first_name, last_name, email, phone,
 		    country, city, comment, leverage,
 		    password_main, password_investor, password_api,
-		    registration, last_pass_change, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16,$16)
+		    registration, last_pass_change, updated_at, balance)
+		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16,$16,$17)
 		 RETURNING login`,
 		body.ClientId, body.Group, body.Rights, body.Name, body.FirstName, body.LastName,
-		body.Email, body.Phone, body.Country, body.City, body.Comment, body.Leverage,
-		hashes[0], hashes[1], hashes[2], now).Scan(&login); err != nil {
+		body.Email, body.Phone, body.Country, body.City, body.Comment, leverage,
+		hashes[0], hashes[1], hashes[2], now, deposit).Scan(&login); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	// the account row is not optional: a login without one has no money state
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO hst.accounts (login, currency_digits, margin_leverage, updated_at)
-		 VALUES ($1, 2, $2, $3)`, login, body.Leverage, now); err != nil {
+		`INSERT INTO hst.accounts (login, currency_digits, margin_leverage, balance, equity, updated_at)
+		 VALUES ($1, 2, $2, $3, $3, $4)`, login, leverage, deposit, now); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
@@ -443,4 +452,43 @@ func UserMsg(c *fiber.Ctx, event string, u *ViewUser) string {
 		return journal.UserCreatedMsg(actor, u.Login)
 	}
 	return journal.UserUpdatedMsg(actor, u.Login)
+}
+
+// demoSection is the group tree whose accounts open funded, as MT5 names it.
+const demoSection = "demo"
+
+// defaultLeverage is what an account gets when the group names none: 1, which is no leverage at all.
+const defaultLeverage int32 = 1
+
+// OpeningBalance is what an account in this group starts with.
+//
+// A demo group opens its accounts on the house: the deposit and the leverage are the group's, and
+// unset means no money and no leverage rather than zero and zero, which would be an account that
+// cannot trade at all. A live group opens empty and is funded by a real transfer.
+func (s *HttpServer) OpeningBalance(ctx context.Context, group string) (float64, int32, int, error) {
+	if !IsDemoGroup(group) {
+		return 0, defaultLeverage, nethttp.StatusOK, nil
+	}
+
+	var (
+		deposit  *float64
+		leverage *int32
+	)
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT demo_deposit, demo_leverage FROM hst.groups WHERE "group" = $1`, group).
+		Scan(&deposit, &leverage)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, 0, nethttp.StatusBadRequest, errs.ErrNotFound
+	}
+	if err != nil {
+		return 0, 0, nethttp.StatusInternalServerError, err
+	}
+
+	return ptrOr(deposit, 0), ptrOr(leverage, defaultLeverage), nethttp.StatusOK, nil
+}
+
+// IsDemoGroup reports whether the path opens onto the demo tree.
+func IsDemoGroup(group string) bool {
+	head, _, _ := strings.Cut(strings.TrimSpace(group), model.GroupSep)
+	return strings.EqualFold(head, demoSection)
 }

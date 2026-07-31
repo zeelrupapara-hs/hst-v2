@@ -170,8 +170,8 @@ type ViewGroup struct {
 	MarginMode           model.MarginMode           `json:"margin_mode"`
 	MarginFlags          model.GroupMarginFlags     `json:"margin_flags"`
 
-	DemoLeverage int32   `json:"demo_leverage"`
-	DemoDeposit  float64 `json:"demo_deposit"`
+	DemoLeverage *int32   `json:"demo_leverage"`
+	DemoDeposit  *float64 `json:"demo_deposit"`
 
 	LimitHistory         model.HistoryLimit `json:"limit_history"`
 	LimitOrders          int32              `json:"limit_orders"`
@@ -427,7 +427,7 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 		ptrOr(body.MarginCall, 0.0), ptrOr(body.MarginStopOut, 0.0),
 		ptrOr(body.MarginFreeProfitMode, model.MarginFreeProfitMode_pl),
 		ptrOr(body.MarginMode, model.MarginMode_retail), ptrOr(body.MarginFlags, model.GroupMarginFlags_none),
-		ptrOr(body.DemoLeverage, int32(0)), ptrOr(body.DemoDeposit, 0.0),
+		body.DemoLeverage, body.DemoDeposit,
 		ptrOr(body.LimitHistory, model.HistoryLimit_all), ptrOr(body.LimitOrders, int32(0)),
 		ptrOr(body.LimitSymbols, int32(0)), ptrOr(body.LimitPositions, int32(0)), ptrOr(body.LimitPositionsVolume, 0.0),
 		now))

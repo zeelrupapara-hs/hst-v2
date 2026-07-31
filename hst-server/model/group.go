@@ -438,8 +438,8 @@ type Group struct {
 	MarginMode           MarginMode           `db:"margin_mode" json:"margin_mode"`
 	MarginFlags          GroupMarginFlags     `db:"margin_flags" json:"margin_flags"`
 
-	DemoLeverage int32   `db:"demo_leverage" json:"demo_leverage"`
-	DemoDeposit  float64 `db:"demo_deposit" json:"demo_deposit"`
+	DemoLeverage *int32   `db:"demo_leverage" json:"demo_leverage"`
+	DemoDeposit  *float64 `db:"demo_deposit" json:"demo_deposit"`
 
 	LimitHistory         HistoryLimit `db:"limit_history" json:"limit_history"`
 	LimitOrders          int32        `db:"limit_orders" json:"limit_orders"`
