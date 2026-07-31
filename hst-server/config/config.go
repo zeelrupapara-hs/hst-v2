@@ -22,41 +22,59 @@ const (
 	HTTP_PORT             = "HTTP_PORT"
 	HTTP_SHUTDOWN_TIMEOUT = "HTTP_SHUTDOWN_TIMEOUT"
 	HTTP_BODY_LIMIT       = "HTTP_BODY_LIMIT"
-	POSTGRES_HOST         = "POSTGRES_HOST"
-	POSTGRES_PORT         = "POSTGRES_PORT"
-	POSTGRES_USER         = "POSTGRES_USER"
+
+	// database
+	POSTGRES_HOST = "POSTGRES_HOST"
+	POSTGRES_PORT = "POSTGRES_PORT"
+	POSTGRES_USER = "POSTGRES_USER"
 	// #nosec G101 -- env var name, not a credential
 	POSTGRES_PASSWORD = "POSTGRES_PASSWORD"
 	POSTGRES_DB       = "POSTGRES_DB"
 	POSTGRES_SSL_MODE = "POSTGRES_SSL_MODE"
 	POSTGRES_MAX_CONN = "POSTGRES_MAX_CONN"
 	POSTGRES_MIN_CONN = "POSTGRES_MIN_CONN"
-	NATS_HOST         = "NATS_HOST"
-	NATS_PORT         = "NATS_PORT"
-	NATS_NAME         = "NATS_NAME"
-	REDIS_URL         = "REDIS_URL"
-	REDIS_PASSWORD    = "REDIS_PASSWORD"
-	REDIS_DB          = "REDIS_DB"
-	REDIS_POOL_SIZE   = "REDIS_POOL_SIZE"
+
+	// nats
+	NATS_HOST = "NATS_HOST"
+	NATS_PORT = "NATS_PORT"
+	NATS_NAME = "NATS_NAME"
+
+	// redis
+	REDIS_URL       = "REDIS_URL"
+	REDIS_PASSWORD  = "REDIS_PASSWORD"
+	REDIS_DB        = "REDIS_DB"
+	REDIS_POOL_SIZE = "REDIS_POOL_SIZE"
+
+	// auth
 	// #nosec G101 -- env var name, not a credential
 	AUTH_JWT_PRIVATE_KEY   = "AUTH_JWT_PRIVATE_KEY"
 	AUTH_ACCESS_TTL        = "AUTH_ACCESS_TTL"
 	AUTH_REFRESH_TTL       = "AUTH_REFRESH_TTL"
 	AUTH_ARGON2_MEMORY_KIB = "AUTH_ARGON2_MEMORY_KIB"
 	AUTH_ARGON2_TIME       = "AUTH_ARGON2_TIME"
-	SHARD_ID               = "SHARD_ID"
-	SHARD_COUNT            = "SHARD_COUNT"
-	MAX_ACCOUNT_PER_SHARD  = "MAX_ACCOUNT_PER_SHARD"
-	// #nosec G101 -- env var name, not a credential
-	FIRST_MANAGER_PASSWORD = "FIRST_MANAGER_PASSWORD"
 	// #nosec G101 -- env var name, not a credential
 	AUTH_PASSWORD_PEPPER = "AUTH_PASSWORD_PEPPER"
-	SWAGGER_ENABLED      = "SWAGGER_ENABLED"
-	HTTP_TLS_CERT        = "HTTP_TLS_CERT"
-	HTTP_TLS_KEY         = "HTTP_TLS_KEY"
-	REDIS_TLS            = "REDIS_TLS"
-	CORS_ORIGINS         = "CORS_ORIGINS"
-	TRUSTED_PROXIES      = "TRUSTED_PROXIES"
+
+	// cache
+	SHARD_ID              = "SHARD_ID"
+	SHARD_COUNT           = "SHARD_COUNT"
+	MAX_ACCOUNT_PER_SHARD = "MAX_ACCOUNT_PER_SHARD"
+
+	// first manager password (seed)
+	// #nosec G101 -- env var name, not a credential
+	FIRST_MANAGER_PASSWORD = "FIRST_MANAGER_PASSWORD"
+
+	// swagger
+	SWAGGER_ENABLED = "SWAGGER_ENABLED"
+	HTTP_TLS_CERT   = "HTTP_TLS_CERT"
+	HTTP_TLS_KEY    = "HTTP_TLS_KEY"
+	REDIS_TLS       = "REDIS_TLS"
+	CORS_ORIGINS    = "CORS_ORIGINS"
+
+	// Trusted Proxies are the value which we trust for example the nginx proxy
+	// ip address whatever request comes to nginx it will be the ip address of the nginx proxy
+	// it will be trusted by the server
+	TRUSTED_PROXIES = "TRUSTED_PROXIES"
 )
 
 type Config struct {
