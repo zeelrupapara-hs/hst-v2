@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -456,6 +457,10 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group created",
 		"actor", snap.Login, "group_id", v.GroupID, "group", v.Group)
 
+	// a manager allowed to create groups but granted none would otherwise
+	// create one and immediately be unable to see it
+	s.grantCreatorAccess(c.UserContext(), snap.Login, v.Group)
+
 	// every manager whose access covers this path hears about it, including
 	// the ones granted a parent long before this group existed
 	s.NotifyWS(model.FamilyGroups, v.Group, model.ActionCreated, v)
@@ -634,4 +639,43 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 	s.NotifyWS(model.FamilyGroups, path, model.ActionDeleted, ViewGroupRef{GroupID: id, Group: path})
 
 	return s.App.HttpResponseNoContent(c)
+}
+
+// grantCreatorAccess gives a manager holding no group access the group it just
+// created, and everything it later builds underneath.
+//
+// The mask is the path with a trailing wildcard rather than the bare path: a
+// manager who is granted only demo\team would have access the next time they
+// create a group, so demo\team\a would never be granted and they could not see
+// what they had just made.
+//
+// Emptiness is tested inside the statement rather than read first, so two
+// groups created at the same moment cannot both find the access empty and
+// overwrite each other.
+func (s *HttpServer) grantCreatorAccess(ctx context.Context, login int64, path string) {
+	tag, err := s.DB.DB.Exec(ctx,
+		`UPDATE hst.managers
+		    SET groups = ARRAY[$2], updated_at = $3
+		  WHERE login = $1 AND COALESCE(cardinality(groups), 0) = 0`,
+		login, path+model.GroupSep+"*", time.Now().UnixNano())
+	if err != nil {
+		s.Log.Log(logger.TypeCfg, logger.CodeWarn, "could not grant the creator access to its group",
+			"login", login, "group", path, "error", err.Error())
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		// the manager already had access somewhere, so nothing is assumed
+		return
+	}
+
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "granted the creator access to its first group",
+		"login", login, "group", path)
+
+	// the access just changed, and the session carries a copy of it: revoking
+	// it is what makes the manager come back with the new mask, on every
+	// instance and on the websocket as well
+	if err := s.OAuth2.InvalidateLogin(ctx, login, model.SessionRevokedRightsChanged); err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not revoke the session after granting access",
+			"login", login, "error", err.Error())
+	}
 }
