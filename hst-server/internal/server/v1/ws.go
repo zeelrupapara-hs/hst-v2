@@ -7,7 +7,6 @@ import (
 	"hstserver/model"
 	"hstserver/pkg/cache"
 	nethttp "hstserver/pkg/http"
-	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/ws"
 	"hstserver/utils"
@@ -241,13 +240,23 @@ func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message string, 
 		login = snap.Login
 	}
 
-	if err := s.Journal.Write(c.UserContext(), journal.Entry{
-		Type:    logger.TypeCfg,
-		Code:    code,
+	raw, err := json.Marshal(detail)
+	if err != nil {
+		// a detail that cannot be encoded is the caller's bug, and losing the
+		// whole entry over it would hide what actually happened
+		s.Log.Log(logger.TypeSys, logger.CodeWarn, "could not encode a journal detail",
+			"message", message, "error", err.Error())
+		raw = nil
+	}
+
+	if err := s.Journal.Entry(c.UserContext(), &model.Journal{
+		Type: int32(logger.TypeCfg),
+		// #nosec G115 -- a logger code is 0..4, far inside the column
+		Code:    int32(code),
 		Login:   login,
 		Ip:      utils.GetRealIP(c),
 		Message: message,
-		Detail:  detail,
+		Detail:  raw,
 	}); err != nil {
 		s.Log.Log(logger.TypeSys, logger.CodeWarn, "could not write a journal entry",
 			"message", message, "error", err.Error())
