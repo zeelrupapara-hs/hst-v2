@@ -337,8 +337,8 @@ type ViewClientRef struct {
 	ClientId int64 `json:"client_id"`
 }
 
-// clientGroups is the distinct set of groups a client is present in, through the logins it owns.
-func (s *HttpServer) clientGroups(ctx context.Context, clientId int64) []string {
+// ClientGroups is the distinct set of groups a client is present in, through the logins it owns.
+func (s *HttpServer) ClientGroups(ctx context.Context, clientId int64) []string {
 	rows, err := s.DB.DB.Query(ctx,
 		`SELECT DISTINCT "group" FROM hst.users WHERE client_id = $1`, clientId)
 	if err != nil {
@@ -359,13 +359,13 @@ func (s *HttpServer) clientGroups(ctx context.Context, clientId int64) []string 
 	return out
 }
 
-// notifyClient announces a client change to every group the client has a login in.
-func (s *HttpServer) notifyClient(ctx context.Context, clientId int64, event string, payload any) {
-	s.notifyClientIn(s.clientGroups(ctx, clientId), event, payload)
+// NotifyClient announces a client change to every group the client has a login in.
+func (s *HttpServer) NotifyClient(ctx context.Context, clientId int64, event string, payload any) {
+	s.NotifyClientIn(s.ClientGroups(ctx, clientId), event, payload)
 }
 
-// notifyClientIn is notifyClient with the groups already read, for a delete where the logins are detached before the row goes.
-func (s *HttpServer) notifyClientIn(groups []string, event string, payload any) {
+// NotifyClientIn is NotifyClient with the groups already read, for a delete where the logins are detached before the row goes.
+func (s *HttpServer) NotifyClientIn(groups []string, event string, payload any) {
 	// a client with no login yet sits under root, where only a manager with unrestricted access is listening
 	if len(groups) == 0 {
 		s.NotifyWS(model.SubjectClient(""), event, payload)

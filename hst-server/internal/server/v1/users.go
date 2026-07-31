@@ -145,7 +145,7 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, login, s.notifyUser(model.EventUserCreated))
+	return s.getUserByLogin(c, login, s.NotifyUser(model.EventUserCreated))
 }
 
 // ListUsers returns a page of logins.
@@ -309,7 +309,7 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 		s.JournalEntry(c, logger.CodeOK, journal.UserMovedMsg(snap.Login, int64(login)), oldGroup)
 	}
 
-	return s.getUserByLogin(c, int64(login), s.notifyUser(model.EventUserUpdated))
+	return s.getUserByLogin(c, int64(login), s.NotifyUser(model.EventUserUpdated))
 }
 
 // DeleteUser removes a login.
@@ -360,12 +360,12 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 }
 
 // returning the group saves a read: it is needed to announce the delete
-func (s *HttpServer) notifyUser(event string) func(*fiber.Ctx, interface{}) error {
+func (s *HttpServer) NotifyUser(event string) func(*fiber.Ctx, interface{}) error {
 	return func(c *fiber.Ctx, v interface{}) error {
 		if u, ok := v.(*ViewUser); ok {
 			s.NotifyWS(model.SubjectUser(u.Group), event, u)
-			s.NotifySystem(systemUserSubject(event), u)
-			s.JournalEntry(c, logger.CodeOK, userMsg(c, event, u), u)
+			s.NotifySystem(SystemUserSubject(event), u)
+			s.JournalEntry(c, logger.CodeOK, UserMsg(c, event, u), u)
 		}
 		if event == model.EventUserCreated {
 			return s.App.HttpResponseCreated(c, v)
@@ -422,16 +422,16 @@ func (s *HttpServer) hashPasswords(passwords ...string) ([]string, error) {
 	return out, nil
 }
 
-// systemUserSubject is the service side of a user event.
-func systemUserSubject(event string) string {
+// SystemUserSubject is the service side of a user event.
+func SystemUserSubject(event string) string {
 	if event == model.EventUserCreated {
 		return model.SubjectSystemUserCreated
 	}
 	return model.SubjectSystemUserUpdated
 }
 
-// userMsg is the journal line for a user event.
-func userMsg(c *fiber.Ctx, event string, u *ViewUser) string {
+// UserMsg is the journal line for a user event.
+func UserMsg(c *fiber.Ctx, event string, u *ViewUser) string {
 	snap, _ := utils.GetClient(c)
 
 	var actor int64

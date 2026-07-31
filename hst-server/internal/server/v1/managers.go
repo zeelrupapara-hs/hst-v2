@@ -577,7 +577,7 @@ func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "manager created",
 		"actor", snap.Login, "target", body.Login)
 
-	return s.getManager(c, body.Login, s.notifyManager(model.EventManagerCreated,
+	return s.getManager(c, body.Login, s.NotifyManager(model.EventManagerCreated,
 		model.SubjectSystemManagerCreated, journal.ManagerCreatedMsg(snap.Login, body.Login), true))
 }
 
@@ -638,7 +638,7 @@ func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "manager updated",
 		"actor", snap.Login, "target", login)
 
-	return s.getManager(c, int64(login), s.notifyManager(model.EventManagerUpdated,
+	return s.getManager(c, int64(login), s.NotifyManager(model.EventManagerUpdated,
 		model.SubjectSystemManagerUpdated, journal.ManagerUpdatedMsg(snap.Login, int64(login)), false))
 }
 
@@ -701,8 +701,8 @@ func (s *HttpServer) getManager(c *fiber.Ctx, login int64,
 	return respond(c, m)
 }
 
-// notifyManager announces a manager change on the way out, so the record is loaded once.
-func (s *HttpServer) notifyManager(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
+// NotifyManager announces a manager change on the way out, so the record is loaded once.
+func (s *HttpServer) NotifyManager(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
 	return func(c *fiber.Ctx, v interface{}) error {
 		s.NotifyWS(model.SubjectManager, event, v)
 		s.NotifySystem(systemSubject, v)

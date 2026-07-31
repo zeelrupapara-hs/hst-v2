@@ -199,7 +199,7 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "client created",
 		"actor", snap.Login, "client_id", view.ClientId)
 
-	s.notifyClient(c.UserContext(), view.ClientId, model.EventClientCreated, view)
+	s.NotifyClient(c.UserContext(), view.ClientId, model.EventClientCreated, view)
 	s.NotifySystem(model.SubjectSystemClientCreated, view)
 	s.JournalEntry(c, logger.CodeOK, journal.ClientCreatedMsg(snap.Login, view.ClientId), view)
 
@@ -448,7 +448,7 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "client updated",
 		"actor", snap.Login, "client_id", id)
 
-	s.notifyClient(c.UserContext(), int64(id), model.EventClientUpdated, client)
+	s.NotifyClient(c.UserContext(), int64(id), model.EventClientUpdated, client)
 	s.NotifySystem(model.SubjectSystemClientUpdated, client)
 	s.JournalEntry(c, logger.CodeOK, journal.ClientUpdatedMsg(snap.Login, int64(id)), client)
 
@@ -496,7 +496,7 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 	}
 
 	// read the groups while the logins still point at this client
-	groups := s.clientGroups(ctx, int64(id))
+	groups := s.ClientGroups(ctx, int64(id))
 
 	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.clients WHERE client_id = $1`, id)
 	if err != nil {
@@ -510,9 +510,9 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "client deleted",
 		"actor", snap.Login, "client_id", id, "users_detached", users)
 
-	// the logins were detached above, so the groups are read before the delete; see notifyClient
+	// the logins were detached above, so the groups are read before the delete; see NotifyClient
 	ref := ViewClientRef{ClientId: int64(id)}
-	s.notifyClientIn(groups, model.EventClientDeleted, ref)
+	s.NotifyClientIn(groups, model.EventClientDeleted, ref)
 	s.NotifySystem(model.SubjectSystemClientDeleted, ref)
 	s.JournalEntry(c, logger.CodeWarn, journal.ClientDeletedMsg(snap.Login, int64(id)), ref)
 

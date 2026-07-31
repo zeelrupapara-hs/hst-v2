@@ -317,7 +317,7 @@ func (s *HttpServer) CreateGroupCommission(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group commission created",
 		"actor", snap.Login, "group_id", groupID, "commission_id", v.CommissionID)
 
-	path := s.groupPath(c, groupID)
+	path := s.GroupPath(c, groupID)
 	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionCreated, v)
 	s.NotifySystem(model.SubjectSystemGroupCommissionCreated, v)
 	s.JournalEntry(c, logger.CodeOK, journal.GroupCommissionCreatedMsg(snap.Login, path), v)
@@ -423,7 +423,7 @@ func (s *HttpServer) UpdateGroupCommission(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group commission updated",
 		"actor", snap.Login, "group_id", groupID, "commission_id", commissionID)
 
-	path := s.groupPath(c, groupID)
+	path := s.GroupPath(c, groupID)
 	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionUpdated, v)
 	s.NotifySystem(model.SubjectSystemGroupCommissionUpdated, v)
 	s.JournalEntry(c, logger.CodeOK, journal.GroupCommissionUpdatedMsg(snap.Login, path), v)
@@ -468,7 +468,7 @@ func (s *HttpServer) DeleteGroupCommission(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group commission deleted",
 		"actor", snap.Login, "group_id", groupID, "commission_id", commissionID)
 
-	path := s.groupPath(c, groupID)
+	path := s.GroupPath(c, groupID)
 	ref := ViewCommissionRef{GroupID: groupID, CommissionID: commissionID}
 	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionDeleted, ref)
 	s.NotifySystem(model.SubjectSystemGroupCommissionDeleted, ref)

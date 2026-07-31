@@ -251,8 +251,8 @@ func groupExists(c *fiber.Ctx, s *HttpServer, groupID int) error {
 	return err
 }
 
-// groupPath is the path of a group, for announcing a change to its symbols.
-func (s *HttpServer) groupPath(c *fiber.Ctx, groupID int) string {
+// GroupPath is the path of a group, for announcing a change to its symbols.
+func (s *HttpServer) GroupPath(c *fiber.Ctx, groupID int) string {
 	var path string
 	if err := s.DB.DB.QueryRow(c.UserContext(),
 		`SELECT "group" FROM hst.groups WHERE group_id = $1`, groupID).Scan(&path); err != nil {
@@ -510,10 +510,10 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol created",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", v.SymbolID, "path", v.Path)
 
-	groupPath := s.groupPath(c, groupID)
-	s.NotifyWS(model.SubjectGroupSymbol(groupPath), model.EventGroupSymbolCreated, v)
+	GroupPath := s.GroupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupSymbol(GroupPath), model.EventGroupSymbolCreated, v)
 	s.NotifySystem(model.SubjectSystemGroupSymbolCreated, v)
-	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolCreatedMsg(snap.Login, groupPath), v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolCreatedMsg(snap.Login, GroupPath), v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -664,7 +664,7 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol updated",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
 
-	path := s.groupPath(c, groupID)
+	path := s.GroupPath(c, groupID)
 	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolUpdated, v)
 	s.NotifySystem(model.SubjectSystemGroupSymbolUpdated, v)
 	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolUpdatedMsg(snap.Login, path), v)
@@ -709,7 +709,7 @@ func (s *HttpServer) DeleteGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol deleted",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
 
-	path := s.groupPath(c, groupID)
+	path := s.GroupPath(c, groupID)
 	ref := ViewGroupSymbolRef{GroupID: groupID, SymbolID: symbolID}
 	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolDeleted, ref)
 	s.NotifySystem(model.SubjectSystemGroupSymbolDeleted, ref)

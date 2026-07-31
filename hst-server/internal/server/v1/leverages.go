@@ -167,7 +167,7 @@ func (s *HttpServer) CreateLeverageProfile(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "leverage profile created",
 		"actor", snap.Login, "target", id, "rules", len(body.Rules))
 
-	return s.getLeverageProfile(c, id, s.notifyLeverage(model.EventLeverageCreated,
+	return s.getLeverageProfile(c, id, s.NotifyLeverage(model.EventLeverageCreated,
 		model.SubjectSystemLeverageCreated, journal.LeverageCreatedMsg(snap.Login, body.Name), true))
 }
 
@@ -323,7 +323,7 @@ func (s *HttpServer) UpdateLeverageProfile(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "leverage profile updated",
 		"actor", snap.Login, "target", id, "rules_replaced", body.Rules != nil)
 
-	return s.getLeverageProfile(c, int64(id), s.notifyLeverage(model.EventLeverageUpdated,
+	return s.getLeverageProfile(c, int64(id), s.NotifyLeverage(model.EventLeverageUpdated,
 		model.SubjectSystemLeverageUpdated, journal.LeverageUpdatedMsg(snap.Login, ptrOr(body.Name, "")), false))
 }
 
@@ -445,7 +445,7 @@ func (s *HttpServer) CreateLeverageRule(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "leverage rule created",
 		"actor", snap.Login, "target", id, "config_index", next)
 
-	return s.getLeverageProfile(c, int64(id), s.notifyLeverage(model.EventLeverageRuleCreated,
+	return s.getLeverageProfile(c, int64(id), s.NotifyLeverage(model.EventLeverageRuleCreated,
 		model.SubjectSystemLeverageUpdated, journal.LeverageRuleCreatedMsg(snap.Login, id), true))
 }
 
@@ -557,7 +557,7 @@ func (s *HttpServer) UpdateLeverageRule(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "leverage rule updated",
 		"actor", snap.Login, "target", id, "rule_id", ruleId)
 
-	return s.getLeverageProfile(c, int64(id), s.notifyLeverage(model.EventLeverageRuleUpdated,
+	return s.getLeverageProfile(c, int64(id), s.NotifyLeverage(model.EventLeverageRuleUpdated,
 		model.SubjectSystemLeverageUpdated, journal.LeverageRuleUpdatedMsg(snap.Login, ruleId), false))
 }
 
@@ -625,7 +625,7 @@ func (s *HttpServer) DeleteLeverageRule(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "leverage rule deleted",
 		"actor", snap.Login, "target", id, "rule_id", ruleId)
 
-	return s.getLeverageProfile(c, int64(id), s.notifyLeverage(model.EventLeverageRuleDeleted,
+	return s.getLeverageProfile(c, int64(id), s.NotifyLeverage(model.EventLeverageRuleDeleted,
 		model.SubjectSystemLeverageUpdated, journal.LeverageRuleDeletedMsg(snap.Login, ruleId), false))
 }
 
@@ -737,7 +737,7 @@ func (s *HttpServer) ReorderLeverageRules(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "leverage rules reordered",
 		"actor", snap.Login, "target", id, "rules", len(body.RuleIds))
 
-	return s.getLeverageProfile(c, int64(id), s.notifyLeverage(model.EventLeverageReordered,
+	return s.getLeverageProfile(c, int64(id), s.NotifyLeverage(model.EventLeverageReordered,
 		model.SubjectSystemLeverageReordered, journal.LeverageReorderedMsg(snap.Login, id), false))
 }
 
@@ -915,8 +915,8 @@ func validateTiers(tiers []CrtLeverageTier) error {
 	return nil
 }
 
-// notifyLeverage announces a leverage change on the way out, so the profile is loaded once.
-func (s *HttpServer) notifyLeverage(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
+// NotifyLeverage announces a leverage change on the way out, so the profile is loaded once.
+func (s *HttpServer) NotifyLeverage(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
 	return func(c *fiber.Ctx, v interface{}) error {
 		s.NotifyWS(model.SubjectLeverage, event, v)
 		s.NotifySystem(systemSubject, v)
