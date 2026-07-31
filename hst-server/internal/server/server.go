@@ -75,6 +75,7 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 func (s *Server) Run() error {
 	// register all routes
 	s.RegisterRoutes()
+	s.Web.RegisterWSV1()
 
 	addr := s.Cfg.HTTP.Host + ":" + s.Cfg.HTTP.Port
 

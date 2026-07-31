@@ -205,14 +205,40 @@ func (c *Client) readPump() {
 			return
 		}
 
-		// a client with no native ping support can send a ping event instead
-		var in model.Event
-		if err := json.Unmarshal(data, &in); err != nil {
-			continue
-		}
-		if in.Type == model.EventPing {
-			c.Send(&model.Event{Type: model.EventPong, At: time.Now().UnixNano()})
-		}
+		c.dispatch(data)
+	}
+}
+
+// dispatch runs one inbound command, or answers a keepalive.
+func (c *Client) dispatch(data []byte) {
+	var in inbound
+	if err := json.Unmarshal(data, &in); err != nil {
+		return
+	}
+
+	// a client with no native ping support can send one as a command instead
+	if in.Type == model.EventPing {
+		c.Send(&model.Event{Type: model.EventPong, At: time.Now().UnixNano()})
+		return
+	}
+
+	ctx := &Ctx{Client: c, Type: in.Type, Id: in.Id, Data: in.Payload}
+
+	route, ok := c.hub.Route(in.Type)
+	if !ok {
+		_ = ctx.SendError(ErrUnknownCommand)
+		return
+	}
+
+	// the socket proves who is calling and never what they may do, so a command is checked like a route
+	if route.RequiresRight && (!c.IsManager || !c.Rights().Has(route.Right)) {
+		_ = ctx.SendError(ErrNotPermitted)
+		return
+	}
+
+	if err := route.Handler(ctx); err != nil {
+		c.log.Log(logger.TypeNet, logger.CodeWarn, "websocket command failed",
+			"session_id", c.SessionId, "command", in.Type, "error", err.Error())
 	}
 }
 

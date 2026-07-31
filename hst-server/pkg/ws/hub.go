@@ -33,13 +33,49 @@ type Hub struct {
 	clients map[string][]*Client
 	total   int
 
+	// routes are the commands a client may send, each gated on a manager right.
+	routes map[string]Route
+
 	log *logger.Logger
+}
+
+// RegisterRoute maps a command name to its handler and the right it needs.
+func (h *Hub) RegisterRoute(command string, right uint, handler Command) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.routes[command] = Route{Handler: handler, Right: right, RequiresRight: true}
+}
+
+// RegisterOpenRoute maps a command that needs no particular right.
+func (h *Hub) RegisterOpenRoute(command string, handler Command) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	h.routes[command] = Route{Handler: handler}
+}
+
+// Route looks up a command.
+func (h *Hub) Route(command string) (Route, bool) {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	r, ok := h.routes[command]
+	return r, ok
+}
+
+// Routes is how many commands are registered.
+func (h *Hub) Routes() int {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return len(h.routes)
 }
 
 // NewHub returns an empty hub.
 func NewHub(log *logger.Logger) *Hub {
 	return &Hub{
 		clients: make(map[string][]*Client),
+		routes:  make(map[string]Route),
 		log:     log,
 	}
 }

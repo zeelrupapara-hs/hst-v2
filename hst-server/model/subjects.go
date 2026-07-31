@@ -117,6 +117,13 @@ const (
 	SubjectSystemManagerDeleted = "system.manager.deleted"
 )
 
+// The commands a client may send over the socket, each gated on the right its http route carries.
+const (
+	CommandGroupCreate = "group_create"
+	CommandGroupUpdate = "group_update"
+	CommandGroupDelete = "group_delete"
+)
+
 // The event types a record change carries.
 const (
 	EventGroupCreated = "group_created"

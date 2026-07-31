@@ -110,6 +110,22 @@ func (a *App) HttpResponseInternalServerErrorRequest(c *fiber.Ctx, message error
 	})
 }
 
+// HttpResponseStatus answers with the status a transport neutral core decided.
+func (a *App) HttpResponseStatus(c *fiber.Ctx, status int, message error) error {
+	switch status {
+	case StatusBadRequest:
+		return a.HttpResponseBadRequest(c, message)
+	case StatusForbidden:
+		return a.HttpResponseForbidden(c, message)
+	case StatusNotFound:
+		return a.HttpResponseNotFound(c, message)
+	case StatusConflict:
+		return a.HttpResponseConflict(c, message)
+	default:
+		return a.HttpResponseInternalServerErrorRequest(c, message)
+	}
+}
+
 // HttpResponseRetCode answers 200 with an MT5 retcode.
 func (a *App) HttpResponseRetCode(c *fiber.Ctx, code RetCode, data interface{}) error {
 	return c.Status(StatusOK).JSON(&HttpResponse{

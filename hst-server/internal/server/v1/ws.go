@@ -195,6 +195,12 @@ func (s *HttpServer) JournalEntry(c *fiber.Ctx, code logger.Code, message string
 		login = snap.Login
 	}
 
+	s.WriteJournal(c.UserContext(), login, utils.GetRealIP(c), code, message, detail)
+}
+
+// WriteJournal records a line for an actor, whichever transport the actor arrived on.
+func (s *HttpServer) WriteJournal(ctx context.Context, login int64, ip string, code logger.Code, message string, detail any) {
+
 	raw, err := json.Marshal(detail)
 	if err != nil {
 		// a detail that cannot be encoded is the caller's bug, and losing the whole entry over it would hide what actually happened
@@ -203,12 +209,12 @@ func (s *HttpServer) JournalEntry(c *fiber.Ctx, code logger.Code, message string
 		raw = nil
 	}
 
-	if err := s.Journal.Entry(c.UserContext(), &model.Journal{
+	if err := s.Journal.Entry(ctx, &model.Journal{
 		Type: int32(logger.TypeCfg),
 		// #nosec G115 -- a logger code is 0..4, far inside the column
 		Code:    int32(code),
 		Login:   login,
-		Ip:      utils.GetRealIP(c),
+		Ip:      ip,
 		Message: message,
 		Detail:  raw,
 	}); err != nil {

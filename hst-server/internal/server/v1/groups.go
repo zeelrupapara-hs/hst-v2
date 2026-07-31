@@ -1,13 +1,16 @@
 package v1
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"time"
 
+	"context"
+
 	"hstserver/model"
+	"hstserver/pkg/cache"
 	errs "hstserver/pkg/errors"
+	nethttp "hstserver/pkg/http"
 	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
@@ -363,13 +366,26 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
 	}
+
+	snap, _ := utils.GetClient(c)
+
+	v, status, err := s.MakeGroup(c.UserContext(), body, snap, utils.GetRealIP(c))
+	if err != nil {
+		return s.App.HttpResponseStatus(c, status, err)
+	}
+
+	return s.App.HttpResponseCreated(c, v)
+}
+
+// MakeGroup creates a group for an actor, whichever transport the actor arrived on.
+func (s *HttpServer) MakeGroup(ctx context.Context, body CrtGroup, snap *cache.Snapshot, ip string) (*ViewGroup, int, error) {
 	if err := s.Validate.Struct(body); err != nil {
-		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+		return nil, nethttp.StatusBadRequest, utils.ValidatorMessage(err)
 	}
 
 	path := strings.TrimSpace(body.Group)
 	if path == "" {
-		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+		return nil, nethttp.StatusBadRequest, errs.ErrRequiredParams
 	}
 
 	flags := model.PermissionFlagsFromStatus("active")
@@ -388,10 +404,9 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 		newsLangs = []int32{}
 	}
 
-	snap, _ := utils.GetClient(c)
 	now := time.Now().UnixNano()
 
-	v, err := scanViewGroup(s.DB.DB.QueryRow(c.UserContext(),
+	v, err := scanViewGroup(s.DB.DB.QueryRow(ctx,
 		`INSERT INTO hst.groups (
 		    "group",
 		    permission_flags, auth_mode, auth_password_min,
@@ -433,23 +448,22 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 		now))
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
-			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
+			return nil, nethttp.StatusConflict, errs.ErrAlreadyExists
 		}
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return nil, nethttp.StatusInternalServerError, err
 	}
 
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group created",
 		"actor", snap.Login, "group_id", v.GroupID, "group", v.Group)
 
-	// a manager allowed to create groups but granted none would otherwise create one and immediately be unable to see it
-	s.grantCreatorAccess(c.UserContext(), snap.Login, v.Group)
+	// a manager allowed to create groups but granted none would not see what it made
+	s.grantCreatorAccess(ctx, snap.Login, v.Group)
 
-	// every manager whose access covers this path hears about it, including the ones granted a parent long before this group existed
 	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupCreated, v)
 	s.NotifySystem(model.SubjectSystemGroupCreated, v)
-	s.JournalEntry(c, logger.CodeOK, journal.GroupCreatedMsg(snap.Login, v.Group), v)
+	s.WriteJournal(ctx, snap.Login, ip, logger.CodeOK, journal.GroupCreatedMsg(snap.Login, v.Group), v)
 
-	return s.App.HttpResponseCreated(c, v)
+	return v, nethttp.StatusCreated, nil
 }
 
 // UpdateGroup patches group config fields.
@@ -476,8 +490,21 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
 	}
+
+	snap, _ := utils.GetClient(c)
+
+	v, status, err := s.ChangeGroup(c.UserContext(), id, body, snap, utils.GetRealIP(c))
+	if err != nil {
+		return s.App.HttpResponseStatus(c, status, err)
+	}
+
+	return s.App.HttpResponseOK(c, v)
+}
+
+// ChangeGroup patches a group for an actor, whichever transport the actor arrived on.
+func (s *HttpServer) ChangeGroup(ctx context.Context, id int, body UptGroup, snap *cache.Snapshot, ip string) (*ViewGroup, int, error) {
 	if err := s.Validate.Struct(body); err != nil {
-		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+		return nil, nethttp.StatusBadRequest, utils.ValidatorMessage(err)
 	}
 
 	flags := body.PermissionFlags
@@ -486,10 +513,9 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 		flags = &f
 	}
 
-	snap, _ := utils.GetClient(c)
 	now := time.Now().UnixNano()
 
-	v, err := scanViewGroup(s.DB.DB.QueryRow(c.UserContext(),
+	v, err := scanViewGroup(s.DB.DB.QueryRow(ctx,
 		`UPDATE hst.groups SET
 		    permission_flags         = COALESCE($2, permission_flags),
 		    auth_mode                = COALESCE($3, auth_mode),
@@ -544,10 +570,10 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 		body.LimitHistory, body.LimitOrders, body.LimitSymbols, body.LimitPositions, body.LimitPositionsVolume,
 		now))
 	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		return nil, nethttp.StatusNotFound, errs.ErrNotFound
 	}
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return nil, nethttp.StatusInternalServerError, err
 	}
 
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group updated",
@@ -555,9 +581,9 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupUpdated, v)
 	s.NotifySystem(model.SubjectSystemGroupUpdated, v)
-	s.JournalEntry(c, logger.CodeOK, journal.GroupUpdatedMsg(snap.Login, v.Group), v)
+	s.WriteJournal(ctx, snap.Login, ip, logger.CodeOK, journal.GroupUpdatedMsg(snap.Login, v.Group), v)
 
-	return s.App.HttpResponseOK(c, v)
+	return v, nethttp.StatusOK, nil
 }
 
 // DeleteGroup removes a leaf group with no users on that path.
@@ -579,14 +605,24 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	ctx := c.UserContext()
+	snap, _ := utils.GetClient(c)
+
+	if status, err := s.RemoveGroup(c.UserContext(), id, snap, utils.GetRealIP(c)); err != nil {
+		return s.App.HttpResponseStatus(c, status, err)
+	}
+
+	return s.App.HttpResponseNoContent(c)
+}
+
+// RemoveGroup deletes a group for an actor, whichever transport the actor arrived on.
+func (s *HttpServer) RemoveGroup(ctx context.Context, id int, snap *cache.Snapshot, ip string) (int, error) {
 	var path string
-	err = s.DB.DB.QueryRow(ctx, `SELECT "group" FROM hst.groups WHERE group_id = $1`, id).Scan(&path)
+	err := s.DB.DB.QueryRow(ctx, `SELECT "group" FROM hst.groups WHERE group_id = $1`, id).Scan(&path)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		return nethttp.StatusNotFound, errs.ErrNotFound
 	}
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return nethttp.StatusInternalServerError, err
 	}
 
 	// a section disappears when the last group under it goes
@@ -594,39 +630,38 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 	if err := s.DB.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM hst.groups WHERE starts_with("group", $1)`,
 		path+`\`).Scan(&children); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return nethttp.StatusInternalServerError, err
 	}
 	if children > 0 {
-		return s.App.HttpResponseConflict(c, errs.ErrDeleteWhileNotEmpty)
+		return nethttp.StatusConflict, errs.ErrDeleteWhileNotEmpty
 	}
 
 	var users int
 	if err := s.DB.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM hst.users WHERE "group" = $1`, path).Scan(&users); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return nethttp.StatusInternalServerError, err
 	}
 	if users > 0 {
-		return s.App.HttpResponseConflict(c, errs.ErrDeleteWhileNotEmpty)
+		return nethttp.StatusConflict, errs.ErrDeleteWhileNotEmpty
 	}
 
 	ct, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.groups WHERE group_id = $1`, id)
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return nethttp.StatusInternalServerError, err
 	}
 	if ct.RowsAffected() == 0 {
-		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		return nethttp.StatusNotFound, errs.ErrNotFound
 	}
 
-	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group deleted",
 		"actor", snap.Login, "group_id", id, "group", path)
 
 	ref := ViewGroupRef{GroupID: id, Group: path}
 	s.NotifyWS(model.SubjectGroup(path), model.EventGroupDeleted, ref)
 	s.NotifySystem(model.SubjectSystemGroupDeleted, ref)
-	s.JournalEntry(c, logger.CodeWarn, journal.GroupDeletedMsg(snap.Login, path), ref)
+	s.WriteJournal(ctx, snap.Login, ip, logger.CodeWarn, journal.GroupDeletedMsg(snap.Login, path), ref)
 
-	return s.App.HttpResponseNoContent(c)
+	return nethttp.StatusNoContent, nil
 }
 
 // a manager permitted to create groups but granted none would not see what it made
