@@ -200,11 +200,13 @@ func (s *Server) ListRouting(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
+	// always ascending: routing_index is the evaluation order, not a user preference, and a
+	// list shown newest-first would read as the rules running backwards
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+routingListColumns+`
 		   FROM hst.routing
 		  WHERE ($1 = '' OR name ILIKE '%'||$1||'%')
-		  ORDER BY `+q.SortBy+`
+		  ORDER BY routing_index
 		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)

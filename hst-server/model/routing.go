@@ -78,6 +78,8 @@ const (
 	RouteAction_clear_tp       RouteAction = 2
 	RouteAction_clear_sl       RouteAction = 3
 	RouteAction_clear_sltp     RouteAction = 4
+	RouteAction_dealer         RouteAction = 1001
+	RouteAction_dealer_online  RouteAction = 1002
 	RouteAction_reject         RouteAction = 1003
 	RouteAction_requote        RouteAction = 1004
 	RouteAction_confirm_client RouteAction = 1005
@@ -88,11 +90,13 @@ const (
 var (
 	RouteAction_name = map[int32]string{
 		0: "delay_time", 1: "delay_tick", 2: "clear_tp", 3: "clear_sl", 4: "clear_sltp",
+		1001: "dealer", 1002: "dealer_online",
 		1003: "reject", 1004: "requote", 1005: "confirm_client",
 		1006: "confirm_market", 1007: "cancel_order",
 	}
 	RouteAction_value = map[string]int32{
 		"delay_time": 0, "delay_tick": 1, "clear_tp": 2, "clear_sl": 3, "clear_sltp": 4,
+		"dealer": 1001, "dealer_online": 1002,
 		"reject": 1003, "requote": 1004, "confirm_client": 1005,
 		"confirm_market": 1006, "cancel_order": 1007,
 	}
@@ -143,6 +147,19 @@ const (
 	RouteCondition_position_tp_touched   RouteCondition = 4010
 	RouteCondition_order_sl_touched      RouteCondition = 4011
 	RouteCondition_order_tp_touched      RouteCondition = 4012
+
+	// documented in routing_rules.htm but not in the route_enum.htm export
+	RouteCondition_reason         RouteCondition = 13
+	RouteCondition_request_price  RouteCondition = 14
+	RouteCondition_value          RouteCondition = 15
+	RouteCondition_current_spread RouteCondition = 16
+	RouteCondition_zip            RouteCondition = 1007
+	RouteCondition_status         RouteCondition = 1008
+	RouteCondition_client_id      RouteCondition = 1009
+	RouteCondition_party_id       RouteCondition = 1010
+	RouteCondition_position_value RouteCondition = 4013
+	RouteCondition_order_in       RouteCondition = 4014
+	RouteCondition_order_out      RouteCondition = 4015
 )
 
 var (
@@ -161,6 +178,9 @@ var (
 		4007: "order_total", 4008: "order_total_symbol",
 		4009: "position_sl_touched", 4010: "position_tp_touched",
 		4011: "order_sl_touched", 4012: "order_tp_touched",
+		13: "reason", 14: "request_price", 15: "value", 16: "current_spread",
+		1007: "zip", 1008: "status", 1009: "client_id", 1010: "party_id",
+		4013: "position_value", 4014: "order_in", 4015: "order_out",
 	}
 )
 

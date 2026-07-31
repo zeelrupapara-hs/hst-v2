@@ -3,9 +3,49 @@ package seed
 import (
 	"context"
 	"time"
+
+	"hstserver/model"
+	"hstserver/pkg/logger"
 )
 
-// SeedRouting fills an empty routing table with starter non-dealer rules.
+// ruleCond is one line of a rule's "Where conditions are" table.
+type ruleCond struct {
+	Condition model.RouteCondition
+	Rule      model.ConditionRule
+	Value     string
+}
+
+// startingRules are the rules a fresh install needs to be able to trade at all.
+//
+// Order is everything: rules run top to bottom and the first terminal action wins, so a rule
+// that refuses something must sit above the rule that would have accepted it. The last entry is
+// the catch-all, and without it nothing executes — MT5 is explicit that a request matching no
+// rule is not processed by the server.
+var startingRules = []struct {
+	Name    string
+	Request model.RouteFlags
+	Type    model.TypeFlags
+	Action  model.RouteAction
+	Value   string
+	Conds   []ruleCond
+}{
+	{
+		// a gap is not a market: refuse before anything below can confirm
+		Name:   "Reject during gap",
+		Action: model.RouteAction_reject,
+		Value:  "Market gap",
+		Conds:  []ruleCond{{model.RouteCondition_gap, model.ConditionRule_eq, "1"}},
+	},
+	{
+		// anything not caught above executes at the market price. Deleting this rule stops all
+		// trading on the server, which is why it ships enabled.
+		Name:   "Automate other requests",
+		Action: model.RouteAction_confirm_market,
+	},
+}
+
+// SeedRouting fills an empty routing table with the starting rules, and is a no-op once any rule
+// exists — a broker's own list is never rewritten.
 func (s *Seeder) SeedRouting(ctx context.Context) error {
 	var rules int
 	if err := s.DB.DB.QueryRow(ctx, `SELECT count(*) FROM hst.routing`).Scan(&rules); err != nil {
@@ -23,46 +63,30 @@ func (s *Seeder) SeedRouting(ctx context.Context) error {
 
 	now := time.Now().UnixNano()
 
-	// confirm small instant/market requests at the server
-	var confirmID int64
-	if err := tx.QueryRow(ctx,
-		`INSERT INTO hst.routing
-		   (name, mode, request, type, flags, action, action_value,
-		    routing_index, date_created, date_modified)
-		 VALUES ($1,$2,$3,$4,0,$5,'',$6,$7,$7)
-		 RETURNING routing_id`,
-		"Auto confirm small market",
-		1,
-		0x00000004|0x00000008, // instant + market
-		0x0001|0x0002,         // buy + sell
-		int32(1006),           // confirm at market
-		0, now).Scan(&confirmID); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO hst.routing_conds (routing_id, condition, rule, value)
-		 VALUES ($1, 2, 4, '1000000')`,
-		confirmID); err != nil {
-		return err
-	}
+	for i, r := range startingRules {
+		var id int64
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO hst.routing
+			   (name, mode, request, type, flags, action, action_value,
+			    routing_index, date_created, date_modified)
+			 VALUES ($1, 1, $2, $3, 0, $4, $5, $6, $7, $7)
+			 RETURNING routing_id`,
+			r.Name, int32(r.Request), int32(r.Type), int32(r.Action), r.Value, i, now).
+			Scan(&id); err != nil {
+			return err
+		}
 
-	// reject everything while the symbol is in gap mode
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO hst.routing
-		   (name, mode, request, type, flags, action, action_value,
-		    routing_index, date_created, date_modified)
-		 VALUES ($1,$2,0,0,0,$3,$4,$5,$6,$6)`,
-		"Reject during gap",
-		1,
-		int32(1003), "Market closed",
-		1, now); err != nil {
-		return err
-	}
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO hst.routing_conds (routing_id, condition, rule, value)
-		 VALUES ((SELECT routing_id FROM hst.routing WHERE name = $1), 12, 0, '1')`,
-		"Reject during gap"); err != nil {
-		return err
+		for _, c := range r.Conds {
+			if _, err := tx.Exec(ctx,
+				`INSERT INTO hst.routing_conds (routing_id, condition, rule, value)
+				 VALUES ($1, $2, $3, $4)`,
+				id, int32(c.Condition), int16(c.Rule), c.Value); err != nil {
+				return err
+			}
+		}
+
+		s.Log.Log(logger.TypeSys, logger.CodeOK, "seed routing rule created",
+			"name", r.Name, "index", i)
 	}
 
 	return tx.Commit(ctx)
