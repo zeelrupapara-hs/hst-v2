@@ -269,6 +269,11 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	// the previous group is needed before the write, the losers have to be told
 	var oldGroup string
 	if body.Group != nil {
+		// a move lands the login in a real group or nowhere at all
+		if err := s.GroupExists(ctx, *body.Group); err != nil {
+			return s.App.HttpResponseBadRequest(c, err)
+		}
+
 		if err := s.DB.DB.QueryRow(ctx,
 			`SELECT "group" FROM hst.users WHERE login = $1`, login).Scan(&oldGroup); err != nil &&
 			!errors.Is(err, pgx.ErrNoRows) {
@@ -466,25 +471,42 @@ const defaultLeverage int32 = 1
 // unset means no money and no leverage rather than zero and zero, which would be an account that
 // cannot trade at all. A live group opens empty and is funded by a real transfer.
 func (s *HttpServer) OpeningBalance(ctx context.Context, group string) (float64, int32, int, error) {
-	if !IsDemoGroup(group) {
-		return 0, defaultLeverage, nethttp.StatusOK, nil
-	}
-
 	var (
 		deposit  *float64
 		leverage *int32
 	)
+
+	// the group is read whichever tree it is in: a login belongs to a group, so a group that does
+	// not exist is a bad request rather than a login left pointing at nothing
 	err := s.DB.DB.QueryRow(ctx,
 		`SELECT demo_deposit, demo_leverage FROM hst.groups WHERE "group" = $1`, group).
 		Scan(&deposit, &leverage)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, 0, nethttp.StatusBadRequest, errs.ErrNotFound
+		return 0, 0, nethttp.StatusBadRequest, errs.ErrGroupNotFound
 	}
 	if err != nil {
 		return 0, 0, nethttp.StatusInternalServerError, err
 	}
 
+	// only the demo tree opens on the house
+	if !IsDemoGroup(group) {
+		return 0, defaultLeverage, nethttp.StatusOK, nil
+	}
+
 	return ptrOr(deposit, 0), ptrOr(leverage, defaultLeverage), nethttp.StatusOK, nil
+}
+
+// GroupExists reports whether a group path names a group that is there.
+func (s *HttpServer) GroupExists(ctx context.Context, group string) error {
+	var exists bool
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM hst.groups WHERE "group" = $1)`, group).Scan(&exists); err != nil {
+		return err
+	}
+	if !exists {
+		return errs.ErrGroupNotFound
+	}
+	return nil
 }
 
 // IsDemoGroup reports whether the path opens onto the demo tree.
