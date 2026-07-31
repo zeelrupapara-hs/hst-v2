@@ -23,8 +23,12 @@ type Snapshot struct {
 	IsManager      bool   `json:"mgr"`
 	// ManagerRights is the 77 right columns packed into two words.
 	ManagerRights model.ManagerRights `json:"mrights"`
-	Version       int64               `json:"ver"`
-	ExpiresAt     int64               `json:"expires_at"`
+	// ManagerGroups is the group access, a list of masks like demo\*. It is
+	// carried on the session so the websocket layer can build a subscription
+	// per mask without going back to the database on every connect.
+	ManagerGroups []string `json:"mgroups,omitempty"`
+	Version       int64    `json:"ver"`
+	ExpiresAt     int64    `json:"expires_at"`
 }
 
 type entry struct {

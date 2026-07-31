@@ -66,6 +66,7 @@ func (h *Hub) Add(conn *websocket.Conn, snap Session, ip string) *Client {
 		Login:       snap.Login,
 		Ip:          ip,
 		Rights:      snap.ManagerRights,
+		Groups:      snap.ManagerGroups,
 		IsManager:   snap.IsManager,
 		ConnectedAt: time.Now(),
 		conn:        conn,
@@ -97,6 +98,8 @@ type Session struct {
 	Login         int64
 	IsManager     bool
 	ManagerRights model.ManagerRights
+	// ManagerGroups is the group access, a list of masks.
+	ManagerGroups []string
 }
 
 // Remove closes one connection and forgets it. Calling it twice is safe, which

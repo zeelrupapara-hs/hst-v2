@@ -28,6 +28,10 @@ type Event struct {
 	// Payload is whatever the publisher put in, verbatim. It is only valid
 	// json when Format is FormatJSON.
 	Payload []byte `json:"-"`
+	// Group is the group path the record belongs to, for a group scoped
+	// event. The reader needs it to know which tree the record sits in, and it
+	// has no business parsing the subject to find out.
+	Group string `json:"group,omitempty"`
 	// At is unix nanoseconds.
 	At int64 `json:"at,omitempty"`
 	// Format decides the frame the client receives. It never crosses the wire
@@ -166,20 +170,37 @@ func SubjectBroadcastEvent(event string) string {
 
 // EventTypeFromSubject recovers the event name from the subject, so a
 // publisher does not have to repeat it inside the payload.
-//
-// Everything after the routing prefix is the name, dots included:
-// ws.right.journals.entry.created is the event "entry.created".
 func EventTypeFromSubject(subject string) string {
+	typ, _ := ParseSubject(subject)
+	return typ
+}
+
+// ParseSubject splits a subject into the event type and, for a group scoped
+// subject, the group path it happened in.
+//
+// A group scoped subject is ws.g.<family>.<group path>.<action>, and the type
+// is the family and the action together: "groups.created", not
+// "demo.forex.created". Without the family a group event and an account event
+// on the same path arrive looking identical and the reader cannot tell them
+// apart.
+func ParseSubject(subject string) (eventType, groupPath string) {
 	parts := strings.Split(subject, ".")
+
+	// ws.g.<family>.<path...>.<action>
+	if len(parts) >= 5 && parts[0]+"."+parts[1] == SubjectGroupRoot {
+		family := parts[2]
+		action := parts[len(parts)-1]
+		path := parts[3 : len(parts)-1]
+		return family + "." + action, strings.Join(path, GroupSep)
+	}
 
 	// ws.broadcast.<event...> carries no identifier, the others do
 	skip := 3
 	if len(parts) >= 2 && parts[0]+"."+parts[1] == SubjectBroadcastRoot {
 		skip = 2
 	}
-
 	if len(parts) <= skip {
-		return ""
+		return "", ""
 	}
-	return strings.Join(parts[skip:], ".")
+	return strings.Join(parts[skip:], "."), ""
 }

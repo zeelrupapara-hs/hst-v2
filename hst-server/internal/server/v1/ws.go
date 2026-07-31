@@ -56,6 +56,7 @@ func (s *HttpServer) ServeWS(c *websocket.Conn) {
 		Login:         snap.Login,
 		IsManager:     snap.IsManager,
 		ManagerRights: snap.ManagerRights,
+		ManagerGroups: snap.ManagerGroups,
 	}, ip)
 
 	if err := s.subscribe(client); err != nil {
@@ -87,15 +88,27 @@ func (s *HttpServer) subscribe(c *ws.Client) error {
 		return err
 	}
 
-	// and one subject per right it holds
-	if c.IsManager {
-		for _, r := range rightSubjects {
-			if !c.Rights.Has(r.right) {
-				continue
-			}
-			if err := s.subscribeTo(c, model.SubjectRight(r.name)); err != nil {
-				return err
-			}
+	if !c.IsManager {
+		return nil
+	}
+
+	// one subject per right, for records that have no group: symbols, other
+	// managers, the server journal
+	for _, r := range rightSubjects {
+		if !c.Rights.Has(r.right) {
+			continue
+		}
+		if err := s.subscribeTo(c, model.SubjectRight(r.name)); err != nil {
+			return err
+		}
+	}
+
+	// and one per family it may see, crossed with each group mask it holds.
+	// The mask is the subscription, so a group created later under a granted
+	// path is covered without anyone re-subscribing.
+	for _, subject := range model.Subscriptions(c.Rights, c.Groups) {
+		if err := s.subscribeTo(c, subject); err != nil {
+			return err
 		}
 	}
 
@@ -134,8 +147,11 @@ func eventFromMsg(msg *natscore.Msg) *model.Event {
 		format = model.SniffFormat(msg.Data)
 	}
 
+	typ, group := model.ParseSubject(msg.Subject)
+
 	e := &model.Event{
-		Type:    model.EventTypeFromSubject(msg.Subject),
+		Type:    typ,
+		Group:   group,
 		Payload: msg.Data,
 		Format:  format,
 		At:      time.Now().UnixNano(),
@@ -203,4 +219,29 @@ func (s *HttpServer) WSStats(c *fiber.Ctx) error {
 		Connections: s.Hub.Count(),
 		Sessions:    s.Hub.Sessions(),
 	})
+}
+
+// ViewGroupRef identifies a record that no longer exists, for a delete event.
+// The reader only needs to know which row to drop.
+type ViewGroupRef struct {
+	GroupID int    `json:"group_id"`
+	Group   string `json:"group"`
+}
+
+// NotifyWS publishes a group scoped record change.
+//
+// The publisher says what changed and where it lives, and nothing about who
+// may see it: the group path in the subject is the authorisation, matched by
+// nats against each manager's access masks. No lookup of connected clients, no
+// query of who has rights, one publish however many managers are listening.
+//
+// A failure is logged and swallowed. The write already succeeded; failing the
+// request because a notification did not go out would be the wrong trade.
+func (s *HttpServer) NotifyWS(family model.Family, groupPath string, action model.Action, payload any) {
+	subject := model.Subject(family, groupPath, action)
+
+	if err := s.PublishWS(subject, payload); err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeWarn, "could not publish a websocket event",
+			"subject", subject, "error", err.Error())
+	}
 }

@@ -282,6 +282,7 @@ func NewSnapshot(sid string, u *model.User, mgr *model.Manager, cfg *Config, exp
 	if mgr != nil {
 		snap.IsManager = true
 		snap.ManagerRights = PackManagerRights(mgr)
+		snap.ManagerGroups = mgr.Groups
 	}
 
 	return snap

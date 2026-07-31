@@ -31,6 +31,10 @@ type Client struct {
 	Ip string
 	// Rights are the manager rights the session held at connect time.
 	Rights model.ManagerRights
+	// Groups is the group access the session held at connect time, a list of
+	// masks. Changing it revokes the session, which closes this socket, so it
+	// can never drift from what the manager is actually allowed.
+	Groups []string
 	// IsManager is false for a trading account.
 	IsManager bool
 	// ConnectedAt is when the socket was accepted.
@@ -212,6 +216,11 @@ func encodeJSON(e *model.Event) []byte {
 
 	buf = append(buf, `{"type":`...)
 	buf = appendQuoted(buf, e.Type)
+
+	if e.Group != "" {
+		buf = append(buf, `,"group":`...)
+		buf = appendQuoted(buf, e.Group)
+	}
 
 	if e.At != 0 {
 		buf = append(buf, `,"at":`...)
