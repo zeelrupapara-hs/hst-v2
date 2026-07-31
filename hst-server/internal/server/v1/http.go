@@ -6,6 +6,7 @@ import (
 	"hstserver/pkg/cache"
 	"hstserver/pkg/db"
 	"hstserver/pkg/http"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/nats"
 	"hstserver/pkg/oauth2"
@@ -42,6 +43,8 @@ type HttpServer struct {
 	Validate *validator.Validate
 	// Hub holds the live websocket connections
 	Hub *ws.Hub
+	// Journal records what happened, for the back office to query
+	Journal *journal.Journal
 }
 
 func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *nats.Nats, rds *redis.Redis, middleware *middleware.Middleware, oauth *oauth2.OAuth2, cfg *config.Config, validate *validator.Validate) *HttpServer {
@@ -49,6 +52,7 @@ func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *n
 	h := &HttpServer{
 		Middleware: middleware,
 		Hub:        ws.NewHub(log),
+		Journal:    journal.New(database, nats, log),
 		App:        app,
 		DB:         database,
 		Log:        log,

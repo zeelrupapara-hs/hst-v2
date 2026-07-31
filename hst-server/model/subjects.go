@@ -38,8 +38,7 @@ const (
 	GroupSep = `\`
 )
 
-// family is the kind of record an event is about, and never leaves this file:
-// a publisher names the subject it wants rather than assembling one.
+// family is the kind of record an event is about: a group, a user, a client, an account or a group symbol.
 type family string
 
 const (
@@ -95,6 +94,32 @@ var (
 	SubjectAccount     = func(path string) string { return subject(familyAccounts, path) }
 )
 
+// From the api to the other services. A system subject is not a websocket
+// subject: nobody's group access decides who reads it, because the reader is
+// another service reloading its own state rather than a person watching a
+// screen. It carries the same payload as the websocket event.
+const (
+	SubjectSystemGroupCreated = "system.group.created"
+	SubjectSystemGroupUpdated = "system.group.updated"
+	SubjectSystemGroupDeleted = "system.group.deleted"
+
+	SubjectSystemGroupSymbolCreated = "system.group_symbol.created"
+	SubjectSystemGroupSymbolUpdated = "system.group_symbol.updated"
+	SubjectSystemGroupSymbolDeleted = "system.group_symbol.deleted"
+
+	SubjectSystemUserCreated = "system.user.created"
+	SubjectSystemUserUpdated = "system.user.updated"
+	SubjectSystemUserDeleted = "system.user.deleted"
+
+	SubjectSystemClientCreated = "system.client.created"
+	SubjectSystemClientUpdated = "system.client.updated"
+	SubjectSystemClientDeleted = "system.client.deleted"
+
+	// SubjectSystemJournal carries a journal entry once it is stored, so a
+	// live view shows it without polling the table.
+	SubjectSystemJournal = "ws.right.journals.entry"
+)
+
 // The event types a record change carries. They ride in the event rather than
 // in the subject, so a reader that wants everything about a group subscribes
 // once instead of once per verb.
@@ -121,6 +146,8 @@ const (
 	EventClientDeleted = "client_deleted"
 
 	EventAccountUpdated = "account_updated"
+
+	EventJournalCreated = "journal_created"
 )
 
 // subject builds a group scoped subject. The named builders above are the only

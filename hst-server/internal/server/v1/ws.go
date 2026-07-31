@@ -7,8 +7,10 @@ import (
 	"hstserver/model"
 	"hstserver/pkg/cache"
 	nethttp "hstserver/pkg/http"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/ws"
+	"hstserver/utils"
 
 	"github.com/goccy/go-json"
 	"github.com/gofiber/contrib/websocket"
@@ -212,6 +214,44 @@ func eventFromMsg(msg *natscore.Msg) *model.Event {
 		e.Type = model.EventError
 	}
 	return e
+}
+
+// NotifySystem publishes a record change for the other services.
+//
+// It carries the same payload as the websocket event and goes to a fixed
+// subject, because the reader is a service reloading its own state rather than
+// a person whose group access decides what they may see.
+func (s *HttpServer) NotifySystem(subject string, payload any) {
+	if err := s.PublishWS(subject, payload); err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeWarn, "could not publish a system event",
+			"subject", subject, "error", err.Error())
+	}
+}
+
+// Journalise records one line of the server journal for the acting session.
+//
+// A failure is logged rather than returned: the write it describes has already
+// happened, and failing the request afterwards would tell the caller their
+// change did not land when it did.
+func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message string, detail any) {
+	snap, _ := utils.GetClient(c)
+
+	var login int64
+	if snap != nil {
+		login = snap.Login
+	}
+
+	if err := s.Journal.Write(c.UserContext(), journal.Entry{
+		Type:    logger.TypeCfg,
+		Code:    code,
+		Login:   login,
+		Ip:      utils.GetRealIP(c),
+		Message: message,
+		Detail:  detail,
+	}); err != nil {
+		s.Log.Log(logger.TypeSys, logger.CodeWarn, "could not write a journal entry",
+			"message", message, "error", err.Error())
+	}
 }
 
 // PublishWS sends a json event to a subject, for any handler that wants to
