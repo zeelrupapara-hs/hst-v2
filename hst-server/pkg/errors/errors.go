@@ -43,6 +43,7 @@ const (
 	GroupNotFound                = "no such group"
 	RegistrationClosed           = "registration is not open for this account type"
 	InvalidConnectionType        = "this connection type does not exist"
+	WrongPanel                   = "this login belongs to the other panel"
 	AccountPending               = "the account is awaiting approval"
 	NotATrader                   = "this panel is for trading accounts"
 	HolidayDateInvalid           = "the month and day are not a real calendar date"
@@ -89,6 +90,7 @@ var (
 	ErrGroupNotFound                = errors.New(GroupNotFound)
 	ErrRegistrationClosed           = errors.New(RegistrationClosed)
 	ErrInvalidConnectionType        = errors.New(InvalidConnectionType)
+	ErrWrongPanel                   = errors.New(WrongPanel)
 	ErrAccountPending               = errors.New(AccountPending)
 	ErrNotATrader                   = errors.New(NotATrader)
 	ErrHolidayDateInvalid           = errors.New(HolidayDateInvalid)

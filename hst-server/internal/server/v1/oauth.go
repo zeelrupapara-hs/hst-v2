@@ -70,21 +70,11 @@ type ViewMe struct {
 	Rights         map[string]bool `json:"manager_rights,omitempty"`
 }
 
-// Login authenticates a manager and opens a session.
+// LoginAs authenticates and opens a session for one panel.
 //
-//	@Id				Login
-//	@Description	Login with a manager account using basic auth
-//	@Tags			Auth
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body		LoginRequest	true	"terminal type: 32 admin, 33 manager"
-//	@Success		200		{object}	Response{data=ViewToken}
-//	@Failure		401		{object}	Response
-//	@Failure		403		{object}	Response
-//	@Failure		500		{object}	Response
-//	@Security		BasicAuth
-//	@Router			/auth/v1/oauth2/login [post]
-func (s *HttpServer) Login(c *fiber.Ctx) error {
+// The panel is the caller's route, not a field in the body: a request that reached the manager
+// login may only open a staff session, whatever terminal type it claims.
+func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 	ctx := c.UserContext()
 	ip := utils.GetRealIP(c)
 
@@ -107,6 +97,10 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrInvalidConnectionType)
 	}
 
+	if connType.IsStaff() != staffOnly {
+		return s.loginFailed(c, denied(http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel))
+	}
+
 	// stop credential stuffing before it ever reaches argon2
 	if s.OAuth2.IPThrottled(ctx, ip) {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
@@ -122,7 +116,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	if connType.IsStaff() {
 		manager, err = s.checkManagerAccess(ctx, login, connType, ip)
 	} else {
-		err = s.checkTraderAccess(user)
+		err = s.checkTraderAccess(ctx, user)
 	}
 	if err != nil {
 		return s.loginFailed(c, err)
@@ -217,7 +211,14 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 //
 // A trader needs no manager row; what it needs is an account that may connect and that somebody
 // has approved. A preliminary account exists but has not been approved, so it may not trade yet.
-func (s *HttpServer) checkTraderAccess(u *model.User) error {
+func (s *HttpServer) checkTraderAccess(ctx context.Context, u *model.User) error {
+	// a member of staff is not a trading account, whichever door it knocks on
+	if _, err := s.SelectManager(ctx, u.Login); err == nil {
+		return denied(http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel)
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
 	if !u.Rights.CanConnect() {
 		return denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
 	}
@@ -313,18 +314,8 @@ func (s *HttpServer) loginFailed(c *fiber.Ctx, err error) error {
 	return s.App.HttpResponseInternalServerErrorRequest(c, err)
 }
 
-// RefreshToken rotates the refresh token and issues a new access token.
-//
-//	@Id			RefreshToken
-//	@Tags		Auth
-//	@Accept		json
-//	@Produce	json
-//	@Param		body	body		RefreshRequest	true	"the refresh token from login"
-//	@Success	200		{object}	Response{data=ViewToken}
-//	@Failure	401		{object}	Response
-//	@Failure	500		{object}	Response
-//	@Router		/auth/v1/oauth2/refresh [post]
-func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
+// RefreshSession exchanges a refresh token for a new pair, on the panel that issued it.
+func (s *HttpServer) RefreshSession(c *fiber.Ctx, staffOnly bool) error {
 	ctx := c.UserContext()
 
 	var body RefreshRequest
@@ -393,12 +384,21 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	mgr, err := s.SelectManager(ctx, rec.Login)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
+	// a session refreshes on the panel that issued it
+	if model.UsersConnectionTypes(old.ConnectionType).IsStaff() != staffOnly {
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel)
 	}
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+
+	// only a staff session carries a manager row, so a trader is not asked for one
+	var mgr *model.Manager
+	if staffOnly {
+		mgr, err = s.SelectManager(ctx, rec.Login)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
+		}
+		if err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
 	}
 
 	cfg := &oauth2.Config{
@@ -439,17 +439,8 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
 
-// Logout closes the current session.
-//
-//	@Id			Logout
-//	@Tags		Auth
-//	@Produce	json
-//	@Success	204	{object}	Response
-//	@Failure	401	{object}	Response
-//	@Failure	500	{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/v1/auth/logout [post]
-func (s *HttpServer) Logout(c *fiber.Ctx) error {
+// LogoutSession closes the calling session.
+func (s *HttpServer) LogoutSession(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -464,17 +455,8 @@ func (s *HttpServer) Logout(c *fiber.Ctx) error {
 	return s.App.HttpResponseNoContent(c)
 }
 
-// Me returns the caller's own profile and decoded rights.
-//
-//	@Id			Me
-//	@Tags		Auth
-//	@Produce	json
-//	@Success	200	{object}	Response{data=ViewMe}
-//	@Failure	401	{object}	Response
-//	@Failure	500	{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/v1/auth/me [get]
-func (s *HttpServer) Me(c *fiber.Ctx) error {
+// CurrentSession describes the caller to itself.
+func (s *HttpServer) CurrentSession(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -495,20 +477,8 @@ func (s *HttpServer) Me(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, view)
 }
 
-// ChangePassword sets a new main password and closes every other session.
-//
-//	@Id			ChangePassword
-//	@Tags		Auth
-//	@Accept		json
-//	@Produce	json
-//	@Param		body	body		ChangePasswordRequest	true	"old and new password"
-//	@Success	204		{object}	Response
-//	@Failure	400		{object}	Response
-//	@Failure	401		{object}	Response
-//	@Failure	500		{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/v1/auth/oauth2/change-password [post]
-func (s *HttpServer) ChangePassword(c *fiber.Ctx) error {
+// SetPassword changes the caller's own password.
+func (s *HttpServer) SetPassword(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	snap, ok := utils.GetClient(c)

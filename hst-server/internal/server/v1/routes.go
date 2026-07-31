@@ -17,10 +17,6 @@ func (s *HttpServer) RegisterV1() (root, api fiber.Router) {
 	root = s.App.Group("/", s.Middleware.SecurityHeaders, s.Middleware.CORS(s.Cfg.HTTP.CorsOrigins),
 		s.Middleware.RequestsLogger, s.Middleware.HeaderReader)
 
-	oauth := root.Group("/auth/v1/oauth2")
-	oauth.Post("/login", s.Middleware.BasicAuthParser, s.Login)
-	oauth.Post("/refresh", s.RefreshToken)
-
 	if s.Cfg.HTTP.SwaggerEnabled {
 		s.registerSwagger(root)
 	}
@@ -40,13 +36,6 @@ func (s *HttpServer) RegisterV1() (root, api fiber.Router) {
 	system.Get("/monitor/live", s.CheckSystemLive)
 	system.Get("/monitor/cache", s.Middleware.Protect, s.Middleware.RequireManager, s.CacheStats)
 	system.Get("/monitor/ws", s.Middleware.Protect, s.Middleware.RequireManager, s.WSStats)
-
-	// session, the same three routes whoever holds the token
-	auth := v1.Group("/auth", s.Middleware.Protect)
-	auth.Get("/me", s.Me)
-	auth.Post("/logout", s.Logout)
-	// a restricted session may reach this one and nothing else
-	auth.Post("/oauth2/change-password", s.ChangePassword)
 
 	return root, api
 }

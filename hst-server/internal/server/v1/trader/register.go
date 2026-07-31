@@ -40,7 +40,7 @@ type ViewRegister struct {
 // Register opens an account from the public side.
 //
 //	@Id			Register
-//	@Tags		Auth
+//	@Tags		Trader
 //	@Accept		json
 //	@Produce	json
 //	@Param		body	body		CrtRegister	true	"the account to open"
@@ -48,7 +48,7 @@ type ViewRegister struct {
 //	@Failure	400		{object}	Response
 //	@Failure	429		{object}	Response
 //	@Failure	500		{object}	Response
-//	@Router		/auth/v1/register [post]
+//	@Router		/auth/trader/v1/register [post]
 func (s *Server) Register(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	ip := utils.GetRealIP(c)
