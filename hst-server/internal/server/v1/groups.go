@@ -220,20 +220,9 @@ func scanViewGroup(row pgx.Row) (*ViewGroup, error) {
 	return v, nil
 }
 
-// buildGroupTree derives the tree from the paths, which are the only thing
+// ViewGroupTree derives the tree from the paths, which are the only thing
 // that describes the hierarchy.
-//
-// There is no parent record and no child record. A group's name is its whole
-// path, demo\demo2\test, and a section is simply a prefix that some group's
-// path passes through. Creating demo\demo2\test\one makes "test" a section
-// without touching it, and deleting the last group under a prefix makes the
-// section disappear, because it was never stored in the first place.
-//
-// A node can be both. demo\demo2\test keeps its own settings and its own
-// accounts after a group appears beneath it; it is a group and a section at
-// once. Exists says which nodes are real, so the caller can open the settings
-// of a real one and offer to create a group at an empty one.
-func buildGroupTree(flat []ViewGroup) []*ViewGroup {
+func ViewGroupTree(flat []ViewGroup) []*ViewGroup {
 	byPath := make(map[string]*ViewGroup, len(flat)*2)
 	var roots []*ViewGroup
 
@@ -328,7 +317,7 @@ func (s *HttpServer) ListGroups(c *fiber.Ctx) error {
 	if c.Query("flat") == "1" {
 		return s.App.HttpResponseOK(c, flat)
 	}
-	return s.App.HttpResponseOK(c, buildGroupTree(flat))
+	return s.App.HttpResponseOK(c, ViewGroupTree(flat))
 }
 
 // GetGroup returns one group template.
@@ -463,7 +452,7 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 
 	// every manager whose access covers this path hears about it, including
 	// the ones granted a parent long before this group existed
-	s.NotifyWS(model.FamilyGroups, v.Group, model.ActionCreated, v)
+	s.NotifyWS(model.SubjectGroup(v.Group), model.EventCreated, v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -569,7 +558,7 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group updated",
 		"actor", snap.Login, "group_id", v.GroupID)
 
-	s.NotifyWS(model.FamilyGroups, v.Group, model.ActionUpdated, v)
+	s.NotifyWS(model.SubjectGroup(v.Group), model.EventUpdated, v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -636,22 +625,13 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group deleted",
 		"actor", snap.Login, "group_id", id, "group", path)
 
-	s.NotifyWS(model.FamilyGroups, path, model.ActionDeleted, ViewGroupRef{GroupID: id, Group: path})
+	s.NotifyWS(model.SubjectGroup(path), model.EventDeleted, ViewGroupRef{GroupID: id, Group: path})
 
 	return s.App.HttpResponseNoContent(c)
 }
 
-// grantCreatorAccess gives a manager holding no group access the group it just
+// GrantCreatorAccess gives a manager holding no group access the group it just
 // created, and everything it later builds underneath.
-//
-// The mask is the path with a trailing wildcard rather than the bare path: a
-// manager who is granted only demo\team would have access the next time they
-// create a group, so demo\team\a would never be granted and they could not see
-// what they had just made.
-//
-// Emptiness is tested inside the statement rather than read first, so two
-// groups created at the same moment cannot both find the access empty and
-// overwrite each other.
 func (s *HttpServer) grantCreatorAccess(ctx context.Context, login int64, path string) {
 	tag, err := s.DB.DB.Exec(ctx,
 		`UPDATE hst.managers

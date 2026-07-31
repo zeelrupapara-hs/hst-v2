@@ -144,7 +144,7 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, login, s.notifyUser(model.ActionCreated))
+	return s.getUserByLogin(c, login, s.notifyUser(model.EventCreated))
 }
 
 // ListUsers returns a page of logins.
@@ -306,11 +306,11 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	// a group change has two audiences: the managers who just lost the record
 	// hear it left, the ones who gained it hear the update below
 	if oldGroup != "" {
-		s.NotifyWS(model.FamilyUsers, oldGroup, model.ActionMoved,
+		s.NotifyWS(model.SubjectUser(oldGroup), model.EventMoved,
 			ViewUserRef{Login: int64(login), Group: oldGroup})
 	}
 
-	return s.getUserByLogin(c, int64(login), s.notifyUser(model.ActionUpdated))
+	return s.getUserByLogin(c, int64(login), s.notifyUser(model.EventUpdated))
 }
 
 // DeleteUser removes a login.
@@ -353,7 +353,7 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "user deleted",
 		"actor", snap.Login, "target", login)
 
-	s.NotifyWS(model.FamilyUsers, gone, model.ActionDeleted,
+	s.NotifyWS(model.SubjectUser(gone), model.EventDeleted,
 		ViewUserRef{Login: int64(login), Group: gone})
 
 	return s.App.HttpResponseNoContent(c)
@@ -364,12 +364,12 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 //
 // The group in the subject is the user's own group, which is what decides
 // which managers hear about it.
-func (s *HttpServer) notifyUser(action model.Action) func(*fiber.Ctx, interface{}) error {
+func (s *HttpServer) notifyUser(event string) func(*fiber.Ctx, interface{}) error {
 	return func(c *fiber.Ctx, v interface{}) error {
 		if u, ok := v.(*ViewUser); ok {
-			s.NotifyWS(model.FamilyUsers, u.Group, action, u)
+			s.NotifyWS(model.SubjectUser(u.Group), event, u)
 		}
-		if action == model.ActionCreated {
+		if event == model.EventCreated {
 			return s.App.HttpResponseCreated(c, v)
 		}
 		return s.App.HttpResponseOK(c, v)

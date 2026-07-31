@@ -514,7 +514,7 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol created",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", v.SymbolID, "path", v.Path)
 
-	s.NotifyWS(model.FamilyGroupSymbols, s.groupPath(c, groupID), model.ActionCreated, v)
+	s.NotifyWS(model.SubjectGroupSymbol(s.groupPath(c, groupID)), model.EventCreated, v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -665,7 +665,7 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol updated",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
 
-	s.NotifyWS(model.FamilyGroupSymbols, s.groupPath(c, groupID), model.ActionUpdated, v)
+	s.NotifyWS(model.SubjectGroupSymbol(s.groupPath(c, groupID)), model.EventUpdated, v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -707,7 +707,7 @@ func (s *HttpServer) DeleteGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol deleted",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
 
-	s.NotifyWS(model.FamilyGroupSymbols, s.groupPath(c, groupID), model.ActionDeleted,
+	s.NotifyWS(model.SubjectGroupSymbol(s.groupPath(c, groupID)), model.EventDeleted,
 		ViewGroupSymbolRef{GroupID: groupID, SymbolID: symbolID})
 
 	return s.App.HttpResponseNoContent(c)

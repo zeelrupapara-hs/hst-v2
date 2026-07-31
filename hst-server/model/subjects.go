@@ -20,12 +20,16 @@ import (
 //
 // The subject carries three things and nothing else:
 //
-//	ws.g.<family>.<group path>.<action>
+//	ws.g.<family>.<group path>
 //
-// family says what kind of record it is and is gated on a manager right, the
-// group path says where it lives and is gated on the manager's group access,
-// and the action says whether to add, replace or remove it. Fields never
-// appear: a change publishes the whole record, so the ui replaces what it has.
+// family says what kind of record it is and is gated on a manager right; the
+// group path says where it lives and is gated on the manager's group access.
+// Nothing else. Whether the record was added, replaced or removed is a property
+// of the event, not of the address it was sent to, so it travels with the
+// event and the subject stays the answer to one question: who may see this.
+//
+// Fields never appear either: a change publishes the whole record, so the
+// reader replaces what it has.
 const (
 	// SubjectGroupRoot prefixes every group scoped subject.
 	SubjectGroupRoot = "ws.g"
@@ -34,47 +38,33 @@ const (
 	GroupSep = `\`
 )
 
-// Family is the kind of record an event is about. Each one is gated on a
-// manager right; see FamilyRight.
-type Family string
+// family is the kind of record an event is about, and never leaves this file:
+// a publisher names the subject it wants rather than assembling one.
+type family string
 
 const (
-	FamilyGroups   Family = "groups"
-	FamilyUsers    Family = "users"
-	FamilyClients  Family = "clients"
-	FamilyAccounts Family = "accounts"
-	// FamilyGroupSymbols is a symbol override attached to a group, so it is
+	familyGroups   family = "groups"
+	familyUsers    family = "users"
+	familyClients  family = "clients"
+	familyAccounts family = "accounts"
+	// familyGroupSymbols is a symbol override attached to a group, so it is
 	// scoped by the group it hangs off rather than by the symbol.
-	FamilyGroupSymbols Family = "group_symbols"
+	familyGroupSymbols family = "group_symbols"
 )
 
-// Action is what happened to the record. Four is the whole vocabulary: a
-// change publishes the entire record, so the reader never has to know which
-// field moved.
-type Action string
-
-const (
-	ActionCreated Action = "created"
-	ActionUpdated Action = "updated"
-	ActionDeleted Action = "deleted"
-	// ActionMoved is for a record whose group path itself changed, which is
-	// the one case where the old and the new audience differ.
-	ActionMoved Action = "moved"
-)
-
-// FamilyRight is the manager right that gates a family. A manager without the
+// familyRight is the manager right that gates a family. A manager without the
 // right never subscribes to the family at all, whatever its group access.
-var FamilyRight = map[Family]uint{
-	FamilyGroups:       MgrRightCfgGroups,
-	FamilyUsers:        MgrRightAccRead,
-	FamilyClients:      MgrRightClientsAccess,
-	FamilyAccounts:     MgrRightAccRead,
-	FamilyGroupSymbols: MgrRightCfgGroups,
+var familyRight = map[family]uint{
+	familyGroups:       MgrRightCfgGroups,
+	familyUsers:        MgrRightAccRead,
+	familyClients:      MgrRightClientsAccess,
+	familyAccounts:     MgrRightAccRead,
+	familyGroupSymbols: MgrRightCfgGroups,
 }
 
-// Families is every group scoped family, in a stable order.
-var Families = []Family{
-	FamilyGroups, FamilyUsers, FamilyClients, FamilyAccounts, FamilyGroupSymbols,
+// families is every group scoped family, in a stable order.
+var families = []family{
+	familyGroups, familyUsers, familyClients, familyAccounts, familyGroupSymbols,
 }
 
 // GroupToken turns a group path into subject tokens: demo\forex\usd becomes
@@ -91,22 +81,48 @@ func GroupToken(path string) string {
 	return strings.Join(out, ".")
 }
 
-// Subject is what a publisher sends on. The group path is the record's own
-// group, never a mask.
+// From the api to the outside world "websocket". One name per subject, so a
+// publisher says what happened rather than assembling a string, and a family
+// can never be paired with the wrong action by accident.
 //
-//	Subject(FamilyGroups, `demo\forex`, ActionCreated)
+//	s.NotifyWS(model.SubjectGroup(v.Group), model.EventCreated, v)
+//	  -> ws.g.groups.demo.forex
+var (
+	SubjectGroup       = func(path string) string { return subject(familyGroups, path) }
+	SubjectGroupSymbol = func(path string) string { return subject(familyGroupSymbols, path) }
+	SubjectUser        = func(path string) string { return subject(familyUsers, path) }
+	SubjectClient      = func(path string) string { return subject(familyClients, path) }
+	SubjectAccount     = func(path string) string { return subject(familyAccounts, path) }
+)
+
+// The event types a record change carries. They ride in the event rather than
+// in the subject, so a reader that wants everything about a group subscribes
+// once instead of once per verb.
+const (
+	EventCreated = "created"
+	EventUpdated = "updated"
+	EventDeleted = "deleted"
+	// EventMoved goes to the group a record has left, so the managers losing
+	// it hear that it is gone rather than nothing at all.
+	EventMoved = "moved"
+)
+
+// subject builds a group scoped subject. The named builders above are the only
+// way in; this is the one place that knows the shape.
+//
+//	Subject(familyGroups, `demo\forex`, actionCreated)
 //	  -> ws.g.groups.demo.forex.created
-func Subject(family Family, groupPath string, action Action) string {
+func subject(f family, groupPath string) string {
 	token := GroupToken(groupPath)
 	if token == "" {
 		// a record with no group still has to go somewhere its family's
 		// subscribers can hear it, and "root" is a segment no group can own
 		token = "root"
 	}
-	return SubjectGroupRoot + "." + string(family) + "." + token + "." + string(action)
+	return SubjectGroupRoot + "." + string(f) + "." + token
 }
 
-// MaskSubject turns one of a manager's group masks into the subscription that
+// maskSubject turns one of a manager's group masks into the subscription that
 // covers it.
 //
 //	demo\*     -> ws.g.<family>.demo.>
@@ -117,28 +133,27 @@ func Subject(family Family, groupPath string, action Action) string {
 // A trailing * becomes >, because "everything below here" is what the mask
 // means and > is the token that says so. A * in the middle stays *, which
 // matches exactly one segment in both notations.
-func MaskSubject(family Family, mask string) string {
-	prefix := SubjectGroupRoot + "." + string(family) + "."
+func maskSubject(f family, mask string) []string {
+	prefix := SubjectGroupRoot + "." + string(f) + "."
 
-	parts := strings.Split(mask, GroupSep)
-	out := make([]string, 0, len(parts))
-	for _, p := range parts {
-		if p = strings.TrimSpace(p); p != "" {
-			out = append(out, p)
-		}
-	}
+	segs := segments(mask)
 
 	// a bare * covers every group
-	if len(out) == 0 || (len(out) == 1 && out[0] == "*") {
-		return prefix + ">"
+	if len(segs) == 0 || (len(segs) == 1 && segs[0] == "*") {
+		return []string{prefix + ">"}
 	}
 
-	// a trailing * is "and everything below", which is > in nats
-	if out[len(out)-1] == "*" {
-		out = out[:len(out)-1]
+	// a trailing * is "and everything below": the group itself, and the
+	// subtree under it
+	if segs[len(segs)-1] == "*" {
+		path := strings.Join(segs[:len(segs)-1], ".")
+		return []string{prefix + path, prefix + path + ".>"}
 	}
 
-	return prefix + strings.Join(out, ".") + ".>"
+	// anything else names one group and grants only that one. The subject
+	// carries no action, so this is a single exact address rather than a
+	// prefix, and a child group is no longer swept up with its parent.
+	return []string{prefix + strings.Join(segs, ".")}
 }
 
 // Subscriptions is every subject one manager session should listen on: each
@@ -153,14 +168,14 @@ func Subscriptions(rights ManagerRights, masks []string) []string {
 		return nil
 	}
 
-	out := make([]string, 0, len(Families)*len(masks))
-	for _, family := range Families {
-		right, ok := FamilyRight[family]
+	out := make([]string, 0, len(families)*len(masks)*2)
+	for _, f := range families {
+		right, ok := familyRight[f]
 		if !ok || !rights.Has(right) {
 			continue
 		}
 		for _, mask := range masks {
-			out = append(out, MaskSubject(family, mask))
+			out = append(out, maskSubject(f, mask)...)
 		}
 	}
 

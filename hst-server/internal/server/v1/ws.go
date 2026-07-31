@@ -195,6 +195,12 @@ func eventFromMsg(msg *natscore.Msg) *model.Event {
 
 	typ, group := model.ParseSubject(msg.Subject)
 
+	// a record change names what happened in a header, since the subject only
+	// says who may see it
+	if event := msg.Header.Get(model.HeaderEvent); event != "" {
+		typ = event
+	}
+
 	e := &model.Event{
 		Type:    typ,
 		Group:   group,
@@ -281,21 +287,35 @@ type ViewUserRef struct {
 	Group string `json:"group"`
 }
 
-// NotifyWS publishes a group scoped record change.
+// NotifyWS publishes a record change on the subject the caller named.
 //
-// The publisher says what changed and where it lives, and nothing about who
-// may see it: the group path in the subject is the authorisation, matched by
+// The publisher says what changed and where it lives, and nothing about who may
+// see it: the group path inside the subject is the authorisation, matched by
 // nats against each manager's access masks. No lookup of connected clients, no
-// query of who has rights, one publish however many managers are listening.
+// query of who holds which right, one publish however many are listening.
 //
 // A failure is logged and swallowed. The write already succeeded; failing the
 // request because a notification did not go out would be the wrong trade.
-func (s *HttpServer) NotifyWS(family model.Family, groupPath string, action model.Action, payload any) {
-	subject := model.Subject(family, groupPath, action)
+func (s *HttpServer) NotifyWS(subject, event string, payload any) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeErr, "could not encode a websocket event",
+			"subject", subject, "event", event, "error", err.Error())
+		return
+	}
 
-	if err := s.PublishWS(subject, payload); err != nil {
+	msg := &natscore.Msg{
+		Subject: subject,
+		Data:    raw,
+		Header: natscore.Header{
+			model.HeaderFormat: []string{"json"},
+			model.HeaderEvent:  []string{event},
+		},
+	}
+
+	if err := s.Nats.NC.PublishMsg(msg); err != nil {
 		s.Log.Log(logger.TypeNet, logger.CodeWarn, "could not publish a websocket event",
-			"subject", subject, "error", err.Error())
+			"subject", subject, "event", event, "error", err.Error())
 	}
 }
 
@@ -341,21 +361,21 @@ func (s *HttpServer) clientGroups(ctx context.Context, clientId int64) []string 
 // in. A manager covering two of those groups receives it twice, which is
 // harmless: the event carries the whole record, so applying it twice is the
 // same as applying it once.
-func (s *HttpServer) notifyClient(ctx context.Context, clientId int64, action model.Action, payload any) {
-	s.notifyClientIn(s.clientGroups(ctx, clientId), clientId, action, payload)
+func (s *HttpServer) notifyClient(ctx context.Context, clientId int64, event string, payload any) {
+	s.notifyClientIn(s.clientGroups(ctx, clientId), event, payload)
 }
 
 // notifyClientIn is notifyClient with the groups already read, for a delete
 // where the logins are detached before the row goes.
-func (s *HttpServer) notifyClientIn(groups []string, clientId int64, action model.Action, payload any) {
+func (s *HttpServer) notifyClientIn(groups []string, event string, payload any) {
 	// a client with no login yet sits under root, where only a manager with
 	// unrestricted access is listening
 	if len(groups) == 0 {
-		s.NotifyWS(model.FamilyClients, "", action, payload)
+		s.NotifyWS(model.SubjectClient(""), event, payload)
 		return
 	}
 
 	for _, g := range groups {
-		s.NotifyWS(model.FamilyClients, g, action, payload)
+		s.NotifyWS(model.SubjectClient(g), event, payload)
 	}
 }

@@ -48,6 +48,11 @@ const (
 	// HeaderContentType is honoured as well, since a publisher may already be
 	// setting it: application/json, text/plain, anything else is binary.
 	HeaderContentType = "Content-Type"
+	// HeaderEvent carries what happened to the record: created, updated,
+	// deleted, moved. It rides with the event rather than in the subject, so
+	// one subscription covers every verb for a group and the payload is still
+	// forwarded without being decoded.
+	HeaderEvent = "X-Event"
 )
 
 // FormatFromHeader reads the declared format. ok is false when the publisher
@@ -178,20 +183,17 @@ func EventTypeFromSubject(subject string) string {
 // ParseSubject splits a subject into the event type and, for a group scoped
 // subject, the group path it happened in.
 //
-// A group scoped subject is ws.g.<family>.<group path>.<action>, and the type
-// is the family and the action together: "groups.created", not
-// "demo.forex.created". Without the family a group event and an account event
-// on the same path arrive looking identical and the reader cannot tell them
-// apart.
+// A group scoped subject is ws.g.<family>.<group path>, so the type falls back
+// to the family and the group path is returned beside it. The real event type
+// comes from the header and replaces the family; see eventFromMsg.
 func ParseSubject(subject string) (eventType, groupPath string) {
 	parts := strings.Split(subject, ".")
 
-	// ws.g.<family>.<path...>.<action>
-	if len(parts) >= 5 && parts[0]+"."+parts[1] == SubjectGroupRoot {
-		family := parts[2]
-		action := parts[len(parts)-1]
-		path := parts[3 : len(parts)-1]
-		return family + "." + action, strings.Join(path, GroupSep)
+	// ws.g.<family>.<path...>: everything after the family is the group path,
+	// and the event type is not in the subject at all. It rides in a header,
+	// because what happened to a record says nothing about who may see it.
+	if len(parts) >= 4 && parts[0]+"."+parts[1] == SubjectGroupRoot {
+		return parts[2], strings.Join(parts[3:], GroupSep)
 	}
 
 	// ws.broadcast.<event...> carries no identifier, the others do
