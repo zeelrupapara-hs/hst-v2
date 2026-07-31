@@ -11,52 +11,36 @@ type Format uint8
 const (
 	// FormatJSON wraps the payload in the event envelope. The default.
 	FormatJSON Format = iota
-	// FormatBinary forwards the bytes verbatim in a binary frame. Nothing is
-	// parsed, copied or re-encoded, which is what a tick stream needs.
+	// FormatBinary forwards the bytes verbatim in a binary frame.
 	FormatBinary
 	// FormatText forwards the bytes verbatim in a text frame.
 	FormatText
 )
 
 // Event is what crosses nats and what a websocket client receives.
-//
-// The payload stays raw the whole way through. This server routes events, it
-// does not need to understand the bodies, and decoding every message to
-// re-encode it would cost more than the delivery itself.
 type Event struct {
 	Type string `json:"type"`
-	// Payload is whatever the publisher put in, verbatim. It is only valid
-	// json when Format is FormatJSON.
+	// Payload is whatever the publisher put in, verbatim.
 	Payload []byte `json:"-"`
-	// Group is the group path the record belongs to, for a group scoped
-	// event. The reader needs it to know which tree the record sits in, and it
-	// has no business parsing the subject to find out.
+	// Group is the group path the record belongs to, for a group scoped event.
 	Group string `json:"group,omitempty"`
 	// At is unix nanoseconds.
 	At int64 `json:"at,omitempty"`
-	// Format decides the frame the client receives. It never crosses the wire
-	// itself: a binary frame is its own answer.
+	// Format decides the frame the client receives.
 	Format Format `json:"-"`
 }
 
-// Header keys a publisher can set on the nats message to say how the payload
-// should be delivered. Without them the payload is sniffed, so an existing
-// publisher that sends json needs no changes.
+// Header keys a publisher can set on the nats message to say how the payload should be delivered.
 const (
 	// HeaderFormat is "json", "binary" or "text".
 	HeaderFormat = "X-Format"
-	// HeaderContentType is honoured as well, since a publisher may already be
-	// setting it: application/json, text/plain, anything else is binary.
+	// Payload is whatever the publisher put in, valid json only when Format is FormatJSON
 	HeaderContentType = "Content-Type"
-	// HeaderEvent carries what happened to the record: created, updated,
-	// deleted, moved. It rides with the event rather than in the subject, so
-	// one subscription covers every verb for a group and the payload is still
-	// forwarded without being decoded.
+	// HeaderEvent carries what happened to the record: created, updated, deleted, moved.
 	HeaderEvent = "X-Event"
 )
 
-// FormatFromHeader reads the declared format. ok is false when the publisher
-// declared nothing and the payload has to be sniffed instead.
+// FormatFromHeader reads the declared format.
 func FormatFromHeader(format, contentType string) (Format, bool) {
 	switch strings.ToLower(strings.TrimSpace(format)) {
 	case "json":
@@ -84,8 +68,6 @@ func FormatFromHeader(format, contentType string) (Format, bool) {
 }
 
 // SniffFormat guesses from the payload when the publisher declared nothing.
-// Only json is worth detecting: it is the one format that has to be wrapped,
-// and anything else is safer sent through untouched.
 func SniffFormat(payload []byte) Format {
 	for _, b := range payload {
 		switch b {
@@ -100,40 +82,30 @@ func SniffFormat(payload []byte) Format {
 	return FormatBinary
 }
 
-// Event types. One constant per event, so a subject typed in two files cannot
-// drift apart.
+// Event types.
 const (
 	EventPing    = "ping"
 	EventPong    = "pong"
 	EventError   = "error"
 	EventWelcome = "welcome"
 
-	// EventSessionRevoked tells a socket its session is gone; the server
-	// closes the connection right after sending it.
+	// EventSessionRevoked tells a socket its session is gone; the server closes the connection right after sending it.
 	EventSessionRevoked = "session.revoked"
 )
 
-// Subject roots. The websocket layer never subscribes to anything outside
-// these, so a publisher cannot reach a socket by accident.
+// Subject roots.
 const (
 	// SubjectSessionRoot targets exactly one session.
 	SubjectSessionRoot = "ws.session"
-	// SubjectLoginRoot targets every session of one login, which is what a
-	// user with two terminals open has.
+	// SubjectLoginRoot targets every session of one login, which is what a user with two terminals open has.
 	SubjectLoginRoot = "ws.login"
-	// SubjectRightRoot targets every manager holding one right. This is the
-	// authorisation boundary: a socket only ever subscribes to the rights its
-	// session actually has, so an unauthorised event never reaches it.
+	// SubjectRightRoot targets every manager holding one right.
 	SubjectRightRoot = "ws.right"
 	// SubjectBroadcastRoot reaches every connected socket.
 	SubjectBroadcastRoot = "ws.broadcast"
 )
 
-// SubjectSession is the subject one session listens on: ws.session.<sid>.>
-//
-// The wildcard is ">" and not "*" on purpose: "*" matches exactly one token,
-// so an event named "symbol.updated" would never be delivered. Event names are
-// hierarchical, and the grammar has to allow that.
+// everything after the routing prefix is the name, dots included
 func SubjectSession(sid string) string {
 	return fmt.Sprintf("%s.%s.>", SubjectSessionRoot, sid)
 }
@@ -173,25 +145,17 @@ func SubjectBroadcastEvent(event string) string {
 	return SubjectBroadcastRoot + "." + event
 }
 
-// EventTypeFromSubject recovers the event name from the subject, so a
-// publisher does not have to repeat it inside the payload.
+// EventTypeFromSubject recovers the event name from the subject, so a publisher does not have to repeat it inside the payload.
 func EventTypeFromSubject(subject string) string {
 	typ, _ := ParseSubject(subject)
 	return typ
 }
 
-// ParseSubject splits a subject into the event type and, for a group scoped
-// subject, the group path it happened in.
-//
-// A group scoped subject is ws.g.<family>.<group path>, so the type falls back
-// to the family and the group path is returned beside it. The real event type
-// comes from the header and replaces the family; see eventFromMsg.
+// ParseSubject splits a subject into the event type and, for a group scoped subject, the group path it happened in.
 func ParseSubject(subject string) (eventType, groupPath string) {
 	parts := strings.Split(subject, ".")
 
-	// ws.g.<family>.<path...>: everything after the family is the group path,
-	// and the event type is not in the subject at all. It rides in a header,
-	// because what happened to a record says nothing about who may see it.
+	// ws.g.<family>.<path...>: everything after the family is the group path, and the event type is not in the subject at all.
 	if len(parts) >= 4 && parts[0]+"."+parts[1] == SubjectGroupRoot {
 		return parts[2], strings.Join(parts[3:], GroupSep)
 	}

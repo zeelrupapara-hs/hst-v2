@@ -175,8 +175,7 @@ func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	// only the logins inside this manager's groups, the same masks the
-	// websocket routes by
+	// only the logins inside this manager's groups, the same masks the websocket routes by
 	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `u."group"`, 4)
 	args = append([]any{q.Search, q.Limit, q.Offset}, args...)
 
@@ -258,8 +257,7 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	// the previous group is needed before the write: the managers who lose the
-	// record have to be told it left, and afterwards it is gone
+	// the previous group is needed before the write, the losers have to be told
 	var oldGroup string
 	if body.Group != nil {
 		if err := s.DB.DB.QueryRow(ctx,
@@ -304,8 +302,7 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user updated",
 		"actor", snap.Login, "target", login)
 
-	// a group change has two audiences: the managers who just lost the record
-	// hear it left, the ones who gained it hear the update below
+	// a group change has two audiences: those who lost the record and those who gained it
 	if oldGroup != "" {
 		s.NotifyWS(model.SubjectUser(oldGroup), model.EventUserMoved,
 			ViewUserRef{Login: int64(login), Group: oldGroup})
@@ -334,8 +331,7 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	// returning the group saves a read: it is needed to announce the delete
-	// and it does not exist afterwards
+	// returning the group saves a read: it is needed to announce the delete and it does not exist afterwards
 	var gone string
 	err = s.DB.DB.QueryRow(ctx,
 		`DELETE FROM hst.users WHERE login = $1 RETURNING "group"`, login).Scan(&gone)
@@ -363,11 +359,7 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	return s.App.HttpResponseNoContent(c)
 }
 
-// notifyUser announces a user change on the way out, so the record is loaded
-// once and both the caller and the listeners get the same view.
-//
-// The group in the subject is the user's own group, which is what decides
-// which managers hear about it.
+// returning the group saves a read: it is needed to announce the delete
 func (s *HttpServer) notifyUser(event string) func(*fiber.Ctx, interface{}) error {
 	return func(c *fiber.Ctx, v interface{}) error {
 		if u, ok := v.(*ViewUser); ok {

@@ -34,11 +34,9 @@ func (s *HttpServer) RegisterV1() {
 		}))
 	}
 
-	// websocket. UpgradeWS finds the token a browser could not put in a
-	// header, Protect then authenticates it like any other route.
+	// websocket.
 	root.Get("/ws", s.Middleware.UpgradeWS, s.Middleware.Protect, websocket.New(s.ServeWS, websocket.Config{
-		// the handshake must echo the subprotocol the client offered, or the
-		// browser fails the connection
+		// the handshake must echo the subprotocol the client offered, or the browser fails the connection
 		Subprotocols: []string{"bearer"},
 	}))
 

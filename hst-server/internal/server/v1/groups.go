@@ -128,9 +128,7 @@ type ViewGroup struct {
 	Group     string `json:"group"`
 	// Name is the last segment of the path, what a tree renders on the node.
 	Name string `json:"name"`
-	// Exists is false for a section: a node the path of some group passes
-	// through, with no group of its own. MT5 hides the settings of such a
-	// node; knowing which is which lets the ui offer to create one instead.
+	// Exists is false for a section: a node the path of some group passes through, with no group of its own.
 	Exists bool   `json:"exists"`
 	Status string `json:"status"`
 
@@ -221,14 +219,12 @@ func scanViewGroup(row pgx.Row) (*ViewGroup, error) {
 	return v, nil
 }
 
-// ViewGroupTree derives the tree from the paths, which are the only thing
-// that describes the hierarchy.
+// ViewGroupTree derives the tree from the paths, which are the only thing that describes the hierarchy.
 func ViewGroupTree(flat []ViewGroup) []*ViewGroup {
 	byPath := make(map[string]*ViewGroup, len(flat)*2)
 	var roots []*ViewGroup
 
-	// node returns the tree node for a path, synthesising the sections above
-	// it on the way down
+	// node returns the tree node for a path, synthesising the sections above it on the way down
 	var node func(path string) *ViewGroup
 	node = func(path string) *ViewGroup {
 		if n, ok := byPath[path]; ok {
@@ -253,8 +249,7 @@ func ViewGroupTree(flat []ViewGroup) []*ViewGroup {
 		g := flat[i]
 		n := node(g.Group)
 
-		// keep the children collected so far: a section may be reached before
-		// the group that sits at the same path
+		// keep the children collected so far: a section may be reached before the group that sits at the same path
 		children := n.Groups
 		*n = g
 		n.Groups = children
@@ -292,8 +287,7 @@ func (s *HttpServer) ListGroups(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	// the same masks that route the websocket events decide what is listed,
-	// or the two would disagree about what this manager may see
+	// a node can be a group and a section at once, so Exists says which are real
 	where, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `"group"`, 1)
 
 	rows, err := s.DB.DB.Query(c.UserContext(),
@@ -447,12 +441,10 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group created",
 		"actor", snap.Login, "group_id", v.GroupID, "group", v.Group)
 
-	// a manager allowed to create groups but granted none would otherwise
-	// create one and immediately be unable to see it
+	// a manager allowed to create groups but granted none would otherwise create one and immediately be unable to see it
 	s.grantCreatorAccess(c.UserContext(), snap.Login, v.Group)
 
-	// every manager whose access covers this path hears about it, including
-	// the ones granted a parent long before this group existed
+	// every manager whose access covers this path hears about it, including the ones granted a parent long before this group existed
 	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupCreated, v)
 	s.NotifySystem(model.SubjectSystemGroupCreated, v)
 	s.JournalEntry(c, logger.CodeOK, journal.GroupCreatedMsg(snap.Login, v.Group), v)
@@ -597,8 +589,7 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	// a section disappears when the last group under it goes, so a group that
-	// still has groups beneath its path cannot be removed yet
+	// a section disappears when the last group under it goes
 	var children int
 	if err := s.DB.DB.QueryRow(ctx,
 		`SELECT COUNT(*) FROM hst.groups WHERE starts_with("group", $1)`,
@@ -638,8 +629,7 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 	return s.App.HttpResponseNoContent(c)
 }
 
-// GrantCreatorAccess gives a manager holding no group access the group it just
-// created, and everything it later builds underneath.
+// a manager permitted to create groups but granted none would not see what it made
 func (s *HttpServer) grantCreatorAccess(ctx context.Context, login int64, path string) {
 	tag, err := s.DB.DB.Exec(ctx,
 		`UPDATE hst.managers
@@ -659,9 +649,7 @@ func (s *HttpServer) grantCreatorAccess(ctx context.Context, login int64, path s
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "granted the creator access to its first group",
 		"login", login, "group", path)
 
-	// the access just widened, and the session carries a copy of it. Nobody is
-	// signed out for gaining a permission: the sessions are rewritten in place
-	// and the websockets rebuild their subscriptions, on every instance.
+	// the access just widened, and the session carries a copy of it.
 	mgr, err := s.selectManager(ctx, login)
 	if err != nil {
 		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not reload the manager after granting access",

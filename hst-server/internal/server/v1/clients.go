@@ -233,10 +233,7 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	// a client has no group of its own: it is visible through the logins it
-	// owns, so a manager sees it when any of those logins is in their groups.
-	// A client with no logins yet belongs to nobody and is visible only to a
-	// manager whose access is unrestricted.
+	// a client has no group of its own: it is visible through the logins it owns
 	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `u."group"`, 4)
 	visible := `EXISTS (SELECT 1 FROM hst.users u
 	                     WHERE u.client_id = hst.clients.client_id AND ` + access + `)`
@@ -513,8 +510,7 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "client deleted",
 		"actor", snap.Login, "client_id", id, "users_detached", users)
 
-	// the logins were detached above, so the groups are read before the
-	// delete; see notifyClient
+	// the logins were detached above, so the groups are read before the delete; see notifyClient
 	ref := ViewClientRef{ClientId: int64(id)}
 	s.notifyClientIn(groups, model.EventClientDeleted, ref)
 	s.NotifySystem(model.SubjectSystemClientDeleted, ref)

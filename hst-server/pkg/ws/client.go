@@ -14,14 +14,8 @@ import (
 )
 
 // Client is one websocket connection.
-//
-// Every write goes through egress and the single writer goroutine. The
-// websocket library forbids concurrent writes, so serialising them is not a
-// convenience here, it is the only thing keeping the connection from being
-// corrupted by two publishers at once.
 type Client struct {
-	// Id is unique per connection, so two sockets on one session are still
-	// distinguishable in the logs.
+	// Id is unique per connection, so two sockets on one session are still distinguishable in the logs.
 	Id string
 	// SessionId is the session this socket authenticated with.
 	SessionId string
@@ -40,24 +34,19 @@ type Client struct {
 
 	// egress is buffered: a publisher must never block on a slow client.
 	egress chan *model.Event
-	// closing is closed once, by close(), and is what every goroutine of this
-	// client selects on to stop.
+	// closing is closed once, by close(), and is what every goroutine of this client selects on to stop.
 	closing chan struct{}
 	once    sync.Once
 
-	// dropped counts events discarded because egress was full. A client that
-	// keeps dropping is disconnected rather than left silently lossy.
+	// dropped counts events discarded because egress was full.
 	dropped atomic.Int64
 
-	// access guards everything the manager's configuration decides, because a
-	// change to it arrives on another goroutine while this socket is running.
+	// Groups is the group access these subscriptions were built from
 	access sync.Mutex
-	// rights and groups are what the session held when the subscriptions below
-	// were opened, kept so a refresh can tell whether they still match.
+	// subs are unsubscribed on close, so a disconnect leaks no consumer
 	rights model.ManagerRights
 	groups []string
-	// subs are the nats subscriptions opened for this socket, unsubscribed on
-	// close so a disconnect does not leak a consumer.
+	// subs are the nats subscriptions opened for this socket, unsubscribed on close so a disconnect does not leak a consumer.
 	subs []Unsubscriber
 }
 
@@ -84,11 +73,6 @@ func (c *Client) Groups() []string {
 }
 
 // ReplaceSubs swaps the subscriptions for a new set and closes the old ones.
-//
-// This is what a widened access looks like from the socket's side: the
-// connection is never dropped, it simply starts listening somewhere else. The
-// old subscriptions are closed after the new ones are open, so no event falls
-// between the two.
 func (c *Client) ReplaceSubs(rights model.ManagerRights, groups []string, subs []Unsubscriber) {
 	c.access.Lock()
 	old := c.subs
@@ -105,17 +89,12 @@ func (c *Client) ReplaceSubs(rights model.ManagerRights, groups []string, subs [
 	}
 }
 
-// Unsubscriber is the part of a nats subscription this package needs. Keeping
-// it an interface means pkg/ws does not import nats at all.
+// Unsubscriber is the part of a nats subscription this package needs.
 type Unsubscriber interface {
 	Unsubscribe() error
 }
 
-// Send queues an event. It never blocks: a websocket client that cannot keep
-// up must not be able to stall the nats callback that is feeding it, because
-// that callback is shared with every other subscriber on the same connection.
-//
-// It reports false when the event was dropped.
+// Send queues an event.
 func (c *Client) Send(e *model.Event) bool {
 	select {
 	case <-c.closing:
@@ -128,8 +107,7 @@ func (c *Client) Send(e *model.Event) bool {
 		return true
 	default:
 		n := c.dropped.Add(1)
-		// one drop is a hiccup, a stream of them is a client that will never
-		// catch up; keeping it attached only wastes memory
+		// one drop is a hiccup, a stream of them is a client that will never catch up; keeping it attached only wastes memory
 		if n >= maxDrops {
 			c.log.Log(logger.TypeNet, logger.CodeWarn, "closing a websocket that cannot keep up",
 				"session_id", c.SessionId, "login", c.Login, "dropped", n)
@@ -175,12 +153,10 @@ func (c *Client) close() {
 	})
 }
 
-// Wait blocks until the connection is torn down. The fiber handler has to sit
-// here: the socket is closed the moment the handler returns.
+// Wait blocks until the connection is torn down.
 func (c *Client) Wait() { <-c.closing }
 
-// writePump owns the connection's write side and the keepalive. Nothing else
-// may write to the socket.
+// writePump owns the connection's write side and the keepalive.
 func (c *Client) writePump() {
 	ticker := time.NewTicker(pingInterval)
 	defer func() {
@@ -208,9 +184,7 @@ func (c *Client) writePump() {
 	}
 }
 
-// readPump reads client frames. Nothing inbound is routed anywhere yet, but
-// the read has to run regardless: it is what drives the pong handler, and
-// without it a half open connection is never noticed.
+// readPump reads client frames.
 func (c *Client) readPump() {
 	defer c.hub.Remove(c.SessionId, c.Id)
 
@@ -243,10 +217,6 @@ func (c *Client) readPump() {
 }
 
 // writeEvent puts one event on the wire in the frame its format asks for.
-//
-// Binary and text are forwarded verbatim: no parse, no envelope, no copy. That
-// is the whole point of letting a publisher choose the format, and it is what
-// makes a packed tick stream affordable.
 func (c *Client) writeEvent(e *model.Event) error {
 	_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 
@@ -261,11 +231,6 @@ func (c *Client) writeEvent(e *model.Event) error {
 }
 
 // encodeJSON builds {"type":..,"at":..,"payload":<raw>} by hand.
-//
-// The payload is already encoded, so running it back through a marshaller
-// would mean parsing json only to print the same json again. Appending bytes
-// skips the reflection entirely, and at a few thousand events a second that is
-// the difference worth having.
 func encodeJSON(e *model.Event) []byte {
 	buf := make([]byte, 0, len(e.Payload)+len(e.Type)+48)
 
@@ -290,9 +255,7 @@ func encodeJSON(e *model.Event) []byte {
 	return append(buf, '}')
 }
 
-// appendQuoted writes a json string. Event names come from nats subjects, so
-// they are plain ascii in every real case; the marshaller is only there to
-// keep a strange one from producing broken json.
+// appendQuoted writes a json string.
 func appendQuoted(buf []byte, s string) []byte {
 	for i := 0; i < len(s); i++ {
 		if b := s[i]; b < 0x20 || b == '"' || b == '\\' || b > 0x7e {

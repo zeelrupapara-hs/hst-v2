@@ -233,11 +233,6 @@ func scanViewGroupSymbol(row pgx.Row) (*ViewGroupSymbol, error) {
 }
 
 // groupExists reports whether the group is there and this manager may see it.
-//
-// Access is checked here rather than in each nested endpoint because every one
-// of them goes through this call: a group outside the manager's masks answers
-// not found, which is also the right answer to give, since confirming it
-// exists would leak the shape of a tree they were not granted.
 func groupExists(c *fiber.Ctx, s *HttpServer, groupID int) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {

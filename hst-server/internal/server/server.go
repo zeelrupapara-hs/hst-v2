@@ -46,11 +46,7 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 	// v1 http server
 	web := v1.NewHTTP(app, database, log, nats, rds, newMiddleware, oauth, cfg, validate)
 
-	// a revoked session must lose its socket too, or it keeps receiving events
-	// it is no longer entitled to. Fires on every instance, since the
-	// revocation is broadcast over redis.
-	// a widened access keeps its connection: the sockets of that login rebuild
-	// what they listen to, in place
+	// a revoked session must lose its socket too, or it keeps receiving events it is no longer entitled to.
 	oauth.OnRefresh = web.RefreshLogin
 
 	oauth.OnInvalidate = func(sid string, login int64) {
@@ -96,9 +92,7 @@ func (s *Server) Run() error {
 
 // Shutdown drains in-flight requests, capped by ShutdownTimeout.
 func (s *Server) Shutdown() error {
-	// websockets are long lived by definition and never finish on their own,
-	// so fiber would wait out the whole timeout on every deploy. Close them
-	// first and the drain is only about real in-flight requests again.
+	// websockets never end on their own, so fiber would otherwise wait out the whole timeout
 	s.Web.Hub.Shutdown()
 
 	s.Log.Logger.Infow("draining in-flight requests",

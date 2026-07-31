@@ -214,18 +214,7 @@ func (o *OAuth2) InvalidateLogin(ctx context.Context, login int64, reason string
 	return o.Redis.Client.Del(ctx, KeyUser(login)).Err()
 }
 
-// RefreshLogin rewrites the live sessions of one login with its current manager
-// configuration, instead of revoking them.
-//
-// Losing a session is the right answer when access is taken away or the account
-// is disabled: everything the session was allowed to do has to be re-decided.
-// It is the wrong answer when access is merely widened, which is what happens
-// when a manager creates its first group. Signing somebody out for gaining a
-// permission teaches them to fear the button.
-//
-// The per-session fields are kept as they are; only what the manager row owns
-// is replaced, and the version is bumped so a reader can tell the snapshot
-// changed.
+// RefreshLogin rewrites the live sessions of one login with its current manager configuration, instead of revoking them.
 func (o *OAuth2) RefreshLogin(ctx context.Context, login int64, mgr *model.Manager) error {
 	sids, err := o.Redis.Client.SMembers(ctx, KeyUser(login)).Result()
 	if err != nil && err != redis.Nil {
@@ -253,10 +242,7 @@ func (o *OAuth2) RefreshLogin(ctx context.Context, login int64, mgr *model.Manag
 		o.Cache.Invalidate(sid)
 	}
 
-	// this instance first, and before returning: the caller usually publishes
-	// an event about the very change that widened the access, and going the
-	// long way round redis would let that event overtake the subscription that
-	// was supposed to receive it
+	// losing a session is right when access is taken away, wrong when it is only widened
 	if o.OnRefresh != nil {
 		o.OnRefresh(login)
 	}

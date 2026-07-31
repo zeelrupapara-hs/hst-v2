@@ -716,9 +716,6 @@ func (s *HttpServer) notifyManager(event, systemSubject, message string, created
 }
 
 // withinOwnScope refuses to grant more than the acting manager holds.
-//
-// A manager given a country carves it into regions and a region into cities; what it was
-// handed is the whole world it can hand on, so delegation narrows and never widens.
 func (s *HttpServer) withinOwnScope(c *fiber.Ctx, groups []string, rights model.ManagerRights) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {

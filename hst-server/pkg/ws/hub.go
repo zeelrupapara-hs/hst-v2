@@ -1,10 +1,4 @@
-// Package ws is the websocket fan-out: it holds the live connections and
-// hands each one the events it is entitled to.
-//
-// The authorisation boundary is the nats subject, not a filter applied after
-// delivery. A socket subscribes only to the subjects its session permits, so
-// an event it may not see never reaches the process on its behalf. See
-// internal/server/v1/ws.go for the subscription rules.
+// Package ws is the websocket fan-out: it holds the live connections and hands each one the events it is entitled to.
 package ws
 
 import (
@@ -23,24 +17,17 @@ const (
 	pingInterval = 25 * time.Second
 	// pongWait must exceed pingInterval or every healthy client is dropped.
 	pongWait = 60 * time.Second
-	// writeWait bounds a single frame write, so one stuck socket cannot hold
-	// its writer goroutine forever.
+	// writeWait bounds a single frame write, so one stuck socket cannot hold its writer goroutine forever.
 	writeWait = 10 * time.Second
-	// maxMessageSize caps an inbound frame. Clients send keepalives, nothing
-	// large, and an unbounded read is a memory exhaustion vector.
+	// maxMessageSize caps an inbound frame.
 	maxMessageSize = 4096
-	// egressBuffer is how far one socket may fall behind before events are
-	// dropped for it.
+	// egressBuffer is how far one socket may fall behind before events are dropped for it.
 	egressBuffer = 256
 	// maxDrops is how many dropped events end the connection.
 	maxDrops = 64
 )
 
 // Hub owns every live connection.
-//
-// Sessions are the key, but the value is a list: one login can hold the same
-// session open from two tabs, and keying on the session alone would silently
-// evict the first.
 type Hub struct {
 	mu      sync.RWMutex
 	clients map[string][]*Client
@@ -57,8 +44,7 @@ func NewHub(log *logger.Logger) *Hub {
 	}
 }
 
-// Add registers a connection and starts its pumps. The returned client is
-// ready to receive; the caller subscribes it and then blocks on Wait.
+// Add registers a connection and starts its pumps.
 func (h *Hub) Add(conn *websocket.Conn, snap Session, ip string) *Client {
 	c := &Client{
 		Id:          uuid.NewString(),
@@ -91,8 +77,7 @@ func (h *Hub) Add(conn *websocket.Conn, snap Session, ip string) *Client {
 	return c
 }
 
-// Session is what the hub needs from a session snapshot. An interface-free
-// struct keeps pkg/ws independent of the cache package.
+// Session is what the hub needs from a session snapshot.
 type Session struct {
 	SessionId     string
 	Login         int64
@@ -102,8 +87,7 @@ type Session struct {
 	ManagerGroups []string
 }
 
-// Remove closes one connection and forgets it. Calling it twice is safe, which
-// matters because both pumps call it on their way out.
+// Remove closes one connection and forgets it.
 func (h *Hub) Remove(sessionId, clientId string) {
 	h.mu.Lock()
 	list := h.clients[sessionId]
@@ -144,8 +128,7 @@ func (h *Hub) Session(sessionId string) []*Client {
 	return out
 }
 
-// CloseSession drops every connection of a session, for a revoked session or
-// a forced logout.
+// CloseSession drops every connection of a session, for a revoked session or a forced logout.
 func (h *Hub) CloseSession(sessionId string) {
 	for _, c := range h.Session(sessionId) {
 		c.Send(&model.Event{Type: model.EventSessionRevoked, At: time.Now().UnixNano()})
@@ -153,8 +136,7 @@ func (h *Hub) CloseSession(sessionId string) {
 	}
 }
 
-// Login returns every connection belonging to one login, for a refresh that
-// has to rebuild what they listen to.
+// Login returns every connection belonging to one login, for a refresh that has to rebuild what they listen to.
 func (h *Hub) Login(login int64) []*Client {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -170,8 +152,7 @@ func (h *Hub) Login(login int64) []*Client {
 	return out
 }
 
-// CloseLogin drops every connection belonging to one login, however many
-// sessions it has open. This is what a disabled or deleted account needs.
+// CloseLogin drops every connection belonging to one login, however many sessions it has open.
 func (h *Hub) CloseLogin(login int64) {
 	h.mu.RLock()
 	var ids []string
@@ -204,8 +185,7 @@ func (h *Hub) Sessions() int {
 	return len(h.clients)
 }
 
-// Shutdown closes every connection. Called on the way down, before nats and
-// redis go, so each socket learns the server is leaving instead of timing out.
+// Shutdown closes every connection.
 func (h *Hub) Shutdown() {
 	h.mu.Lock()
 	all := make([]*Client, 0, h.total)
