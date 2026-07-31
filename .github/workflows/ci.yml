@@ -4,22 +4,29 @@ on:
   push:
   pull_request:
 
-defaults:
-  run:
-    working-directory: hst-server
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      # one red module should not hide the state of the other
+      fail-fast: false
+      matrix:
+        module: [hst-server, hst-core]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-go@v5
         with:
-          go-version-file: hst-server/go.mod
+          go-version-file: ${{ matrix.module }}/go.mod
 
       - name: Install the project tools
         run: make tools
+
+      - name: Generate swagger docs
+        run: make swagger
 
       - name: Quality and security gate
         run: make check

@@ -17,20 +17,13 @@ func (m *Middleware) HeaderReader(c *fiber.Ctx) error {
 		}
 	}
 
-	c.Locals(http.LocalsIp, realIP(c))
+	// c.IP() is the resolved client address: the first valid entry of
+	// X-Forwarded-For when the request came through a proxy listed in
+	// TRUSTED_PROXIES, and the socket address otherwise. Reading the header
+	// directly here instead would let any client that can reach the service
+	// forge the address that lands in the session record and the journal.
+	c.Locals(http.LocalsIp, c.IP())
 	c.Locals(http.LocalsUserAgent, c.Get("User-Agent"))
 
 	return c.Next()
-}
-
-// realIP prefers the proxy header, since fiber only trusts it when configured.
-func realIP(c *fiber.Ctx) string {
-	if xff := c.Get("X-Forwarded-For"); xff != "" {
-		// the first entry is the originating client
-		if i := strings.IndexByte(xff, ','); i > 0 {
-			return strings.TrimSpace(xff[:i])
-		}
-		return strings.TrimSpace(xff)
-	}
-	return c.IP()
 }
