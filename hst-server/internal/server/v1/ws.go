@@ -117,13 +117,27 @@ func (s *HttpServer) subscribeTo(c *ws.Client, subject string) error {
 
 // eventFromMsg turns a nats message into the event the client receives.
 //
-// A publisher may send a whole Event or just a payload. Taking the event type
-// from the subject's last token means the common case needs no envelope at
-// all, and a publisher cannot label an event as something it was not routed as.
+// The event name comes from the subject, so the common case needs no envelope
+// and a publisher cannot label an event as something it was not routed as.
+//
+// The format comes from the publisher: any service can put json, packed
+// binary or plain text on a subject and it reaches the socket in the matching
+// frame, untouched. Declare it with the X-Format or Content-Type header;
+// without one the payload is sniffed, so a publisher already sending json
+// needs no changes at all.
 func eventFromMsg(msg *natscore.Msg) *model.Event {
+	format, declared := model.FormatFromHeader(
+		msg.Header.Get(model.HeaderFormat),
+		msg.Header.Get(model.HeaderContentType),
+	)
+	if !declared {
+		format = model.SniffFormat(msg.Data)
+	}
+
 	e := &model.Event{
 		Type:    model.EventTypeFromSubject(msg.Subject),
 		Payload: msg.Data,
+		Format:  format,
 		At:      time.Now().UnixNano(),
 	}
 	if e.Type == "" {
@@ -132,15 +146,37 @@ func eventFromMsg(msg *natscore.Msg) *model.Event {
 	return e
 }
 
-// PublishWS sends an event to a subject, for any handler that wants to notify
-// the connected clients. The payload is marshalled by the caller's own encoder
-// so this stays a routing concern only.
+// PublishWS sends a json event to a subject, for any handler that wants to
+// notify the connected clients.
 func (s *HttpServer) PublishWS(subject string, payload any) error {
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}
-	return s.Nats.NC.Publish(subject, raw)
+	return s.PublishWSRaw(subject, raw, model.FormatJSON)
+}
+
+// PublishWSRaw sends bytes that are already encoded, in the format given. This
+// is the path a tick stream or any other packed feed takes: nothing here parses
+// or copies the payload, and the client receives the same bytes in a binary
+// frame.
+func (s *HttpServer) PublishWSRaw(subject string, payload []byte, format model.Format) error {
+	msg := &natscore.Msg{
+		Subject: subject,
+		Data:    payload,
+		Header:  natscore.Header{},
+	}
+
+	switch format {
+	case model.FormatBinary:
+		msg.Header.Set(model.HeaderFormat, "binary")
+	case model.FormatText:
+		msg.Header.Set(model.HeaderFormat, "text")
+	default:
+		msg.Header.Set(model.HeaderFormat, "json")
+	}
+
+	return s.Nats.NC.PublishMsg(msg)
 }
 
 // WSStats is the websocket hub report.

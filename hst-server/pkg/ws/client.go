@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -135,7 +136,7 @@ func (c *Client) writePump() {
 			return
 
 		case e := <-c.egress:
-			if err := c.writeJSON(e); err != nil {
+			if err := c.writeEvent(e); err != nil {
 				return
 			}
 
@@ -182,16 +183,64 @@ func (c *Client) readPump() {
 	}
 }
 
-func (c *Client) writeJSON(e *model.Event) error {
-	raw, err := json.Marshal(e)
-	if err != nil {
-		// a payload this server cannot encode is the publisher's bug, and
-		// killing the socket over it would punish the wrong side
-		c.log.Log(logger.TypeNet, logger.CodeErr, "could not encode websocket event",
-			"session_id", c.SessionId, "type", e.Type, "error", err.Error())
-		return nil
+// writeEvent puts one event on the wire in the frame its format asks for.
+//
+// Binary and text are forwarded verbatim: no parse, no envelope, no copy. That
+// is the whole point of letting a publisher choose the format, and it is what
+// makes a packed tick stream affordable.
+func (c *Client) writeEvent(e *model.Event) error {
+	_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
+
+	switch e.Format {
+	case model.FormatBinary:
+		return c.conn.WriteMessage(websocket.BinaryMessage, e.Payload)
+	case model.FormatText:
+		return c.conn.WriteMessage(websocket.TextMessage, e.Payload)
+	default:
+		return c.conn.WriteMessage(websocket.TextMessage, encodeJSON(e))
+	}
+}
+
+// encodeJSON builds {"type":..,"at":..,"payload":<raw>} by hand.
+//
+// The payload is already encoded, so running it back through a marshaller
+// would mean parsing json only to print the same json again. Appending bytes
+// skips the reflection entirely, and at a few thousand events a second that is
+// the difference worth having.
+func encodeJSON(e *model.Event) []byte {
+	buf := make([]byte, 0, len(e.Payload)+len(e.Type)+48)
+
+	buf = append(buf, `{"type":`...)
+	buf = appendQuoted(buf, e.Type)
+
+	if e.At != 0 {
+		buf = append(buf, `,"at":`...)
+		buf = strconv.AppendInt(buf, e.At, 10)
 	}
 
-	_ = c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-	return c.conn.WriteMessage(websocket.TextMessage, raw)
+	if len(e.Payload) > 0 {
+		buf = append(buf, `,"payload":`...)
+		buf = append(buf, e.Payload...)
+	}
+
+	return append(buf, '}')
+}
+
+// appendQuoted writes a json string. Event names come from nats subjects, so
+// they are plain ascii in every real case; the marshaller is only there to
+// keep a strange one from producing broken json.
+func appendQuoted(buf []byte, s string) []byte {
+	for i := 0; i < len(s); i++ {
+		if b := s[i]; b < 0x20 || b == '"' || b == '\\' || b > 0x7e {
+			raw, err := json.Marshal(s)
+			if err != nil {
+				return append(buf, `""`...)
+			}
+			return append(buf, raw...)
+		}
+	}
+
+	buf = append(buf, '"')
+	buf = append(buf, s...)
+	return append(buf, '"')
 }
