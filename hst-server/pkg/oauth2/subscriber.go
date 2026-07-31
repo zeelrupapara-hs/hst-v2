@@ -9,11 +9,16 @@ import (
 	"github.com/goccy/go-json"
 )
 
+// ReasonRefreshed marks a broadcast that widens or rewrites a session rather than ending it.
+const ReasonRefreshed = "refreshed"
+
 // invalidateMessage is broadcast to every instance.
 type invalidateMessage struct {
 	Sid    string `json:"sid,omitempty"`
 	Login  int64  `json:"login,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	// Origin is the instance that published it.
+	Origin string `json:"origin,omitempty"`
 }
 
 // Subscribe applies revocations published by the other instances.
@@ -46,12 +51,26 @@ func (o *OAuth2) Subscribe() {
 			case m.Login != 0:
 				o.Cache.InvalidateLogin(m.Login)
 			}
+
+			// redis delivers a broadcast to its sender too, and a refresh already applied must not run twice
+			if m.Reason == ReasonRefreshed {
+				// this instance refreshed before publishing
+				if m.Origin != o.instanceId && o.OnRefresh != nil {
+					o.OnRefresh(m.Login)
+				}
+				continue
+			}
+			if o.OnInvalidate != nil {
+				o.OnInvalidate(m.Sid, m.Login)
+			}
 		}
 	}
 }
 
 // publish tells the other instances to drop what we just revoked.
 func (o *OAuth2) publish(ctx context.Context, m invalidateMessage) {
+	m.Origin = o.instanceId
+
 	raw, err := json.Marshal(m)
 	if err != nil {
 		return

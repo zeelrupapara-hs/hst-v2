@@ -23,8 +23,10 @@ type Snapshot struct {
 	IsManager      bool   `json:"mgr"`
 	// ManagerRights is the 77 right columns packed into two words.
 	ManagerRights model.ManagerRights `json:"mrights"`
-	Version       int64               `json:"ver"`
-	ExpiresAt     int64               `json:"expires_at"`
+	// ManagerGroups is the group access, a list of masks like demo\*.
+	ManagerGroups []string `json:"mgroups,omitempty"`
+	Version       int64    `json:"ver"`
+	ExpiresAt     int64    `json:"expires_at"`
 }
 
 type entry struct {

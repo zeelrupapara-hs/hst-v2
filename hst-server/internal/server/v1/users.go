@@ -7,6 +7,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -144,7 +145,7 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, login, s.App.HttpResponseCreated)
+	return s.getUserByLogin(c, login, s.NotifyUser(model.EventUserCreated))
 }
 
 // ListUsers returns a page of logins.
@@ -169,11 +170,21 @@ func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	// only the logins inside this manager's groups, the same masks the websocket routes by
+	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `u."group"`, 4)
+	args = append([]any{q.Search, q.Limit, q.Offset}, args...)
+
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+userColumns+userJoin+`
 		  WHERE ($1 = '' OR u.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%')
+		    AND `+access+`
 		  ORDER BY u.`+q.SortBy+`
-		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset)
+		  LIMIT $2 OFFSET $3`, args...)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -246,6 +257,19 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
+	// the previous group is needed before the write, the losers have to be told
+	var oldGroup string
+	if body.Group != nil {
+		if err := s.DB.DB.QueryRow(ctx,
+			`SELECT "group" FROM hst.users WHERE login = $1`, login).Scan(&oldGroup); err != nil &&
+			!errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		if oldGroup == *body.Group {
+			oldGroup = ""
+		}
+	}
+
 	tag, err := s.DB.DB.Exec(ctx,
 		`UPDATE hst.users SET
 		    "group"    = COALESCE($2, "group"),
@@ -278,7 +302,14 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user updated",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, int64(login), s.App.HttpResponseOK)
+	// a group change has two audiences: those who lost the record and those who gained it
+	if oldGroup != "" {
+		s.NotifyWS(model.SubjectUser(oldGroup), model.EventUserMoved,
+			ViewUserRef{Login: int64(login), Group: oldGroup})
+		s.JournalEntry(c, logger.CodeOK, journal.UserMovedMsg(snap.Login, int64(login)), oldGroup)
+	}
+
+	return s.getUserByLogin(c, int64(login), s.NotifyUser(model.EventUserUpdated))
 }
 
 // DeleteUser removes a login.
@@ -300,12 +331,15 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.users WHERE login = $1`, login)
+	// returning the group saves a read: it is needed to announce the delete and it does not exist afterwards
+	var gone string
+	err = s.DB.DB.QueryRow(ctx,
+		`DELETE FROM hst.users WHERE login = $1 RETURNING "group"`, login).Scan(&gone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	if tag.RowsAffected() == 0 {
-		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
@@ -317,7 +351,27 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "user deleted",
 		"actor", snap.Login, "target", login)
 
+	ref := ViewUserRef{Login: int64(login), Group: gone}
+	s.NotifyWS(model.SubjectUser(gone), model.EventUserDeleted, ref)
+	s.NotifySystem(model.SubjectSystemUserDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.UserDeletedMsg(snap.Login, int64(login)), ref)
+
 	return s.App.HttpResponseNoContent(c)
+}
+
+// returning the group saves a read: it is needed to announce the delete
+func (s *HttpServer) NotifyUser(event string) func(*fiber.Ctx, interface{}) error {
+	return func(c *fiber.Ctx, v interface{}) error {
+		if u, ok := v.(*ViewUser); ok {
+			s.NotifyWS(model.SubjectUser(u.Group), event, u)
+			s.NotifySystem(SystemUserSubject(event), u)
+			s.JournalEntry(c, logger.CodeOK, UserMsg(c, event, u), u)
+		}
+		if event == model.EventUserCreated {
+			return s.App.HttpResponseCreated(c, v)
+		}
+		return s.App.HttpResponseOK(c, v)
+	}
 }
 
 // getUserByLogin reads one row and answers with the given responder.
@@ -366,4 +420,27 @@ func (s *HttpServer) hashPasswords(passwords ...string) ([]string, error) {
 	}
 
 	return out, nil
+}
+
+// SystemUserSubject is the service side of a user event.
+func SystemUserSubject(event string) string {
+	if event == model.EventUserCreated {
+		return model.SubjectSystemUserCreated
+	}
+	return model.SubjectSystemUserUpdated
+}
+
+// UserMsg is the journal line for a user event.
+func UserMsg(c *fiber.Ctx, event string, u *ViewUser) string {
+	snap, _ := utils.GetClient(c)
+
+	var actor int64
+	if snap != nil {
+		actor = snap.Login
+	}
+
+	if event == model.EventUserCreated {
+		return journal.UserCreatedMsg(actor, u.Login)
+	}
+	return journal.UserUpdatedMsg(actor, u.Login)
 }

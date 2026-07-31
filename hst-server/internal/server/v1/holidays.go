@@ -9,6 +9,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -148,6 +149,10 @@ func (s *HttpServer) CreateHoliday(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "holiday created",
 		"actor", snap.Login, "target", out.HolidayId,
 		"date", holidayDate(out), "work_time", workTime(out), "symbols", out.Symbols)
+
+	s.NotifyWS(model.SubjectHoliday, model.EventHolidayCreated, out)
+	s.NotifySystem(model.SubjectSystemHolidayCreated, out)
+	s.JournalEntry(c, logger.CodeOK, journal.HolidayCreatedMsg(snap.Login, int(out.HolidayId)), out)
 
 	return s.App.HttpResponseCreated(c, out)
 }
@@ -341,6 +346,10 @@ func (s *HttpServer) UpdateHoliday(c *fiber.Ctx) error {
 		"actor", snap.Login, "target", out.HolidayId,
 		"date", holidayDate(out), "work_time", workTime(out), "symbols", out.Symbols)
 
+	s.NotifyWS(model.SubjectHoliday, model.EventHolidayUpdated, out)
+	s.NotifySystem(model.SubjectSystemHolidayUpdated, out)
+	s.JournalEntry(c, logger.CodeOK, journal.HolidayUpdatedMsg(snap.Login, int(out.HolidayId)), out)
+
 	return s.App.HttpResponseOK(c, out)
 }
 
@@ -400,6 +409,11 @@ func (s *HttpServer) DeleteHoliday(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "holiday deleted",
 		"actor", snap.Login, "target", id)
+
+	ref := ViewHolidayRef{HolidayId: id}
+	s.NotifyWS(model.SubjectHoliday, model.EventHolidayDeleted, ref)
+	s.NotifySystem(model.SubjectSystemHolidayDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.HolidayDeletedMsg(snap.Login, id), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -492,6 +506,10 @@ func (s *HttpServer) ReorderHolidays(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "holidays reordered",
 		"actor", snap.Login, "holidays", len(body.HolidayIds))
+
+	s.NotifyWS(model.SubjectHoliday, model.EventHolidayReordered, body)
+	s.NotifySystem(model.SubjectSystemHolidayReordered, body)
+	s.JournalEntry(c, logger.CodeOK, journal.HolidayReorderedMsg(snap.Login), body)
 
 	rows, err := s.DB.DB.Query(ctx,
 		`SELECT `+holidayColumns+` FROM hst.holidays ORDER BY config_index`)

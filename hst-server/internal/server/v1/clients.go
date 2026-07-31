@@ -7,6 +7,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -198,6 +199,10 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "client created",
 		"actor", snap.Login, "client_id", view.ClientId)
 
+	s.NotifyClient(c.UserContext(), view.ClientId, model.EventClientCreated, view)
+	s.NotifySystem(model.SubjectSystemClientCreated, view)
+	s.JournalEntry(c, logger.CodeOK, journal.ClientCreatedMsg(snap.Login, view.ClientId), view)
+
 	return s.App.HttpResponseCreated(c, view)
 }
 
@@ -223,13 +228,28 @@ func (s *HttpServer) ListClients(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	// a client has no group of its own: it is visible through the logins it owns
+	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `u."group"`, 4)
+	visible := `EXISTS (SELECT 1 FROM hst.users u
+	                     WHERE u.client_id = hst.clients.client_id AND ` + access + `)`
+	if access == "TRUE" {
+		visible = "TRUE"
+	}
+	args = append([]any{q.Search, q.Limit, q.Offset}, args...)
+
 	// sort_by is validated against an allowlist in QueryFilter.
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+clientColumns+`
 		   FROM hst.clients
 		  WHERE ($1 = '' OR person_name ILIKE '%'||$1||'%' OR contact_email ILIKE '%'||$1||'%')
+		    AND `+visible+`
 		  ORDER BY `+q.SortBy+`
-		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset)
+		  LIMIT $2 OFFSET $3`, args...)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -428,6 +448,10 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "client updated",
 		"actor", snap.Login, "client_id", id)
 
+	s.NotifyClient(c.UserContext(), int64(id), model.EventClientUpdated, client)
+	s.NotifySystem(model.SubjectSystemClientUpdated, client)
+	s.JournalEntry(c, logger.CodeOK, journal.ClientUpdatedMsg(snap.Login, int64(id)), client)
+
 	return s.App.HttpResponseOK(c, client)
 }
 
@@ -471,6 +495,9 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseConflict(c, errs.ErrDeleteWhileNotEmpty)
 	}
 
+	// read the groups while the logins still point at this client
+	groups := s.ClientGroups(ctx, int64(id))
+
 	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.clients WHERE client_id = $1`, id)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -482,6 +509,12 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "client deleted",
 		"actor", snap.Login, "client_id", id, "users_detached", users)
+
+	// the logins were detached above, so the groups are read before the delete; see NotifyClient
+	ref := ViewClientRef{ClientId: int64(id)}
+	s.NotifyClientIn(groups, model.EventClientDeleted, ref)
+	s.NotifySystem(model.SubjectSystemClientDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.ClientDeletedMsg(snap.Login, int64(id)), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

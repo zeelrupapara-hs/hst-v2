@@ -3,6 +3,7 @@ package v1
 import (
 	"hstserver/model"
 
+	"github.com/gofiber/contrib/websocket"
 	"github.com/gofiber/swagger"
 )
 
@@ -33,6 +34,12 @@ func (s *HttpServer) RegisterV1() {
 		}))
 	}
 
+	// websocket.
+	root.Get("/ws", s.Middleware.UpgradeWS, s.Middleware.Protect, websocket.New(s.ServeWS, websocket.Config{
+		// the handshake must echo the subprotocol the client offered, or the browser fails the connection
+		Subprotocols: []string{"bearer"},
+	}))
+
 	// api group
 	api := root.Group("/api")
 
@@ -46,6 +53,7 @@ func (s *HttpServer) RegisterV1() {
 	system.Get("/monitor/health", s.CheckSystemHealth)
 	system.Get("/monitor/live", s.CheckSystemLive)
 	system.Get("/monitor/cache", s.Middleware.Protect, s.Middleware.RequireManager, s.CacheStats)
+	system.Get("/monitor/ws", s.Middleware.Protect, s.Middleware.RequireManager, s.WSStats)
 
 	// auth
 	auth := v1.Group("/auth", s.Middleware.Protect)

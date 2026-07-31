@@ -7,6 +7,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/oauth2"
 	"hstserver/utils"
@@ -540,6 +541,10 @@ func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrUnknownManagerRight)
 	}
 
+	if err := s.withinOwnScope(c, body.Groups, rights); err != nil {
+		return s.App.HttpResponseForbidden(c, err)
+	}
+
 	// the login must already exist; a manager is a role on a user, not a user
 	var exists bool
 	if err := s.DB.DB.QueryRow(ctx,
@@ -572,7 +577,8 @@ func (s *HttpServer) CreateManager(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "manager created",
 		"actor", snap.Login, "target", body.Login)
 
-	return s.getManager(c, body.Login, s.App.HttpResponseCreated)
+	return s.getManager(c, body.Login, s.NotifyManager(model.EventManagerCreated,
+		model.SubjectSystemManagerCreated, journal.ManagerCreatedMsg(snap.Login, body.Login), true))
 }
 
 // UpdateManager replaces the name, groups and the whole right set of a manager.
@@ -610,6 +616,10 @@ func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrUnknownManagerRight)
 	}
 
+	if err := s.withinOwnScope(c, body.Groups, rights); err != nil {
+		return s.App.HttpResponseForbidden(c, err)
+	}
+
 	affected, err := updateManager(ctx, s.DB.DB, int64(login), &body, rights,
 		time.Now().UnixNano())
 	if err != nil {
@@ -628,7 +638,8 @@ func (s *HttpServer) UpdateManager(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "manager updated",
 		"actor", snap.Login, "target", login)
 
-	return s.getManager(c, int64(login), s.App.HttpResponseOK)
+	return s.getManager(c, int64(login), s.NotifyManager(model.EventManagerUpdated,
+		model.SubjectSystemManagerUpdated, journal.ManagerUpdatedMsg(snap.Login, int64(login)), false))
 }
 
 // DeleteManager removes the staff role.
@@ -667,6 +678,11 @@ func (s *HttpServer) DeleteManager(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "manager removed",
 		"actor", snap.Login, "target", login)
 
+	ref := ViewManagerRef{Login: int64(login)}
+	s.NotifyWS(model.SubjectManager, model.EventManagerDeleted, ref)
+	s.NotifySystem(model.SubjectSystemManagerDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.ManagerDeletedMsg(snap.Login, int64(login)), ref)
+
 	return s.App.HttpResponseNoContent(c)
 }
 
@@ -683,4 +699,43 @@ func (s *HttpServer) getManager(c *fiber.Ctx, login int64,
 	}
 
 	return respond(c, m)
+}
+
+// NotifyManager announces a manager change on the way out, so the record is loaded once.
+func (s *HttpServer) NotifyManager(event, systemSubject, message string, created bool) func(*fiber.Ctx, interface{}) error {
+	return func(c *fiber.Ctx, v interface{}) error {
+		s.NotifyWS(model.SubjectManager, event, v)
+		s.NotifySystem(systemSubject, v)
+		s.JournalEntry(c, logger.CodeOK, message, v)
+
+		if created {
+			return s.App.HttpResponseCreated(c, v)
+		}
+		return s.App.HttpResponseOK(c, v)
+	}
+}
+
+// withinOwnScope refuses to grant more than the acting manager holds.
+func (s *HttpServer) withinOwnScope(c *fiber.Ctx, groups []string, rights model.ManagerRights) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return errs.ErrCouldNotParseClientCfg
+	}
+
+	// an administrator is the root of the tree and has nobody above it
+	if snap.ManagerRights.Has(model.MgrRightAdmin) {
+		return nil
+	}
+
+	if !model.MasksCover(snap.ManagerGroups, groups) {
+		return errs.ErrGroupAccessBeyondOwn
+	}
+
+	for bit := uint(0); bit < model.ManagerRightsCount; bit++ {
+		if rights.Has(bit) && !snap.ManagerRights.Has(bit) {
+			return errs.ErrRightsBeyondOwn
+		}
+	}
+
+	return nil
 }

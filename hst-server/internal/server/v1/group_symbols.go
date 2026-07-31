@@ -8,6 +8,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -231,14 +232,33 @@ func scanViewGroupSymbol(row pgx.Row) (*ViewGroupSymbol, error) {
 	return v, nil
 }
 
+// groupExists reports whether the group is there and this manager may see it.
 func groupExists(c *fiber.Ctx, s *HttpServer, groupID int) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return errs.ErrCouldNotParseClientCfg
+	}
+
+	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `"group"`, 2)
+
 	var exists int
 	err := s.DB.DB.QueryRow(c.UserContext(),
-		`SELECT 1 FROM hst.groups WHERE group_id = $1`, groupID).Scan(&exists)
+		`SELECT 1 FROM hst.groups WHERE group_id = $1 AND `+access,
+		append([]any{groupID}, args...)...).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return errs.ErrNotFound
 	}
 	return err
+}
+
+// GroupPath is the path of a group, for announcing a change to its symbols.
+func (s *HttpServer) GroupPath(c *fiber.Ctx, groupID int) string {
+	var path string
+	if err := s.DB.DB.QueryRow(c.UserContext(),
+		`SELECT "group" FROM hst.groups WHERE group_id = $1`, groupID).Scan(&path); err != nil {
+		return ""
+	}
+	return path
 }
 
 // ListGroupSymbols lists sparse symbol overrides for one group (NULL fields inherit from base symbol).
@@ -490,6 +510,11 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol created",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", v.SymbolID, "path", v.Path)
 
+	GroupPath := s.GroupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupSymbol(GroupPath), model.EventGroupSymbolCreated, v)
+	s.NotifySystem(model.SubjectSystemGroupSymbolCreated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolCreatedMsg(snap.Login, GroupPath), v)
+
 	return s.App.HttpResponseCreated(c, v)
 }
 
@@ -639,6 +664,11 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol updated",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
 
+	path := s.GroupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolUpdated, v)
+	s.NotifySystem(model.SubjectSystemGroupSymbolUpdated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolUpdatedMsg(snap.Login, path), v)
+
 	return s.App.HttpResponseOK(c, v)
 }
 
@@ -678,6 +708,12 @@ func (s *HttpServer) DeleteGroupSymbol(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol deleted",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
+
+	path := s.GroupPath(c, groupID)
+	ref := ViewGroupSymbolRef{GroupID: groupID, SymbolID: symbolID}
+	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolDeleted, ref)
+	s.NotifySystem(model.SubjectSystemGroupSymbolDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.GroupSymbolDeletedMsg(snap.Login, path), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

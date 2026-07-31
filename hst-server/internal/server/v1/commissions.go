@@ -8,6 +8,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -316,6 +317,11 @@ func (s *HttpServer) CreateGroupCommission(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group commission created",
 		"actor", snap.Login, "group_id", groupID, "commission_id", v.CommissionID)
 
+	path := s.GroupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionCreated, v)
+	s.NotifySystem(model.SubjectSystemGroupCommissionCreated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupCommissionCreatedMsg(snap.Login, path), v)
+
 	return s.App.HttpResponseCreated(c, v)
 }
 
@@ -417,6 +423,11 @@ func (s *HttpServer) UpdateGroupCommission(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group commission updated",
 		"actor", snap.Login, "group_id", groupID, "commission_id", commissionID)
 
+	path := s.GroupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionUpdated, v)
+	s.NotifySystem(model.SubjectSystemGroupCommissionUpdated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupCommissionUpdatedMsg(snap.Login, path), v)
+
 	return s.App.HttpResponseOK(c, v)
 }
 
@@ -456,6 +467,12 @@ func (s *HttpServer) DeleteGroupCommission(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group commission deleted",
 		"actor", snap.Login, "group_id", groupID, "commission_id", commissionID)
+
+	path := s.GroupPath(c, groupID)
+	ref := ViewCommissionRef{GroupID: groupID, CommissionID: commissionID}
+	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionDeleted, ref)
+	s.NotifySystem(model.SubjectSystemGroupCommissionDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.GroupCommissionDeletedMsg(snap.Login, path), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }
