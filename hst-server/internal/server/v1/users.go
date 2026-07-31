@@ -144,7 +144,7 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, login, s.App.HttpResponseCreated)
+	return s.getUserByLogin(c, login, s.notifyUser(model.ActionCreated))
 }
 
 // ListUsers returns a page of logins.
@@ -169,11 +169,22 @@ func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	// only the logins inside this manager's groups, the same masks the
+	// websocket routes by
+	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `u."group"`, 4)
+	args = append([]any{q.Search, q.Limit, q.Offset}, args...)
+
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+userColumns+userJoin+`
 		  WHERE ($1 = '' OR u.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%')
+		    AND `+access+`
 		  ORDER BY u.`+q.SortBy+`
-		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset)
+		  LIMIT $2 OFFSET $3`, args...)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -246,6 +257,20 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
+	// the previous group is needed before the write: the managers who lose the
+	// record have to be told it left, and afterwards it is gone
+	var oldGroup string
+	if body.Group != nil {
+		if err := s.DB.DB.QueryRow(ctx,
+			`SELECT "group" FROM hst.users WHERE login = $1`, login).Scan(&oldGroup); err != nil &&
+			!errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		if oldGroup == *body.Group {
+			oldGroup = ""
+		}
+	}
+
 	tag, err := s.DB.DB.Exec(ctx,
 		`UPDATE hst.users SET
 		    "group"    = COALESCE($2, "group"),
@@ -278,7 +303,14 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user updated",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, int64(login), s.App.HttpResponseOK)
+	// a group change has two audiences: the managers who just lost the record
+	// hear it left, the ones who gained it hear the update below
+	if oldGroup != "" {
+		s.NotifyWS(model.FamilyUsers, oldGroup, model.ActionMoved,
+			ViewUserRef{Login: int64(login), Group: oldGroup})
+	}
+
+	return s.getUserByLogin(c, int64(login), s.notifyUser(model.ActionUpdated))
 }
 
 // DeleteUser removes a login.
@@ -300,12 +332,16 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.users WHERE login = $1`, login)
+	// returning the group saves a read: it is needed to announce the delete
+	// and it does not exist afterwards
+	var gone string
+	err = s.DB.DB.QueryRow(ctx,
+		`DELETE FROM hst.users WHERE login = $1 RETURNING "group"`, login).Scan(&gone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	if tag.RowsAffected() == 0 {
-		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
@@ -317,7 +353,27 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "user deleted",
 		"actor", snap.Login, "target", login)
 
+	s.NotifyWS(model.FamilyUsers, gone, model.ActionDeleted,
+		ViewUserRef{Login: int64(login), Group: gone})
+
 	return s.App.HttpResponseNoContent(c)
+}
+
+// notifyUser announces a user change on the way out, so the record is loaded
+// once and both the caller and the listeners get the same view.
+//
+// The group in the subject is the user's own group, which is what decides
+// which managers hear about it.
+func (s *HttpServer) notifyUser(action model.Action) func(*fiber.Ctx, interface{}) error {
+	return func(c *fiber.Ctx, v interface{}) error {
+		if u, ok := v.(*ViewUser); ok {
+			s.NotifyWS(model.FamilyUsers, u.Group, action, u)
+		}
+		if action == model.ActionCreated {
+			return s.App.HttpResponseCreated(c, v)
+		}
+		return s.App.HttpResponseOK(c, v)
+	}
 }
 
 // getUserByLogin reads one row and answers with the given responder.

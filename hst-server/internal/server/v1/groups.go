@@ -261,8 +261,17 @@ func ptrOr[T any](p *T, def T) T {
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups [get]
 func (s *HttpServer) ListGroups(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	// the same masks that route the websocket events decide what is listed,
+	// or the two would disagree about what this manager may see
+	where, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `"group"`, 1)
+
 	rows, err := s.DB.DB.Query(c.UserContext(),
-		`SELECT `+groupColumns+` FROM hst.groups ORDER BY "group"`)
+		`SELECT `+groupColumns+` FROM hst.groups WHERE `+where+` ORDER BY "group"`, args...)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

@@ -1,6 +1,7 @@
 package v1
 
 import (
+	"context"
 	"time"
 
 	"hstserver/model"
@@ -228,6 +229,13 @@ type ViewGroupRef struct {
 	Group   string `json:"group"`
 }
 
+// ViewUserRef identifies a login for a delete or a move, where the whole
+// record is either gone or no longer this audience's business.
+type ViewUserRef struct {
+	Login int64  `json:"login"`
+	Group string `json:"group"`
+}
+
 // NotifyWS publishes a group scoped record change.
 //
 // The publisher says what changed and where it lives, and nothing about who
@@ -243,5 +251,66 @@ func (s *HttpServer) NotifyWS(family model.Family, groupPath string, action mode
 	if err := s.PublishWS(subject, payload); err != nil {
 		s.Log.Log(logger.TypeNet, logger.CodeWarn, "could not publish a websocket event",
 			"subject", subject, "error", err.Error())
+	}
+}
+
+// ViewGroupSymbolRef identifies an override that no longer exists.
+type ViewGroupSymbolRef struct {
+	GroupID  int `json:"group_id"`
+	SymbolID int `json:"symbol_id"`
+}
+
+// ViewClientRef identifies a client that no longer exists.
+type ViewClientRef struct {
+	ClientId int64 `json:"client_id"`
+}
+
+// clientGroups is the distinct set of groups a client is present in, through
+// the logins it owns.
+//
+// A client has no group column of its own; it is a person, and the person can
+// hold a demo login in one tree and a live login in another. Its audience is
+// therefore the union of those trees.
+func (s *HttpServer) clientGroups(ctx context.Context, clientId int64) []string {
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT DISTINCT "group" FROM hst.users WHERE client_id = $1`, clientId)
+	if err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeWarn, "could not read a client's groups",
+			"client_id", clientId, "error", err.Error())
+		return nil
+	}
+	defer rows.Close()
+
+	var out []string
+	for rows.Next() {
+		var g string
+		if err := rows.Scan(&g); err != nil {
+			return out
+		}
+		out = append(out, g)
+	}
+	return out
+}
+
+// notifyClient announces a client change to every group the client has a login
+// in. A manager covering two of those groups receives it twice, which is
+// harmless: the event carries the whole record, so applying it twice is the
+// same as applying it once.
+func (s *HttpServer) notifyClient(ctx context.Context, clientId int64, action model.Action, payload any) {
+	s.notifyClientIn(s.clientGroups(ctx, clientId), clientId, action, payload)
+}
+
+// notifyClientIn is notifyClient with the groups already read, for a delete
+// where the logins are detached before the row goes.
+func (s *HttpServer) notifyClientIn(groups []string, clientId int64, action model.Action, payload any) {
+	// a client with no login yet sits under root, where only a manager with
+	// unrestricted access is listening
+	if len(groups) == 0 {
+		s.NotifyWS(model.FamilyClients, "", action, payload)
+		return
+	}
+
+	for _, g := range groups {
+		s.NotifyWS(model.FamilyClients, g, action, payload)
 	}
 }

@@ -43,6 +43,9 @@ const (
 	FamilyUsers    Family = "users"
 	FamilyClients  Family = "clients"
 	FamilyAccounts Family = "accounts"
+	// FamilyGroupSymbols is a symbol override attached to a group, so it is
+	// scoped by the group it hangs off rather than by the symbol.
+	FamilyGroupSymbols Family = "group_symbols"
 )
 
 // Action is what happened to the record. Four is the whole vocabulary: a
@@ -62,14 +65,17 @@ const (
 // FamilyRight is the manager right that gates a family. A manager without the
 // right never subscribes to the family at all, whatever its group access.
 var FamilyRight = map[Family]uint{
-	FamilyGroups:   MgrRightCfgGroups,
-	FamilyUsers:    MgrRightAccRead,
-	FamilyClients:  MgrRightClientsAccess,
-	FamilyAccounts: MgrRightAccRead,
+	FamilyGroups:       MgrRightCfgGroups,
+	FamilyUsers:        MgrRightAccRead,
+	FamilyClients:      MgrRightClientsAccess,
+	FamilyAccounts:     MgrRightAccRead,
+	FamilyGroupSymbols: MgrRightCfgGroups,
 }
 
 // Families is every group scoped family, in a stable order.
-var Families = []Family{FamilyGroups, FamilyUsers, FamilyClients, FamilyAccounts}
+var Families = []Family{
+	FamilyGroups, FamilyUsers, FamilyClients, FamilyAccounts, FamilyGroupSymbols,
+}
 
 // GroupToken turns a group path into subject tokens: demo\forex\usd becomes
 // demo.forex.usd. Empty segments are dropped so a stray separator cannot

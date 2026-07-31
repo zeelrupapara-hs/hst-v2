@@ -91,7 +91,10 @@ func (s *Seeder) SeedManager(ctx context.Context) error {
 	if _, err := tx.Exec(ctx,
 		`INSERT INTO hst.managers (login, name, groups, updated_at, `+allRightColumns+`)
 		 VALUES ($1, $2, $3, $4, `+allRightOnes+`)`,
-		login, firstManager.Name, []string{firstManager.Group}, now); err != nil {
+		// the administrator's group access is unrestricted: every right is
+		// granted above, and a mask of its own group would leave it unable to
+		// see any client group at all
+		login, firstManager.Name, []string{"*"}, now); err != nil {
 		return err
 	}
 
