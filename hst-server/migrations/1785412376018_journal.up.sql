@@ -1,4 +1,4 @@
--- Server journal: the queryable audit trail behind the MT5 Journal tab.
+-- Server journal: the queryable audit trail behind the Journal tab.
 -- The file log in logs/YYYYMMDD.log keeps the same entries, this table is what
 -- the back office can filter.
 

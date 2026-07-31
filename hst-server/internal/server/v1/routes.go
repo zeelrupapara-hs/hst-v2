@@ -118,7 +118,7 @@ func (s *HttpServer) RegisterV1() {
 
 	// server journal
 	journal := v1.Group("/journal", s.Middleware.Protect, s.Middleware.RequireManager)
-	journal.Get("/", s.Middleware.Authorization(model.MgrRightSrvJournals), s.ListJournal)
+	journal.Get("/", s.Middleware.Authorization(model.MgrRightSrvJournals), s.MyJournal)
 
 	// group commissions
 	groups.Get("/:id/commissions", s.Middleware.Authorization(model.MgrRightGroupCommission), s.ListGroupCommissions)

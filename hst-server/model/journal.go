@@ -2,7 +2,29 @@ package model
 
 import "encoding/json"
 
-// Journal is one entry of the server journal. Type and code are the MT5 log
+// JournalMode is which entries a journal query returns, filtering on severity.
+type JournalMode int32
+
+const (
+	JournalMode_full           JournalMode = 0
+	JournalMode_without_logins JournalMode = 1
+	JournalMode_errors_only    JournalMode = 2
+)
+
+var (
+	JournalMode_name = map[int32]string{
+		0: "full",
+		1: "without_logins",
+		2: "errors_only",
+	}
+	JournalMode_value = map[string]int32{
+		"full":           0,
+		"without_logins": 1,
+		"errors_only":    2,
+	}
+)
+
+// Journal is one entry of the server journal. Type and code are the log
 // taxonomy, already defined as logger.Type and logger.Code in pkg/logger.
 type Journal struct {
 	JournalId int64           `db:"journal_id" json:"journal_id"`

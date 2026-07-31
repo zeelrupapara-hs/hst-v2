@@ -9,31 +9,17 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// journalSortable are the real columns of journal.
-var journalSortable = utils.NewSortable("journal_id", "created_at", "login", "type", "code")
+// journalSortBy are the real columns of journal.
+var journalSortBy = utils.NewSortable("journal_id", "created_at", "login", "type", "code")
 
 // host() drops the /32 that inet carries into text, and pgx has no string plan
 // for inet either way
 const journalColumns = `journal_id, created_at, type, code, login,
 	coalesce(host(ip), ''), message, coalesce(detail, '{}'::jsonb)`
 
-// journal request types of the MT5 journal tab, filtering on severity
-const (
-	journalModeFull          = 0
-	journalModeWithoutLogins = 1
-	journalModeErrorsOnly    = 2
-)
-
-// journalModes maps the query value to the filter the statement understands.
-var journalModes = map[string]int{
-	"full":           journalModeFull,
-	"without_logins": journalModeWithoutLogins,
-	"errors_only":    journalModeErrorsOnly,
-}
-
-// ListJournal returns a page of journal entries, newest first.
+// MyJournal returns a page of journal entries, newest first.
 //
-//	@Id			ListJournal
+//	@Id			MyJournal
 //	@Tags		Journal
 //	@Produce	json
 //	@Param		page	query		int		false	"page number, from 1"
@@ -52,18 +38,18 @@ var journalModes = map[string]int{
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/journal [get]
-func (s *HttpServer) ListJournal(c *fiber.Ctx) error {
-	q, err := utils.QueryFilter(c, journalSortable, "created_at")
+func (s *HttpServer) MyJournal(c *fiber.Ctx) error {
+	q, err := utils.QueryFilter(c, journalSortBy, "created_at")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
-	logType := c.QueryInt("type", 0)
-	if logType < 0 || logType > 8 {
-		return s.App.HttpResponseBadQueryParams(c, fmt.Errorf("type %d is not an event type", logType))
+	typ := c.QueryInt("type", 0)
+	if typ < 0 || typ > 8 {
+		return s.App.HttpResponseBadQueryParams(c, fmt.Errorf("type %d is not an event type", typ))
 	}
 
-	mode, ok := journalModes[c.Query("mode", "full")]
+	mode, ok := model.JournalMode_value[c.Query("mode", "full")]
 	if !ok {
 		return s.App.HttpResponseBadQueryParams(c,
 			fmt.Errorf("mode %q is not full, without_logins or errors_only", c.Query("mode")))
@@ -82,7 +68,7 @@ func (s *HttpServer) ListJournal(c *fiber.Ctx) error {
 		    AND ($6 = 0 OR ($6 = 1 AND code <> 4) OR ($6 = 2 AND code IN (2, 3)))
 		  ORDER BY `+q.SortBy+`
 		  LIMIT $7 OFFSET $8`,
-		c.QueryInt("from", 0), c.QueryInt("to", 0), logType, c.QueryInt("login", 0),
+		c.QueryInt("from", 0), c.QueryInt("to", 0), typ, c.QueryInt("login", 0),
 		q.Search, mode, q.Limit, q.Offset)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
