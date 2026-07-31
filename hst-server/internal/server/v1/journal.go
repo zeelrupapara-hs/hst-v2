@@ -11,7 +11,7 @@ import (
 )
 
 // journalSortBy are the real columns of journal.
-var journalSortBy = utils.NewSortable("journal_id", "created_at", "login", "type", "code")
+var journalSortBy = utils.NewSortable("journal_id", "created_at", "type", "code")
 
 // host() drops the /32 that inet carries into text, and pgx has no string plan
 // for inet either way
@@ -32,8 +32,8 @@ const journalColumns = `journal_id, created_at, type, code, login,
 //	@Param		type	query		int		false	"event type, 0 for all"		Enums(0, 1, 2, 3, 4, 5, 6, 7, 8)
 //	@Param		mode	query		string	false	"which entries to return"	Enums(full, without_logins, errors_only)
 //	@Param		search	query		string	false	"matches message, case sensitive"
-//	@Param		sort_by	query		string	false	"journal_id, created_at, login, type, code"	Enums(journal_id, created_at, login, type, code)
-//	@Param		order	query		string	false	"asc or desc"								Enums(asc, desc)
+//	@Param		sort_by	query		string	false	"journal_id, created_at, type, code"	Enums(journal_id, created_at, type, code)
+//	@Param		order	query		string	false	"asc or desc"							Enums(asc, desc)
 //	@Success	200		{object}	Response{data=[]model.Journal}
 //	@Failure	400		{object}	Response
 //	@Failure	403		{object}	Response
