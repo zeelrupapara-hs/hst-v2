@@ -8,6 +8,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -514,7 +515,10 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol created",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", v.SymbolID, "path", v.Path)
 
-	s.NotifyWS(model.SubjectGroupSymbol(s.groupPath(c, groupID)), model.EventGroupSymbolCreated, v)
+	groupPath := s.groupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupSymbol(groupPath), model.EventGroupSymbolCreated, v)
+	s.NotifySystem(model.SubjectSystemGroupSymbolCreated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolCreatedMsg(snap.Login, groupPath), v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -665,7 +669,10 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol updated",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
 
-	s.NotifyWS(model.SubjectGroupSymbol(s.groupPath(c, groupID)), model.EventGroupSymbolUpdated, v)
+	path := s.groupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolUpdated, v)
+	s.NotifySystem(model.SubjectSystemGroupSymbolUpdated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolUpdatedMsg(snap.Login, path), v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -707,8 +714,11 @@ func (s *HttpServer) DeleteGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol deleted",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
 
-	s.NotifyWS(model.SubjectGroupSymbol(s.groupPath(c, groupID)), model.EventGroupSymbolDeleted,
-		ViewGroupSymbolRef{GroupID: groupID, SymbolID: symbolID})
+	path := s.groupPath(c, groupID)
+	ref := ViewGroupSymbolRef{GroupID: groupID, SymbolID: symbolID}
+	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolDeleted, ref)
+	s.NotifySystem(model.SubjectSystemGroupSymbolDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.GroupSymbolDeletedMsg(snap.Login, path), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

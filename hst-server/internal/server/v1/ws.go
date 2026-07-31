@@ -17,25 +17,15 @@ import (
 	natscore "github.com/nats-io/nats.go"
 )
 
-// rightSubjects maps a manager right to the subject a holder of it listens on.
-//
-// This table is the authorisation model of the websocket layer. A socket
-// subscribes to a right's subject only when the session actually holds that
-// right, so an event it may not see is never delivered to it in the first
-// place. There is no filtering after the fact to get wrong.
-//
-// Publishing to one of these is how a service reaches "every manager who may
-// see this", without knowing who is connected.
+// rightSubjects are the records with no group of their own: access to them is a right, not a path.
 var rightSubjects = []struct {
-	right uint
-	name  string
+	right   uint
+	subject string
 }{
-	{model.MgrRightSrvJournals, "journals"},
-	{model.MgrRightAccRead, "users"},
-	{model.MgrRightClientsAccess, "clients"},
-	{model.MgrRightCfgGroups, "groups"},
-	{model.MgrRightCfgSymbols, "symbols"},
-	{model.MgrRightCfgManagers, "managers"},
+	{model.MgrRightCfgSymbols, model.SubjectSymbol},
+	{model.MgrRightCfgHolidays, model.SubjectHoliday},
+	{model.MgrRightCfgGroups, model.SubjectLeverage},
+	{model.MgrRightCfgManagers, model.SubjectManager},
 }
 
 // ServeWS upgrades an authenticated request and attaches it to the hub.
@@ -111,7 +101,7 @@ func (s *HttpServer) subjectsFor(c *ws.Client, rights model.ManagerRights, group
 	// managers, the server journal
 	for _, r := range rightSubjects {
 		if rights.Has(r.right) {
-			subjects = append(subjects, model.SubjectRight(r.name))
+			subjects = append(subjects, r.subject)
 		}
 	}
 
@@ -228,12 +218,8 @@ func (s *HttpServer) NotifySystem(subject string, payload any) {
 	}
 }
 
-// Journalise records one line of the server journal for the acting session.
-//
-// A failure is logged rather than returned: the write it describes has already
-// happened, and failing the request afterwards would tell the caller their
-// change did not land when it did.
-func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message string, detail any) {
+// write journal entry
+func (s *HttpServer) JournalEntry(c *fiber.Ctx, code logger.Code, message string, detail any) {
 	snap, _ := utils.GetClient(c)
 
 	var login int64
@@ -373,6 +359,34 @@ func (s *HttpServer) NotifyWS(subject, event string, payload any) {
 type ViewGroupSymbolRef struct {
 	GroupID  int `json:"group_id"`
 	SymbolID int `json:"symbol_id"`
+}
+
+// ViewManagerRef identifies a manager that no longer exists.
+type ViewManagerRef struct {
+	Login int64 `json:"login"`
+}
+
+// ViewCommissionRef identifies a commission that no longer exists.
+type ViewCommissionRef struct {
+	GroupID      int `json:"group_id"`
+	CommissionID int `json:"commission_id"`
+}
+
+// ViewLeverageRef identifies a leverage profile that no longer exists.
+type ViewLeverageRef struct {
+	LeverageId int `json:"leverage_id"`
+}
+
+// ViewHolidayRef identifies a holiday that no longer exists.
+type ViewHolidayRef struct {
+	HolidayId int `json:"holiday_id"`
+}
+
+// ViewSymbolRef identifies a symbol that no longer exists.
+type ViewSymbolRef struct {
+	SymbolId int    `json:"symbol_id"`
+	Symbol   string `json:"symbol"`
+	Path     string `json:"path"`
 }
 
 // ViewClientRef identifies a client that no longer exists.

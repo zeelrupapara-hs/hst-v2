@@ -7,6 +7,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -308,6 +309,7 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	if oldGroup != "" {
 		s.NotifyWS(model.SubjectUser(oldGroup), model.EventUserMoved,
 			ViewUserRef{Login: int64(login), Group: oldGroup})
+		s.JournalEntry(c, logger.CodeOK, journal.UserMovedMsg(snap.Login, int64(login)), oldGroup)
 	}
 
 	return s.getUserByLogin(c, int64(login), s.notifyUser(model.EventUserUpdated))
@@ -353,8 +355,10 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "user deleted",
 		"actor", snap.Login, "target", login)
 
-	s.NotifyWS(model.SubjectUser(gone), model.EventUserDeleted,
-		ViewUserRef{Login: int64(login), Group: gone})
+	ref := ViewUserRef{Login: int64(login), Group: gone}
+	s.NotifyWS(model.SubjectUser(gone), model.EventUserDeleted, ref)
+	s.NotifySystem(model.SubjectSystemUserDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.UserDeletedMsg(snap.Login, int64(login)), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -368,6 +372,8 @@ func (s *HttpServer) notifyUser(event string) func(*fiber.Ctx, interface{}) erro
 	return func(c *fiber.Ctx, v interface{}) error {
 		if u, ok := v.(*ViewUser); ok {
 			s.NotifyWS(model.SubjectUser(u.Group), event, u)
+			s.NotifySystem(systemUserSubject(event), u)
+			s.JournalEntry(c, logger.CodeOK, userMsg(c, event, u), u)
 		}
 		if event == model.EventUserCreated {
 			return s.App.HttpResponseCreated(c, v)
@@ -422,4 +428,27 @@ func (s *HttpServer) hashPasswords(passwords ...string) ([]string, error) {
 	}
 
 	return out, nil
+}
+
+// systemUserSubject is the service side of a user event.
+func systemUserSubject(event string) string {
+	if event == model.EventUserCreated {
+		return model.SubjectSystemUserCreated
+	}
+	return model.SubjectSystemUserUpdated
+}
+
+// userMsg is the journal line for a user event.
+func userMsg(c *fiber.Ctx, event string, u *ViewUser) string {
+	snap, _ := utils.GetClient(c)
+
+	var actor int64
+	if snap != nil {
+		actor = snap.Login
+	}
+
+	if event == model.EventUserCreated {
+		return journal.UserCreatedMsg(actor, u.Login)
+	}
+	return journal.UserUpdatedMsg(actor, u.Login)
 }

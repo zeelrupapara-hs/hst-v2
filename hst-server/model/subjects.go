@@ -49,22 +49,25 @@ const (
 	familyAccounts family = "accounts"
 	// familyGroupSymbols is a symbol override attached to a group, so it is
 	// scoped by the group it hangs off rather than by the symbol.
-	familyGroupSymbols family = "group_symbols"
+	familyGroupSymbols     family = "group_symbols"
+	familyGroupCommissions family = "group_commissions"
 )
 
 // familyRight is the manager right that gates a family. A manager without the
 // right never subscribes to the family at all, whatever its group access.
 var familyRight = map[family]uint{
-	familyGroups:       MgrRightCfgGroups,
-	familyUsers:        MgrRightAccRead,
-	familyClients:      MgrRightClientsAccess,
-	familyAccounts:     MgrRightAccRead,
-	familyGroupSymbols: MgrRightCfgGroups,
+	familyGroups:           MgrRightCfgGroups,
+	familyUsers:            MgrRightAccRead,
+	familyClients:          MgrRightClientsAccess,
+	familyAccounts:         MgrRightAccRead,
+	familyGroupSymbols:     MgrRightCfgGroups,
+	familyGroupCommissions: MgrRightCfgGroups,
 }
 
 // families is every group scoped family, in a stable order.
 var families = []family{
-	familyGroups, familyUsers, familyClients, familyAccounts, familyGroupSymbols,
+	familyGroups, familyUsers, familyClients, familyAccounts,
+	familyGroupSymbols, familyGroupCommissions,
 }
 
 // GroupToken turns a group path into subject tokens: demo\forex\usd becomes
@@ -88,14 +91,23 @@ func GroupToken(path string) string {
 //	s.NotifyWS(model.SubjectGroup(v.Group), model.EventCreated, v)
 //	  -> ws.g.groups.demo.forex
 var (
-	SubjectGroup       = func(path string) string { return subject(familyGroups, path) }
-	SubjectGroupSymbol = func(path string) string { return subject(familyGroupSymbols, path) }
-	SubjectUser        = func(path string) string { return subject(familyUsers, path) }
-	SubjectClient      = func(path string) string { return subject(familyClients, path) }
-	SubjectAccount     = func(path string) string { return subject(familyAccounts, path) }
+	SubjectGroup           = func(path string) string { return subject(familyGroups, path) }
+	SubjectGroupSymbol     = func(path string) string { return subject(familyGroupSymbols, path) }
+	SubjectUser            = func(path string) string { return subject(familyUsers, path) }
+	SubjectClient          = func(path string) string { return subject(familyClients, path) }
+	SubjectAccount         = func(path string) string { return subject(familyAccounts, path) }
+	SubjectGroupCommission = func(path string) string { return subject(familyGroupCommissions, path) }
 
 	// SubjectJournal carries a manager's own journal lines: it records what that manager did, so nobody else is listening.
 	SubjectJournal = func(login int64) string { return fmt.Sprintf("websocket.%d.journal", login) }
+)
+
+// Records with no group of their own. Access to them is a right, not a path, so the subject carries no group.
+const (
+	SubjectSymbol   = "ws.right.symbols"
+	SubjectHoliday  = "ws.right.holidays"
+	SubjectLeverage = "ws.right.leverages"
+	SubjectManager  = "ws.right.managers"
 )
 
 // From the api to the other services. A system subject is not a websocket
@@ -118,6 +130,28 @@ const (
 	SubjectSystemClientCreated = "system.client.created"
 	SubjectSystemClientUpdated = "system.client.updated"
 	SubjectSystemClientDeleted = "system.client.deleted"
+
+	SubjectSystemGroupCommissionCreated = "system.group_commission.created"
+	SubjectSystemGroupCommissionUpdated = "system.group_commission.updated"
+	SubjectSystemGroupCommissionDeleted = "system.group_commission.deleted"
+
+	SubjectSystemSymbolCreated = "system.symbol.created"
+	SubjectSystemSymbolUpdated = "system.symbol.updated"
+	SubjectSystemSymbolDeleted = "system.symbol.deleted"
+
+	SubjectSystemHolidayCreated   = "system.holiday.created"
+	SubjectSystemHolidayUpdated   = "system.holiday.updated"
+	SubjectSystemHolidayDeleted   = "system.holiday.deleted"
+	SubjectSystemHolidayReordered = "system.holiday.reordered"
+
+	SubjectSystemLeverageCreated   = "system.leverage.created"
+	SubjectSystemLeverageUpdated   = "system.leverage.updated"
+	SubjectSystemLeverageDeleted   = "system.leverage.deleted"
+	SubjectSystemLeverageReordered = "system.leverage.reordered"
+
+	SubjectSystemManagerCreated = "system.manager.created"
+	SubjectSystemManagerUpdated = "system.manager.updated"
+	SubjectSystemManagerDeleted = "system.manager.deleted"
 )
 
 // The event types a record change carries. They ride in the event rather than
@@ -146,6 +180,31 @@ const (
 	EventClientDeleted = "client_deleted"
 
 	EventAccountUpdated = "account_updated"
+
+	EventGroupCommissionCreated = "group_commission_created"
+	EventGroupCommissionUpdated = "group_commission_updated"
+	EventGroupCommissionDeleted = "group_commission_deleted"
+
+	EventSymbolCreated = "symbol_created"
+	EventSymbolUpdated = "symbol_updated"
+	EventSymbolDeleted = "symbol_deleted"
+
+	EventHolidayCreated   = "holiday_created"
+	EventHolidayUpdated   = "holiday_updated"
+	EventHolidayDeleted   = "holiday_deleted"
+	EventHolidayReordered = "holiday_reordered"
+
+	EventLeverageCreated     = "leverage_created"
+	EventLeverageUpdated     = "leverage_updated"
+	EventLeverageDeleted     = "leverage_deleted"
+	EventLeverageRuleCreated = "leverage_rule_created"
+	EventLeverageRuleUpdated = "leverage_rule_updated"
+	EventLeverageRuleDeleted = "leverage_rule_deleted"
+	EventLeverageReordered   = "leverage_reordered"
+
+	EventManagerCreated = "manager_created"
+	EventManagerUpdated = "manager_updated"
+	EventManagerDeleted = "manager_deleted"
 
 	EventJournal = "journal"
 )
@@ -261,6 +320,32 @@ func ReduceMasks(masks []string) []string {
 	}
 
 	return out
+}
+
+// MasksCover reports whether every mask in inner is already granted by outer.
+//
+// This is what confines delegation: a manager may hand out a slice of its own
+// access and never more, so the region it was given is the whole world it can
+// carve up.
+func MasksCover(outer, inner []string) bool {
+	for _, want := range inner {
+		if strings.TrimSpace(want) == "" {
+			continue
+		}
+
+		granted := false
+		for _, have := range outer {
+			if MaskCovers(have, want) {
+				granted = true
+				break
+			}
+		}
+		if !granted {
+			return false
+		}
+	}
+
+	return true
 }
 
 // MaskCovers reports whether outer already grants everything inner grants.

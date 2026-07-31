@@ -7,6 +7,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -199,6 +200,8 @@ func (s *HttpServer) CreateClient(c *fiber.Ctx) error {
 		"actor", snap.Login, "client_id", view.ClientId)
 
 	s.notifyClient(c.UserContext(), view.ClientId, model.EventClientCreated, view)
+	s.NotifySystem(model.SubjectSystemClientCreated, view)
+	s.JournalEntry(c, logger.CodeOK, journal.ClientCreatedMsg(snap.Login, view.ClientId), view)
 
 	return s.App.HttpResponseCreated(c, view)
 }
@@ -449,6 +452,8 @@ func (s *HttpServer) UpdateClient(c *fiber.Ctx) error {
 		"actor", snap.Login, "client_id", id)
 
 	s.notifyClient(c.UserContext(), int64(id), model.EventClientUpdated, client)
+	s.NotifySystem(model.SubjectSystemClientUpdated, client)
+	s.JournalEntry(c, logger.CodeOK, journal.ClientUpdatedMsg(snap.Login, int64(id)), client)
 
 	return s.App.HttpResponseOK(c, client)
 }
@@ -510,8 +515,10 @@ func (s *HttpServer) DeleteClient(c *fiber.Ctx) error {
 
 	// the logins were detached above, so the groups are read before the
 	// delete; see notifyClient
-	s.notifyClientIn(groups, model.EventClientDeleted,
-		ViewClientRef{ClientId: int64(id)})
+	ref := ViewClientRef{ClientId: int64(id)}
+	s.notifyClientIn(groups, model.EventClientDeleted, ref)
+	s.NotifySystem(model.SubjectSystemClientDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.ClientDeletedMsg(snap.Login, int64(id)), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

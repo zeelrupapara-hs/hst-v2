@@ -16,6 +16,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -628,6 +629,10 @@ func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "symbol created",
 		"actor", snap.Login, "symbol_id", view.SymbolId,
 		"symbol", view.Symbol, "path", view.Path)
+
+	s.NotifyWS(model.SubjectSymbol, model.EventSymbolCreated, view)
+	s.NotifySystem(model.SubjectSystemSymbolCreated, view)
+	s.JournalEntry(c, logger.CodeOK, journal.SymbolCreatedMsg(snap.Login, view.Symbol), view)
 
 	return s.App.HttpResponseCreated(c, view)
 }
@@ -1263,6 +1268,10 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 		"actor", snap.Login, "symbol_id", id,
 		"symbol", detail.Symbol.Symbol, "changes", changes)
 
+	s.NotifyWS(model.SubjectSymbol, model.EventSymbolUpdated, detail)
+	s.NotifySystem(model.SubjectSystemSymbolUpdated, detail)
+	s.JournalEntry(c, logger.CodeOK, journal.SymbolUpdatedMsg(snap.Login, detail.Symbol.Symbol), detail)
+
 	return s.App.HttpResponseOK(c, detail)
 }
 
@@ -1298,6 +1307,11 @@ func (s *HttpServer) DeleteSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "symbol deleted",
 		"actor", snap.Login, "symbol_id", id,
 		"symbol", symbol, "path", path)
+
+	ref := ViewSymbolRef{SymbolId: id, Symbol: symbol, Path: path}
+	s.NotifyWS(model.SubjectSymbol, model.EventSymbolDeleted, ref)
+	s.NotifySystem(model.SubjectSystemSymbolDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.SymbolDeletedMsg(snap.Login, symbol), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

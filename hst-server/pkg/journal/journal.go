@@ -67,14 +67,14 @@ func (j *Journal) Entry(ctx context.Context, entry *model.Journal) error {
 
 // publishMsg announces an entry and reports whether the broker actually holds it.
 func (j *Journal) publishMsg(entry *model.Journal) error {
-	raw, err := json.Marshal(entry)
+	journal, err := json.Marshal(entry)
 	if err != nil {
 		return err
 	}
 
 	msg := &natscore.Msg{
 		Subject: model.SubjectJournal(entry.Login),
-		Data:    raw,
+		Data:    journal,
 		Header: natscore.Header{
 			model.HeaderFormat: []string{"json"},
 			model.HeaderEvent:  []string{model.EventJournal},
