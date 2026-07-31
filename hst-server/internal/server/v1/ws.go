@@ -232,7 +232,7 @@ func (s *HttpServer) NotifySystem(subject string, payload any) {
 // A failure is logged rather than returned: the write it describes has already
 // happened, and failing the request afterwards would tell the caller their
 // change did not land when it did.
-func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message string, detail any) {
+func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message, groupPath string, detail any) {
 	snap, _ := utils.GetClient(c)
 
 	var login int64
@@ -257,7 +257,7 @@ func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message string, 
 		Ip:      utils.GetRealIP(c),
 		Message: message,
 		Detail:  raw,
-	}); err != nil {
+	}, groupPath); err != nil {
 		s.Log.Log(logger.TypeSys, logger.CodeWarn, "could not write a journal entry",
 			"message", message, "error", err.Error())
 	}

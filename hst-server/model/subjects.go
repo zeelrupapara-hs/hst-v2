@@ -49,6 +49,8 @@ const (
 	// familyGroupSymbols is a symbol override attached to a group, so it is
 	// scoped by the group it hangs off rather than by the symbol.
 	familyGroupSymbols family = "group_symbols"
+	// familyJournal is the operational log, scoped by the group the action touched
+	familyJournal family = "journal"
 )
 
 // familyRight is the manager right that gates a family. A manager without the
@@ -59,11 +61,12 @@ var familyRight = map[family]uint{
 	familyClients:      MgrRightClientsAccess,
 	familyAccounts:     MgrRightAccRead,
 	familyGroupSymbols: MgrRightCfgGroups,
+	familyJournal:      MgrRightSrvJournals,
 }
 
 // families is every group scoped family, in a stable order.
 var families = []family{
-	familyGroups, familyUsers, familyClients, familyAccounts, familyGroupSymbols,
+	familyGroups, familyUsers, familyClients, familyAccounts, familyGroupSymbols, familyJournal,
 }
 
 // GroupToken turns a group path into subject tokens: demo\forex\usd becomes
@@ -92,6 +95,9 @@ var (
 	SubjectUser        = func(path string) string { return subject(familyUsers, path) }
 	SubjectClient      = func(path string) string { return subject(familyClients, path) }
 	SubjectAccount     = func(path string) string { return subject(familyAccounts, path) }
+
+	// SubjectJournal carries an operational log line to every manager whose access covers the group it touched.
+	SubjectJournal = func(path string) string { return subject(familyJournal, path) }
 )
 
 // From the api to the other services. A system subject is not a websocket
@@ -114,10 +120,6 @@ const (
 	SubjectSystemClientCreated = "system.client.created"
 	SubjectSystemClientUpdated = "system.client.updated"
 	SubjectSystemClientDeleted = "system.client.deleted"
-
-	// SubjectSystemJournal carries a journal entry once it is stored, so a
-	// live view shows it without polling the table.
-	SubjectSystemJournal = "ws.right.journals.entry"
 )
 
 // The event types a record change carries. They ride in the event rather than
