@@ -3,10 +3,10 @@ package server
 import (
 	"github.com/go-playground/validator/v10"
 
-	// import local pkg
 	"hstserver/config"
 	"hstserver/internal/middleware"
 	v1 "hstserver/internal/server/v1"
+	"hstserver/internal/workerstatus"
 	"hstserver/pkg/db"
 	"hstserver/pkg/http"
 	"hstserver/pkg/logger"
@@ -34,6 +34,8 @@ type Server struct {
 	OAuth2 *oauth2.OAuth2
 	// Config
 	Cfg *config.Config
+	// WorkerStatus aggregates ingestion telemetry from hst-quote/hst-news.
+	WorkerStatus *workerstatus.Subscriber
 }
 
 func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds *redis.Redis, oauth *oauth2.OAuth2, validate *validator.Validate, cfg *config.Config) *Server {
@@ -47,20 +49,30 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 	web := v1.NewHTTP(app, database, log, nats, rds, newMiddleware, oauth, cfg, validate)
 
 	return &Server{
-		App:        app,
-		Middleware: newMiddleware,
-		Web:        web,
-		Log:        log,
-		DB:         database,
-		Nats:       nats,
-		Redis:      rds,
-		OAuth2:     oauth,
-		Cfg:        cfg,
+		App:          app,
+		Middleware:   newMiddleware,
+		Web:          web,
+		Log:          log,
+		DB:           database,
+		Nats:         nats,
+		Redis:        rds,
+		OAuth2:       oauth,
+		Cfg:          cfg,
+		WorkerStatus: workerstatus.New(database, log),
 	}
+}
+
+// RegisterRoutes will register all the versions routes
+func (s *Server) RegisterRoutes() {
+	s.Web.RegisterV1()
+	s.Web.RegisterInternal()
 }
 
 // Run will register the routes and start listening
 func (s *Server) Run() error {
+	if err := s.WorkerStatus.Start(s.Nats); err != nil {
+		return err
+	}
 	// register all routes
 	s.RegisterRoutes()
 
@@ -80,6 +92,9 @@ func (s *Server) Run() error {
 
 // Shutdown drains in-flight requests, capped by ShutdownTimeout.
 func (s *Server) Shutdown() error {
+	if s.WorkerStatus != nil {
+		s.WorkerStatus.Stop()
+	}
 	s.Log.Logger.Infow("draining in-flight requests",
 		"timeout", s.Cfg.HTTP.ShutdownTimeout.String())
 	return s.App.ShutdownWithTimeout(s.Cfg.HTTP.ShutdownTimeout)

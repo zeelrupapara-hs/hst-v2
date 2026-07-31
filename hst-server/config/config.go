@@ -49,12 +49,13 @@ const (
 	// #nosec G101 -- env var name, not a credential
 	FIRST_MANAGER_PASSWORD = "FIRST_MANAGER_PASSWORD"
 	// #nosec G101 -- env var name, not a credential
-	AUTH_PASSWORD_PEPPER = "AUTH_PASSWORD_PEPPER"
-	SWAGGER_ENABLED      = "SWAGGER_ENABLED"
-	HTTP_TLS_CERT        = "HTTP_TLS_CERT"
-	HTTP_TLS_KEY         = "HTTP_TLS_KEY"
-	REDIS_TLS            = "REDIS_TLS"
-	CORS_ORIGINS         = "CORS_ORIGINS"
+	AUTH_PASSWORD_PEPPER   = "AUTH_PASSWORD_PEPPER"
+	SWAGGER_ENABLED        = "SWAGGER_ENABLED"
+	HTTP_TLS_CERT          = "HTTP_TLS_CERT"
+	HTTP_TLS_KEY           = "HTTP_TLS_KEY"
+	REDIS_TLS              = "REDIS_TLS"
+	CORS_ORIGINS           = "CORS_ORIGINS"
+	INTERNAL_SERVICE_TOKEN = "INTERNAL_SERVICE_TOKEN"
 )
 
 type Config struct {
@@ -66,6 +67,12 @@ type Config struct {
 	Redis    Redis
 	Auth     Auth
 	Cache    Cache
+	Internal Internal
+}
+
+// Internal holds service-to-service auth settings.
+type Internal struct {
+	ServiceToken string
 }
 
 // Auth config
@@ -233,6 +240,8 @@ func NewConfig() (*Config, error) {
 	c.HTTP.BodyLimit = getEnvAsInt(HTTP_BODY_LIMIT, 4*1024*1024)
 	c.HTTP.SwaggerEnabled = getEnvAsBool(SWAGGER_ENABLED, false)
 	c.HTTP.CorsOrigins = splitCsv(getEnv(CORS_ORIGINS, "http://localhost:3000"))
+
+	c.Internal.ServiceToken = getEnv(INTERNAL_SERVICE_TOKEN, "")
 	c.HTTP.TlsCert = getEnv(HTTP_TLS_CERT, "")
 	c.HTTP.TlsKey = getEnv(HTTP_TLS_KEY, "")
 
