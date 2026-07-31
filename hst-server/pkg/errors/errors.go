@@ -38,6 +38,8 @@ const (
 	LeverageRuleLimitReached     = "a leverage profile can hold at most 1024 rules"
 	RuleNotInProfile             = "the rule does not belong to this leverage profile"
 	ReorderMustListEveryRule     = "the reorder must list every rule of the profile exactly once"
+	HolidayDateInvalid           = "the month and day are not a real calendar date"
+	ReorderMustListEveryHoliday  = "the reorder must list every holiday exactly once"
 )
 
 var (
@@ -75,4 +77,6 @@ var (
 	ErrLeverageRuleLimitReached     = errors.New(LeverageRuleLimitReached)
 	ErrRuleNotInProfile             = errors.New(RuleNotInProfile)
 	ErrReorderMustListEveryRule     = errors.New(ReorderMustListEveryRule)
+	ErrHolidayDateInvalid           = errors.New(HolidayDateInvalid)
+	ErrReorderMustListEveryHoliday  = errors.New(ReorderMustListEveryHoliday)
 )

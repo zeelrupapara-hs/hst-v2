@@ -103,6 +103,16 @@ func (s *HttpServer) RegisterV1() {
 	leverages.Put("/:id/rules/:ruleId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.UpdateLeverageRule)
 	leverages.Delete("/:id/rules/:ruleId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.DeleteLeverageRule)
 
+	// trading holidays
+	holidays := v1.Group("/holidays", s.Middleware.Protect, s.Middleware.RequireManager)
+	holidays.Get("/", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.ListHolidays)
+	holidays.Post("/", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.CreateHoliday)
+	holidays.Get("/check", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.CheckHoliday)
+	holidays.Put("/reorder", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.ReorderHolidays)
+	holidays.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.GetHoliday)
+	holidays.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.UpdateHoliday)
+	holidays.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.DeleteHoliday)
+
 	// universal symbols
 	symbols := v1.Group("/symbols", s.Middleware.Protect, s.Middleware.RequireManager)
 	symbols.Get("/", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.ListSymbols)
