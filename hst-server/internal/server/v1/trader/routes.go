@@ -24,5 +24,5 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	auth := trader.Group("/auth")
 	auth.Get("/me", s.Me)
 	auth.Post("/logout", s.Logout)
-	auth.Post("/oauth2/change-password", s.ChangePassword)
+	auth.Post("/change-password", s.ChangePassword)
 }

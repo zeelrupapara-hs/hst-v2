@@ -24,7 +24,7 @@ using `FIRST_MANAGER_PASSWORD` from `.env`. It gets all 77 manager rights, so
 every endpoint works immediately.
 
 ```bash
-curl -u '1000:Bootstrap-Admin-2026!' -X POST localhost:8080/auth/v1/oauth2/login \
+curl -u '1000:Bootstrap-Admin-2026!' -X POST localhost:8080/auth/v1/login \
   -H 'Content-Type: application/json' -d '{"connection_type":33}'
 ```
 
@@ -48,7 +48,7 @@ curl -u '1000:Bootstrap-Admin-2026!' -X POST localhost:8080/auth/v1/oauth2/login
 forced:
 
 ```bash
-curl -X POST localhost:8080/api/v1/auth/oauth2/change-password \
+curl -X POST localhost:8080/api/v1/auth/change-password \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"old_password":"Bootstrap-Admin-2026!","new_password":"Admin-Pass-2026!"}'
 # HTTP 204
@@ -127,7 +127,7 @@ staff yet.
 ## 3. She cannot log in yet
 
 ```bash
-curl -u '1001:Sara-Main-2026!' -X POST localhost:8080/auth/v1/oauth2/login \
+curl -u '1001:Sara-Main-2026!' -X POST localhost:8080/auth/v1/login \
   -H 'Content-Type: application/json' -d '{"connection_type":33}'
 ```
 
@@ -172,7 +172,7 @@ panel shut.
 ## 5. Now she logs in
 
 ```bash
-curl -u '1001:Sara-Main-2026!' -X POST localhost:8080/auth/v1/oauth2/login \
+curl -u '1001:Sara-Main-2026!' -X POST localhost:8080/auth/v1/login \
   -H 'Content-Type: application/json' -d '{"connection_type":33}'
 ```
 
@@ -183,7 +183,7 @@ code 0 | session 62610352-f24f-410b-b09c-fe0aa736e6d0 | expires_in 7200
 Admin panel with the same credentials:
 
 ```bash
-curl -u '1001:Sara-Main-2026!' -X POST localhost:8080/auth/v1/oauth2/login \
+curl -u '1001:Sara-Main-2026!' -X POST localhost:8080/auth/v1/login \
   -H 'Content-Type: application/json' -d '{"connection_type":32}'
 ```
 
@@ -228,7 +228,7 @@ right list, so always send the complete set.
 The access token lasts 2 hours; the refresh token lasts 7 days.
 
 ```bash
-curl -X POST localhost:8080/auth/v1/oauth2/refresh \
+curl -X POST localhost:8080/auth/v1/refresh \
   -H 'Content-Type: application/json' \
   -d '{"refresh_token":"HlE1AnPMjJU1rzX7cBtZtdCka4VcGBZH6aoIXk4toPQ"}'
 ```
@@ -282,7 +282,7 @@ redis         0 keys
 ## The login, check by check
 
 ```
-POST /auth/v1/oauth2/login
+POST /auth/v1/login
 Authorization: Basic MTAwMTpTYXJhLU1haW4tMjAyNiE=
 {"connection_type": 33}
 ```

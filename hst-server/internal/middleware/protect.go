@@ -60,5 +60,5 @@ func (m *Middleware) Protect(c *fiber.Ctx) error {
 
 func isPasswordChangeRoute(c *fiber.Ctx) bool {
 	return c.Method() == fiber.MethodPost &&
-		strings.HasSuffix(c.Path(), "/oauth2/change-password")
+		strings.HasSuffix(c.Path(), "/auth/change-password")
 }

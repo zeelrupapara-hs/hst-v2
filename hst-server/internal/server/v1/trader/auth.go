@@ -80,5 +80,5 @@ func (s *Server) Logout(c *fiber.Ctx) error { return s.LogoutSession(c) }
 //	@Failure	400		{object}	Response
 //	@Failure	401		{object}	Response
 //	@Security	BearerAuth
-//	@Router		/api/trader/v1/auth/oauth2/change-password [post]
+//	@Router		/api/trader/v1/auth/change-password [post]
 func (s *Server) ChangePassword(c *fiber.Ctx) error { return s.SetPassword(c) }

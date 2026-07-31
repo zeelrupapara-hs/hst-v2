@@ -14,7 +14,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	v1 := api.Group("/v1")
 
 	// staff sign in here, and a trading account that tries is refused by the route it chose
-	oauth := root.Group("/auth/v1/oauth2")
+	oauth := root.Group("/auth/v1")
 	oauth.Post("/login", s.Middleware.BasicAuthParser, s.Login)
 	oauth.Post("/refresh", s.RefreshToken)
 
@@ -22,7 +22,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	auth.Get("/me", s.Me)
 	auth.Post("/logout", s.Logout)
 	// a restricted session may reach this one and nothing else
-	auth.Post("/oauth2/change-password", s.ChangePassword)
+	auth.Post("/change-password", s.ChangePassword)
 
 	// clients
 	clients := v1.Group("/clients", s.Middleware.Protect, s.Middleware.RequireManager)

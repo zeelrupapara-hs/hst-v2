@@ -31,7 +31,7 @@ type ViewToken = v1.ViewToken
 //	@Failure		403		{object}	Response
 //	@Failure		500		{object}	Response
 //	@Security		BasicAuth
-//	@Router			/auth/v1/oauth2/login [post]
+//	@Router			/auth/v1/login [post]
 func (s *Server) Login(c *fiber.Ctx) error { return s.LoginAs(c, true) }
 
 // RefreshToken exchanges a manager refresh token for a new pair.
@@ -44,7 +44,7 @@ func (s *Server) Login(c *fiber.Ctx) error { return s.LoginAs(c, true) }
 //	@Success	200		{object}	Response{data=ViewToken}
 //	@Failure	401		{object}	Response
 //	@Failure	500		{object}	Response
-//	@Router		/auth/v1/oauth2/refresh [post]
+//	@Router		/auth/v1/refresh [post]
 func (s *Server) RefreshToken(c *fiber.Ctx) error { return s.RefreshSession(c, true) }
 
 // Me describes the calling manager session.
@@ -80,5 +80,5 @@ func (s *Server) Logout(c *fiber.Ctx) error { return s.LogoutSession(c) }
 //	@Failure	400		{object}	Response
 //	@Failure	401		{object}	Response
 //	@Security	BearerAuth
-//	@Router		/api/v1/auth/oauth2/change-password [post]
+//	@Router		/api/v1/auth/change-password [post]
 func (s *Server) ChangePassword(c *fiber.Ctx) error { return s.SetPassword(c) }
