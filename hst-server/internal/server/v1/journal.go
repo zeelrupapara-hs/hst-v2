@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"hstserver/model"
+	errs "hstserver/pkg/errors"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -17,7 +18,9 @@ var journalSortBy = utils.NewSortable("journal_id", "created_at", "login", "type
 const journalColumns = `journal_id, created_at, type, code, login,
 	coalesce(host(ip), ''), message, coalesce(detail, '{}'::jsonb)`
 
-// MyJournal returns a page of journal entries, newest first.
+// MyJournal returns a page of the caller's own journal entries, newest first.
+// The login comes from the session, never from the request, so one manager
+// cannot read another's trail.
 //
 //	@Id			MyJournal
 //	@Tags		Journal
@@ -28,7 +31,6 @@ const journalColumns = `journal_id, created_at, type, code, login,
 //	@Param		to		query		int		false	"created_at upper bound, unix nanoseconds"
 //	@Param		type	query		int		false	"event type, 0 for all"		Enums(0, 1, 2, 3, 4, 5, 6, 7, 8)
 //	@Param		mode	query		string	false	"which entries to return"	Enums(full, without_logins, errors_only)
-//	@Param		login	query		int		false	"only the entries of one login"
 //	@Param		search	query		string	false	"matches message, case sensitive"
 //	@Param		sort_by	query		string	false	"journal_id, created_at, login, type, code"	Enums(journal_id, created_at, login, type, code)
 //	@Param		order	query		string	false	"asc or desc"								Enums(asc, desc)
@@ -39,6 +41,11 @@ const journalColumns = `journal_id, created_at, type, code, login,
 //	@Security	BearerAuth
 //	@Router		/api/v1/journal [get]
 func (s *HttpServer) MyJournal(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseUnauthorized(c, errs.ErrInvalidSession)
+	}
+
 	q, err := utils.QueryFilter(c, journalSortBy, "created_at")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
@@ -63,12 +70,12 @@ func (s *HttpServer) MyJournal(c *fiber.Ctx) error {
 		  WHERE ($1 = 0 OR created_at >= $1)
 		    AND ($2 = 0 OR created_at <= $2)
 		    AND ($3 = 0 OR type = $3)
-		    AND ($4 = 0 OR login = $4)
+		    AND login = $4
 		    AND ($5 = '' OR message LIKE '%'||$5||'%')
 		    AND ($6 = 0 OR ($6 = 1 AND code <> 4) OR ($6 = 2 AND code IN (2, 3)))
 		  ORDER BY `+q.SortBy+`
 		  LIMIT $7 OFFSET $8`,
-		c.QueryInt("from", 0), c.QueryInt("to", 0), typ, c.QueryInt("login", 0),
+		c.QueryInt("from", 0), c.QueryInt("to", 0), typ, snap.Login,
 		q.Search, mode, q.Limit, q.Offset)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
