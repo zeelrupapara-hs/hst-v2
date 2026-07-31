@@ -7,6 +7,7 @@ import (
 	"hstserver/model"
 	"hstserver/pkg/cache"
 	nethttp "hstserver/pkg/http"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/ws"
 	"hstserver/utils"
@@ -232,13 +233,15 @@ func (s *HttpServer) NotifySystem(subject string, payload any) {
 // A failure is logged rather than returned: the write it describes has already
 // happened, and failing the request afterwards would tell the caller their
 // change did not land when it did.
-func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message string, detail any) {
+func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, template, groupPath string, detail any) {
 	snap, _ := utils.GetClient(c)
 
 	var login int64
 	if snap != nil {
 		login = snap.Login
 	}
+
+	message := journal.Msg(template, "login", login, "grouppath", groupPath)
 
 	raw, err := json.Marshal(detail)
 	if err != nil {
