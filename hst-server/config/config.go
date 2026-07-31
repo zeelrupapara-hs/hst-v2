@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"runtime"
 	"strconv"
@@ -55,6 +56,7 @@ const (
 	HTTP_TLS_KEY         = "HTTP_TLS_KEY"
 	REDIS_TLS            = "REDIS_TLS"
 	CORS_ORIGINS         = "CORS_ORIGINS"
+	TRUSTED_PROXIES      = "TRUSTED_PROXIES"
 )
 
 type Config struct {
@@ -141,6 +143,10 @@ type Http struct {
 	SwaggerEnabled bool
 	// CorsOrigins is the allowlist, never a wildcard.
 	CorsOrigins []string
+	// TrustedProxies are the addresses or CIDR ranges X-Forwarded-For is
+	// believed from. Empty means believe nobody and use the socket address,
+	// which is the right answer when nothing proxies this service.
+	TrustedProxies []string
 	// TlsCert and TlsKey serve https directly; leave both empty to serve plain
 	// http behind a proxy that terminates tls for you.
 	TlsCert string
@@ -233,6 +239,7 @@ func NewConfig() (*Config, error) {
 	c.HTTP.BodyLimit = getEnvAsInt(HTTP_BODY_LIMIT, 4*1024*1024)
 	c.HTTP.SwaggerEnabled = getEnvAsBool(SWAGGER_ENABLED, false)
 	c.HTTP.CorsOrigins = splitCsv(getEnv(CORS_ORIGINS, "http://localhost:3000"))
+	c.HTTP.TrustedProxies = splitCsv(getEnv(TRUSTED_PROXIES, ""))
 	c.HTTP.TlsCert = getEnv(HTTP_TLS_CERT, "")
 	c.HTTP.TlsKey = getEnv(HTTP_TLS_KEY, "")
 
@@ -313,6 +320,20 @@ func (c *Config) validate() error {
 		return fmt.Errorf("%s must be shorter than the absolute family cap of %s",
 			AUTH_REFRESH_TTL, c.Auth.RefreshAbsoluteTTL)
 	}
+	// a typo here does not error at request time, it silently stops trusting
+	// the proxy and every client looks like the load balancer
+	for _, p := range c.HTTP.TrustedProxies {
+		if strings.Contains(p, "/") {
+			if _, _, err := net.ParseCIDR(p); err != nil {
+				return fmt.Errorf("%s entry %q is not a valid CIDR range", TRUSTED_PROXIES, p)
+			}
+			continue
+		}
+		if net.ParseIP(p) == nil {
+			return fmt.Errorf("%s entry %q is not a valid ip address", TRUSTED_PROXIES, p)
+		}
+	}
+
 	// one without the other is a misconfiguration, not a fallback to http
 	if (c.HTTP.TlsCert == "") != (c.HTTP.TlsKey == "") {
 		return fmt.Errorf("%s and %s must be set together", HTTP_TLS_CERT, HTTP_TLS_KEY)
