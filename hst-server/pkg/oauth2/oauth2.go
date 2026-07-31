@@ -12,6 +12,8 @@ import (
 	"hstserver/pkg/jwt"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/redis"
+
+	"github.com/google/uuid"
 )
 
 // Config is the per-session state handed to a caller after a successful login.
@@ -56,6 +58,10 @@ type OAuth2 struct {
 	// out for it.
 	OnRefresh func(login int64)
 
+	// instanceId tells this process's own broadcasts apart from the others',
+	// since redis delivers a publish back to the sender too
+	instanceId string
+
 	// touchCh batches last_seen_at writes so the hot path stays free of SQL
 	touchCh chan string
 	stop    chan struct{}
@@ -69,7 +75,8 @@ func NewOAuth2(rds *redis.Redis, database *db.PostgresDB, cfg *config.Config, lo
 	}
 
 	o := &OAuth2{
-		Signer: signer,
+		instanceId: uuid.NewString(),
+		Signer:     signer,
 		Cache: cache.New(
 			cfg.Cache.ShardId, cfg.Cache.ShardCount,
 			cfg.Cache.MaxAccounts, cfg.Cache.Buckets, cfg.Cache.TTL),

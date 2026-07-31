@@ -18,6 +18,11 @@ type invalidateMessage struct {
 	Sid    string `json:"sid,omitempty"`
 	Login  int64  `json:"login,omitempty"`
 	Reason string `json:"reason,omitempty"`
+	// Origin is the instance that published it. Redis delivers a broadcast to
+	// its sender as well, and a refresh the sender already applied must not be
+	// applied a second time: rebuilding a socket's subscriptions twice at once
+	// leaves a window where an event published between the two finds neither.
+	Origin string `json:"origin,omitempty"`
 }
 
 // Subscribe applies revocations published by the other instances.
@@ -55,7 +60,8 @@ func (o *OAuth2) Subscribe() {
 			// has to be told as well, and told which of the two happened: a
 			// refreshed session keeps its connection, a revoked one loses it
 			if m.Reason == ReasonRefreshed {
-				if o.OnRefresh != nil {
+				// this instance refreshed before publishing
+				if m.Origin != o.instanceId && o.OnRefresh != nil {
 					o.OnRefresh(m.Login)
 				}
 				continue
@@ -69,6 +75,8 @@ func (o *OAuth2) Subscribe() {
 
 // publish tells the other instances to drop what we just revoked.
 func (o *OAuth2) publish(ctx context.Context, m invalidateMessage) {
+	m.Origin = o.instanceId
+
 	raw, err := json.Marshal(m)
 	if err != nil {
 		return
