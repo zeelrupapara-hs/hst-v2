@@ -100,6 +100,7 @@ func (s *HttpServer) subjectsFor(c *ws.Client, rights model.ManagerRights, group
 		model.SubjectSession(c.SessionId),
 		model.SubjectLogin(c.Login),
 		model.SubjectBroadcast(),
+		model.SubjectJournal(c.Login),
 	}
 
 	if !c.IsManager {
@@ -232,7 +233,7 @@ func (s *HttpServer) NotifySystem(subject string, payload any) {
 // A failure is logged rather than returned: the write it describes has already
 // happened, and failing the request afterwards would tell the caller their
 // change did not land when it did.
-func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message, groupPath string, detail any) {
+func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message string, detail any) {
 	snap, _ := utils.GetClient(c)
 
 	var login int64
@@ -257,7 +258,7 @@ func (s *HttpServer) Journalise(c *fiber.Ctx, code logger.Code, message, groupPa
 		Ip:      utils.GetRealIP(c),
 		Message: message,
 		Detail:  raw,
-	}, groupPath); err != nil {
+	}); err != nil {
 		s.Log.Log(logger.TypeSys, logger.CodeWarn, "could not write a journal entry",
 			"message", message, "error", err.Error())
 	}

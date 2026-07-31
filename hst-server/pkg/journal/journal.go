@@ -26,7 +26,7 @@ func New(database *db.PostgresDB, nc *nats.Nats, log *logger.Logger) *Journal {
 }
 
 // Entry stores a journal line and commits it only once the broker holds it.
-func (j *Journal) Entry(ctx context.Context, entry *model.Journal, groupPath string) error {
+func (j *Journal) Entry(ctx context.Context, entry *model.Journal) error {
 	if entry == nil {
 		return nil
 	}
@@ -58,7 +58,7 @@ func (j *Journal) Entry(ctx context.Context, entry *model.Journal, groupPath str
 	}
 
 	// announced while the row is uncommitted, so a broker that refuses it takes the row down too
-	if err := j.publishMsg(entry, groupPath); err != nil {
+	if err := j.publishMsg(entry); err != nil {
 		return err
 	}
 
@@ -66,18 +66,18 @@ func (j *Journal) Entry(ctx context.Context, entry *model.Journal, groupPath str
 }
 
 // publishMsg announces an entry and reports whether the broker actually holds it.
-func (j *Journal) publishMsg(entry *model.Journal, groupPath string) error {
+func (j *Journal) publishMsg(entry *model.Journal) error {
 	raw, err := json.Marshal(entry)
 	if err != nil {
 		return err
 	}
 
 	msg := &natscore.Msg{
-		Subject: model.SubjectJournal(groupPath),
+		Subject: model.SubjectJournal(entry.Login),
 		Data:    raw,
 		Header: natscore.Header{
 			model.HeaderFormat: []string{"json"},
-			model.HeaderEvent:  []string{model.EventJournalCreated},
+			model.HeaderEvent:  []string{model.EventJournal},
 		},
 	}
 

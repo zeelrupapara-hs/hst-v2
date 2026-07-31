@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -49,8 +50,6 @@ const (
 	// familyGroupSymbols is a symbol override attached to a group, so it is
 	// scoped by the group it hangs off rather than by the symbol.
 	familyGroupSymbols family = "group_symbols"
-	// familyJournal is the operational log, scoped by the group the action touched
-	familyJournal family = "journal"
 )
 
 // familyRight is the manager right that gates a family. A manager without the
@@ -61,12 +60,11 @@ var familyRight = map[family]uint{
 	familyClients:      MgrRightClientsAccess,
 	familyAccounts:     MgrRightAccRead,
 	familyGroupSymbols: MgrRightCfgGroups,
-	familyJournal:      MgrRightSrvJournals,
 }
 
 // families is every group scoped family, in a stable order.
 var families = []family{
-	familyGroups, familyUsers, familyClients, familyAccounts, familyGroupSymbols, familyJournal,
+	familyGroups, familyUsers, familyClients, familyAccounts, familyGroupSymbols,
 }
 
 // GroupToken turns a group path into subject tokens: demo\forex\usd becomes
@@ -96,8 +94,8 @@ var (
 	SubjectClient      = func(path string) string { return subject(familyClients, path) }
 	SubjectAccount     = func(path string) string { return subject(familyAccounts, path) }
 
-	// SubjectJournal carries an operational log line to every manager whose access covers the group it touched.
-	SubjectJournal = func(path string) string { return subject(familyJournal, path) }
+	// SubjectJournal carries a manager's own journal lines: it records what that manager did, so nobody else is listening.
+	SubjectJournal = func(login int64) string { return fmt.Sprintf("websocket.%d.journal", login) }
 )
 
 // From the api to the other services. A system subject is not a websocket
@@ -149,7 +147,7 @@ const (
 
 	EventAccountUpdated = "account_updated"
 
-	EventJournalCreated = "journal_created"
+	EventJournal = "journal"
 )
 
 // subject builds a group scoped subject. The named builders above are the only
