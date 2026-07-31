@@ -1,9 +1,3 @@
-// Package journal records what happened on the server: who did it, to which
-// record, and when.
-//
-// The file log in logs/YYYYMMDD.log keeps the same entries for an operator
-// reading a terminal. This table is the one the back office queries and
-// filters, so it is written deliberately rather than scraped back out of text.
 package journal
 
 import (
@@ -31,24 +25,30 @@ func New(database *db.PostgresDB, nc *nats.Nats, log *logger.Logger) *Journal {
 	return &Journal{db: database, nats: nc, log: log}
 }
 
+// Entry stores a journal line and commits it only once the broker holds it.
 func (j *Journal) Entry(ctx context.Context, entry *model.Journal) error {
 	if entry == nil {
 		return nil
 	}
+
+	tx, err := j.db.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	entry.CreatedAt = time.Now().UnixNano()
 	if len(entry.Detail) == 0 {
 		entry.Detail = json.RawMessage("{}")
 	}
 
-	// an empty string is not an address, so it is stored as null rather than
-	// refused by the inet column
+	// an empty string is not an address, so the inet column takes null instead
 	var ip *string
 	if entry.Ip != "" {
 		ip = &entry.Ip
 	}
 
-	if err := j.db.DB.QueryRow(ctx,
+	if err := tx.QueryRow(ctx,
 		`INSERT INTO hst.journal (created_at, type, code, login, ip, message, detail)
 		 VALUES ($1, $2, $3, $4, $5, $6, $7)
 		 RETURNING journal_id`,
@@ -57,18 +57,19 @@ func (j *Journal) Entry(ctx context.Context, entry *model.Journal) error {
 		return err
 	}
 
-	j.publishMsg(entry)
+	// announced while the row is uncommitted, so a broker that refuses it takes the row down too
+	if err := j.publishMsg(entry); err != nil {
+		return err
+	}
 
-	return nil
+	return tx.Commit(ctx)
 }
 
-// publishMsg announces a stored entry to the managers watching the journal.
-func (j *Journal) publishMsg(entry *model.Journal) {
+// publishMsg announces an entry and reports whether the broker actually holds it.
+func (j *Journal) publishMsg(entry *model.Journal) error {
 	raw, err := json.Marshal(entry)
 	if err != nil {
-		j.log.Log(logger.TypeSys, logger.CodeWarn, "could not encode a journal entry",
-			"journal_id", entry.JournalId, "error", err.Error())
-		return
+		return err
 	}
 
 	msg := &natscore.Msg{
@@ -81,7 +82,9 @@ func (j *Journal) publishMsg(entry *model.Journal) {
 	}
 
 	if err := j.nats.NC.PublishMsg(msg); err != nil {
-		j.log.Log(logger.TypeNet, logger.CodeWarn, "could not announce a journal entry",
-			"journal_id", entry.JournalId, "error", err.Error())
+		return err
 	}
+
+	// a publish alone only reaches the write buffer; the flush round trips to the server
+	return j.nats.NC.Flush()
 }
