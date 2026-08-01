@@ -75,10 +75,12 @@ type GroupSymbol struct {
 	MarginHedged      *float64
 	MarginFlags       *int32
 
-	SwapMode  *int32
-	SwapLong  *float64
-	SwapShort *float64
-	SwapFlags *int32
+	SwapMode    *int32
+	SwapRate    [7]*float64
+	SwapYearDay *int32
+	SwapLong    *float64
+	SwapShort   *float64
+	SwapFlags   *int32
 
 	IECheckMode  *int32
 	IETimeout    *int32

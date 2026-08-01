@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"hstcore/internal/book"
+	"hstcore/internal/settings"
 	"hstcore/internal/shardmap"
 	"hstcore/model"
 	"hstcore/pkg/logger"
@@ -34,6 +35,8 @@ func (h *Handler) load(ctx context.Context) error {
 		"pod", h.name,
 		"groups", h.Settings.Groups(),
 		"symbols", h.Settings.Symbols(),
+		"sessions", h.Sessions.Len(),
+		"holidays", h.Holidays.Len(),
 		"rules", len(h.rules),
 		"shards", len(h.Shards.Mine()),
 		"accounts", h.Accounts.Len())
@@ -82,6 +85,8 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 		        volume_min, volume_max, volume_step, volume_limit,
 		        margin_initial, margin_maintenance, margin_hedged, margin_flags,
 		        swap_mode, swap_long, swap_short, swap_flags, quotes_timeout,
+		        swap_rate_sunday, swap_rate_monday, swap_rate_tuesday, swap_rate_wednesday,
+		        swap_rate_thursday, swap_rate_friday, swap_rate_saturday, swap_year_day,
 		        time_start, time_expiration
 		   FROM hst.symbols`)
 	if err != nil {
@@ -98,6 +103,8 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 			&s.VolumeMin, &s.VolumeMax, &s.VolumeStep, &s.VolumeLimit,
 			&s.MarginInitial, &s.MarginMaintenance, &s.MarginHedged, &s.MarginFlags,
 			&s.SwapMode, &s.SwapLong, &s.SwapShort, &s.SwapFlags, &s.QuotesTime,
+			&s.SwapRate[0], &s.SwapRate[1], &s.SwapRate[2], &s.SwapRate[3],
+			&s.SwapRate[4], &s.SwapRate[5], &s.SwapRate[6], &s.SwapYearDay,
 			&s.TimeStart, &s.TimeExpiration); err != nil {
 			rows.Close()
 			return err
@@ -119,6 +126,8 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 		        volume_min, volume_max, volume_step, volume_limit,
 		        margin_initial, margin_maintenance, margin_hedged, margin_flags,
 		        swap_mode, swap_long, swap_short, swap_flags,
+		        swap_rate_sunday, swap_rate_monday, swap_rate_tuesday, swap_rate_wednesday,
+		        swap_rate_thursday, swap_rate_friday, swap_rate_saturday, swap_year_day,
 		        ie_check_mode, ie_timeout, ie_slip_profit, ie_slip_losing, ie_volume_max, ie_flags,
 		        re_timeout, re_flags, order_flags, permissions_flags
 		   FROM hst.groups_symbols
@@ -135,6 +144,8 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 			&o.VolumeMin, &o.VolumeMax, &o.VolumeStep, &o.VolumeLimit,
 			&o.MarginInitial, &o.MarginMaintenance, &o.MarginHedged, &o.MarginFlags,
 			&o.SwapMode, &o.SwapLong, &o.SwapShort, &o.SwapFlags,
+			&o.SwapRate[0], &o.SwapRate[1], &o.SwapRate[2], &o.SwapRate[3],
+			&o.SwapRate[4], &o.SwapRate[5], &o.SwapRate[6], &o.SwapYearDay,
 			&o.IECheckMode, &o.IETimeout, &o.IESlipProfit, &o.IESlipLosing, &o.IEVolumeMax, &o.IEFlags,
 			&o.RETimeout, &o.REFlags, &o.OrderFlags, &o.PermissionsFlags); err != nil {
 			rows.Close()
@@ -148,6 +159,65 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 	}
 
 	h.Settings.Load(groups, symbols, overrides)
+
+	if err := h.loadCalendar(ctx); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (h *Handler) loadCalendar(ctx context.Context) error {
+	windows := make(map[int64][]settings.Window, 4096)
+
+	rows, err := h.DB.DB.Query(ctx,
+		`SELECT symbol_id, type, day, open, close FROM hst.symbols_sessions`)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var symbolId int64
+		var w settings.Window
+		if err := rows.Scan(&symbolId, &w.Type, &w.Day, &w.Open, &w.Close); err != nil {
+			rows.Close()
+			return err
+		}
+		windows[symbolId] = append(windows[symbolId], w)
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	h.Sessions.Load(windows)
+
+	var days []settings.Holiday
+
+	rows, err = h.DB.DB.Query(ctx,
+		`SELECT year, month, day, "from", "to", symbols, mode
+		   FROM hst.holidays ORDER BY config_index`)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var d settings.Holiday
+		var mode int32
+		if err := rows.Scan(&d.Year, &d.Month, &d.Day, &d.From, &d.To,
+			&d.Symbols, &mode); err != nil {
+			rows.Close()
+			return err
+		}
+		d.Enable = mode == 1
+		days = append(days, d)
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	h.Holidays.Load(days)
 
 	return nil
 }

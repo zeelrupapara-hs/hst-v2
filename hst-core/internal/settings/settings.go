@@ -39,9 +39,11 @@ type Rules struct {
 	MarginMaintenance float64
 	MarginHedged      float64
 
-	SwapMode  int32
-	SwapLong  float64
-	SwapShort float64
+	SwapMode    int32
+	SwapRate    [7]float64
+	SwapYearDay int32
+	SwapLong    float64
+	SwapShort   float64
 
 	CurrencyBase   string
 	CurrencyProfit string
@@ -217,14 +219,23 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		MarginMaintenance: pick(o.MarginMaintenance, sym.MarginMaintenance),
 		MarginHedged:      pick(o.MarginHedged, sym.MarginHedged),
 
-		SwapMode:  pick(o.SwapMode, sym.SwapMode),
-		SwapLong:  pick(o.SwapLong, sym.SwapLong),
-		SwapShort: pick(o.SwapShort, sym.SwapShort),
+		SwapMode:    pick(o.SwapMode, sym.SwapMode),
+		SwapYearDay: pick(o.SwapYearDay, sym.SwapYearDay),
+		SwapLong:    pick(o.SwapLong, sym.SwapLong),
+		SwapShort:   pick(o.SwapShort, sym.SwapShort),
 
 		MaxDeviationTime:   value(o.IETimeout),
 		MaxDeviationProfit: pick(o.IESlipProfit, sym.SpreadDiff),
 		MaxDeviationLoss:   pick(o.IESlipLosing, sym.SpreadDiff),
 		MaxInstantVolume:   value(o.IEVolumeMax),
+	}
+
+	for i := range r.SwapRate {
+		r.SwapRate[i] = pick(o.SwapRate[i], sym.SwapRate[i])
+	}
+
+	if r.SwapYearDay <= 0 {
+		r.SwapYearDay = 360
 	}
 
 	// a step of zero would make every volume invalid, so fall back to the smallest allowed

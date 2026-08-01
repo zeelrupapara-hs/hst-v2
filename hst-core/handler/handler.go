@@ -6,6 +6,7 @@ import (
 	"os"
 	"runtime"
 	"sync"
+	"time"
 
 	"hstcore/config"
 	"hstcore/internal/book"
@@ -45,6 +46,8 @@ type Handler struct {
 	Quotes *quote.Book
 	// Settings is groups, symbols and the group's overrides of them, already folded together.
 	Settings *settings.Store
+	Sessions *settings.Sessions
+	Holidays *settings.Holidays
 	// Accounts is the slice of accounts this pod is responsible for.
 	Accounts *book.Book
 
@@ -55,6 +58,8 @@ type Handler struct {
 
 	// tempId hands out the keys a position is held under until its row exists
 	tempId int64
+
+	endOfDay time.Time
 
 	// commissions by group id, loaded with the rest of the configuration
 	commissions map[int64][]Commission
@@ -90,9 +95,12 @@ func New(cfg *config.Config, log *logger.Logger, database *db.PostgresDB, nc *na
 		Workers:  worker.New(NumCPU, log),
 		Quotes:   quote.New(),
 		Settings: settings.New(),
+		Sessions: settings.NewSessions(),
+		Holidays: settings.NewHolidays(),
 		Accounts: book.New(),
 		dealing:  make(map[string]*Pending, 64),
 		name:     podName(),
+		endOfDay: defaultEndOfDay(),
 	}
 }
 
@@ -108,7 +116,7 @@ func (h *Handler) Start(ctx context.Context) error {
 
 	h.Workers.Start(ctx)
 
-	h.Go(func() { h.runDaily(ctx) })
+	h.Go(func() { h.RunEndOfDay(ctx) })
 	h.Go(func() { h.runMembership(ctx) })
 
 	// subscribe last: no message should arrive before the state it reads

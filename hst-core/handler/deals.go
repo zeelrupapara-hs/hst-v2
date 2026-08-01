@@ -71,7 +71,7 @@ func (h *Handler) dealFor(o *model.Order, r *settings.Rules, e *book.Entry, pric
 		PriceTP:        o.PriceTP,
 		Volume:         volume,
 		VolumeClosed:   closed,
-		RateProfit:     1,
+		RateProfit:     h.RateProfit(r, e.Account, o.Kind().Buy()),
 		RateMargin:     o.RateMargin,
 		ExpertId:       o.ExpertId,
 		PositionId:     positionId,

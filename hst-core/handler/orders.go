@@ -31,7 +31,7 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 		return h.refuse(res, model.RetTradeNoQuotes, "")
 	}
 
-	order := h.orderFrom(req, r, tick)
+	order := h.orderFrom(req, r, e.Account, tick)
 
 	e.Lock()
 
@@ -489,7 +489,7 @@ func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rul
 }
 
 // orderFrom builds the order record a request is asking for.
-func (h *Handler) orderFrom(req *model.TradeRequest, r *settings.Rules, t model.Tick) *model.Order {
+func (h *Handler) orderFrom(req *model.TradeRequest, r *settings.Rules, a *model.Account, t model.Tick) *model.Order {
 	now := Now()
 
 	return &model.Order{
@@ -516,7 +516,7 @@ func (h *Handler) orderFrom(req *model.TradeRequest, r *settings.Rules, t model.
 		PositionId:     req.PositionId,
 		PositionById:   req.PositionById,
 		Comment:        req.Comment,
-		RateMargin:     1,
+		RateMargin:     h.RateMargin(r, a, model.OrderType(req.Type).Buy()),
 	}
 }
 

@@ -34,12 +34,13 @@ type Symbol struct {
 	MarginHedged      float64
 	MarginFlags       int32
 
-	SwapMode   int32
-	SwapLong   float64
-	SwapShort  float64
-	SwapFlags  int32
-	SwapRate   [7]float64
-	QuotesTime int32
+	SwapMode    int32
+	SwapLong    float64
+	SwapShort   float64
+	SwapFlags   int32
+	SwapRate    [7]float64
+	SwapYearDay int32
+	QuotesTime  int32
 
 	TimeStart      int64
 	TimeExpiration int64

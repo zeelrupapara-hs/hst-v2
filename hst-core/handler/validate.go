@@ -17,6 +17,9 @@ func (h *Handler) ValidateOrder(e *book.Entry, o *model.Order, r *settings.Rules
 	if code := h.checkSymbol(o, r); !code.OK() {
 		return code
 	}
+	if code := h.checkMarket(o, r); !code.OK() {
+		return code
+	}
 	if code := h.checkQuote(r, t); !code.OK() {
 		return code
 	}
@@ -156,6 +159,19 @@ func (h *Handler) checkSymbol(o *model.Order, r *settings.Rules) model.RetCode {
 }
 
 // checkQuote refuses a trade with no usable price behind it.
+func (h *Handler) checkMarket(o *model.Order, r *settings.Rules) model.RetCode {
+	dir := model.DirectionIn
+	if o.PositionId != 0 {
+		dir = model.DirectionOut
+	}
+
+	if !h.IsMarketOpen(r, dir) {
+		return model.RetTradeMarketClosed
+	}
+
+	return model.RetOK
+}
+
 func (h *Handler) checkQuote(r *settings.Rules, t model.Tick) model.RetCode {
 	if !t.Ok() {
 		return model.RetTradeNoQuotes

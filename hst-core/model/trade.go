@@ -275,3 +275,10 @@ type Account struct {
 
 	Rights int64 `json:"rights"`
 }
+
+type Direction int32
+
+const (
+	DirectionIn  Direction = 0
+	DirectionOut Direction = 1
+)
