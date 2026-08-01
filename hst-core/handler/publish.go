@@ -7,6 +7,8 @@ import (
 	"hstcore/internal/book"
 	"hstcore/model"
 	"hstcore/pkg/logger"
+
+	natscore "github.com/nats-io/nats.go"
 )
 
 // Telling everyone what happened.
@@ -15,12 +17,13 @@ import (
 // publishes to the same subjects the API server already fans out to its websockets: a trading
 // account hears about itself on ws.t.<login>, and managers hear group-scoped events.
 
-// Event is the envelope every published message uses, matching what the API server expects.
-type Event struct {
-	Type    string `json:"type"`
-	At      int64  `json:"at"`
-	Payload any    `json:"payload"`
-}
+// The API server builds the envelope its clients see from the subject and these headers, so
+// the engine publishes the record itself and names the event beside it. Wrapping it here as
+// well would reach the client wrapped twice.
+const (
+	headerFormat = "X-Format"
+	headerEvent  = "X-Event"
+)
 
 // Subjects the engine publishes on.
 func subjectAccount(login int64) string   { return fmt.Sprintf("ws.t.%d.account", login) }
@@ -32,14 +35,23 @@ func subjectResult(login int64) string    { return fmt.Sprintf("ws.t.%d.result",
 // publish sends one event, and never fails the caller: a trade that is already written must not
 // be undone because a socket message could not go out.
 func (h *Handler) publish(subject, kind string, payload any) {
-	body, err := json.Marshal(Event{Type: kind, At: Now(), Payload: payload})
+	body, err := json.Marshal(payload)
 	if err != nil {
 		h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not encode an event",
 			"subject", subject, "error", err.Error())
 		return
 	}
 
-	if err := h.Nats.NC.Publish(subject, body); err != nil {
+	msg := &natscore.Msg{
+		Subject: subject,
+		Data:    body,
+		Header: natscore.Header{
+			headerFormat: []string{"json"},
+			headerEvent:  []string{kind},
+		},
+	}
+
+	if err := h.Nats.NC.PublishMsg(msg); err != nil {
 		h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not publish an event",
 			"subject", subject, "error", err.Error())
 	}

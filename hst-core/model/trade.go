@@ -125,7 +125,22 @@ type Order struct {
 	PositionById   int64   `json:"position_by_id"`
 	Comment        string  `json:"comment"`
 	RateMargin     float64 `json:"rate_margin"`
+
+	// Set when a stop limit's trigger is reached and it becomes a limit order.
+	ActivationMode  int32   `json:"activation_mode"`
+	ActivationTime  int64   `json:"activation_time"`
+	ActivationPrice float64 `json:"activation_price"`
 }
+
+// Why an order was last touched by the price.
+const (
+	ActivationNone      = 0
+	ActivationPending   = 1
+	ActivationStopLimit = 2
+	ActivationSL        = 3
+	ActivationTP        = 4
+	ActivationStopOut   = 5
+)
 
 // Lots is the working volume as a decimal number of lots.
 func (o *Order) Lots() float64 { return Lots(o.VolumeCurrent) }

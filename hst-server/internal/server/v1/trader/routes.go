@@ -21,6 +21,12 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Get("/profile", s.MyProfile)
 	trader.Get("/symbols", s.MySymbols)
 
+	// trading
+	trader.Post("/trade", s.MyTrade)
+	trader.Get("/orders", s.MyOrders)
+	trader.Get("/positions", s.MyPositions)
+	trader.Get("/deals", s.MyDeals)
+
 	auth := trader.Group("/auth")
 	auth.Get("/me", s.Me)
 	auth.Post("/logout", s.Logout)

@@ -43,6 +43,8 @@ const (
 	GroupNotFound                = "no such group"
 	RegistrationClosed           = "registration is not open for this account type"
 	InvalidConnectionType        = "this connection type does not exist"
+	EngineUnavailable            = "the trading engine did not answer"
+	ReadOnlySession              = "this session may not trade"
 	WrongPanel                   = "this login belongs to the other panel"
 	AccountPending               = "the account is awaiting approval"
 	NotATrader                   = "this panel is for trading accounts"
@@ -92,6 +94,8 @@ var (
 	ErrGroupNotFound                = errors.New(GroupNotFound)
 	ErrRegistrationClosed           = errors.New(RegistrationClosed)
 	ErrInvalidConnectionType        = errors.New(InvalidConnectionType)
+	ErrEngineUnavailable            = errors.New(EngineUnavailable)
+	ErrReadOnlySession              = errors.New(ReadOnlySession)
 	ErrWrongPanel                   = errors.New(WrongPanel)
 	ErrAccountPending               = errors.New(AccountPending)
 	ErrNotATrader                   = errors.New(NotATrader)
@@ -100,3 +104,7 @@ var (
 	ErrRoutingAlreadyFirst          = errors.New(RoutingAlreadyFirst)
 	ErrRoutingAlreadyLast           = errors.New(RoutingAlreadyLast)
 )
+
+// New is an error carrying a message the engine sent back, so a refusal reaches the client in
+// the engine's own words.
+func New(message string) error { return errors.New(message) }

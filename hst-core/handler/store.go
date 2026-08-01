@@ -44,6 +44,25 @@ func (h *Handler) save(ctx context.Context, e *book.Entry, o *model.Order, f *Fi
 		return err
 	}
 
+	return h.writeFill(ctx, tx, e, o, f, a, now)
+}
+
+// saveFill writes what a fill produced against an order row that already exists. Used when a
+// pending order activates: its ticket was written when the client placed it.
+func (h *Handler) saveFill(ctx context.Context, e *book.Entry, o *model.Order, f *Fill,
+	a *model.Account) error {
+	tx, err := h.DB.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	return h.writeFill(ctx, tx, e, o, f, a, Now())
+}
+
+// writeFill is the shared half: positions, deals and the account.
+func (h *Handler) writeFill(ctx context.Context, tx pgx.Tx, e *book.Entry, o *model.Order,
+	f *Fill, a *model.Account, now int64) error {
 	// the position first, so its real id can go on the deals that reference it
 	if f.Opened != nil {
 		temp := f.Opened.PositionId

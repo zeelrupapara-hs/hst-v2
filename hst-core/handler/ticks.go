@@ -103,13 +103,22 @@ func (h *Handler) applyTick(ctx context.Context, e *book.Entry, t model.Tick) {
 
 	// what the price crossed, gathered while the account is locked and acted on after
 	hits := h.triggersFor(e, t)
+	pendings := h.pendingFor(e, t)
 
 	e.Unlock()
 
 	h.publishAccount(&account)
 
+	// expiry before anything else, the way vfxcore's CookOrder does it: an order whose time has
+	// run out should not be allowed to fill on the tick that expires it
+	h.expireOrders(ctx, e, t.Symbol)
+
 	for _, hit := range hits {
 		h.closeOnTrigger(ctx, e, hit, t)
+	}
+
+	for _, hit := range pendings {
+		h.activate(ctx, e, hit, t)
 	}
 
 	// stop out last: closing a position for a stop loss may have already fixed the level
