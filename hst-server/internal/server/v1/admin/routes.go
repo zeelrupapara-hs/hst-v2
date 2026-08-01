@@ -141,6 +141,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	dealing.Post("/:request_id/confirm", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ConfirmRequest)
 	dealing.Post("/:request_id/requote", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RequoteRequest)
 	dealing.Post("/:request_id/reject", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RejectRequest)
+	dealing.Post("/:request_id/accept", s.Middleware.Authorization(model.MgrRightTradesDealer), s.AcceptRequote)
 	dealing.Post("/:request_id/cancel", s.Middleware.Authorization(model.MgrRightTradesDealer), s.CancelRequest)
 
 	// balance operations, for the accountant only

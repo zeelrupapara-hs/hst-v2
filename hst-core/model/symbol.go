@@ -119,6 +119,12 @@ const (
 // SwapFlagConsiderHolidays doubles the swap the day before a holiday and charges none on it.
 const SwapFlagConsiderHolidays int32 = 1
 
-// DealingFlagConfirm makes the dealer confirm again after the client accepts their price.
-// It is the same bit in ie_flags and re_flags.
-const DealingFlagConfirm int32 = 1
+// InstantCheckNormal is the only instant execution check mode the platform defines.
+const InstantCheckNormal int32 = 0
+
+// InstantFlagFastConfirmation lets an accepted requote execute without going back to the
+// dealer, when the price is inside the deviation the client themselves allowed.
+const InstantFlagFastConfirmation int32 = 1
+
+// RequestFlagOrder makes the dealer confirm once more after the client accepts their price.
+const RequestFlagOrder int32 = 1

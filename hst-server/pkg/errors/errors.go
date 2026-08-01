@@ -48,6 +48,12 @@ const (
 	EngineUnavailable            = "the trading engine did not answer"
 	ReadOnlySession              = "this session may not trade"
 	WrongPanel                   = "this login belongs to the other panel"
+	InvalidInstantCheckMode      = "the platform defines only the normal instant check mode"
+	InvalidInstantFlags          = "unknown instant execution flag"
+	InvalidRequestFlags          = "unknown request execution flag"
+	InvalidMarginFlags           = "unknown margin flag"
+	InvalidSwapFlags             = "unknown swap flag"
+	InvalidOrderFlags            = "unknown order flag"
 	AccountPending               = "the account is awaiting approval"
 	NotATrader                   = "this panel is for trading accounts"
 	HolidayDateInvalid           = "the month and day are not a real calendar date"
@@ -109,6 +115,12 @@ var (
 	ErrEngineUnavailable            = errors.New(EngineUnavailable)
 	ErrReadOnlySession              = errors.New(ReadOnlySession)
 	ErrWrongPanel                   = errors.New(WrongPanel)
+	ErrInvalidInstantCheckMode      = errors.New(InvalidInstantCheckMode)
+	ErrInvalidInstantFlags          = errors.New(InvalidInstantFlags)
+	ErrInvalidRequestFlags          = errors.New(InvalidRequestFlags)
+	ErrInvalidMarginFlags           = errors.New(InvalidMarginFlags)
+	ErrInvalidSwapFlags             = errors.New(InvalidSwapFlags)
+	ErrInvalidOrderFlags            = errors.New(InvalidOrderFlags)
 	ErrAccountPending               = errors.New(AccountPending)
 	ErrNotATrader                   = errors.New(NotATrader)
 	ErrHolidayDateInvalid           = errors.New(HolidayDateInvalid)

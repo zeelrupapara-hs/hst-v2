@@ -37,6 +37,8 @@ const (
 	DealingEventRequote DealingEventType = 3
 	DealingEventReject  DealingEventType = 4
 	DealingEventCancel  DealingEventType = 5
+	// DealingEventAccept is the client taking the price a dealer requoted them at.
+	DealingEventAccept DealingEventType = 6
 )
 
 type DealingEvent struct {

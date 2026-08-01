@@ -169,3 +169,58 @@ func (s *HttpServer) ListDealingRequests(c *fiber.Ctx) error {
 
 	return s.App.HttpResponseOK(c, out)
 }
+
+// AcceptRequote takes the price a dealer offered back on a named account.
+//
+//	@Id			AcceptRequote
+//	@Tags		Dealing
+//	@Accept		json
+//	@Produce	json
+//	@Param		request_id	path		string			true	"the requoted request"
+//	@Param		body		body		AcceptRequote	true	"the account"
+//	@Success	200			{object}	Response{data=TradeResult}
+//	@Failure	400			{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/dealing/{request_id}/accept [post]
+func (s *HttpServer) AcceptRequote(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	var body AcceptRequote
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	body.RequestId = c.Params("request_id", body.RequestId)
+
+	if ok, err := s.inReach(c, snap, body.Login); !ok {
+		return err
+	}
+
+	res, status, err := s.acceptRequote(c.UserContext(), &body)
+	return s.answer(c, res, status, err)
+}
+
+// AcceptMyRequote takes the price a dealer offered back, for the account that is signed in.
+//
+//	@Id			AcceptMyRequote
+//	@Tags		Trading
+//	@Accept		json
+//	@Produce	json
+//	@Param		request_id	path		string	true	"the requoted request"
+//	@Success	200			{object}	Response{data=TradeResult}
+//	@Failure	400			{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/requotes/{request_id}/accept [post]
+func (s *HttpServer) AcceptMyRequote(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	body := AcceptRequote{RequestId: c.Params("request_id"), Login: snap.Login}
+
+	res, status, err := s.acceptRequote(c.UserContext(), &body)
+	return s.answer(c, res, status, err)
+}

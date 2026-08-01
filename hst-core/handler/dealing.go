@@ -3,9 +3,11 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"time"
 
 	"hstcore/internal/book"
+	"hstcore/internal/settings"
 	"hstcore/model"
 	"hstcore/pkg/logger"
 
@@ -26,6 +28,9 @@ type Pending struct {
 	Returned map[int64]bool
 	At       int64
 	Reply    string
+
+	// Requoted is the price a dealer offered back, while it waits for the client to take it.
+	Requoted float64
 }
 
 // DealingSystemEventHandler takes one dealer's answer off the wire.
@@ -40,6 +45,8 @@ func (h *Handler) DealingSystemEventHandler(msg *natscore.Msg) {
 	res := &model.TradeResult{RequestId: e.RequestId, Login: e.Login}
 
 	switch e.EventType {
+	case model.DealingEventAccept:
+		res = h.AcceptRequote(ctx, &e)
 	case model.DealingEventConfirm:
 		res = h.ConfirmRequest(ctx, &e)
 	case model.DealingEventRequote:
@@ -217,13 +224,23 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 	return res
 }
 
-// RequoteRequest offers the client a new price. Nothing is held: the client re-submits.
+// RequoteRequest offers the client a new price and holds the request open at it, so the client
+// can take it without placing the order again.
 func (h *Handler) RequoteRequest(ctx context.Context, ev *model.DealingEvent) *model.TradeResult {
-	p := h.takeRequest(ev.RequestId)
-	if p == nil {
+	h.dealingMu.Lock()
+
+	p, ok := h.dealing[ev.RequestId]
+	if !ok {
+		h.dealingMu.Unlock()
 		return h.refuse(&model.TradeResult{RequestId: ev.RequestId, Login: ev.Login},
 			model.RetNotFound, "")
 	}
+
+	// the clock restarts: the price the client is being shown is this dealer's, from now
+	p.Requoted = ev.Price
+	p.At = Now()
+
+	h.dealingMu.Unlock()
 
 	res := &model.TradeResult{RequestId: p.Request.RequestId, Login: p.Request.Login}
 
@@ -240,10 +257,92 @@ func (h *Handler) RequoteRequest(ctx context.Context, ev *model.DealingEvent) *m
 		}
 	}
 
-	h.dropRequest(ctx, p, "requoted")
-	h.done(p, ev.Dealer)
-
 	return h.refuse(res, model.RetTradeRequote, "")
+}
+
+// AcceptRequote is the client taking a price a dealer offered back.
+//
+// Whether that ends the matter depends on the instrument. In request execution the dealer
+// confirms once more if the group asked for it. In instant execution the order goes back to the
+// dealer as well, unless the group turned on fast confirmation and the price the client is
+// taking sits inside the deviation they themselves allowed.
+func (h *Handler) AcceptRequote(ctx context.Context, ev *model.DealingEvent) *model.TradeResult {
+	h.dealingMu.Lock()
+	p, ok := h.dealing[ev.RequestId]
+	h.dealingMu.Unlock()
+
+	res := &model.TradeResult{RequestId: ev.RequestId, Login: ev.Login}
+
+	if !ok || p.Requoted <= 0 {
+		return h.refuse(res, model.RetNotFound, "")
+	}
+
+	res.Login = p.Request.Login
+
+	e, ok := h.Accounts.Get(p.Request.Login)
+	if !ok {
+		return h.refuse(res, model.RetTradeWrongShard, "")
+	}
+
+	r, ok := h.Settings.For(e.Account.Group, p.Order.Symbol)
+	if !ok {
+		return h.refuse(res, model.RetTradeBadSymbol, "")
+	}
+
+	if h.needsSecondConfirmation(p, r) {
+		h.dealingMu.Lock()
+		p.At = Now()
+		h.dealingMu.Unlock()
+
+		// the price the client took is the one the dealer is being asked to stand behind
+		p.Order.PriceOrder = p.Requoted
+		h.offer(p, model.DealingEventOffer, 0)
+
+		h.Log.Log(logger.TypeTrade, logger.CodeOK, "requote accepted, back to the dealer",
+			"login", res.Login, "request", res.RequestId, "price", p.Requoted)
+
+		return h.refuse(res, model.RetTradeDealerQueued, "")
+	}
+
+	h.Log.Log(logger.TypeTrade, logger.CodeOK, "requote accepted, filled without the dealer",
+		"login", res.Login, "request", res.RequestId, "price", p.Requoted)
+
+	return h.ConfirmRequest(ctx, &model.DealingEvent{
+		EventType: model.DealingEventConfirm,
+		RequestId: ev.RequestId,
+		Login:     p.Request.Login,
+		Dealer:    p.Order.Dealer,
+		Price:     p.Requoted,
+	})
+}
+
+// needsSecondConfirmation decides whether an accepted requote goes back to the dealer.
+func (h *Handler) needsSecondConfirmation(p *Pending, r *settings.Rules) bool {
+	if r.ExecMode == model.ExecInstant {
+		if r.IEFlags&model.InstantFlagFastConfirmation == 0 {
+			return true
+		}
+
+		// fast confirmation only covers a price the client had already said they would take
+		return !h.withinClientDeviation(p, r)
+	}
+
+	return r.REFlags&model.RequestFlagOrder != 0
+}
+
+// withinClientDeviation reports whether the requoted price is inside the slippage the client
+// allowed when they sent the order.
+func (h *Handler) withinClientDeviation(p *Pending, r *settings.Rules) bool {
+	if p.Request.Deviation <= 0 || r.Point <= 0 {
+		return false
+	}
+
+	asked := p.Request.Price
+	if asked <= 0 {
+		return false
+	}
+
+	return Points(math.Abs(p.Requoted-asked), r.Point) <= float64(p.Request.Deviation)
 }
 
 // RejectRequest refuses the request with a reason the client sees.

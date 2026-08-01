@@ -427,6 +427,11 @@ func (s *Server) CreateGroupSymbol(c *fiber.Ctx) error {
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
+	if err := checkFlagDomains(body.IECheckMode, body.IEFlags, body.REFlags,
+		body.MarginFlags, body.SwapFlags, body.OrderFlags); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+
 	path, err := resolveCreateGroupSymbolPath(c, s, body)
 	if errors.Is(err, errs.ErrNotFound) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
@@ -550,6 +555,10 @@ func (s *Server) UpdateGroupSymbol(c *fiber.Ctx) error {
 	}
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+	if err := checkFlagDomains(body.IECheckMode, body.IEFlags, body.REFlags,
+		body.MarginFlags, body.SwapFlags, body.OrderFlags); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
 	}
 
 	o := body.groupSymbolOverrides
@@ -717,4 +726,30 @@ func (s *Server) DeleteGroupSymbol(c *fiber.Ctx) error {
 	s.JournalEntry(c, logger.CodeWarn, journal.GroupSymbolDeletedMsg(snap.Login, path), ref)
 
 	return s.App.HttpResponseNoContent(c)
+}
+
+// checkFlagDomains refuses a flag nobody defined. These fields are bit masks and enumerations
+// with a fixed set of values, and a bit outside it would sit in the database meaning nothing.
+func checkFlagDomains(check *model.InstantMode, ie *int32, re *model.RequestFlags,
+	margin *model.SymbolMarginFlags, swap *model.SwapFlags, order *model.OrderFlags) error {
+	if check != nil && *check != model.InstantMode_check_normal {
+		return errs.ErrInvalidInstantCheckMode
+	}
+	if ie != nil && *ie&^int32(model.InstantFlags_fast_confirmation) != 0 {
+		return errs.ErrInvalidInstantFlags
+	}
+	if re != nil && *re&^model.RequestFlags_order != 0 {
+		return errs.ErrInvalidRequestFlags
+	}
+	if margin != nil && *margin&^model.SymbolMarginFlags_all != 0 {
+		return errs.ErrInvalidMarginFlags
+	}
+	if swap != nil && *swap&^model.SwapFlags_consider_holidays != 0 {
+		return errs.ErrInvalidSwapFlags
+	}
+	if order != nil && *order&^model.OrderFlags_all != 0 {
+		return errs.ErrInvalidOrderFlags
+	}
+
+	return nil
 }

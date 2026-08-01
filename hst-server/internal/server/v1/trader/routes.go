@@ -27,6 +27,7 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Put("/positions/:position_id", s.UpdateMyPosition)
 	trader.Post("/positions/:position_id/close", s.CloseMyPosition)
 	trader.Post("/positions/:position_id/close-by", s.CloseByMyPosition)
+	trader.Post("/requotes/:request_id/accept", s.AcceptMyRequote)
 	trader.Get("/deals", s.GetMyDeals)
 
 	auth := trader.Group("/auth")

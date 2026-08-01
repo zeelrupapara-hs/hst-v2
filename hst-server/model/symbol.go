@@ -134,6 +134,8 @@ const (
 	OrderFlags_sl         OrderFlags = 16
 	OrderFlags_tp         OrderFlags = 32
 	OrderFlags_closeby    OrderFlags = 64
+
+	OrderFlags_all OrderFlags = 127
 )
 
 var (
@@ -219,14 +221,20 @@ const (
 	SymbolMarginFlags_check_process   SymbolMarginFlags = 1
 	SymbolMarginFlags_check_sltp      SymbolMarginFlags = 2
 	SymbolMarginFlags_hedge_large_leg SymbolMarginFlags = 4
+	SymbolMarginFlags_exclude_pl      SymbolMarginFlags = 8
+	SymbolMarginFlags_recalc_rates    SymbolMarginFlags = 16
+
+	SymbolMarginFlags_all SymbolMarginFlags = 31
 )
 
 var (
 	SymbolMarginFlags_name = map[int32]string{
 		0: "none", 1: "check_process", 2: "check_sltp", 4: "hedge_large_leg",
+		8: "exclude_pl", 16: "recalc_rates",
 	}
 	SymbolMarginFlags_value = map[string]int32{
 		"none": 0, "check_process": 1, "check_sltp": 2, "hedge_large_leg": 4,
+		"exclude_pl": 8, "recalc_rates": 16,
 	}
 )
 
@@ -312,6 +320,19 @@ const (
 var (
 	InstantMode_name  = map[int32]string{0: "check_normal"}
 	InstantMode_value = map[string]int32{"check_normal": 0}
+)
+
+// InstantFlags is EnInstantFlags: what the instant execution mode may do.
+type InstantFlags int32
+
+const (
+	InstantFlags_none              InstantFlags = 0
+	InstantFlags_fast_confirmation InstantFlags = 1
+)
+
+var (
+	InstantFlags_name  = map[int32]string{0: "none", 1: "fast_confirmation"}
+	InstantFlags_value = map[string]int32{"none": 0, "fast_confirmation": 1}
 )
 
 type RequestFlags int32

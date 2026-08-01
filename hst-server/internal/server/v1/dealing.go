@@ -36,6 +36,12 @@ type CancelRequest struct {
 	Reason    string `json:"reason" validate:"max=31"`
 }
 
+// AcceptRequote is the client taking the price a dealer offered them back.
+type AcceptRequote struct {
+	RequestId string `json:"request_id" validate:"required,max=64"`
+	Login     int64  `json:"login" validate:"required,gt=0"`
+}
+
 // sendDealing hands the dealer's answer to the pod holding the account.
 func (s *HttpServer) sendDealing(ctx context.Context, e *model.DealingEvent) (*model.TradeResult, int, error) {
 	e.At = time.Now().UnixNano()
@@ -95,5 +101,17 @@ func (s *HttpServer) cancelRequest(ctx context.Context, payload *CancelRequest, 
 		Login:     payload.Login,
 		Dealer:    dealer,
 		Reason:    payload.Reason,
+	})
+}
+
+func (s *HttpServer) acceptRequote(ctx context.Context, payload *AcceptRequote) (*model.TradeResult, int, error) {
+	if err := s.Validate.Struct(payload); err != nil {
+		return nil, nethttp.StatusBadRequest, err
+	}
+
+	return s.sendDealing(ctx, &model.DealingEvent{
+		EventType: model.DealingEventAccept,
+		RequestId: payload.RequestId,
+		Login:     payload.Login,
 	})
 }
