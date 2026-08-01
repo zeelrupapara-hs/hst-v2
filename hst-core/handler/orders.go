@@ -485,7 +485,7 @@ func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rul
 	o.TimeDone = Now()
 	o.PriceCurrent = f.Price
 
-	Settle(e.Account, e.Positions, r.Group.MarginFreeProfit != 0).Apply(e.Account)
+	h.SettleAccount(e, r.Group.MarginFreeProfit != 0).Apply(e.Account)
 }
 
 // orderFrom builds the order record a request is asking for.

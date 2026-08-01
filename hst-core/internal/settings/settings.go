@@ -38,6 +38,7 @@ type Rules struct {
 	MarginInitial     float64
 	MarginMaintenance float64
 	MarginHedged      float64
+	MarginFlags       int32
 
 	SwapMode    int32
 	SwapRate    [7]float64
@@ -218,6 +219,7 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		MarginInitial:     pick(o.MarginInitial, sym.MarginInitial),
 		MarginMaintenance: pick(o.MarginMaintenance, sym.MarginMaintenance),
 		MarginHedged:      pick(o.MarginHedged, sym.MarginHedged),
+		MarginFlags:       pick(o.MarginFlags, sym.MarginFlags),
 
 		SwapMode:    pick(o.SwapMode, sym.SwapMode),
 		SwapYearDay: pick(o.SwapYearDay, sym.SwapYearDay),

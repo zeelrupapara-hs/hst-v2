@@ -1,6 +1,9 @@
 package v1
 
 import (
+	"strconv"
+
+	"hstserver/model"
 	errs "hstserver/pkg/errors"
 	"hstserver/utils"
 
@@ -133,4 +136,36 @@ func (s *HttpServer) CancelRequest(c *fiber.Ctx) error {
 
 	res, status, err := s.cancelRequest(c.UserContext(), &body, snap.Login)
 	return s.answer(c, res, status, err)
+}
+
+// ListDealingRequests is the desk's queue: every request waiting for a dealer, within the
+// caller's group masks.
+//
+//	@Id			ListDealingRequests
+//	@Tags		Dealing
+//	@Produce	json
+//	@Success	200	{object}	Response{data=[]ViewOrder}
+//	@Failure	403	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/dealing [get]
+func (s *HttpServer) ListDealingRequests(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 1)
+
+	out, err := s.readOrders(c.UserContext(),
+		`o.state = ANY($`+strconv.Itoa(len(args)+1)+`) AND `+where,
+		append(args, []int32{
+			int32(model.OrderState_request_add),
+			int32(model.OrderState_request_modify),
+			int32(model.OrderState_request_cancel),
+		}))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return s.App.HttpResponseOK(c, out)
 }

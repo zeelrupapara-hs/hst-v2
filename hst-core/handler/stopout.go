@@ -15,7 +15,7 @@ import (
 func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Group, t model.Tick) {
 	e.Lock()
 
-	money := Settle(e.Account, e.Positions, g.MarginFreeProfit != 0)
+	money := h.SettleAccount(e, g.MarginFreeProfit != 0)
 
 	// nothing reserved means nothing at risk, whatever the level reads
 	if money.Margin <= 0 {
@@ -71,7 +71,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 		// stop as soon as the account is back above the line
 		e.Lock()
-		after := Settle(e.Account, e.Positions, g.MarginFreeProfit != 0)
+		after := h.SettleAccount(e, g.MarginFreeProfit != 0)
 		e.Unlock()
 
 		if after.Margin <= 0 || after.MarginLevel > stop {

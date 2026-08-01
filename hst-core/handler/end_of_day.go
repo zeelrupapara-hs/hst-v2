@@ -131,7 +131,7 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
 		return false
 	}
 
-	Settle(e.Account, e.Positions, last.Group.MarginFreeProfit != 0).Apply(e.Account)
+	h.SettleAccount(e, last.Group.MarginFreeProfit != 0).Apply(e.Account)
 
 	account := *e.Account
 	e.Unlock()

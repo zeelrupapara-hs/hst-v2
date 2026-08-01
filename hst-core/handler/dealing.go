@@ -67,6 +67,11 @@ func (h *Handler) SendDealing(req *model.TradeRequest, o *model.Order,
 		return h.refuse(res, model.RetTradeNotProcessed, "no dealer is assigned to this request")
 	}
 
+	o.State = int32(model.StateRequestAdd)
+	if o.OrderId > 0 {
+		o.State = int32(model.StateRequestModify)
+	}
+
 	// the row goes down first, so the request is visible in the back office while it waits
 	if err := h.saveRequest(context.Background(), o); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not record a dealer request",

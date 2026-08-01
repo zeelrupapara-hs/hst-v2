@@ -71,7 +71,7 @@ func (h *Handler) NewBalance(ctx context.Context, req *model.BalanceRequest) *mo
 
 	group, _ := h.Settings.Group(e.Account.Group)
 	freeProfitOnly := group != nil && group.MarginFreeProfit != 0
-	Settle(e.Account, e.Positions, freeProfitOnly).Apply(e.Account)
+	h.SettleAccount(e, freeProfitOnly).Apply(e.Account)
 
 	account := *e.Account
 	e.Unlock()

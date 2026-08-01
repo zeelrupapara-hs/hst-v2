@@ -60,7 +60,7 @@ func (h *Handler) Notify(ctx context.Context, e *book.Entry, t model.Tick) {
 
 	h.Revalue(e, t.Symbol, t)
 
-	money := Settle(e.Account, e.Positions, r.Group.MarginFreeProfit != 0)
+	money := h.SettleAccount(e, r.Group.MarginFreeProfit != 0)
 	money.Apply(e.Account)
 
 	account := *e.Account

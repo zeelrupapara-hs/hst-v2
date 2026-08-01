@@ -137,6 +137,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 
 	// the dealing desk
 	dealing := v1.Group("/dealing", s.Middleware.Protect, s.Middleware.RequireManager)
+	dealing.Get("/", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ListDealingRequests)
 	dealing.Post("/:request_id/confirm", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ConfirmRequest)
 	dealing.Post("/:request_id/requote", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RequoteRequest)
 	dealing.Post("/:request_id/reject", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RejectRequest)
