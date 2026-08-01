@@ -82,6 +82,7 @@ var (
 	SubjectSystemPositions = func(login int64) string { return fmt.Sprintf("system.s%d.positions", ShardOf(login)) }
 	SubjectSystemDealing   = func(login int64) string { return fmt.Sprintf("system.s%d.dealing", ShardOf(login)) }
 	SubjectSystemBalance   = func(login int64) string { return fmt.Sprintf("system.s%d.balance", ShardOf(login)) }
+	SubjectSystemQuery     = func(login int64) string { return fmt.Sprintf("system.s%d.query", ShardOf(login)) }
 
 	// core -> one trading account, under the ws.t.<login>.> tree the socket already holds
 	SubjectAccountOrders    = func(login int64) string { return fmt.Sprintf("ws.t.%d.orders", login) }

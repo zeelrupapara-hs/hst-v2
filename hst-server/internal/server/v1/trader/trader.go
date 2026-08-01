@@ -75,6 +75,19 @@ func (s *Server) MyAccount(c *fiber.Ctx) error {
 		return s.App.HttpResponseStatus(c, status, err)
 	}
 
+	// the money the account is worth right now lives in the engine, not the database
+	if live := s.AskEngineAccount(c.UserContext(), snap.Login); live != nil {
+		v.Balance = live.Balance
+		v.Credit = live.Credit
+		v.Margin = live.Margin
+		v.MarginFree = live.MarginFree
+		v.MarginLevel = live.MarginLevel
+		v.Profit = live.Profit
+		v.Storage = live.Storage
+		v.Floating = live.Floating
+		v.Equity = live.Equity
+	}
+
 	return s.App.HttpResponseOK(c, v)
 }
 

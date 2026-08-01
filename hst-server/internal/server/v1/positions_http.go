@@ -52,6 +52,8 @@ func (s *HttpServer) GetMyPositions(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	s.overlayLive(c.UserContext(), snap.Login, out)
+
 	return s.App.HttpResponseOK(c, out)
 }
 

@@ -62,7 +62,11 @@ func (h *Handler) subscribeShard(shard uint32) error {
 		return err
 	}
 
-	return h.subscribeQuiet(model.SubjectShardBalance(shard), h.BalanceSystemEventHandler)
+	if err := h.subscribeQuiet(model.SubjectShardBalance(shard), h.BalanceSystemEventHandler); err != nil {
+		return err
+	}
+
+	return h.subscribeQuiet(model.SubjectShardQuery(shard), h.QuerySystemEventHandler)
 }
 
 // ConfigSystemEventHandler reads the configuration again.

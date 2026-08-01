@@ -8,6 +8,7 @@ var (
 	SubjectShardPositions = func(shard uint32) string { return fmt.Sprintf("system.s%d.positions", shard) }
 	SubjectShardDealing   = func(shard uint32) string { return fmt.Sprintf("system.s%d.dealing", shard) }
 	SubjectShardBalance   = func(shard uint32) string { return fmt.Sprintf("system.s%d.balance", shard) }
+	SubjectShardQuery     = func(shard uint32) string { return fmt.Sprintf("system.s%d.query", shard) }
 )
 
 // core -> one trading account, under the ws.t.<login>.> tree the socket already holds
