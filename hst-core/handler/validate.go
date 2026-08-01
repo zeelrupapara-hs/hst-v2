@@ -293,10 +293,10 @@ func (h *Handler) checkVolume(o *model.Order, r *settings.Rules) model.RetCode {
 func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) model.RetCode {
 	g := r.Group
 
-	if g.LimitOrders > 0 && int32(len(e.Orders)) >= g.LimitOrders {
+	if g.LimitOrders > 0 && len(e.Orders) >= int(g.LimitOrders) {
 		return model.RetTradeTooManyOrder
 	}
-	if g.LimitPositions > 0 && int32(len(e.Positions)) >= g.LimitPositions {
+	if g.LimitPositions > 0 && len(e.Positions) >= int(g.LimitPositions) {
 		return model.RetTradeTooManyOrder
 	}
 
@@ -323,7 +323,7 @@ func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) 
 	}
 
 	// the group's cap on how many different instruments may be held at once
-	if g.LimitSymbols > 0 && !symbols[o.Symbol] && int32(len(symbols)) >= g.LimitSymbols {
+	if g.LimitSymbols > 0 && !symbols[o.Symbol] && len(symbols) >= int(g.LimitSymbols) {
 		return model.RetTradeMaxVolume
 	}
 

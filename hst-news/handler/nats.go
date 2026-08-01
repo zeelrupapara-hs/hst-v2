@@ -25,5 +25,5 @@ type DatafeedEvent struct {
 
 // HasNewsFlag reports whether the feed is configured for news ingestion.
 func (e DatafeedEvent) HasNewsFlag() bool {
-	return (e.Mode & 2) != 0 && e.Enable == 1
+	return (e.Mode&2) != 0 && e.Enable == 1
 }

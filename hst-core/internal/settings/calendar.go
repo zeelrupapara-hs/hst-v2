@@ -90,6 +90,7 @@ func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
+	// #nosec G115 -- a minute of the day is 0..1439
 	minutes := int32(at.Hour()*60 + at.Minute())
 
 	for i := range h.days {
@@ -98,9 +99,11 @@ func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
 		if !d.Enable {
 			continue
 		}
+		// #nosec G115 -- a calendar year, month and day all fit
 		if d.Year != 0 && d.Year != int32(at.Year()) {
 			continue
 		}
+		// #nosec G115 -- a month is 1..12 and a day 1..31
 		if d.Month != int16(at.Month()) || d.Day != int16(at.Day()) {
 			continue
 		}

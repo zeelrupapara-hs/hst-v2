@@ -114,5 +114,6 @@ func hashString(s string) uint32 {
 	h *= 0xc4ceb9fe1a85ec53
 	h ^= h >> 33
 
+	// #nosec G115 -- the fold to 32 bits is the point of the hash
 	return uint32(h)
 }

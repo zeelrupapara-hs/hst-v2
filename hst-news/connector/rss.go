@@ -69,7 +69,7 @@ func (r *RSS) Fetch(ctx context.Context, feed model.NewsFeed) ([]RawItem, int64,
 	if err != nil {
 		return nil, 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
 		return nil, 0, fmt.Errorf("feed %d: http %d from %s", feed.Datafeed.DatafeedID, resp.StatusCode, url)

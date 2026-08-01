@@ -38,6 +38,7 @@ func (c *Connector) Run(ctx context.Context) error {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
+	// #nosec G404 -- made up prices for a simulator, not a secret
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	for {

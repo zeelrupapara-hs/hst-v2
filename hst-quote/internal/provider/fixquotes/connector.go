@@ -118,7 +118,7 @@ func (c *Connector) startInitiator() error {
 	if err != nil {
 		return fmt.Errorf("open fix cfg: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	data, err := io.ReadAll(f)
 	if err != nil {

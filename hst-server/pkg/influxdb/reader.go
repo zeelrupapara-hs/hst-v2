@@ -168,7 +168,7 @@ func (r *Reader) collect(ctx context.Context, flux string) ([]Candle, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := make([]Candle, 0, 512)
 
@@ -232,7 +232,7 @@ from(bucket: %q)
 	if err != nil {
 		return time.Time{}, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	if rows.Next() {
 		return rows.Record().Time(), nil

@@ -98,9 +98,7 @@ func splitHostPort(raw string) (host, port string, ok bool) {
 	if raw == "" {
 		return "", "", false
 	}
-	if strings.HasPrefix(raw, "tcp://") {
-		raw = strings.TrimPrefix(raw, "tcp://")
-	}
+	raw = strings.TrimPrefix(raw, "tcp://")
 	if strings.HasSuffix(strings.ToLower(raw), ".cfg") {
 		return "", "", false
 	}

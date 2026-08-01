@@ -9,8 +9,8 @@ import (
 
 	"hstnews/connector"
 	"hstnews/internal/configclient"
-	"hstnews/internal/normalize"
 	newscache "hstnews/internal/newscache"
+	"hstnews/internal/normalize"
 	"hstnews/internal/status"
 	"hstnews/model"
 	"hstnews/pkg/logger"

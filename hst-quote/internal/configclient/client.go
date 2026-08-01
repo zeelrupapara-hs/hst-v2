@@ -22,18 +22,18 @@ const quoteMode = int32(model.FeederFlags_quotes)
 
 // Snapshot matches hst-server WorkerDatafeedConfig JSON.
 type Snapshot struct {
-	DatafeedID       int64                 `json:"datafeed_id"`
-	Name             string                `json:"name"`
-	Module           string                `json:"module"`
-	Enable           model.DatafeedEnable  `json:"enable"`
-	Mode             model.FeederFlags     `json:"mode"`
-	FeedServer       string                `json:"feed_server"`
-	FeedLogin        int64                 `json:"feed_login"`
-	FeedPassword     string                `json:"feed_password"`
-	TimeoutReconnect int32                 `json:"timeout_reconnect"`
-	Params           []Param               `json:"params"`
-	Translates       []Translate           `json:"translates"`
-	Sessions         []SnapshotSession     `json:"sessions"`
+	DatafeedID       int64                `json:"datafeed_id"`
+	Name             string               `json:"name"`
+	Module           string               `json:"module"`
+	Enable           model.DatafeedEnable `json:"enable"`
+	Mode             model.FeederFlags    `json:"mode"`
+	FeedServer       string               `json:"feed_server"`
+	FeedLogin        int64                `json:"feed_login"`
+	FeedPassword     string               `json:"feed_password"`
+	TimeoutReconnect int32                `json:"timeout_reconnect"`
+	Params           []Param              `json:"params"`
+	Translates       []Translate          `json:"translates"`
+	Sessions         []SnapshotSession    `json:"sessions"`
 }
 
 type SnapshotSession struct {
@@ -118,7 +118,7 @@ func (c *Client) getJSON(ctx context.Context, url string, dest any) error {
 	if err != nil {
 		return fmt.Errorf("config request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

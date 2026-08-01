@@ -30,11 +30,13 @@ func (h *Handler) IsMarketOpen(r *settings.Rules, dir model.Direction) bool {
 }
 
 func (h *Handler) InSession(r *settings.Rules, at time.Time, kind int16) bool {
+	// #nosec G115 -- a weekday is 0..6
 	windows := h.Sessions.For(r.Symbol.SymbolId, int16(at.Weekday()), kind)
 	if len(windows) == 0 {
 		return true
 	}
 
+	// #nosec G115 -- a minute of the day is 0..1439
 	minutes := int32(at.Hour()*60 + at.Minute())
 
 	for _, w := range windows {

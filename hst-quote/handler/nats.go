@@ -20,5 +20,5 @@ type DatafeedEvent struct {
 
 // HasQuoteFlag reports whether the feed is configured for quote ingestion.
 func (e DatafeedEvent) HasQuoteFlag() bool {
-	return (e.Mode & 1) != 0 && e.Enable == 1
+	return (e.Mode&1) != 0 && e.Enable == 1
 }

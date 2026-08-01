@@ -465,8 +465,6 @@ func (h *Handler) loadOrders(ctx context.Context, and string, args ...any) error
 	return rows.Err()
 }
 
-func shiftArgs(and string) string { return strings.ReplaceAll(and, "$1", "$2") }
-
 // RefreshAccount reads back what a manager may have changed about an account — its group, its
 // leverage, its rights — and works the money out again at the new settings.
 func (h *Handler) RefreshAccount(ctx context.Context, e *book.Entry) error {
