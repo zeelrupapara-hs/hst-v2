@@ -15,10 +15,14 @@ import (
 func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Group, t model.Tick) {
 	e.Lock()
 
-	money := h.SettleAccount(e, g.MarginFreeProfit != 0)
+	money := h.SettleAccount(e)
 
-	// nothing reserved means nothing at risk, whatever the level reads
-	if money.Margin <= 0 {
+	// nothing reserved means nothing at risk, unless the group asks us to look at a fully
+	// covered book: there the margin is zero while the equity can still go under
+	fullyHedged := g.TradeFlags&model.TradeFlagSOFullyHedged != 0 &&
+		model.MarginMode(g.MarginMode).Hedging()
+
+	if money.Margin <= 0 && !(fullyHedged && money.Equity < 0) {
 		e.Unlock()
 		return
 	}
@@ -32,6 +36,8 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 	}
 
 	switch {
+	case money.Margin <= 0 && fullyHedged && money.Equity < 0:
+		// a covered book with negative equity, which no level would ever catch
 	case stop > 0 && level <= stop:
 		// fall through and close
 	case call > 0 && level <= call:
@@ -51,12 +57,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 		return
 	}
 
-	// biggest loser first: it frees the most margin per position closed
-	worst := make([]*model.Position, 0, len(e.Positions))
-	for _, p := range e.Positions {
-		worst = append(worst, p)
-	}
-	sort.Slice(worst, func(i, j int) bool { return worst[i].Profit < worst[j].Profit })
+	worst := h.stopOutOrder(e, g)
 
 	login := e.Account.Login
 	e.Unlock()
@@ -71,17 +72,85 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 		// stop as soon as the account is back above the line
 		e.Lock()
-		after := h.SettleAccount(e, g.MarginFreeProfit != 0)
+		after := h.SettleAccount(e)
 		e.Unlock()
-
-		// the group can insist the whole book goes, rather than only enough of it
-		if g.TradeFlags&model.TradeFlagSOFullyClose != 0 {
-			continue
-		}
 
 		if after.Margin <= 0 || after.MarginLevel > stop {
 			break
 		}
+	}
+
+	h.CompensateNegativeBalance(ctx, e, g)
+}
+
+// stopOutOrder is the order positions are taken off in: the biggest loser first, because it
+// frees the most margin per close.
+//
+// Under the first in first out rule only the oldest position on each instrument may be closed,
+// so the choice is made among those.
+func (h *Handler) stopOutOrder(e *book.Entry, g *model.Group) []*model.Position {
+	worst := make([]*model.Position, 0, len(e.Positions))
+
+	oldest := make(map[string]*model.Position, len(e.Positions))
+	fifo := g.TradeFlags&model.TradeFlagFIFOClose != 0
+
+	for _, p := range e.Positions {
+		// an instrument kept out of the money is not what put the account at risk
+		if h.excluded(e.Account.Group, p.Symbol) {
+			continue
+		}
+
+		if !fifo {
+			worst = append(worst, p)
+			continue
+		}
+
+		if o, seen := oldest[p.Symbol]; !seen || p.TimeCreate < o.TimeCreate {
+			oldest[p.Symbol] = p
+		}
+	}
+
+	for _, p := range oldest {
+		worst = append(worst, p)
+	}
+
+	sort.Slice(worst, func(i, j int) bool { return worst[i].Profit < worst[j].Profit })
+
+	return worst
+}
+
+// CompensateNegativeBalance brings a balance the stop out left short back to zero, which is
+// what a broker who does not chase clients for a debt has to do.
+func (h *Handler) CompensateNegativeBalance(ctx context.Context, e *book.Entry, g *model.Group) {
+	if g.TradeFlags&model.TradeFlagSOCompensation == 0 {
+		return
+	}
+
+	e.Lock()
+	balance, credit, login := e.Account.Balance, e.Account.Credit, e.Account.Login
+	e.Unlock()
+
+	if balance >= 0 {
+		return
+	}
+
+	h.NewBalance(ctx, &model.BalanceRequest{
+		Login:         login,
+		Action:        int32(model.DealSOCompensation),
+		Amount:        -balance,
+		AllowNegative: true,
+		Comment:       "so compensation",
+	})
+
+	// the credit that backed the lost position goes with it
+	if g.TradeFlags&model.TradeFlagSOCompensationCredit != 0 && credit != 0 {
+		h.NewBalance(ctx, &model.BalanceRequest{
+			Login:         login,
+			Action:        int32(model.DealSOCompensationCredit),
+			Amount:        -credit,
+			AllowNegative: true,
+			Comment:       "so credit compensation",
+		})
 	}
 }
 

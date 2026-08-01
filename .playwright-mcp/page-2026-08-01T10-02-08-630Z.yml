@@ -1,0 +1,76 @@
+- generic [active] [ref=f14e1]:
+  - table [ref=f14e4]:
+    - rowgroup [ref=f14e5]:
+      - row [ref=f14e6]:
+        - cell [ref=f14e7]:
+          - generic [ref=f14e8]:
+            - paragraph [ref=f14e9]:
+              - link [ref=f14e10] [cursor=pointer]:
+                - /url: index.htm?admin_groups_symbols.htm
+            - paragraph [ref=f14e13]:
+              - link "MetaTrader 5 Trading Platform" [ref=f14e14] [cursor=pointer]:
+                - /url: beginning.htm
+              - text: ">"
+              - link "Platform Setup" [ref=f14e15] [cursor=pointer]:
+                - /url: administration.htm
+              - text: ">"
+              - link "Groups" [ref=f14e16] [cursor=pointer]:
+                - /url: admin_groups.htm
+              - text: / Group Symbol Settings
+        - cell [ref=f14e17]:
+          - generic [ref=f14e18]:
+            - link "Previous Topic" [ref=f14e19] [cursor=pointer]:
+              - /url: groups_settings.htm
+            - link "Parent Chapter" [ref=f14e22] [cursor=pointer]:
+              - /url: admin_groups.htm
+            - link "Next Topic" [ref=f14e25] [cursor=pointer]:
+              - /url: group_symbols_common.htm
+  - generic [ref=f14e29]:
+    - paragraph [ref=f14e30]: Symbol Settings of Groups
+    - paragraph [ref=f14e31]:
+      - generic [ref=f14e32]:
+        - text: Group symbols are set up on the
+        - link "\"Symbols\"" [ref=f14e33] [cursor=pointer]:
+          - /url: groups_settings.htm#symbols
+        - text: tab when creating or editing a group.
+    - table [ref=f14e35]:
+      - rowgroup [ref=f14e36]:
+        - row [ref=f14e37]:
+          - 'cell "If several individual configurations are created for the same symbol (for example, there is a configuration for all symbols by mask \"*\", and a configuration for a specific symbol), then every configuration will be applied sequentially from the top downwards. And if a parameter in the configurations is set to \"Default\", it means that it won''t be changed. For example: • A symbol has minimal and maximal volume set to 0.01 lot and 100 lots on default. • A configuration is added for the group where the minimal and maximal volume is overridden to 0.1 lot and 150 lots respectively. • Another configuration is added with settings \"Use default volumes\" and Spread difference = 5. The last configuration will not reset the minimal and maximal volume to default 0.01 lots and 100 lots respectively. Values 0.1 and 150 will be used." [ref=f14e38]':
+            - paragraph [ref=f14e39]: "If several individual configurations are created for the same symbol (for example, there is a configuration for all symbols by mask \"*\", and a configuration for a specific symbol), then every configuration will be applied sequentially from the top downwards. And if a parameter in the configurations is set to \"Default\", it means that it won't be changed. For example:"
+            - paragraph [ref=f14e40]:
+              - generic [ref=f14e41]: •
+              - text: A symbol has minimal and maximal volume set to 0.01 lot and 100 lots on default.
+            - paragraph [ref=f14e42]:
+              - generic [ref=f14e43]: •
+              - text: A configuration is added for the group where the minimal and maximal volume is overridden to 0.1 lot and 150 lots respectively.
+            - paragraph [ref=f14e44]:
+              - generic [ref=f14e45]: •
+              - text: Another configuration is added with settings "Use default volumes" and Spread difference = 5.
+            - paragraph [ref=f14e46]: The last configuration will not reset the minimal and maximal volume to default 0.01 lots and 100 lots respectively. Values 0.1 and 150 will be used.
+    - paragraph [ref=f14e47]: "When you add or edit symbols, a window with five tabs will appear:"
+    - paragraph [ref=f14e48]:
+      - generic [ref=f14e49]: •
+      - link "Common" [ref=f14e51] [cursor=pointer]:
+        - /url: group_symbols_common.htm
+    - paragraph [ref=f14e52]:
+      - generic [ref=f14e53]: •
+      - link "Trade" [ref=f14e55] [cursor=pointer]:
+        - /url: group_symbols_trade.htm
+    - paragraph [ref=f14e56]:
+      - generic [ref=f14e57]: •
+      - link "Execution" [ref=f14e59] [cursor=pointer]:
+        - /url: group_symbols_execution.htm
+    - paragraph [ref=f14e60]:
+      - generic [ref=f14e61]: •
+      - link "Margin" [ref=f14e63] [cursor=pointer]:
+        - /url: group_symbols_margin.htm
+    - paragraph [ref=f14e64]:
+      - generic [ref=f14e65]: •
+      - link "Margin Rates" [ref=f14e67] [cursor=pointer]:
+        - /url: group_symbols_marginrates.htm
+    - paragraph [ref=f14e68]:
+      - generic [ref=f14e69]: •
+      - link "Swaps" [ref=f14e71] [cursor=pointer]:
+        - /url: group_symbols_swaps.htm
+    - paragraph [ref=f14e72]

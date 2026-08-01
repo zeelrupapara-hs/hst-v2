@@ -106,3 +106,19 @@ func (m TradeMode) AllowsBuy() bool { return m == TradeFull || m == TradeLongOnl
 func (m TradeMode) AllowsSell() bool { return m == TradeFull || m == TradeShortOnly }
 
 func (m TradeMode) CloseOnly() bool { return m == TradeCloseOnly }
+
+// How margin is checked and shared, from margin_flags on the instrument or the group's override.
+const (
+	MarginFlagCheckProcess  int32 = 1
+	MarginFlagCheckSLTP     int32 = 2
+	MarginFlagHedgeLargeLeg int32 = 4
+	MarginFlagExcludePL     int32 = 8
+	MarginFlagRecalcRates   int32 = 16
+)
+
+// SwapFlagConsiderHolidays doubles the swap the day before a holiday and charges none on it.
+const SwapFlagConsiderHolidays int32 = 1
+
+// DealingFlagConfirm makes the dealer confirm again after the client accepts their price.
+// It is the same bit in ie_flags and re_flags.
+const DealingFlagConfirm int32 = 1

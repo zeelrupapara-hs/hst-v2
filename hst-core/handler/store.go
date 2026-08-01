@@ -151,10 +151,12 @@ func saveAccount(ctx context.Context, tx pgx.Tx, a *model.Account, now int64) er
 	if _, err := tx.Exec(ctx,
 		`UPDATE hst.accounts
 		    SET balance = $1, credit = $2, margin = $3, margin_free = $4, margin_level = $5,
-		        profit = $6, storage = $7, floating = $8, equity = $9, updated_at = $10
-		  WHERE login = $11`,
+		        profit = $6, storage = $7, floating = $8, equity = $9, updated_at = $10,
+		        margin_initial = $11, margin_maintenance = $12, blocked_profit = $13
+		  WHERE login = $14`,
 		a.Balance, a.Credit, a.Margin, a.MarginFree, a.MarginLevel,
-		a.Profit, a.Storage, a.Floating, a.Equity, now, a.Login); err != nil {
+		a.Profit, a.Storage, a.Floating, a.Equity, now,
+		a.MarginInitial, a.MarginMaintenance, a.BlockedProfit, a.Login); err != nil {
 		return err
 	}
 
@@ -206,14 +208,19 @@ func updateOrder(ctx context.Context, tx pgx.Tx, o *model.Order) error {
 
 // SaveAccount writes the money state on its own, for the paths that change no deal.
 func (h *Handler) SaveAccount(ctx context.Context, a *model.Account) error {
-	_, err := h.DB.DB.Exec(ctx,
+	if _, err := h.DB.DB.Exec(ctx,
 		`UPDATE hst.accounts
-		    SET margin = $1, margin_free = $2, margin_level = $3,
-		        margin_initial = $4, margin_maintenance = $5,
-		        profit = $6, storage = $7, floating = $8, equity = $9, updated_at = $10
-		  WHERE login = $11`,
-		a.Margin, a.MarginFree, a.MarginLevel, a.MarginInitial, a.MarginMaintenance,
-		a.Profit, a.Storage, a.Floating, a.Equity, Now(), a.Login)
+		    SET balance = $1, margin = $2, margin_free = $3, margin_level = $4,
+		        margin_initial = $5, margin_maintenance = $6, blocked_profit = $7,
+		        profit = $8, storage = $9, floating = $10, equity = $11, updated_at = $12
+		  WHERE login = $13`,
+		a.Balance, a.Margin, a.MarginFree, a.MarginLevel, a.MarginInitial, a.MarginMaintenance,
+		a.BlockedProfit, a.Profit, a.Storage, a.Floating, a.Equity, Now(), a.Login); err != nil {
+		return err
+	}
+
+	_, err := h.DB.DB.Exec(ctx, `UPDATE hst.users SET balance = $1 WHERE login = $2`,
+		a.Balance, a.Login)
 
 	return err
 }

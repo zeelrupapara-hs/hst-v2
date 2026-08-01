@@ -93,7 +93,11 @@ type Money struct {
 }
 
 // Settle adds up an account from its balance and its open positions.
-func Settle(a *model.Account, positions map[int64]*model.Position, freeProfitOnly bool) Money {
+//
+// excluded is the floating result of instruments the group told us to leave out of the money
+// entirely, and free says how much of what remains counts toward free margin.
+func Settle(a *model.Account, positions map[int64]*model.Position,
+	free model.FreeMarginMode, excluded float64) Money {
 	m := Money{
 		Balance:    a.Balance,
 		Credit:     a.Credit,
@@ -112,15 +116,14 @@ func Settle(a *model.Account, positions map[int64]*model.Position, freeProfitOnl
 		m.Margin += p.Margin
 	}
 
-	m.Equity = m.Balance + m.Credit + m.Floating + m.Storage - m.Commission
+	// an excluded instrument is invisible to the money: not in equity, not in free margin
+	counted := m.Floating - excluded
 
-	// when the group forbids it, only a floating loss counts against free margin
-	usable := m.Floating
-	if freeProfitOnly && usable > 0 {
-		usable = 0
-	}
+	m.Equity = m.Balance + m.Credit + counted + m.Storage - m.Commission + a.BlockedProfit
 
-	m.FreeMargin = m.Balance + m.Credit + usable + m.Storage - m.Commission - m.Margin
+	// profit held aside for the day is the client's, but not theirs to trade on yet
+	m.FreeMargin = m.Balance + m.Credit + free.Counts(counted) + m.Storage -
+		m.Commission - m.Margin
 
 	// the level is read against maintenance margin where the instruments set one, which is what
 	// decides a margin call, not the initial reservation

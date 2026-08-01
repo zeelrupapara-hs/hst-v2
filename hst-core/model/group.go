@@ -98,11 +98,65 @@ type GroupSymbol struct {
 
 // What the group lets its accounts do, from hst.groups.trade_flags.
 const (
-	TradeFlagSwaps         int32 = 0x0001
-	TradeFlagExpiration    int32 = 0x0008
-	TradeFlagSOFullyClose  int32 = 0x0080
-	TradeFlagFIFOClose     int32 = 0x0100
-	TradeFlagHedgeProhibit int32 = 0x0200
+	TradeFlagSwaps                int32 = 0x0001
+	TradeFlagTrailing             int32 = 0x0002
+	TradeFlagExperts              int32 = 0x0004
+	TradeFlagExpiration           int32 = 0x0008
+	TradeFlagSignalsAll           int32 = 0x0010
+	TradeFlagSignalsOwn           int32 = 0x0020
+	TradeFlagSOCompensation       int32 = 0x0040
+	TradeFlagSOFullyHedged        int32 = 0x0080
+	TradeFlagFIFOClose            int32 = 0x0100
+	TradeFlagHedgeProhibit        int32 = 0x0200
+	TradeFlagDealCost             int32 = 0x0400
+	TradeFlagSOCompensationCredit int32 = 0x0800
+)
+
+// How much of the floating result counts toward free margin, from hst.groups.margin_free_mode.
+type FreeMarginMode int32
+
+const (
+	FreeMarginNotUsePL FreeMarginMode = 0
+	FreeMarginUsePL    FreeMarginMode = 1
+	FreeMarginProfit   FreeMarginMode = 2
+	FreeMarginLoss     FreeMarginMode = 3
+)
+
+// Counts reports how much of a floating result the mode admits into free margin.
+func (m FreeMarginMode) Counts(floating float64) float64 {
+	switch m {
+	case FreeMarginUsePL:
+		return floating
+	case FreeMarginProfit:
+		if floating > 0 {
+			return floating
+		}
+	case FreeMarginLoss:
+		if floating < 0 {
+			return floating
+		}
+	}
+
+	return 0
+}
+
+// How a day's realised profit is treated, from hst.groups.margin_free_profit_mode.
+type FreeMarginProfitMode int32
+
+const (
+	FreeMarginDayProfitAndLoss FreeMarginProfitMode = 0
+	FreeMarginDayProfitLoss    FreeMarginProfitMode = 1
+)
+
+// The group's own margin flags, from hst.groups.margin_flags.
+const GroupMarginFlagClearAccumulated int32 = 1
+
+// What the group permits, from hst.groups.permission_flags.
+const (
+	PermissionEnableConnection int32 = 0x0002
+	PermissionNotifyDeals      int32 = 0x0040
+	PermissionNotifyOrders     int32 = 0x0080
+	PermissionNotifyBalances   int32 = 0x0100
 )
 
 // Which order types and levels an instrument offers, from order_flags.

@@ -147,11 +147,16 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 	connType model.UsersConnectionTypes) (*model.User, model.UsersPasswords, error) {
 	user := &model.User{}
 
+	var groupPermissions int32
+
 	err := s.DB.DB.QueryRow(ctx,
-		`SELECT login, COALESCE(client_id, 0), "group", rights, password_main, password_investor, locked_until
-		   FROM hst.users WHERE login = $1`, login).
+		`SELECT u.login, COALESCE(u.client_id, 0), u."group", u.rights, u.password_main,
+		        u.password_investor, u.locked_until, COALESCE(g.permission_flags, 0)
+		   FROM hst.users u
+		   LEFT JOIN hst.groups g ON g."group" = u."group"
+		  WHERE u.login = $1`, login).
 		Scan(&user.Login, &user.ClientId, &user.Group, &user.Rights,
-			&user.PasswordMain, &user.PasswordInvestor, &user.LockedUntil)
+			&user.PasswordMain, &user.PasswordInvestor, &user.LockedUntil, &groupPermissions)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// burn the same work as a real verify.
@@ -187,6 +192,11 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 		}
 
 		if !user.Rights.CanConnect() {
+			return nil, 0, denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+		}
+
+		// the group can close the door for everyone in it at once, without touching an account
+		if groupPermissions&int32(model.PermissionsFlags_enable_connection) == 0 {
 			return nil, 0, denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
 		}
 

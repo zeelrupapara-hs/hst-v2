@@ -46,8 +46,13 @@ type Rules struct {
 	SwapLong    float64
 	SwapShort   float64
 
+	SwapFlags int32
+
 	// OrderFlags is the set of order types, and of SL/TP, the group may use on this instrument.
 	OrderFlags int32
+	// IEFlags and REFlags say whether the dealer confirms again after the client accepts a price.
+	IEFlags int32
+	REFlags int32
 	// RequestTimeout is how long a dealer has to answer a request-execution order, in seconds.
 	RequestTimeout int32
 
@@ -231,7 +236,11 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		SwapLong:    pick(o.SwapLong, sym.SwapLong),
 		SwapShort:   pick(o.SwapShort, sym.SwapShort),
 
+		SwapFlags: pick(o.SwapFlags, sym.SwapFlags),
+
 		OrderFlags:     pick(o.OrderFlags, sym.OrderFlags),
+		IEFlags:        value(o.IEFlags),
+		REFlags:        value(o.REFlags),
 		RequestTimeout: value(o.RETimeout),
 
 		MaxDeviationTime:   value(o.IETimeout),

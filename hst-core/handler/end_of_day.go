@@ -72,6 +72,7 @@ func (h *Handler) EndOfDayProcess(ctx context.Context) {
 
 	h.CheckPendingOrdersExpiration(ctx)
 	h.SwapsJob(ctx)
+	h.ReleaseAccumulatedProfit(ctx)
 	h.ChargeDailyCommissions(ctx, now)
 	h.ChargeMonthlyCommissions(ctx, now)
 
@@ -118,7 +119,6 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
 	}
 
 	var touched []*model.Position
-	var last *settings.Rules
 
 	for _, p := range e.Positions {
 		r, ok := h.Settings.For(group, p.Symbol)
@@ -134,7 +134,6 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
 		p.Storage += swap
 		p.TimeUpdate = Now()
 		touched = append(touched, p)
-		last = r
 	}
 
 	if len(touched) == 0 {
@@ -142,7 +141,7 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
 		return false
 	}
 
-	h.SettleAccount(e, last.Group.MarginFreeProfit != 0).Apply(e.Account)
+	h.SettleAccount(e).Apply(e.Account)
 
 	account := *e.Account
 	e.Unlock()
@@ -154,6 +153,47 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
 	h.PublishWS(model.SubjectAccountSummary(account.Login), "account", &account)
 
 	return true
+}
+
+// ReleaseAccumulatedProfit hands a day's held profit back to the balance, for the groups that
+// asked the server to do it rather than leaving it to a gateway.
+func (h *Handler) ReleaseAccumulatedProfit(ctx context.Context) {
+	var released int
+
+	h.Accounts.Each(func(e *book.Entry) {
+		g, ok := h.Settings.Group(e.Account.Group)
+		if !ok || g.MarginFlags&model.GroupMarginFlagClearAccumulated == 0 {
+			return
+		}
+
+		e.Lock()
+
+		held := e.Account.BlockedProfit
+		if held == 0 {
+			e.Unlock()
+			return
+		}
+
+		e.Account.Balance += held
+		e.Account.BlockedProfit = 0
+		h.SettleAccount(e).Apply(e.Account)
+
+		account := *e.Account
+		e.Unlock()
+
+		released++
+
+		if err := h.SaveAccount(ctx, &account); err != nil {
+			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not release a held profit",
+				"login", account.Login, "error", err.Error())
+		}
+
+		h.PublishWS(model.SubjectAccountSummary(account.Login), "account", &account)
+	})
+
+	if released > 0 {
+		h.Log.Log(logger.TypeTrade, logger.CodeOK, "held profit released", "accounts", released)
+	}
 }
 
 func (h *Handler) CalculateSwaps(r *settings.Rules, p *model.Position, a *model.Account) float64 {
@@ -169,9 +209,22 @@ func (h *Handler) CalculateSwaps(r *settings.Rules, p *model.Position, a *model.
 		return 0
 	}
 
-	factor := r.SwapRate[int(time.Now().Weekday())]
+	now := time.Now()
+
+	factor := r.SwapRate[int(now.Weekday())]
 	if factor == 0 {
 		return 0
+	}
+
+	// with holidays taken into account nothing is charged on the holiday itself, and the day
+	// before carries the charge for both
+	if r.SwapFlags&model.SwapFlagConsiderHolidays != 0 {
+		if h.IsHoliday(r, now) {
+			return 0
+		}
+		if h.IsHoliday(r, now.AddDate(0, 0, 1)) {
+			factor *= 2
+		}
 	}
 
 	lots := p.Lots()

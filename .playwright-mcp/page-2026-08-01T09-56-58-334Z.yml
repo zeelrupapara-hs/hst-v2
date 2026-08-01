@@ -1,0 +1,738 @@
+- generic [active] [ref=f12e1]:
+  - table [ref=f12e4]:
+    - rowgroup [ref=f12e5]:
+      - row [ref=f12e6]:
+        - cell [ref=f12e7]:
+          - generic [ref=f12e8]:
+            - paragraph [ref=f12e9]:
+              - link [ref=f12e10] [cursor=pointer]:
+                - /url: index.htm?group_enum.htm
+            - paragraph [ref=f12e13]:
+              - link "MetaTrader 5 Trading Platform" [ref=f12e14] [cursor=pointer]:
+                - /url: beginning.htm
+              - text: ">"
+              - link "Platform Components" [ref=f12e15] [cursor=pointer]:
+                - /url: components.htm
+              - text: ">"
+              - link "Backup Server" [ref=f12e16] [cursor=pointer]:
+                - /url: backup_server.htm
+              - text: ">"
+              - link "SQL Export" [ref=f12e17] [cursor=pointer]:
+                - /url: sql_export.htm
+              - text: ">"
+              - link "mt5_groups" [ref=f12e18] [cursor=pointer]:
+                - /url: sql_mt5_groups.htm
+              - text: / Enumerations
+        - cell [ref=f12e19]:
+          - generic [ref=f12e20]:
+            - link "Previous Topic" [ref=f12e21] [cursor=pointer]:
+              - /url: sql_mt5_groups.htm
+            - link "Parent Chapter" [ref=f12e24] [cursor=pointer]:
+              - /url: sql_mt5_groups.htm
+            - link "Next Topic" [ref=f12e27] [cursor=pointer]:
+              - /url: sql_mt5_groups_symbols.htm
+  - generic [ref=f12e31]:
+    - paragraph [ref=f12e32]: Enumerations
+    - paragraph [ref=f12e33]: "To pass information about groups the following enumerations are used:"
+    - paragraph [ref=f12e34]:
+      - generic [ref=f12e35]: •
+      - link "EnPermissionsFlags" [ref=f12e37] [cursor=pointer]:
+        - /url: group_enum.htm#enpermissionsflags
+    - paragraph [ref=f12e38]:
+      - generic [ref=f12e39]: •
+      - link "EnAuthMode" [ref=f12e41] [cursor=pointer]:
+        - /url: group_enum.htm#enauthmode
+    - paragraph [ref=f12e42]:
+      - generic [ref=f12e43]: •
+      - link "EnReportsMode" [ref=f12e45] [cursor=pointer]:
+        - /url: group_enum.htm#enreportsmode
+    - paragraph [ref=f12e46]:
+      - generic [ref=f12e47]: •
+      - link "EnReportsFlags" [ref=f12e49] [cursor=pointer]:
+        - /url: group_enum.htm#enreportsflags
+    - paragraph [ref=f12e50]:
+      - generic [ref=f12e51]: •
+      - link "EnNewsMode" [ref=f12e53] [cursor=pointer]:
+        - /url: group_enum.htm#ennewsmode
+    - paragraph [ref=f12e54]:
+      - generic [ref=f12e55]: •
+      - link "EnMailMode" [ref=f12e57] [cursor=pointer]:
+        - /url: group_enum.htm#enmailmode
+    - paragraph [ref=f12e58]:
+      - generic [ref=f12e59]: •
+      - link "EnHistoryLimit" [ref=f12e61] [cursor=pointer]:
+        - /url: group_enum.htm#enhistorylimit
+    - paragraph [ref=f12e62]:
+      - generic [ref=f12e63]: •
+      - link "EnFreeMarginMode" [ref=f12e65] [cursor=pointer]:
+        - /url: group_enum.htm#enfreemarginmode
+    - paragraph [ref=f12e66]:
+      - generic [ref=f12e67]: •
+      - link "EnStopOutMode" [ref=f12e69] [cursor=pointer]:
+        - /url: group_enum.htm#enstopoutmode
+    - paragraph [ref=f12e70]:
+      - generic [ref=f12e71]: •
+      - link "EnTradeFlags" [ref=f12e73] [cursor=pointer]:
+        - /url: group_enum.htm#entradeflags
+    - paragraph [ref=f12e74]:
+      - generic [ref=f12e75]: •
+      - link "EnMarginFreeProfitFlags" [ref=f12e77] [cursor=pointer]:
+        - /url: group_enum.htm#enmarginfreeprofitflags
+    - paragraph [ref=f12e78]: EnPermissionsFlags
+    - paragraph [ref=f12e79]: Flags of permissions for groups are listed in EnPermissionsFlags.
+    - table [ref=f12e81]:
+      - rowgroup [ref=f12e82]:
+        - row [ref=f12e83]:
+          - columnheader [ref=f12e84]:
+            - paragraph [ref=f12e85]: ID
+          - columnheader [ref=f12e86]:
+            - paragraph [ref=f12e87]: Value
+          - columnheader [ref=f12e88]:
+            - paragraph [ref=f12e89]: Description
+      - rowgroup [ref=f12e90]:
+        - row [ref=f12e91]:
+          - cell [ref=f12e92]:
+            - paragraph [ref=f12e93]: PERMISSION_NONE
+          - cell [ref=f12e94]:
+            - paragraph [ref=f12e95]: "0x00000000"
+          - cell [ref=f12e96]:
+            - paragraph [ref=f12e97]: No permissions. Default value.
+        - row [ref=f12e98]:
+          - cell [ref=f12e99]:
+            - paragraph [ref=f12e100]: PERMISSION_CERT_CONFIRM
+          - cell [ref=f12e101]:
+            - paragraph [ref=f12e102]: "0x00000001"
+          - cell [ref=f12e103]:
+            - paragraph [ref=f12e104]: Enable confirmation of certificates.
+        - row [ref=f12e105]:
+          - cell [ref=f12e106]:
+            - paragraph [ref=f12e107]: PERMISSION_ENABLE_CONNECTION
+          - cell [ref=f12e108]:
+            - paragraph [ref=f12e109]: "0x00000002"
+          - cell [ref=f12e110]:
+            - paragraph [ref=f12e111]: Allow client connections.
+        - row [ref=f12e112]:
+          - cell [ref=f12e113]:
+            - paragraph [ref=f12e114]: PERMISSION_RESET_PASSWORD
+          - cell [ref=f12e115]:
+            - paragraph [ref=f12e116]: "0x00000004"
+          - cell [ref=f12e117]:
+            - paragraph [ref=f12e118]: Force users to change their master password at first login. A user will not be able to take any actions before changing the password.
+        - row [ref=f12e119]:
+          - cell [ref=f12e120]:
+            - paragraph [ref=f12e121]: PERMISSION_FORCED_OTP_USAGE
+          - cell [ref=f12e122]:
+            - paragraph [ref=f12e123]: "0x00000008"
+          - cell [ref=f12e124]:
+            - paragraph [ref=f12e125]: In some countries, regulators require use of additional account security measures, such as the use of OTP. When this flag is enabled, all clients in this group will need to use one-time passwords to connect. Otherwise, clients can bind their accounts to the generator or use the default authentication method. Before you enable it, please inform your clients about the new OTP option. Be extremely careful when enabling this option for the only one manager group on the trading server.
+            - paragraph [ref=f12e126]: For generating one-time passwords, the mobile terminal MetaTrader 5 for iPhone is used for generating one-time passwords.
+        - row [ref=f12e127]:
+          - cell [ref=f12e128]:
+            - paragraph [ref=f12e129]: PERMISSION_RISK_WARNING
+          - cell [ref=f12e130]:
+            - paragraph [ref=f12e131]: "0x00000010"
+          - cell [ref=f12e132]:
+            - paragraph [ref=f12e133]: If this flag is enabled, when a client connects in the trading terminal, a warning about the risks associated with operations on the financial markets appears. Trade operations on a client's account are not allowed until the client confirms that he or she has read the warning and is aware of the risks. To confirm, the client should check "I am aware of the risks and I wish to trade high risk investment products". This warning is displayed once per session of the terminal. The next time it will appear after the restart of the terminal.
+        - row [ref=f12e134]:
+          - cell [ref=f12e135]:
+            - paragraph [ref=f12e136]: PERMISSION_REGULATION_PROTECT
+          - cell [ref=f12e137]:
+            - paragraph [ref=f12e138]: "0x00000020"
+          - cell [ref=f12e139]:
+            - paragraph [ref=f12e140]: Enforce country-specific regulatory restrictions for retail clients.
+            - paragraph [ref=f12e141]
+            - paragraph [ref=f12e142]: Every country has regulators — state bodies that supervise the activities of financial institutions (including brokers). Each regulator has its own set of requirements applied to trading currencies, securities and other instruments.
+            - paragraph [ref=f12e143]
+            - paragraph [ref=f12e144]: In most cases, clients of brokerage firms are individuals from different countries. The platform provides the means of meeting the requirements of certain regulators without interfering with the work of traders not covered with these requirements. Restrictions applied to trader accounts depend on the client's country and other conditions set by that country's regulator.
+            - paragraph [ref=f12e145]
+            - paragraph [ref=f12e146]: For example, the National Securities Market Commission (Comisión Nacional del Mercado de Valores) of Spain compels brokers to warn clients using the leverage of 1:10 or higher about potential risks in a special way. Therefore, if a client's country is Spain and they use a leverage of 1:10 or higher, an additional warning is displayed in the trading dialog
+            - paragraph [ref=f12e147]
+            - paragraph [ref=f12e148]: Currently, only one regional limitation is used in the platform. The list is to be expanded later.
+        - row [ref=f12e149]:
+          - cell [ref=f12e150]:
+            - paragraph [ref=f12e151]: PERMISSION_NOTIFY_DEALS
+          - cell [ref=f12e152]:
+            - paragraph [ref=f12e153]: "0x00000040"
+          - cell [ref=f12e154]:
+            - paragraph [ref=f12e155]:
+              - generic [ref=f12e156]:
+                - text: Allow accounts to subscribe to
+                - link "server push notifications" [ref=f12e157] [cursor=pointer]:
+                  - /url: groups_settings.htm#push
+                - text: about deals.
+        - row [ref=f12e158]:
+          - cell [ref=f12e159]:
+            - paragraph [ref=f12e160]: PERMISSION_NOTIFY_ORDERS
+          - cell [ref=f12e161]:
+            - paragraph [ref=f12e162]: "0x00000080"
+          - cell [ref=f12e163]:
+            - paragraph [ref=f12e164]: Allow accounts to subscribe to server push notifications about orders.
+        - row [ref=f12e165]:
+          - cell [ref=f12e166]:
+            - paragraph [ref=f12e167]: PERMISSION_NOTIFY_BALANCES
+          - cell [ref=f12e168]:
+            - paragraph [ref=f12e169]: "0x00000100"
+          - cell [ref=f12e170]:
+            - paragraph [ref=f12e171]: Allow accounts to subscribe to server push notifications about balance operations.
+    - paragraph [ref=f12e172]: EnAuthMode
+    - paragraph [ref=f12e173]: Types of authorization of clients in the group are listed in EnAuthMode.
+    - table [ref=f12e175]:
+      - rowgroup [ref=f12e176]:
+        - row [ref=f12e177]:
+          - columnheader [ref=f12e178]:
+            - paragraph [ref=f12e179]: ID
+          - columnheader [ref=f12e180]:
+            - paragraph [ref=f12e181]: Value
+          - columnheader [ref=f12e182]:
+            - paragraph [ref=f12e183]: Description
+      - rowgroup [ref=f12e184]:
+        - row [ref=f12e185]:
+          - cell [ref=f12e186]:
+            - paragraph [ref=f12e187]: AUTH_STANDARD
+          - cell [ref=f12e188]:
+            - paragraph [ref=f12e189]: "0"
+          - cell [ref=f12e190]:
+            - paragraph [ref=f12e191]: Standard authorization.
+        - row [ref=f12e192]:
+          - cell [ref=f12e193]:
+            - paragraph [ref=f12e194]: AUTH_RSA1024
+          - cell [ref=f12e195]:
+            - paragraph [ref=f12e196]: "1"
+          - cell [ref=f12e197]:
+            - paragraph [ref=f12e198]: Extended authorization with 1024-bit encryption.
+        - row [ref=f12e199]:
+          - cell [ref=f12e200]:
+            - paragraph [ref=f12e201]: AUTH_RSA2048
+          - cell [ref=f12e202]:
+            - paragraph [ref=f12e203]: "2"
+          - cell [ref=f12e204]:
+            - paragraph [ref=f12e205]: Extended authorization with 2048-bit encryption.
+    - paragraph [ref=f12e206]: EnReportsMode
+    - paragraph [ref=f12e207]: Report generation modes are listed in EnReportsMode.
+    - table [ref=f12e209]:
+      - rowgroup [ref=f12e210]:
+        - row [ref=f12e211]:
+          - columnheader [ref=f12e212]:
+            - paragraph [ref=f12e213]: ID
+          - columnheader [ref=f12e214]:
+            - paragraph [ref=f12e215]: Value
+          - columnheader [ref=f12e216]:
+            - paragraph [ref=f12e217]: Description
+      - rowgroup [ref=f12e218]:
+        - row [ref=f12e219]:
+          - cell [ref=f12e220]:
+            - paragraph [ref=f12e221]: REPORTS_DISABLED
+          - cell [ref=f12e222]:
+            - paragraph [ref=f12e223]: "0"
+          - cell [ref=f12e224]:
+            - paragraph [ref=f12e225]: Reports are disabled.
+        - row [ref=f12e226]:
+          - cell [ref=f12e227]:
+            - paragraph [ref=f12e228]: REPORTS_FULL
+          - cell [ref=f12e229]:
+            - paragraph [ref=f12e230]: "1"
+          - cell [ref=f12e231]:
+            - paragraph [ref=f12e232]: The platform can save the end-of-day and/or end-of-month states of accounts to a special database. The information includes balance, equity, margin, and other details. The database is located on the trade server, in the bases\daily\daily_*.dat file. Data from the file is used in end-of-day and end-of-month trading reports sent to clients, as well as in some manager reports. If the mode is enabled, the platform will save information on accounts from the selected group to the database.
+            - paragraph [ref=f12e233]: This flag enables the generation of both end-of-day and end-of-month data.
+        - row [ref=f12e234]:
+          - cell [ref=f12e235]:
+            - paragraph [ref=f12e236]: REPORTS_DAY_ONLY
+          - cell [ref=f12e237]:
+            - paragraph [ref=f12e238]: "2"
+          - cell [ref=f12e239]:
+            - paragraph [ref=f12e240]: Enable data generation for reports only at the end of the day.
+        - row [ref=f12e241]:
+          - cell [ref=f12e242]:
+            - paragraph [ref=f12e243]: REPORTS_MONTH_ONLY
+          - cell [ref=f12e244]:
+            - paragraph [ref=f12e245]: "3"
+          - cell [ref=f12e246]:
+            - paragraph [ref=f12e247]: Enable data generation for reports only at the end of the month.
+    - paragraph [ref=f12e248]: EnReportsFlags
+    - paragraph [ref=f12e249]: Report generation options are listed in IMTConGroup::EnReportsFlags.
+    - table [ref=f12e251]:
+      - rowgroup [ref=f12e252]:
+        - row [ref=f12e253]:
+          - columnheader [ref=f12e254]:
+            - paragraph [ref=f12e255]: ID
+          - columnheader [ref=f12e256]:
+            - paragraph [ref=f12e257]: Value
+          - columnheader [ref=f12e258]:
+            - paragraph [ref=f12e259]: Description
+      - rowgroup [ref=f12e260]:
+        - row [ref=f12e261]:
+          - cell [ref=f12e262]:
+            - paragraph [ref=f12e263]: REPORTSFLAGS_NONE
+          - cell [ref=f12e264]:
+            - paragraph [ref=f12e265]: "0"
+          - cell [ref=f12e266]:
+            - paragraph [ref=f12e267]: No additional options enabled.
+        - row [ref=f12e268]:
+          - cell [ref=f12e269]:
+            - paragraph [ref=f12e270]: REPORTSFLAGS_EMAIL
+          - cell [ref=f12e271]:
+            - paragraph [ref=f12e272]: "1"
+          - cell [ref=f12e273]:
+            - paragraph [ref=f12e274]:
+              - generic [ref=f12e275]:
+                - text: Enables sending of generated HTML report files to clients by email. Addresses from
+                - link "trading accounts" [ref=f12e276] [cursor=pointer]:
+                  - /url: account_edit.htm#personal
+                - text: are used for sending.
+        - row [ref=f12e277]:
+          - cell [ref=f12e278]:
+            - paragraph [ref=f12e279]: REPORTSFLAGS_SUPPORT
+          - cell [ref=f12e280]:
+            - paragraph [ref=f12e281]: "2"
+          - cell [ref=f12e282]:
+            - paragraph [ref=f12e283]:
+              - generic [ref=f12e284]:
+                - text: Enables sending of report copies to a
+                - link "technical support email address" [ref=f12e285] [cursor=pointer]:
+                  - /url: groups_settings.htm#support_email
+                - text: .
+        - row [ref=f12e286]:
+          - cell [ref=f12e287]:
+            - paragraph [ref=f12e288]: REPORTSFLAGS_STATEMENTS
+          - cell [ref=f12e289]:
+            - paragraph [ref=f12e290]: "4"
+          - cell [ref=f12e291]:
+            - paragraph [ref=f12e292]:
+              - generic [ref=f12e293]:
+                - text: Enables account state report generation. The HTML report files are created using templates from the \templates\confirmation\ and \templates\statement\ folders on the trade server. The generate reports, the
+                - link "REPORTS_STANDARD" [ref=f12e294] [cursor=pointer]:
+                  - /url: group_enum.htm#enreportsmode
+                - text: mode must be enabled.
+    - paragraph [ref=f12e295]: EnNewsMode
+    - paragraph [ref=f12e296]: Modes of news sending are listed in EnNewsMode.
+    - table [ref=f12e298]:
+      - rowgroup [ref=f12e299]:
+        - row [ref=f12e300]:
+          - columnheader [ref=f12e301]:
+            - paragraph [ref=f12e302]: ID
+          - columnheader [ref=f12e303]:
+            - paragraph [ref=f12e304]: Value
+          - columnheader [ref=f12e305]:
+            - paragraph [ref=f12e306]: Description
+      - rowgroup [ref=f12e307]:
+        - row [ref=f12e308]:
+          - cell [ref=f12e309]:
+            - paragraph [ref=f12e310]: NEWS_MODE_DISABLED
+          - cell [ref=f12e311]:
+            - paragraph [ref=f12e312]: "0"
+          - cell [ref=f12e313]:
+            - paragraph [ref=f12e314]: News sending is disabled.
+        - row [ref=f12e315]:
+          - cell [ref=f12e316]:
+            - paragraph [ref=f12e317]: NEWS_MODE_HEADERS
+          - cell [ref=f12e318]:
+            - paragraph [ref=f12e319]: "1"
+          - cell [ref=f12e320]:
+            - paragraph [ref=f12e321]: Only news headers.
+        - row [ref=f12e322]:
+          - cell [ref=f12e323]:
+            - paragraph [ref=f12e324]: NEWS_MODE_FULL
+          - cell [ref=f12e325]:
+            - paragraph [ref=f12e326]: "2"
+          - cell [ref=f12e327]:
+            - paragraph [ref=f12e328]: Fill package.
+    - paragraph [ref=f12e329]: EnMailMode
+    - paragraph [ref=f12e330]: Modes of using the internal mail system are listed in EnMailMode.
+    - table [ref=f12e332]:
+      - rowgroup [ref=f12e333]:
+        - row [ref=f12e334]:
+          - columnheader [ref=f12e335]:
+            - paragraph [ref=f12e336]: ID
+          - columnheader [ref=f12e337]:
+            - paragraph [ref=f12e338]: Value
+          - columnheader [ref=f12e339]:
+            - paragraph [ref=f12e340]: Description
+      - rowgroup [ref=f12e341]:
+        - row [ref=f12e342]:
+          - cell [ref=f12e343]:
+            - paragraph [ref=f12e344]: MAIL_MODE_DISABLED
+          - cell [ref=f12e345]:
+            - paragraph [ref=f12e346]: "0"
+          - cell [ref=f12e347]:
+            - paragraph [ref=f12e348]: Disable the internal mail system.
+        - row [ref=f12e349]:
+          - cell [ref=f12e350]:
+            - paragraph [ref=f12e351]: MAIL_MODE_FULL
+          - cell [ref=f12e352]:
+            - paragraph [ref=f12e353]: "1"
+          - cell [ref=f12e354]:
+            - paragraph [ref=f12e355]: Enable the internal mail system.
+    - paragraph [ref=f12e356]: EnHistoryLimit
+    - paragraph [ref=f12e357]: The intervals of trading history available to clients in the group are listed in EnHistoryLimit.
+    - table [ref=f12e359]:
+      - rowgroup [ref=f12e360]:
+        - row [ref=f12e361]:
+          - columnheader [ref=f12e362]:
+            - paragraph [ref=f12e363]: ID
+          - columnheader [ref=f12e364]:
+            - paragraph [ref=f12e365]: Value
+          - columnheader [ref=f12e366]:
+            - paragraph [ref=f12e367]: Description
+      - rowgroup [ref=f12e368]:
+        - row [ref=f12e369]:
+          - cell [ref=f12e370]:
+            - paragraph [ref=f12e371]: TRADE_HISTORY_ALL
+          - cell [ref=f12e372]:
+            - paragraph [ref=f12e373]: "0"
+          - cell [ref=f12e374]:
+            - paragraph [ref=f12e375]: The entire history.
+        - row [ref=f12e376]:
+          - cell [ref=f12e377]:
+            - paragraph [ref=f12e378]: TRADE_HISTORY_MONTHS_1
+          - cell [ref=f12e379]:
+            - paragraph [ref=f12e380]: "1"
+          - cell [ref=f12e381]:
+            - paragraph [ref=f12e382]: One month.
+        - row [ref=f12e383]:
+          - cell [ref=f12e384]:
+            - paragraph [ref=f12e385]: TRADE_HISTORY_MONTHS_3
+          - cell [ref=f12e386]:
+            - paragraph [ref=f12e387]: "2"
+          - cell [ref=f12e388]:
+            - paragraph [ref=f12e389]: Three months.
+        - row [ref=f12e390]:
+          - cell [ref=f12e391]:
+            - paragraph [ref=f12e392]: TRADE_HISTORY_MONTHS_6
+          - cell [ref=f12e393]:
+            - paragraph [ref=f12e394]: "3"
+          - cell [ref=f12e395]:
+            - paragraph [ref=f12e396]: Six months.
+        - row [ref=f12e397]:
+          - cell [ref=f12e398]:
+            - paragraph [ref=f12e399]: TRADE_HISTORY_YEAR_1
+          - cell [ref=f12e400]:
+            - paragraph [ref=f12e401]: "4"
+          - cell [ref=f12e402]:
+            - paragraph [ref=f12e403]: One year.
+        - row [ref=f12e404]:
+          - cell [ref=f12e405]:
+            - paragraph [ref=f12e406]: TRADE_HISTORY_YEAR_2
+          - cell [ref=f12e407]:
+            - paragraph [ref=f12e408]: "5"
+          - cell [ref=f12e409]:
+            - paragraph [ref=f12e410]: Two years.
+        - row [ref=f12e411]:
+          - cell [ref=f12e412]:
+            - paragraph [ref=f12e413]: TRADE_HISTORY_YEAR_3
+          - cell [ref=f12e414]:
+            - paragraph [ref=f12e415]: "6"
+          - cell [ref=f12e416]:
+            - paragraph [ref=f12e417]: Three years.
+    - paragraph [ref=f12e418]: EnFreeMarginMode
+    - paragraph [ref=f12e419]: Modes of using the floating profit/loss in the free margin are listed in EnFreeMarginMode.
+    - table [ref=f12e421]:
+      - rowgroup [ref=f12e422]:
+        - row [ref=f12e423]:
+          - columnheader [ref=f12e424]:
+            - paragraph [ref=f12e425]: ID
+          - columnheader [ref=f12e426]:
+            - paragraph [ref=f12e427]: Value
+          - columnheader [ref=f12e428]:
+            - paragraph [ref=f12e429]: Description
+      - rowgroup [ref=f12e430]:
+        - row [ref=f12e431]:
+          - cell [ref=f12e432]:
+            - paragraph [ref=f12e433]: FREE_MARGIN_NOT_USE_PL
+          - cell [ref=f12e434]:
+            - paragraph [ref=f12e435]: "0"
+          - cell [ref=f12e436]:
+            - paragraph [ref=f12e437]: Do not use unrealized profit/loss.
+        - row [ref=f12e438]:
+          - cell [ref=f12e439]:
+            - paragraph [ref=f12e440]: FREE_MARGIN_USE_PL
+          - cell [ref=f12e441]:
+            - paragraph [ref=f12e442]: "1"
+          - cell [ref=f12e443]:
+            - paragraph [ref=f12e444]: Use unrealized profit/loss.
+        - row [ref=f12e445]:
+          - cell [ref=f12e446]:
+            - paragraph [ref=f12e447]: FREE_MARGIN_PROFIT
+          - cell [ref=f12e448]:
+            - paragraph [ref=f12e449]: "2"
+          - cell [ref=f12e450]:
+            - paragraph [ref=f12e451]: Use unrealized profit.
+        - row [ref=f12e452]:
+          - cell [ref=f12e453]:
+            - paragraph [ref=f12e454]: FREE_MARGIN_LOSS
+          - cell [ref=f12e455]:
+            - paragraph [ref=f12e456]: "3"
+          - cell [ref=f12e457]:
+            - paragraph [ref=f12e458]: Use unrealized loss.
+    - paragraph [ref=f12e459]: EnStopOutMode
+    - paragraph [ref=f12e460]: Modes for checking Margin Call and Stop Out are listed in EnStopOutMode.
+    - table [ref=f12e462]:
+      - rowgroup [ref=f12e463]:
+        - row [ref=f12e464]:
+          - columnheader [ref=f12e465]:
+            - paragraph [ref=f12e466]: ID
+          - columnheader [ref=f12e467]:
+            - paragraph [ref=f12e468]: Value
+          - columnheader [ref=f12e469]:
+            - paragraph [ref=f12e470]: Description
+      - rowgroup [ref=f12e471]:
+        - row [ref=f12e472]:
+          - cell [ref=f12e473]:
+            - paragraph [ref=f12e474]: STOPOUT_PERCENT
+          - cell [ref=f12e475]:
+            - paragraph [ref=f12e476]: "0"
+          - cell [ref=f12e477]:
+            - paragraph [ref=f12e478]: The levels of Margin Call and Stop Out in percentage terms.
+        - row [ref=f12e479]:
+          - cell [ref=f12e480]:
+            - paragraph [ref=f12e481]: STOPOUT_MONEY
+          - cell [ref=f12e482]:
+            - paragraph [ref=f12e483]: "1"
+          - cell [ref=f12e484]:
+            - paragraph [ref=f12e485]: The levels of Margin Call and Stop Out in money terms.
+    - paragraph [ref=f12e486]: EnTradeFlags
+    - paragraph [ref=f12e487]: Group trade options are enumerated in EnTradeFlags.
+    - table [ref=f12e489]:
+      - rowgroup [ref=f12e490]:
+        - row [ref=f12e491]:
+          - columnheader [ref=f12e492]:
+            - paragraph [ref=f12e493]: ID
+          - columnheader [ref=f12e494]:
+            - paragraph [ref=f12e495]: Value
+          - columnheader [ref=f12e496]:
+            - paragraph [ref=f12e497]: Description
+      - rowgroup [ref=f12e498]:
+        - row [ref=f12e499]:
+          - cell [ref=f12e500]:
+            - paragraph [ref=f12e501]: TRADEFLAGS_NONE
+          - cell [ref=f12e502]:
+            - paragraph [ref=f12e503]: "0x00000000"
+          - cell [ref=f12e504]:
+            - paragraph [ref=f12e505]: Options are disabled.
+        - row [ref=f12e506]:
+          - cell [ref=f12e507]:
+            - paragraph [ref=f12e508]: TRADEFLAGS_SWAPS
+          - cell [ref=f12e509]:
+            - paragraph [ref=f12e510]: "0x00000001"
+          - cell [ref=f12e511]:
+            - paragraph [ref=f12e512]: Allow charging of swaps.
+        - row [ref=f12e513]:
+          - cell [ref=f12e514]:
+            - paragraph [ref=f12e515]: TRADEFLAGS_TRAILING
+          - cell [ref=f12e516]:
+            - paragraph [ref=f12e517]: "0x00000002"
+          - cell [ref=f12e518]:
+            - paragraph [ref=f12e519]: Enable trailing stop.
+        - row [ref=f12e520]:
+          - cell [ref=f12e521]:
+            - paragraph [ref=f12e522]: TRADEFLAGS_EXPERTS
+          - cell [ref=f12e523]:
+            - paragraph [ref=f12e524]: "0x00000004"
+          - cell [ref=f12e525]:
+            - paragraph [ref=f12e526]: Enable trading using Expert Advisors.
+        - row [ref=f12e527]:
+          - cell [ref=f12e528]:
+            - paragraph [ref=f12e529]: TRADEFLAGS_EXPIRATION
+          - cell [ref=f12e530]:
+            - paragraph [ref=f12e531]: "0x00000008"
+          - cell [ref=f12e532]:
+            - paragraph [ref=f12e533]: Enable order expiration.
+        - row [ref=f12e534]:
+          - cell [ref=f12e535]:
+            - paragraph [ref=f12e536]: TRADEFLAGS_SIGNALS_ALL
+          - cell [ref=f12e537]:
+            - paragraph [ref=f12e538]: "0x00000010"
+          - cell [ref=f12e539]:
+            - paragraph [ref=f12e540]:
+              - generic [ref=f12e541]:
+                - text: Allow using the
+                - link "\"Signals\"" [ref=f12e542] [cursor=pointer]:
+                  - /url: https://www.mql5.com/en/signals
+                - text: service in the client terminals.
+        - row [ref=f12e543]:
+          - cell [ref=f12e544]:
+            - paragraph [ref=f12e545]: TRADEFLAGS_SIGNALS_OWN
+          - cell [ref=f12e546]:
+            - paragraph [ref=f12e547]: "0x00000020"
+          - cell [ref=f12e548]:
+            - paragraph [ref=f12e549]:
+              - generic [ref=f12e550]:
+                - text: Allow using the
+                - link "signals" [ref=f12e551] [cursor=pointer]:
+                  - /url: https://www.mql5.com/en/signals
+                - text: from own servers only. If this flag is set, clients in this groups will be able to subscribe only to the signals created on the basis of accounts opened in your brokerage company. Signals created on the basis of other accounts will not be displayed in the client terminals.
+        - row [ref=f12e552]:
+          - cell [ref=f12e553]:
+            - paragraph [ref=f12e554]: TRADEFLAGS_SO_COMPENSATION
+          - cell [ref=f12e555]:
+            - paragraph [ref=f12e556]: "0x00000040"
+          - cell [ref=f12e557]:
+            - paragraph [ref=f12e558]:
+              - generic [ref=f12e559]:
+                - text: Automatically execute on a client's account the special "so compensation" operation, which increases the balance and sets it to zero, if the balance has become negative after a position was closed by Stop Out. For more details please read the
+                - link "corresponding section" [ref=f12e560] [cursor=pointer]:
+                  - /url: groups_settings.htm#compensate
+                - text: .
+        - row [ref=f12e561]:
+          - cell [ref=f12e562]:
+            - paragraph [ref=f12e563]: TRADEFLAGS_SO_FULLY_HEDGED
+          - cell [ref=f12e564]:
+            - paragraph [ref=f12e565]: "0x00000080"
+          - cell [ref=f12e566]:
+            - paragraph [ref=f12e567]:
+              - generic [ref=f12e568]:
+                - text: If the flag is enabled, then Stop out will be performed on accounts having open positions, the zero margin (positions are covered) and negative equity. If the option is disabled, orders and positions will not be forcibly closed in above cases. The flag can be only used on
+                - link "hedging accounts" [ref=f12e569] [cursor=pointer]:
+                  - /url: group_position.htm#hedging
+                - text: .
+        - row [ref=f12e570]:
+          - cell [ref=f12e571]:
+            - paragraph [ref=f12e572]: TRADEFLAGS_FIFO_CLOSE
+          - cell [ref=f12e573]:
+            - paragraph [ref=f12e574]: "0x00000100"
+          - cell [ref=f12e575]:
+            - paragraph [ref=f12e576]: "The position closing mode by FIFO rule. If the flag is enabled, then positions for each instrument can only be closed only in the order in which they were opened: the oldest one should be closed first, then the next one, etc. The option is only valid for hedging accounts, in which traders can have multiple positions for the same financial instrument. There are three main methods to close a position; the flag behavior will be different for each of the methods:"
+            - paragraph [ref=f12e577]:
+              - generic [ref=f12e578]: •
+              - text: "Closing from the client terminal: the trader closes the position manually, using a trading robot, based on the Signals service subscription, etc. In case of an attempt to close a position, which does not meet the FIFO rule, the trader will receive an appropriate error."
+            - paragraph [ref=f12e579]:
+              - generic [ref=f12e580]: •
+              - text: "Closing upon Stop Loss or Take Profit activation: these orders are processed on the server side, so the position closure is not requested on the trader (terminal) side, but is initiated by the server. If Stop Loss or Take Profit triggers for a position, and this position does not comply with the FIFO rule (there is an older position fro the same symbol), the position will not be closed. An appropriate message will be printed to the log: \"position close prohibited by FIFO rule, position #100448219 buy 3.00 EURUSD 1.11544 sl: 1.11537 tp: 1.11549 take profit activation skipped\"."
+            - paragraph [ref=f12e581]:
+              - generic [ref=f12e582]: •
+              - generic [ref=f12e583]:
+                - text: "Closing upon Stop Out triggering: such operations are also processed on the server side. In a normal mode, in which FIFO-based closing is disabled, in case of"
+                - link "Stop Out" [ref=f12e584] [cursor=pointer]:
+                  - /url: groups_settings.htm#stopout_processing
+                - text: positions are closed starting with the one having the largest loss. If this option option is enabled, the open time will be additionally checked for losing positions. The server determines losing positions for each symbol, finds the oldest position for each symbol, and then closes the one which has the greatest loss among the found positions.
+        - row [ref=f12e585]:
+          - cell [ref=f12e586]:
+            - paragraph [ref=f12e587]: TRADEFLAGS_HEDGE_PROHIBIT
+          - cell [ref=f12e588]:
+            - paragraph [ref=f12e589]: "0x00000200"
+          - cell [ref=f12e590]:
+            - paragraph [ref=f12e591]:
+              - generic [ref=f12e592]:
+                - text: Prohibit opening of opposite positions and placing of opposite orders. If this option is enabled, accounts are not allowed to have oppositely directed positions and orders for the same financial instrument. For example, if the account has a Buy position, then the user cannot open a Sell position or place a pending sell order for the same symbol. If such an attempt is made, the user will receive an error. The option is only valid for groups with the
+                - link "hedging" [ref=f12e593] [cursor=pointer]:
+                  - /url: group_position.htm#hedging
+                - text: position accounting mode.
+        - row [ref=f12e594]:
+          - cell [ref=f12e595]:
+            - paragraph [ref=f12e596]: TRADEFLAGS_DEAL_COST
+          - cell [ref=f12e597]:
+            - paragraph [ref=f12e598]: "0x00000400"
+          - cell [ref=f12e599]:
+            - paragraph [ref=f12e600]:
+              - generic [ref=f12e601]:
+                - text: Calculate deal execution
+                - link "costs" [ref=f12e602] [cursor=pointer]:
+                  - /url: groups_settings.htm#deal_cost
+                - text: and display them in client terminals. All NFA regulated brokers should enable this option.
+        - row [ref=f12e603]:
+          - cell [ref=f12e604]:
+            - paragraph [ref=f12e605]: TRADEFLAGS_SO_COMPENSATION_CREDIT
+          - cell [ref=f12e606]:
+            - paragraph [ref=f12e607]: "0x00000800"
+          - cell [ref=f12e608]:
+            - paragraph [ref=f12e609]:
+              - generic [ref=f12e610]:
+                - text: Works as an addition to the TRADEFLAGS_SO_COMPENSATION flag. If enabled, the credit funds on the account will be set to zero after a negative balance compensation operation.
+                - link "Credit funds" [ref=f12e611] [cursor=pointer]:
+                  - /url: groups_settings.htm#so_credit
+                - text: are withdrawn in a separate balance operation with the "so credit compensation" type.
+    - paragraph [ref=f12e612]: EnMarginFreeProfitFlags
+    - paragraph [ref=f12e613]: Modes of using of the profit/loss fixed during a trade day in the free margin are enumerated in EnMarginFreeProfitFlags.
+    - table [ref=f12e615]:
+      - rowgroup [ref=f12e616]:
+        - row [ref=f12e617]:
+          - columnheader [ref=f12e618]:
+            - paragraph [ref=f12e619]: ID
+          - columnheader [ref=f12e620]:
+            - paragraph [ref=f12e621]: Value
+          - columnheader [ref=f12e622]:
+            - paragraph [ref=f12e623]: Description
+      - rowgroup [ref=f12e624]:
+        - row [ref=f12e625]:
+          - cell [ref=f12e626]:
+            - paragraph [ref=f12e627]: FREE_MARGIN_PROFIT_PL
+          - cell [ref=f12e628]:
+            - paragraph [ref=f12e629]: "0"
+          - cell [ref=f12e630]:
+            - paragraph [ref=f12e631]: Include both profit and loss fixed during a day in the free margin.
+        - row [ref=f12e632]:
+          - cell [ref=f12e633]:
+            - paragraph [ref=f12e634]: FREE_MARGIN_PROFIT_LOSS
+          - cell [ref=f12e635]:
+            - paragraph [ref=f12e636]: "1"
+          - cell [ref=f12e637]:
+            - paragraph [ref=f12e638]:
+              - generic [ref=f12e639]:
+                - text: Include onlyInclude only loss fixed during a day in the free margin. The profits of the client during a trading day are accumulated in the
+                - link "BlockedProfit" [ref=f12e640] [cursor=pointer]:
+                  - /url: sql_mt5_accounts.htm
+                - text: field of the trade account and are not included in the free margin. At the end of the trading day, the accumulated profits are credited to the balance and the value of IMTAccount::BlockedProfit is reset. fixed during a day in the free margin.
+    - paragraph [ref=f12e641]: EnMarginMode
+    - paragraph [ref=f12e642]: The models of risk management are enumerated in EnMarginMode. The model defines the type of pre-trade control and the position accounting system used.
+    - table [ref=f12e644]:
+      - rowgroup [ref=f12e645]:
+        - row [ref=f12e646]:
+          - columnheader [ref=f12e647]:
+            - paragraph [ref=f12e648]: ID
+          - columnheader [ref=f12e649]:
+            - paragraph [ref=f12e650]: Value
+          - columnheader [ref=f12e651]:
+            - paragraph [ref=f12e652]: Description
+      - rowgroup [ref=f12e653]:
+        - row [ref=f12e654]:
+          - cell [ref=f12e655]:
+            - paragraph [ref=f12e656]: MARGIN_MODE_RETAIL
+          - cell [ref=f12e657]:
+            - paragraph [ref=f12e658]: "0"
+          - cell [ref=f12e659]:
+            - paragraph [ref=f12e660]: Used for the OTC market. Margin calculation is based on the type of instrument, as well as group settings. Netting position accounting system is used.
+        - row [ref=f12e661]:
+          - cell [ref=f12e662]:
+            - paragraph [ref=f12e663]: MARGIN_MODE_EXCHANGE_DISCOUNT
+          - cell [ref=f12e664]:
+            - paragraph [ref=f12e665]: "1"
+          - cell [ref=f12e666]:
+            - paragraph [ref=f12e667]: Used for the exchange market. Margin calculation is based on the discounts specified in symbol settings. Discounts are set by the broker, however they cannot be lower than the exchange set values.
+        - row [ref=f12e668]:
+          - cell [ref=f12e669]:
+            - paragraph [ref=f12e670]: MARGIN_MODE_RETAIL_HEDGED
+          - cell [ref=f12e671]:
+            - paragraph [ref=f12e672]: "2"
+          - cell [ref=f12e673]:
+            - paragraph [ref=f12e674]: Used for the OTC market. Margin calculation is based on the type of instrument, as well as group settings. Hedging position accounting system is used.
+    - paragraph [ref=f12e675]: EnMarginFlags
+    - paragraph [ref=f12e676]: EnMarginFlags contains the margin calculation flags.
+    - table [ref=f12e678]:
+      - rowgroup [ref=f12e679]:
+        - row [ref=f12e680]:
+          - columnheader [ref=f12e681]:
+            - paragraph [ref=f12e682]: ID
+          - columnheader [ref=f12e683]:
+            - paragraph [ref=f12e684]: Value
+          - columnheader [ref=f12e685]:
+            - paragraph [ref=f12e686]: Description
+      - rowgroup [ref=f12e687]:
+        - row [ref=f12e688]:
+          - cell [ref=f12e689]:
+            - paragraph [ref=f12e690]: MARGIN_FLAGS_NONE
+          - cell [ref=f12e691]:
+            - paragraph [ref=f12e692]: "0"
+          - cell [ref=f12e693]:
+            - paragraph [ref=f12e694]: No flags.
+        - row [ref=f12e695]:
+          - cell [ref=f12e696]:
+            - paragraph [ref=f12e697]: MARGIN_FLAGS_CLEAR_ACC
+          - cell [ref=f12e698]:
+            - paragraph [ref=f12e699]: "1"
+          - cell [ref=f12e700]:
+            - paragraph [ref=f12e701]:
+              - generic [ref=f12e702]:
+                - text: The flag is available only in the
+                - link "FREE_MARGIN_PROFIT_LOSS" [ref=f12e703] [cursor=pointer]:
+                  - /url: group_enum.htm#enmarginfreeprofitflags
+                - text: mode. If enabled, the profit accumulated by a client will be released (and thus included in the free margin) at the end of trade day. If this flag is disabled, then it will be possible to release the accumulated profit only using an external application (for example, a gateway). The server will not perform this operation.
+    - paragraph [ref=f12e704]

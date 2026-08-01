@@ -221,9 +221,7 @@ func (h *Handler) applyPeriodCharge(ctx context.Context, e *book.Entry, action i
 
 	e.Account.Balance += amount
 
-	group, _ := h.Settings.Group(e.Account.Group)
-	freeProfitOnly := group != nil && group.MarginFreeProfit != 0
-	h.SettleAccount(e, freeProfitOnly).Apply(e.Account)
+	h.SettleAccount(e).Apply(e.Account)
 
 	deal := &model.Deal{
 		Login:          e.Account.Login,

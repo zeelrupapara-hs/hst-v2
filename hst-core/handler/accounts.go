@@ -69,9 +69,7 @@ func (h *Handler) NewBalance(ctx context.Context, req *model.BalanceRequest) *mo
 
 	deal := h.balanceDeal(e, req)
 
-	group, _ := h.Settings.Group(e.Account.Group)
-	freeProfitOnly := group != nil && group.MarginFreeProfit != 0
-	h.SettleAccount(e, freeProfitOnly).Apply(e.Account)
+	h.SettleAccount(e).Apply(e.Account)
 
 	account := *e.Account
 	e.Unlock()

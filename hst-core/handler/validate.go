@@ -453,7 +453,7 @@ func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t
 
 	need := MarginFor(r, o.Lots(), price, e.Account.Leverage, o.RateMargin)
 
-	money := h.SettleAccount(e, r.Group.MarginFreeProfit != 0)
+	money := h.SettleAccount(e)
 	if money.FreeMargin < need {
 		return model.RetTradeNoMoney
 	}

@@ -78,9 +78,14 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 	if t, ok := h.Quotes.Get(req.Symbol); ok {
 		tick = t
 	}
-	if code := h.checkMoney(e, order, r, tick); !code.OK() {
-		e.Unlock()
-		return h.refuse(res, code, "")
+	// the standard mode checks margin when the order is placed and when a pending one triggers;
+	// this group asks for one more look after the request was confirmed, because the market
+	// moved while it was being decided
+	if r.MarginFlags&model.MarginFlagCheckProcess != 0 {
+		if code := h.checkMoney(e, order, r, tick); !code.OK() {
+			e.Unlock()
+			return h.refuse(res, code, "")
+		}
 	}
 
 	// confirm-by-request-price fills where the client asked; confirm-by-market fills here
@@ -473,7 +478,7 @@ func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rul
 		e.Account.Balance += p.Storage
 	}
 
-	e.Account.Balance += f.Profit
+	h.creditRealised(e, f.Profit)
 
 	if f.Opened != nil {
 		// the id is filled in when the row is written.
@@ -485,7 +490,7 @@ func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rul
 	o.TimeDone = Now()
 	o.PriceCurrent = f.Price
 
-	h.SettleAccount(e, r.Group.MarginFreeProfit != 0).Apply(e.Account)
+	h.SettleAccount(e).Apply(e.Account)
 }
 
 // orderFrom builds the order record a request is asking for.
@@ -601,4 +606,19 @@ func (h *Handler) nextTempId() int64 {
 	h.tempId--
 
 	return h.tempId
+}
+
+// creditRealised puts a realised result where the group says it belongs.
+//
+// In the day profit and loss mode a profit is held aside until the end of the day rather than
+// being available to trade on straight away; a loss always lands at once.
+func (h *Handler) creditRealised(e *book.Entry, amount float64) {
+	g, ok := h.Settings.Group(e.Account.Group)
+
+	if amount > 0 && ok && g.MarginFreeProfit == int32(model.FreeMarginDayProfitLoss) {
+		e.Account.BlockedProfit += amount
+		return
+	}
+
+	e.Account.Balance += amount
 }

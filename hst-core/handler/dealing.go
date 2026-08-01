@@ -12,8 +12,7 @@ import (
 	natscore "github.com/nats-io/nats.go"
 )
 
-// dealingTimeout is how long a request waits for an answer before it is given up on.
-// ponytail: one timeout for everyone, read it per group when settings carries the field
+// dealingTimeout is how long a request waits when the instrument names no timeout of its own.
 const dealingTimeout = 30 * time.Second
 
 // dealingReasonMax is how much of a dealer's reason the client terminal shows.
@@ -170,11 +169,15 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 	// it waited on the book so the back office could see it; filling now takes it off again
 	delete(e.Orders, o.OrderId)
 
-	if code := h.checkMoney(e, o, r, tick); !code.OK() {
-		e.Unlock()
-		h.done(p, ev.Dealer)
+	// a dealer can sit on a request for a while, so the group can ask for margin to be looked
+	// at once more before their answer is acted on
+	if r.MarginFlags&model.MarginFlagCheckProcess != 0 {
+		if code := h.checkMoney(e, o, r, tick); !code.OK() {
+			e.Unlock()
+			h.done(p, ev.Dealer)
 
-		return h.refuse(res, code, "")
+			return h.refuse(res, code, "")
+		}
 	}
 
 	fill := h.Execute(e, o, r, price, Now())
@@ -328,13 +331,13 @@ func (h *Handler) ReturnRequest(ev *model.DealingEvent) *model.TradeResult {
 
 // CheckDealingRequests gives up on the requests nobody answered in time.
 func (h *Handler) CheckDealingRequests() {
-	cutoff := Now() - int64(dealingTimeout)
+	now := Now()
 
 	h.dealingMu.Lock()
 
 	var stale []*Pending
 	for id, p := range h.dealing {
-		if p.At <= cutoff {
+		if now-p.At >= int64(h.dealingTimeout(p)) {
 			stale = append(stale, p)
 			delete(h.dealing, id)
 		}
@@ -351,6 +354,22 @@ func (h *Handler) CheckDealingRequests() {
 		res := &model.TradeResult{RequestId: p.Request.RequestId, Login: p.Request.Login}
 		h.PublishResult(h.refuse(res, model.RetTradeTimeout, ""))
 	}
+}
+
+// dealingTimeout is how long the dealer's price stays good for this instrument, falling back to
+// the engine default when the group set none.
+func (h *Handler) dealingTimeout(p *Pending) time.Duration {
+	e, ok := h.Accounts.Get(p.Request.Login)
+	if !ok {
+		return dealingTimeout
+	}
+
+	r, ok := h.Settings.For(e.Account.Group, p.Request.Symbol)
+	if !ok || r.RequestTimeout <= 0 {
+		return dealingTimeout
+	}
+
+	return time.Duration(r.RequestTimeout) * time.Second
 }
 
 // dealersFor is who the rule hands the request to.

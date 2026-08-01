@@ -431,16 +431,45 @@ func (h *Handler) CookPosition(e *book.Entry, t model.Tick) []trigger {
 		sl := p.PriceSL > 0 && p.ActivationFlags&model.ActivationFlagNoSL == 0
 		tp := p.PriceTP > 0 && p.ActivationFlags&model.ActivationFlagNoTP == 0
 
+		var hit trigger
+
 		switch {
 		case sl && p.Buy() && price <= p.PriceSL:
-			hits = append(hits, trigger{p, model.ReasonSL})
+			hit = trigger{p, model.ReasonSL}
 		case sl && !p.Buy() && price >= p.PriceSL:
-			hits = append(hits, trigger{p, model.ReasonSL})
+			hit = trigger{p, model.ReasonSL}
 		case tp && p.Buy() && price >= p.PriceTP:
-			hits = append(hits, trigger{p, model.ReasonTP})
+			hit = trigger{p, model.ReasonTP}
 		case tp && !p.Buy() && price <= p.PriceTP:
-			hits = append(hits, trigger{p, model.ReasonTP})
+			hit = trigger{p, model.ReasonTP}
+		default:
+			continue
 		}
+
+		r, ok := h.Settings.For(e.Account.Group, p.Symbol)
+		if !ok {
+			continue
+		}
+
+		// the first in first out rule binds the server's own closes too: an older position on
+		// the instrument means this activation is skipped rather than refused
+		if !h.firstInLine(e, p, r) {
+			h.Log.Log(logger.TypeTrade, logger.CodeWarn,
+				"close prohibited by the first in first out rule, activation skipped",
+				"login", p.Login, "position", p.PositionId, "symbol", p.Symbol)
+			continue
+		}
+
+		// the group can ask for one more margin check before a level closes a position, in case
+		// the close would leave what stays open uncovered
+		if r.MarginFlags&model.MarginFlagCheckSLTP != 0 && !h.coversAfterClose(e, p) {
+			h.Log.Log(logger.TypeTrade, logger.CodeWarn,
+				"level activation skipped, the close would leave too little margin",
+				"login", p.Login, "position", p.PositionId)
+			continue
+		}
+
+		hits = append(hits, hit)
 	}
 
 	return hits
@@ -725,3 +754,28 @@ func (h *Handler) Revalue(e *book.Entry, symbol string, t model.Tick) {
 
 // Now is the engine's clock, in epoch nanoseconds.
 func Now() int64 { return time.Now().UnixNano() }
+
+// coversAfterClose reports whether the account still covers what stays open once this position
+// is gone. Closing one leg of a hedge can raise the margin on the rest.
+func (h *Handler) coversAfterClose(e *book.Entry, p *model.Position) bool {
+	kept := make(map[int64]*model.Position, len(e.Positions))
+	for id, other := range e.Positions {
+		if id != p.PositionId {
+			kept[id] = other
+		}
+	}
+
+	if len(kept) == 0 {
+		return true
+	}
+
+	after := *e.Account
+	after.Balance += p.Profit + p.Storage
+
+	free := model.FreeMarginUsePL
+	if g, ok := h.Settings.Group(e.Account.Group); ok {
+		free = model.FreeMarginMode(g.MarginFreeMode)
+	}
+
+	return Settle(&after, kept, free, 0).FreeMargin >= 0
+}

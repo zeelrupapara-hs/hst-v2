@@ -6,8 +6,6 @@ import (
 	"hstcore/model"
 )
 
-const marginFlagHedgeLargerLeg = 0x0001
-
 type leg struct {
 	volume int64
 	value  float64
@@ -76,7 +74,7 @@ func (h *Handler) MarginForSymbol(e *book.Entry, symbol string, r *settings.Rule
 	}
 
 	// with the larger leg option the whole charge is the bigger side and the smaller one is free
-	if r.MarginFlags&marginFlagHedgeLargerLeg != 0 {
+	if r.MarginFlags&model.MarginFlagHedgeLargeLeg != 0 {
 		return MarginFor(r, model.Lots(larger.volume), larger.price(), leverage, rate)
 	}
 
@@ -157,9 +155,36 @@ func maintenanceRate(r *settings.Rules) float64 {
 }
 
 // SettleAccount brings the margin up to date and then adds the account up. Every path that
-// needs the money state goes through here, so no caller can settle against stale margin.
-func (h *Handler) SettleAccount(e *book.Entry, freeProfitOnly bool) Money {
+// needs the money state goes through here, so no caller can settle against stale margin or
+// against the wrong free margin rule.
+func (h *Handler) SettleAccount(e *book.Entry) Money {
 	h.RemargeAccount(e)
 
-	return Settle(e.Account, e.Positions, freeProfitOnly)
+	free := model.FreeMarginUsePL
+	if g, ok := h.Settings.Group(e.Account.Group); ok {
+		free = model.FreeMarginMode(g.MarginFreeMode)
+	}
+
+	return Settle(e.Account, e.Positions, free, h.excludedProfit(e))
+}
+
+// excludedProfit is the floating result of the instruments the group keeps out of the money.
+func (h *Handler) excludedProfit(e *book.Entry) float64 {
+	var out float64
+
+	for _, p := range e.Positions {
+		r, ok := h.Settings.For(e.Account.Group, p.Symbol)
+		if ok && r.MarginFlags&model.MarginFlagExcludePL != 0 {
+			out += p.Profit
+		}
+	}
+
+	return out
+}
+
+// excluded reports whether an instrument is kept out of the money, and so out of stop out too.
+func (h *Handler) excluded(group, symbol string) bool {
+	r, ok := h.Settings.For(group, symbol)
+
+	return ok && r.MarginFlags&model.MarginFlagExcludePL != 0
 }

@@ -104,8 +104,7 @@ func (h *Handler) ResettleAccounts(ctx context.Context) {
 
 		before := *e.Account
 
-		group, _ := h.Settings.Group(e.Account.Group)
-		h.SettleAccount(e, group != nil && group.MarginFreeProfit != 0).Apply(e.Account)
+		h.SettleAccount(e).Apply(e.Account)
 
 		account := *e.Account
 		e.Unlock()

@@ -1,0 +1,107 @@
+- generic [active] [ref=f17e1]:
+  - table [ref=f17e4]:
+    - rowgroup [ref=f17e5]:
+      - row [ref=f17e6]:
+        - cell [ref=f17e7]:
+          - generic [ref=f17e8]:
+            - paragraph [ref=f17e9]:
+              - link [ref=f17e10] [cursor=pointer]:
+                - /url: index.htm?symbol_settings_execution.htm
+            - paragraph [ref=f17e13]:
+              - link "MetaTrader 5 Trading Platform" [ref=f17e14] [cursor=pointer]:
+                - /url: beginning.htm
+              - text: ">"
+              - link "Platform Setup" [ref=f17e15] [cursor=pointer]:
+                - /url: administration.htm
+              - text: ">"
+              - link "Symbols" [ref=f17e16] [cursor=pointer]:
+                - /url: admin_symbols.htm
+              - text: ">"
+              - link "Symbol Settings" [ref=f17e17] [cursor=pointer]:
+                - /url: admin_symbols_settings.htm
+              - text: / Execution
+        - cell [ref=f17e18]:
+          - generic [ref=f17e19]:
+            - link "Previous Topic" [ref=f17e20] [cursor=pointer]:
+              - /url: symbol_settings_bonds.htm
+            - link "Parent Chapter" [ref=f17e23] [cursor=pointer]:
+              - /url: admin_symbols_settings.htm
+            - link "Next Topic" [ref=f17e26] [cursor=pointer]:
+              - /url: symbol_settings_margin.htm
+  - generic [ref=f17e30]:
+    - paragraph [ref=f17e31]: Execution
+    - paragraph [ref=f17e32]:
+      - img "Execution" [ref=f17e33]
+    - paragraph [ref=f17e34]: "The symbol order execution mode is set up on this tab:"
+    - paragraph [ref=f17e35]: Instant
+    - paragraph [ref=f17e36]: "In this mode a client places an order at prices from the Market Watch window without requesting prices before that. The following settings are available for this mode:"
+    - paragraph [ref=f17e37]:
+      - generic [ref=f17e38]: •
+      - text: Max time deviation — the maximal difference (in seconds) between the time when the price specified in the client's order was received, and the time of the latest price. If this limit is exceeded, requote is performed and new prices are sent to the client;
+    - paragraph [ref=f17e39]:
+      - generic [ref=f17e40]: •
+      - text: Max profit deviation — maximal deviation of the order price from the current symbol price in the direction profitable for a client. This value being exceeded, new prices will be sent to the client;
+    - paragraph [ref=f17e41]:
+      - generic [ref=f17e42]: •
+      - text: Max losing deviation — maximal deviation of the order price from the current symbol price in the direction losing for a client. This value being exceeded, new prices will be sent to the client;
+    - paragraph [ref=f17e43]:
+      - generic [ref=f17e44]: •
+      - text: Maximum volume — the maximum volume of the order that can be accepted in the instant execution mode. All clients' orders larger than that will be automatically switched to the request execution mode.
+    - paragraph [ref=f17e45]:
+      - generic [ref=f17e46]: •
+      - text: Fast confirmation of requotes within client deviation — the option is disabled by default. When creating a trade request in the instant execution mode, the client can specify tolerance, i.e. by how many points the request execution price can differ from the price specified in the order. If a dealer returns a requote in response to such a request, and the requote price is within the tolerable deviation specified by the client, the order will be returned to the dealer for confirmation after the client confirms this new price. If the option is enabled, the order will be executed immediately after the client confirms the price. No additional confirmation from a dealer is required.
+    - paragraph [ref=f17e47]: The following options are used only if the deal volume exceeds the maximum volume that can be accepted in the instant execution mode. Such deals are processed in the "Request" execution mode.
+    - paragraph [ref=f17e48]:
+      - generic [ref=f17e49]: •
+      - text: Timeout — time in seconds, during which the price provided by the dealer is valid;
+    - paragraph [ref=f17e50]:
+      - generic [ref=f17e51]: •
+      - text: Confirm orders — if this option is enabled, then after a trader receives quotes from a dealer and agrees to execute a deal at them, the dealer will have to additionally confirm the execution of this order.
+    - paragraph [ref=f17e52]: Checking prices and requotes
+    - paragraph [ref=f17e53]:
+      - generic [ref=f17e54]:
+        - text: If the price in the trade request exceeds the maximum deviation in the profit or loss direction, the server returns a requote to the client and prints the following message to the
+        - link "Journal" [ref=f17e55] [cursor=pointer]:
+          - /url: network_journal.htm
+        - text: ":"
+    - table [ref=f17e57]:
+      - rowgroup [ref=f17e58]:
+        - row [ref=f17e59]:
+          - cell [ref=f17e60]:
+            - paragraph [ref=f17e61]: "'7000009': requote 1.15309 / 1.15329 (instant buy 0.01 EURUSD at 1.15328)[slippage]"
+    - paragraph [ref=f17e62]: "If the requot price provided by the dealer exceeds the maximum deviation specified by the trader in the trade request (order), another requote is sent to the trader. the following message is printed to the journal:"
+    - table [ref=f17e64]:
+      - rowgroup [ref=f17e65]:
+        - row [ref=f17e66]:
+          - cell [ref=f17e67]:
+            - paragraph [ref=f17e68]: "'7000009': requote 1.15313 / 1.15333 (instant buy 0.01 EURUSD at 1.15331)[dealer deviation]"
+    - paragraph [ref=f17e69]: Apart from checking the price value and time deviation according to symbol settings, the server performs additional checks.
+    - paragraph [ref=f17e70]: Checking for presence in the flow. The price used by a client to set an order, should be present in the quote flow. In other words, a deal cannot be performed at a non-existing price. The price search depth is defined by the "Max time deviation" parameter. If there is no price, the server sends a requote to a client and the appropriate message (deviation is blocked with 'count' on 'request') appears in the journal. Here 'count' means the counter of invalid client requests, while 'request' is a request description. In each case of that type, the invalid client request counter is increased.
+    - paragraph [ref=f17e71]: "Checking for obsolescence. The platform checks if the prices used by a client to place an order are obsolete. Depending on the market rate, the server calculates the range of the last ticks, within which the requested price is located. On the fast market, the acceptable range is expanded, while on the slow market, it is narrowed. If the price does not fall within the acceptable range, the server sends the client a requote and leaves the following message in the journal: previous price 'x' on 'request.' Here, 'x' is a location of the requested price in the quote flow (0 means the last price), while 'request' is a request description. In each case of that type, the invalid client request counter is increased."
+    - paragraph [ref=f17e72]: Invalid request counter. The server features the invalid request counter for each client. As soon as the counter exceeds the threshold value, the server starts rejecting subsequent invalid client requests leaving the 'off quotes' message. The appropriate message (deviation is blocked with 'count' on 'request') appears in the journal. Here, 'count' means the counter of invalid client requests, while 'request' is the last request description. When a valid client request is received, the counter is decreased.
+    - paragraph [ref=f17e73]: Request
+    - paragraph [ref=f17e74]: "In this mode, a client requests the filling price before placing an order. The following options are available here:"
+    - paragraph [ref=f17e75]:
+      - generic [ref=f17e76]: •
+      - text: Timeout — time in seconds, during which the price provided by the dealer is valid;
+    - paragraph [ref=f17e77]:
+      - generic [ref=f17e78]: •
+      - text: Confirm orders — if this option is enabled, then after a trader receives quotes from a dealer and agrees to execute a deal at them, the dealer will have to additionally confirm the execution of this order.
+    - paragraph [ref=f17e79]: Market
+    - paragraph [ref=f17e80]: In this mode, a client places an order at the broker's price, "agreeing with it in advance".
+    - paragraph [ref=f17e81]: Exchange
+    - paragraph [ref=f17e82]: "In this execution mode a trader's request is passed to an external gateway connected to an exchange or another liquidity provider. Operation specifics:"
+    - paragraph [ref=f17e83]:
+      - generic [ref=f17e84]: •
+      - generic [ref=f17e85]:
+        - text: Different
+        - link "order execution policies" [ref=f17e86] [cursor=pointer]:
+          - /url: general_concept.htm#fill_policy
+        - text: can be used
+    - paragraph [ref=f17e87]:
+      - generic [ref=f17e88]: •
+      - generic [ref=f17e89]:
+        - text: The
+        - link "Limit & Stop Level" [ref=f17e90] [cursor=pointer]:
+          - /url: symbol_settings_trade.htm
+        - text: parameter does not work
