@@ -68,8 +68,12 @@ func (h *Handler) EndOfDayProcess(ctx context.Context) {
 	h.Log.Log(logger.TypeSys, logger.CodeOK, "end of day started",
 		"at", started.Format(time.DateTime))
 
+	now := time.Now()
+
 	h.CheckPendingOrdersExpiration(ctx)
 	h.SwapsJob(ctx)
+	h.ChargeDailyCommissions(ctx, now)
+	h.ChargeMonthlyCommissions(ctx, now)
 
 	h.Log.Log(logger.TypeSys, logger.CodeOK, "end of day finished",
 		"took_ms", time.Since(started).Milliseconds())

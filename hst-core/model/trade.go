@@ -190,17 +190,20 @@ func (p *Position) Lots() float64 { return Lots(p.Volume) }
 type DealAction int32
 
 const (
-	DealBuy             DealAction = 0
-	DealSell            DealAction = 1
-	DealBalance         DealAction = 2
-	DealCredit          DealAction = 3
-	DealCharge          DealAction = 4
-	DealCorrection      DealAction = 5
-	DealBonus           DealAction = 6
-	DealCommission      DealAction = 7
-	DealCommissionDaily DealAction = 8
-	DealInterest        DealAction = 12
-	DealSOCompensation  DealAction = 19
+	DealBuy               DealAction = 0
+	DealSell              DealAction = 1
+	DealBalance           DealAction = 2
+	DealCredit            DealAction = 3
+	DealCharge            DealAction = 4
+	DealCorrection        DealAction = 5
+	DealBonus             DealAction = 6
+	DealCommission        DealAction = 7
+	DealCommissionDaily   DealAction = 8
+	DealCommissionMonthly DealAction = 9
+	DealAgentDaily        DealAction = 10
+	DealAgentMonthly      DealAction = 11
+	DealInterest          DealAction = 12
+	DealSOCompensation    DealAction = 19
 )
 
 type DealEntry int32

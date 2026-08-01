@@ -33,6 +33,10 @@ func (h *Handler) subscribe() error {
 		return err
 	}
 
+	if err := h.Subscribe(model.SubjectSystemEndOfDay, h.EndOfDaySystemEventHandler); err != nil {
+		return err
+	}
+
 	for _, shard := range h.Shards.Mine() {
 		if err := h.subscribeShard(shard); err != nil {
 			return err
@@ -107,6 +111,12 @@ func (h *Handler) AccountSystemEventHandler(msg *natscore.Msg) {
 
 	h.Log.Log(logger.TypeCfg, logger.CodeOK, "account taken on",
 		"login", ev.Login, "subject", msg.Subject)
+}
+
+// EndOfDaySystemEventHandler runs the rollover on demand, for an operator who needs it now
+// rather than at the scheduled hour.
+func (h *Handler) EndOfDaySystemEventHandler(msg *natscore.Msg) {
+	h.EndOfDayProcess(context.Background())
 }
 
 // MarketSystemEventHandler takes one quote off the wire.

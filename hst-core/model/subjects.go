@@ -31,6 +31,7 @@ const (
 	SubjectSystemCommissions  = "system.group_commission.*"
 	SubjectSystemRules        = "system.routing.*"
 	SubjectSystemAccounts     = "system.user.*"
+	SubjectSystemEndOfDay     = "system.core.endofday"
 )
 
 func SubjectSystemMarketFeed(symbol string) string { return "hstquote.tick." + symbol }
