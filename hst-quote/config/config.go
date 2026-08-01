@@ -39,7 +39,7 @@ const (
 	NATS_PORT = "NATS_PORT"
 	NATS_NAME = "NATS_NAME"
 
-	NEWS_RELOAD_INTERVAL = "NEWS_RELOAD_INTERVAL"
+	NEWS_RELOAD_INTERVAL  = "NEWS_RELOAD_INTERVAL"
 	QUOTE_RELOAD_INTERVAL = "QUOTE_RELOAD_INTERVAL"
 	FIX_CONFIG_DIR        = "FIX_CONFIG_DIR"
 
@@ -53,6 +53,9 @@ const (
 	INFLUX_TOKEN   = "INFLUX_TOKEN"
 	INFLUX_ORG     = "INFLUX_ORG"
 	INFLUX_BUCKET  = "INFLUX_BUCKET"
+
+	INFLUX_CANDLE_BUCKET       = "INFLUX_CANDLE_BUCKET"
+	INFLUX_TICK_RETENTION_DAYS = "INFLUX_TICK_RETENTION_DAYS"
 
 	REDIS_URL = "REDIS_URL"
 	// #nosec G101 -- env var name, not a credential
@@ -82,6 +85,10 @@ type Influx struct {
 	Token   string
 	Org     string
 	Bucket  string
+	// CandleBucket keeps the minute bars, which are the history a chart reads.
+	CandleBucket string
+	// TickRetention is how long the raw ticks are kept before the rollup is all that is left.
+	TickRetention time.Duration
 }
 
 type Setting struct {
@@ -241,6 +248,8 @@ func NewConfig() (*Config, error) {
 	c.Influx.Token = getEnv(INFLUX_TOKEN, "")
 	c.Influx.Org = getEnv(INFLUX_ORG, "HybridSolutions")
 	c.Influx.Bucket = getEnv(INFLUX_BUCKET, "marketwatch")
+	c.Influx.CandleBucket = getEnv(INFLUX_CANDLE_BUCKET, "marketwatch_candles")
+	c.Influx.TickRetention = time.Duration(getEnvAsInt(INFLUX_TICK_RETENTION_DAYS, 7)) * 24 * time.Hour
 
 	if err := c.validate(); err != nil {
 		return nil, err

@@ -88,6 +88,14 @@ func Run() int {
 	}()
 	if influxClient != nil {
 		log.Logger.Info("influx connected")
+
+		// the buckets and the minute rollup belong to whoever writes the ticks
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		if err := influxClient.EnsureRetention(ctx, cfg); err != nil {
+			log.Log(logger.TypeSys, logger.CodeErr, "could not set the tick store up",
+				"error", err.Error())
+		}
+		cancel()
 	}
 
 	healthChecks := map[string]health.Check{

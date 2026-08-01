@@ -86,6 +86,9 @@ const (
 	INFLUX_TOKEN   = "INFLUX_TOKEN"
 	INFLUX_ORG     = "INFLUX_ORG"
 	INFLUX_BUCKET  = "INFLUX_BUCKET"
+
+	INFLUX_CANDLE_BUCKET       = "INFLUX_CANDLE_BUCKET"
+	INFLUX_TICK_RETENTION_DAYS = "INFLUX_TICK_RETENTION_DAYS"
 )
 
 type Config struct {
@@ -109,6 +112,10 @@ type Influx struct {
 	Token   string
 	Org     string
 	Bucket  string
+	// CandleBucket holds the minute bars the rollup writes; it is where deep history lives.
+	CandleBucket string
+	// TickRetention is how far back the raw ticks still reach.
+	TickRetention time.Duration
 }
 
 // Internal holds service-to-service auth settings.
@@ -298,6 +305,8 @@ func NewConfig() (*Config, error) {
 	c.Influx.Token = getEnv(INFLUX_TOKEN, "")
 	c.Influx.Org = getEnv(INFLUX_ORG, "HybridSolutions")
 	c.Influx.Bucket = getEnv(INFLUX_BUCKET, "marketwatch")
+	c.Influx.CandleBucket = getEnv(INFLUX_CANDLE_BUCKET, "marketwatch_candles")
+	c.Influx.TickRetention = time.Duration(getEnvAsInt(INFLUX_TICK_RETENTION_DAYS, 7)) * 24 * time.Hour
 	c.HTTP.TlsCert = getEnv(HTTP_TLS_CERT, "")
 	c.HTTP.TlsKey = getEnv(HTTP_TLS_KEY, "")
 

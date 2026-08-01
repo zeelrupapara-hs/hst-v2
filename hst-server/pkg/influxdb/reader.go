@@ -17,8 +17,11 @@ import (
 type Reader struct {
 	client influx.Client
 	query  api.QueryAPI
-	bucket string
-	Log    *logger.Logger
+	// ticks holds the raw stream for a short window; candles holds the minute bars for good.
+	ticks     string
+	candles   string
+	tickReach time.Duration
+	Log       *logger.Logger
 }
 
 // Candle is one bar.
@@ -56,10 +59,12 @@ func NewReader(cfg *config.Config, log *logger.Logger) (*Reader, error) {
 		"org", cfg.Influx.Org, "bucket", cfg.Influx.Bucket)
 
 	return &Reader{
-		client: client,
-		query:  client.QueryAPI(cfg.Influx.Org),
-		bucket: cfg.Influx.Bucket,
-		Log:    log,
+		client:    client,
+		query:     client.QueryAPI(cfg.Influx.Org),
+		ticks:     cfg.Influx.Bucket,
+		candles:   cfg.Influx.CandleBucket,
+		tickReach: cfg.Influx.TickRetention,
+		Log:       log,
 	}, nil
 }
 
@@ -69,17 +74,41 @@ func (r *Reader) Close() {
 	}
 }
 
-// Candles builds bars of one width for one instrument, out of the ticks in the window.
+// Candles builds bars of one width for one instrument.
 //
-// The bid is the chart price, as it is in the terminal: it is the side a long position is
-// valued and closed at, so it is the line a trader is actually watching.
+// There are two places the answer can come from. The raw ticks are the more exact of the two and
+// carry the bar that is still being formed, but they are only kept for a short window. Behind
+// that window the minute bars the rollup wrote are all that is left, and longer bars are built
+// out of those. Which one is used depends on how far back the request reaches.
+//
+// The bid is the chart price, as it is in the terminal: it is the side a long position is valued
+// and closed at, so it is the line a trader is actually watching.
 func (r *Reader) Candles(ctx context.Context, symbolId int64, every string,
 	from, to time.Time) ([]Candle, error) {
 	if r == nil {
 		return nil, ErrHistoryDisabled
 	}
 
-	// one pass over the range per aggregate, stitched back together on the bar's own timestamp
+	if r.withinTicks(from) {
+		return r.fromTicks(ctx, symbolId, every, from, to)
+	}
+
+	return r.fromCandles(ctx, symbolId, every, from, to)
+}
+
+// withinTicks reports whether the raw stream still reaches back this far. An hour is left at the
+// edge so a request that straddles the boundary is not served half-empty.
+func (r *Reader) withinTicks(from time.Time) bool {
+	if r.tickReach <= 0 {
+		return false
+	}
+
+	return from.After(time.Now().Add(-r.tickReach + time.Hour))
+}
+
+// fromTicks cuts bars straight out of the tick stream.
+func (r *Reader) fromTicks(ctx context.Context, symbolId int64, every string,
+	from, to time.Time) ([]Candle, error) {
 	flux := fmt.Sprintf(`
 bid = from(bucket: %q)
   |> range(start: %d, stop: %d)
@@ -100,10 +129,41 @@ union(tables: [o, h, l, c, v])
   |> pivot(rowKey: ["_time"], columnKey: ["b"], valueColumn: "_value")
   |> sort(columns: ["_time"])
 `,
-		r.bucket, from.Unix(), to.Unix(), symbolId,
-		r.bucket, from.Unix(), to.Unix(), symbolId,
+		r.ticks, from.Unix(), to.Unix(), symbolId,
+		r.ticks, from.Unix(), to.Unix(), symbolId,
 		every, every, every, every, every)
 
+	return r.collect(ctx, flux)
+}
+
+// fromCandles builds longer bars out of the minute bars, which is all that survives the raw
+// window. A minute request passes straight through.
+func (r *Reader) fromCandles(ctx context.Context, symbolId int64, every string,
+	from, to time.Time) ([]Candle, error) {
+	flux := fmt.Sprintf(`
+base = from(bucket: %q)
+  |> range(start: %d, stop: %d)
+  |> filter(fn: (r) => r._measurement == "%d")
+
+o = base |> filter(fn: (r) => r._field == "open")   |> aggregateWindow(every: %s, fn: first, timeSrc: "_start", createEmpty: false) |> set(key: "b", value: "o")
+h = base |> filter(fn: (r) => r._field == "high")   |> aggregateWindow(every: %s, fn: max,   timeSrc: "_start", createEmpty: false) |> set(key: "b", value: "h")
+l = base |> filter(fn: (r) => r._field == "low")    |> aggregateWindow(every: %s, fn: min,   timeSrc: "_start", createEmpty: false) |> set(key: "b", value: "l")
+c = base |> filter(fn: (r) => r._field == "close")  |> aggregateWindow(every: %s, fn: last,  timeSrc: "_start", createEmpty: false) |> set(key: "b", value: "c")
+v = base |> filter(fn: (r) => r._field == "volume") |> aggregateWindow(every: %s, fn: sum,   timeSrc: "_start", createEmpty: false) |> set(key: "b", value: "v")
+
+union(tables: [o, h, l, c, v])
+  |> keep(columns: ["_time", "_value", "b"])
+  |> pivot(rowKey: ["_time"], columnKey: ["b"], valueColumn: "_value")
+  |> sort(columns: ["_time"])
+`,
+		r.candles, from.Unix(), to.Unix(), symbolId,
+		every, every, every, every, every)
+
+	return r.collect(ctx, flux)
+}
+
+// collect turns a pivoted result into bars.
+func (r *Reader) collect(ctx context.Context, flux string) ([]Candle, error) {
 	rows, err := r.query.Query(ctx, flux)
 	if err != nil {
 		return nil, err
@@ -124,7 +184,7 @@ union(tables: [o, h, l, c, v])
 			Volume: number(rec.ValueByKey("v")),
 		}
 
-		// a window with no bid in it is not a bar, whatever else landed in it
+		// a window with no price in it is not a bar, whatever else landed in it
 		if bar.Open == 0 && bar.Close == 0 {
 			continue
 		}
@@ -163,10 +223,10 @@ func (r *Reader) FirstTick(ctx context.Context, symbolId int64) (time.Time, erro
 	flux := fmt.Sprintf(`
 from(bucket: %q)
   |> range(start: 0)
-  |> filter(fn: (r) => r._measurement == "%d" and r._field == "bid")
+  |> filter(fn: (r) => r._measurement == "%d" and r._field == "open")
   |> first()
   |> keep(columns: ["_time"])
-`, r.bucket, symbolId)
+`, r.candles, symbolId)
 
 	rows, err := r.query.Query(ctx, flux)
 	if err != nil {
