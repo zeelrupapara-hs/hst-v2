@@ -140,6 +140,10 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	deals.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAccountDeals)
 	deals.Get("/:deal_id", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetDeal)
 
+	// chart history, for the manager panel
+	v1.Get("/history", s.Middleware.Protect, s.Middleware.RequireManager,
+		s.Middleware.Authorization(model.MgrRightSymbolDetails), s.GetHistory)
+
 	// the dealing desk
 	dealing := v1.Group("/dealing", s.Middleware.Protect, s.Middleware.RequireManager)
 	dealing.Get("/", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ListDealingRequests)

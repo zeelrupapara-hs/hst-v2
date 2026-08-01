@@ -6,6 +6,7 @@ import (
 	"hstserver/pkg/cache"
 	"hstserver/pkg/db"
 	"hstserver/pkg/http"
+	"hstserver/pkg/influxdb"
 	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/nats"
@@ -45,6 +46,8 @@ type HttpServer struct {
 	Hub *ws.Hub
 	// Journal records what happened, for the back office to query
 	Journal *journal.Journal
+	// History reads the tick store back as chart bars
+	History *influxdb.Reader
 }
 
 func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *nats.Nats, rds *redis.Redis, middleware *middleware.Middleware, oauth *oauth2.OAuth2, cfg *config.Config, validate *validator.Validate) *HttpServer {
@@ -62,6 +65,13 @@ func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *n
 		Validate:   validate,
 		Cfg:        cfg,
 	}
+
+	reader, err := influxdb.NewReader(cfg, log)
+	if err != nil {
+		// a chart that cannot load is not a reason to refuse to trade
+		log.Log(logger.TypeSys, logger.CodeErr, "chart history unavailable", "error", err.Error())
+	}
+	h.History = reader
 
 	return h
 }

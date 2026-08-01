@@ -54,6 +54,9 @@ const (
 	InvalidMarginFlags           = "unknown margin flag"
 	InvalidSwapFlags             = "unknown swap flag"
 	InvalidOrderFlags            = "unknown order flag"
+	InvalidResolution            = "unknown chart resolution"
+	InvalidRange                 = "the range must end after it starts"
+	HistoryUnavailable           = "chart history is not configured on this server"
 	AccountPending               = "the account is awaiting approval"
 	NotATrader                   = "this panel is for trading accounts"
 	HolidayDateInvalid           = "the month and day are not a real calendar date"
@@ -121,6 +124,9 @@ var (
 	ErrInvalidMarginFlags           = errors.New(InvalidMarginFlags)
 	ErrInvalidSwapFlags             = errors.New(InvalidSwapFlags)
 	ErrInvalidOrderFlags            = errors.New(InvalidOrderFlags)
+	ErrInvalidResolution            = errors.New(InvalidResolution)
+	ErrInvalidRange                 = errors.New(InvalidRange)
+	ErrHistoryUnavailable           = errors.New(HistoryUnavailable)
 	ErrAccountPending               = errors.New(AccountPending)
 	ErrNotATrader                   = errors.New(NotATrader)
 	ErrHolidayDateInvalid           = errors.New(HolidayDateInvalid)

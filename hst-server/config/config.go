@@ -80,6 +80,12 @@ const (
 
 	// internal service auth
 	INTERNAL_SERVICE_TOKEN = "INTERNAL_SERVICE_TOKEN"
+
+	INFLUX_ENABLED = "INFLUX_ENABLED"
+	INFLUX_URL     = "INFLUX_URL"
+	INFLUX_TOKEN   = "INFLUX_TOKEN"
+	INFLUX_ORG     = "INFLUX_ORG"
+	INFLUX_BUCKET  = "INFLUX_BUCKET"
 )
 
 type Config struct {
@@ -93,6 +99,16 @@ type Config struct {
 	Cache    Cache
 	Internal Internal
 	Register Register
+	Influx   Influx
+}
+
+// Influx is the tick store the charts read their history out of.
+type Influx struct {
+	Enabled bool
+	Url     string
+	Token   string
+	Org     string
+	Bucket  string
 }
 
 // Internal holds service-to-service auth settings.
@@ -275,6 +291,13 @@ func NewConfig() (*Config, error) {
 	c.HTTP.CorsOrigins = splitCsv(getEnv(CORS_ORIGINS, "http://localhost:3000"))
 	c.HTTP.TrustedProxies = splitCsv(getEnv(TRUSTED_PROXIES, ""))
 	c.Internal.ServiceToken = getEnv(INTERNAL_SERVICE_TOKEN, "")
+
+	// Influx, where hst-quote writes every tick and the charts read them back
+	c.Influx.Enabled = getEnvAsBool(INFLUX_ENABLED, false)
+	c.Influx.Url = getEnv(INFLUX_URL, "http://localhost:8086")
+	c.Influx.Token = getEnv(INFLUX_TOKEN, "")
+	c.Influx.Org = getEnv(INFLUX_ORG, "HybridSolutions")
+	c.Influx.Bucket = getEnv(INFLUX_BUCKET, "marketwatch")
 	c.HTTP.TlsCert = getEnv(HTTP_TLS_CERT, "")
 	c.HTTP.TlsKey = getEnv(HTTP_TLS_KEY, "")
 

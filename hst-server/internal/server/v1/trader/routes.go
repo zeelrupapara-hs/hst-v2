@@ -17,6 +17,7 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Get("/account", s.MyAccount)
 	trader.Get("/profile", s.MyProfile)
 	trader.Get("/symbols", s.MySymbols)
+	trader.Get("/history", s.GetMyHistory)
 
 	// trading
 	trader.Get("/orders", s.GetMyOrders)
