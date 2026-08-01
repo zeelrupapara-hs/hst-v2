@@ -1,0 +1,1 @@
+ALTER TABLE hst.groups ALTER COLUMN trade_flags SET DEFAULT 0;

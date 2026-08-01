@@ -37,6 +37,7 @@ const (
 	RetTradeWrongShard      RetCode = 10022
 	RetTradeDealerQueued    RetCode = 10023
 	RetTradeDealerReturned  RetCode = 10024
+	RetTradeCloseOrderExist RetCode = 10025
 )
 
 // retNames is what each refusal means, for the journal and the log.
@@ -71,6 +72,7 @@ var retNames = map[RetCode]string{
 	RetTradeWrongShard:      "account is not held here",
 	RetTradeDealerQueued:    "request placed in a dealer queue",
 	RetTradeDealerReturned:  "request rejected, due all assigned dealers returned request in queue",
+	RetTradeCloseOrderExist: "an older position on this symbol must be closed first",
 }
 
 func (r RetCode) String() string {

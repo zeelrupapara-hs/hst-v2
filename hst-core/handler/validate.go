@@ -23,7 +23,13 @@ func (h *Handler) ValidateOrder(e *book.Entry, o *model.Order, r *settings.Rules
 	if code := h.checkQuote(r, t); !code.OK() {
 		return code
 	}
+	if code := h.checkOrderFlags(o, r); !code.OK() {
+		return code
+	}
 	if code := h.checkVolume(o, r); !code.OK() {
+		return code
+	}
+	if code := h.checkHedging(e, o, r); !code.OK() {
 		return code
 	}
 	if code := h.checkLimits(e, o, r); !code.OK() {
@@ -36,6 +42,9 @@ func (h *Handler) ValidateOrder(e *book.Entry, o *model.Order, r *settings.Rules
 		return code
 	}
 	if code := h.checkStops(o, r, t); !code.OK() {
+		return code
+	}
+	if code := h.checkFreeze(o, r, t); !code.OK() {
 		return code
 	}
 	if code := h.checkMoney(e, o, r, t); !code.OK() {
@@ -64,6 +73,7 @@ func (h *Handler) ValidatePosition(e *book.Entry, p *model.Position, req *model.
 	// the levels are measured from a position, so the side is the position's own
 	level := &model.Order{
 		Symbol:     p.Symbol,
+		PositionId: p.PositionId,
 		Type:       int32(model.OrderBuy),
 		PriceSL:    req.PriceSL,
 		PriceTP:    req.PriceTP,
@@ -73,7 +83,76 @@ func (h *Handler) ValidatePosition(e *book.Entry, p *model.Position, req *model.
 		level.Type = int32(model.OrderSell)
 	}
 
-	return h.checkStops(level, r, t)
+	if code := h.checkOrderFlags(level, r); !code.OK() {
+		return code
+	}
+	if code := h.checkStops(level, r, t); !code.OK() {
+		return code
+	}
+
+	return h.checkFreeze(level, r, t)
+}
+
+// checkOrderFlags refuses an order type, or a level, the group does not offer on this instrument.
+func (h *Handler) checkOrderFlags(o *model.Order, r *settings.Rules) model.RetCode {
+	if r.OrderFlags == 0 {
+		return model.RetOK
+	}
+
+	if want := model.OrderFlagFor(o.Kind()); want != 0 && r.OrderFlags&want == 0 {
+		return model.RetTradeDisabled
+	}
+	if o.PriceSL > 0 && r.OrderFlags&model.OrderFlagSL == 0 {
+		return model.RetTradeInvalidStops
+	}
+	if o.PriceTP > 0 && r.OrderFlags&model.OrderFlagTP == 0 {
+		return model.RetTradeInvalidStops
+	}
+
+	return model.RetOK
+}
+
+// checkHedging refuses a position opposite to one already open, when the group forbids hedging.
+func (h *Handler) checkHedging(e *book.Entry, o *model.Order, r *settings.Rules) model.RetCode {
+	if r.Group.TradeFlags&model.TradeFlagHedgeProhibit == 0 {
+		return model.RetOK
+	}
+	if !model.MarginMode(r.Group.MarginMode).Hedging() || o.PositionId != 0 {
+		return model.RetOK
+	}
+
+	for _, p := range e.Positions {
+		if p.Symbol == o.Symbol && p.Buy() != o.Kind().Buy() {
+			return model.RetTradeHedgeProhibited
+		}
+	}
+
+	return model.RetOK
+}
+
+// checkFreeze refuses a change too close to the market, where the levels are frozen.
+func (h *Handler) checkFreeze(o *model.Order, r *settings.Rules, t model.Tick) model.RetCode {
+	// only an existing order or position freezes; a new one has nothing to protect
+	if r.FreezeLevel <= 0 || r.Point <= 0 || (o.OrderId == 0 && o.PositionId == 0) {
+		return model.RetOK
+	}
+
+	frozen := float64(r.FreezeLevel) * r.Point
+	buy := o.Kind().Buy()
+	market := t.ClosePrice(buy)
+
+	for _, level := range []float64{o.PriceSL, o.PriceTP} {
+		if level > 0 && math.Abs(market-level) < frozen {
+			return model.RetTradeFrozen
+		}
+	}
+
+	if o.Kind().Pending() && o.PriceOrder > 0 &&
+		math.Abs(t.OpenPrice(buy)-o.PriceOrder) < frozen {
+		return model.RetTradeFrozen
+	}
+
+	return model.RetOK
 }
 
 // checkExecution applies the instrument's execution mode.
@@ -221,17 +300,31 @@ func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) 
 		return model.RetTradeTooManyOrder
 	}
 
+	var onSymbol, total int64
+	symbols := make(map[string]bool, len(e.Positions))
+
+	for _, p := range e.Positions {
+		total += p.Volume
+		symbols[p.Symbol] = true
+		if p.Symbol == o.Symbol {
+			onSymbol += p.Volume
+		}
+	}
+
 	// the instrument's own cap on how much may be held at once, across everything on it
-	if r.VolumeLimit > 0 {
-		var held int64
-		for _, p := range e.Positions {
-			if p.Symbol == o.Symbol {
-				held += p.Volume
-			}
-		}
-		if held+o.VolumeCurrent > r.VolumeLimit {
-			return model.RetTradeMaxVolume
-		}
+	if r.VolumeLimit > 0 && onSymbol+o.VolumeCurrent > r.VolumeLimit {
+		return model.RetTradeMaxVolume
+	}
+
+	// the group's cap on the account's whole book, in lots
+	if g.LimitPositionsValue > 0 &&
+		model.Lots(total+o.VolumeCurrent) > g.LimitPositionsValue {
+		return model.RetTradeMaxVolume
+	}
+
+	// the group's cap on how many different instruments may be held at once
+	if g.LimitSymbols > 0 && !symbols[o.Symbol] && int32(len(symbols)) >= g.LimitSymbols {
+		return model.RetTradeMaxVolume
 	}
 
 	return model.RetOK
@@ -270,6 +363,12 @@ func (h *Handler) checkFilling(o *model.Order, r *settings.Rules) model.RetCode 
 
 // checkExpiry refuses an expiry type the instrument does not offer, or one already in the past.
 func (h *Handler) checkExpiry(o *model.Order, r *settings.Rules) model.RetCode {
+	// a group that does not allow expiry at all leaves good-till-cancelled as the only choice
+	if r.Group.TradeFlags&model.TradeFlagExpiration == 0 &&
+		model.Expiry(o.TypeTime) != model.ExpiryGTC {
+		return model.RetTradeExpiration
+	}
+
 	if r.ExpirFlags != 0 {
 		var want int32
 

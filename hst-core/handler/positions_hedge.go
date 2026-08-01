@@ -118,6 +118,8 @@ func (h *Handler) SpreadMargin(e *book.Entry, symbol string, total float64) {
 func (h *Handler) RemargeAccount(e *book.Entry) {
 	seen := make(map[string]bool, len(e.Positions))
 
+	var initial, maintenance float64
+
 	for _, p := range e.Positions {
 		if seen[p.Symbol] {
 			continue
@@ -129,8 +131,29 @@ func (h *Handler) RemargeAccount(e *book.Entry) {
 			continue
 		}
 
-		h.SpreadMargin(e, p.Symbol, h.MarginForSymbol(e, p.Symbol, r))
+		margin := h.MarginForSymbol(e, p.Symbol, r)
+		h.SpreadMargin(e, p.Symbol, margin)
+
+		initial += margin
+		maintenance += margin * maintenanceRate(r)
 	}
+
+	e.Account.MarginInitial = initial
+	e.Account.MarginMaintenance = maintenance
+
+	if g, ok := h.Settings.Group(e.Account.Group); ok {
+		e.Account.VirtualCredit = g.TradeVirtualCredit
+	}
+}
+
+// maintenanceRate is what share of the initial margin has to stay covered to avoid a margin
+// call. An instrument that names no maintenance margin holds the whole reservation.
+func maintenanceRate(r *settings.Rules) float64 {
+	if r.MarginMaintenance <= 0 || r.MarginInitial <= 0 {
+		return 1
+	}
+
+	return r.MarginMaintenance / r.MarginInitial
 }
 
 // SettleAccount brings the margin up to date and then adds the account up. Every path that

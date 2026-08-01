@@ -203,3 +203,17 @@ func updateOrder(ctx context.Context, tx pgx.Tx, o *model.Order) error {
 
 	return err
 }
+
+// SaveAccount writes the money state on its own, for the paths that change no deal.
+func (h *Handler) SaveAccount(ctx context.Context, a *model.Account) error {
+	_, err := h.DB.DB.Exec(ctx,
+		`UPDATE hst.accounts
+		    SET margin = $1, margin_free = $2, margin_level = $3,
+		        margin_initial = $4, margin_maintenance = $5,
+		        profit = $6, storage = $7, floating = $8, equity = $9, updated_at = $10
+		  WHERE login = $11`,
+		a.Margin, a.MarginFree, a.MarginLevel, a.MarginInitial, a.MarginMaintenance,
+		a.Profit, a.Storage, a.Floating, a.Equity, Now(), a.Login)
+
+	return err
+}

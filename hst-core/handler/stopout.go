@@ -74,6 +74,11 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 		after := h.SettleAccount(e, g.MarginFreeProfit != 0)
 		e.Unlock()
 
+		// the group can insist the whole book goes, rather than only enough of it
+		if g.TradeFlags&model.TradeFlagSOFullyClose != 0 {
+			continue
+		}
+
 		if after.Margin <= 0 || after.MarginLevel > stop {
 			break
 		}

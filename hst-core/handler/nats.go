@@ -5,6 +5,7 @@ import (
 
 	"context"
 
+	"hstcore/internal/book"
 	"hstcore/model"
 	"hstcore/pkg/logger"
 
@@ -88,6 +89,46 @@ func (h *Handler) ConfigSystemEventHandler(msg *natscore.Msg) {
 
 	h.Log.Log(logger.TypeCfg, logger.CodeOK, "configuration reloaded",
 		"subject", msg.Subject, "groups", h.Settings.Groups(), "symbols", h.Settings.Symbols())
+
+	h.ResettleAccounts(ctx)
+}
+
+// ResettleAccounts works every account out again after a settings change and tells the terminal
+// what it now stands at. A new margin rate or leverage is money the client can see, so it must
+// not wait for their next trade to show up.
+func (h *Handler) ResettleAccounts(ctx context.Context) {
+	var changed int
+
+	h.Accounts.Each(func(e *book.Entry) {
+		e.Lock()
+
+		before := *e.Account
+
+		group, _ := h.Settings.Group(e.Account.Group)
+		h.SettleAccount(e, group != nil && group.MarginFreeProfit != 0).Apply(e.Account)
+
+		account := *e.Account
+		e.Unlock()
+
+		if account.Margin == before.Margin && account.Equity == before.Equity &&
+			account.MarginFree == before.MarginFree {
+			return
+		}
+
+		changed++
+
+		if err := h.SaveAccount(ctx, &account); err != nil {
+			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a resettled account",
+				"login", account.Login, "error", err.Error())
+		}
+
+		h.PublishWS(model.SubjectAccountSummary(account.Login), "account", &account)
+	})
+
+	if changed > 0 {
+		h.Log.Log(logger.TypeCfg, logger.CodeOK, "accounts resettled after a settings change",
+			"accounts", changed)
+	}
 }
 
 // AccountSystemEventHandler picks up an account that was opened or moved while this pod was
@@ -103,7 +144,12 @@ func (h *Handler) AccountSystemEventHandler(msg *natscore.Msg) {
 	if !h.Shards.HoldsLogin(ev.Login) {
 		return
 	}
-	if _, held := h.Accounts.Get(ev.Login); held {
+	// an account already held has had its group, leverage or rights changed instead
+	if e, held := h.Accounts.Get(ev.Login); held {
+		if err := h.RefreshAccount(context.Background(), e); err != nil {
+			h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not refresh an account",
+				"login", ev.Login, "error", err.Error())
+		}
 		return
 	}
 

@@ -41,6 +41,7 @@ type Symbol struct {
 	SwapRate    [7]float64
 	SwapYearDay int32
 	QuotesTime  int32
+	OrderFlags  int32
 
 	TimeStart      int64
 	TimeExpiration int64

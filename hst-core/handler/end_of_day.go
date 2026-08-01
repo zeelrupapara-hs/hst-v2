@@ -110,6 +110,13 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
 	e.Lock()
 
 	group := e.Account.Group
+
+	// a group that does not charge swaps rolls its positions over for free
+	if g, ok := h.Settings.Group(group); ok && g.TradeFlags&model.TradeFlagSwaps == 0 {
+		e.Unlock()
+		return false
+	}
+
 	var touched []*model.Position
 	var last *settings.Rules
 

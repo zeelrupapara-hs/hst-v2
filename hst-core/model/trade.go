@@ -275,6 +275,8 @@ type Account struct {
 	Commission        float64 `json:"blocked_commission"`
 	BlockedProfit     float64 `json:"blocked_profit"`
 	UpdatedAt         int64   `json:"updated_at"`
+	// VirtualCredit comes from the group and backs margin without ever being withdrawable.
+	VirtualCredit float64 `json:"virtual_credit"`
 
 	Rights int64 `json:"rights"`
 }

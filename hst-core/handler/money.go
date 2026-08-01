@@ -100,6 +100,12 @@ func Settle(a *model.Account, positions map[int64]*model.Position, freeProfitOnl
 		Commission: a.Commission,
 	}
 
+	// virtual credit backs margin but is never the client's money, so it is dropped once the
+	// account has nothing open to back
+	if a.VirtualCredit > 0 && len(positions) > 0 {
+		m.Credit += a.VirtualCredit
+	}
+
 	for _, p := range positions {
 		m.Floating += p.Profit
 		m.Storage += p.Storage
@@ -116,8 +122,15 @@ func Settle(a *model.Account, positions map[int64]*model.Position, freeProfitOnl
 
 	m.FreeMargin = m.Balance + m.Credit + usable + m.Storage - m.Commission - m.Margin
 
-	if m.Margin > 0 {
-		m.MarginLevel = m.Equity / m.Margin * 100
+	// the level is read against maintenance margin where the instruments set one, which is what
+	// decides a margin call, not the initial reservation
+	against := m.Margin
+	if a.MarginMaintenance > 0 {
+		against = a.MarginMaintenance
+	}
+
+	if against > 0 {
+		m.MarginLevel = m.Equity / against * 100
 	}
 
 	return m

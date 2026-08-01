@@ -84,7 +84,7 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 		        currency_base, currency_profit, currency_margin,
 		        volume_min, volume_max, volume_step, volume_limit,
 		        margin_initial, margin_maintenance, margin_hedged, margin_flags,
-		        swap_mode, swap_long, swap_short, swap_flags, quotes_timeout,
+		        swap_mode, swap_long, swap_short, swap_flags, quotes_timeout, order_flags,
 		        swap_rate_sunday, swap_rate_monday, swap_rate_tuesday, swap_rate_wednesday,
 		        swap_rate_thursday, swap_rate_friday, swap_rate_saturday, swap_year_day,
 		        time_start, time_expiration
@@ -102,7 +102,7 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 			&s.CurrencyBase, &s.CurrencyProfit, &s.CurrencyMargin,
 			&s.VolumeMin, &s.VolumeMax, &s.VolumeStep, &s.VolumeLimit,
 			&s.MarginInitial, &s.MarginMaintenance, &s.MarginHedged, &s.MarginFlags,
-			&s.SwapMode, &s.SwapLong, &s.SwapShort, &s.SwapFlags, &s.QuotesTime,
+			&s.SwapMode, &s.SwapLong, &s.SwapShort, &s.SwapFlags, &s.QuotesTime, &s.OrderFlags,
 			&s.SwapRate[0], &s.SwapRate[1], &s.SwapRate[2], &s.SwapRate[3],
 			&s.SwapRate[4], &s.SwapRate[5], &s.SwapRate[6], &s.SwapYearDay,
 			&s.TimeStart, &s.TimeExpiration); err != nil {
@@ -461,3 +461,39 @@ func (h *Handler) loadOrders(ctx context.Context, and string, args ...any) error
 }
 
 func shiftArgs(and string) string { return strings.ReplaceAll(and, "$1", "$2") }
+
+// RefreshAccount reads back what a manager may have changed about an account — its group, its
+// leverage, its rights — and works the money out again at the new settings.
+func (h *Handler) RefreshAccount(ctx context.Context, e *book.Entry) error {
+	e.Lock()
+
+	login := e.Account.Login
+
+	if err := h.DB.DB.QueryRow(ctx,
+		`SELECT u."group", u.rights, u.leverage, COALESCE(g.currency, ''), a.currency_digits
+		   FROM hst.users u
+		   JOIN hst.accounts a ON a.login = u.login
+		   LEFT JOIN hst.groups g ON g."group" = u."group"
+		  WHERE u.login = $1`, login).Scan(&e.Account.Group, &e.Account.Rights,
+		&e.Account.Leverage, &e.Account.Currency, &e.Account.CurrencyDigits); err != nil {
+		e.Unlock()
+		return err
+	}
+
+	group, _ := h.Settings.Group(e.Account.Group)
+	h.SettleAccount(e, group != nil && group.MarginFreeProfit != 0).Apply(e.Account)
+
+	account := *e.Account
+	e.Unlock()
+
+	if err := h.SaveAccount(ctx, &account); err != nil {
+		return err
+	}
+
+	h.PublishWS(model.SubjectAccountSummary(login), "account", &account)
+
+	h.Log.Log(logger.TypeCfg, logger.CodeOK, "account refreshed",
+		"login", login, "group", account.Group, "leverage", account.Leverage)
+
+	return nil
+}

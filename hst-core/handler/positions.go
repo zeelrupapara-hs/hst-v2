@@ -187,6 +187,11 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 		return h.refuse(res, model.RetTradeNoQuotes, "")
 	}
 
+	if !h.firstInLine(e, p, r) {
+		e.Unlock()
+		return h.refuse(res, model.RetTradeCloseOrderExist, "")
+	}
+
 	o := h.closingOrder(p, r, model.Reason(req.Reason), req.Volume, req.Comment)
 	o.Dealer = req.Dealer
 	o.PriceOrder = req.Price
@@ -626,6 +631,22 @@ func (h *Handler) positionFor(e *book.Entry, symbol string) *model.Position {
 }
 
 // positionById finds one position by its ticket, for the verbs that name one.
+// firstInLine reports whether a position may be closed, when the group closes first in first out.
+func (h *Handler) firstInLine(e *book.Entry, p *model.Position, r *settings.Rules) bool {
+	if r.Group.TradeFlags&model.TradeFlagFIFOClose == 0 {
+		return true
+	}
+
+	for _, other := range e.Positions {
+		if other.Symbol == p.Symbol && other.Buy() == p.Buy() &&
+			other.TimeCreate < p.TimeCreate {
+			return false
+		}
+	}
+
+	return true
+}
+
 func (h *Handler) positionById(e *book.Entry, id int64) *model.Position {
 	if id <= 0 {
 		return nil

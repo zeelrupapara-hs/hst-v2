@@ -95,3 +95,40 @@ type GroupSymbol struct {
 	OrderFlags       *int32
 	PermissionsFlags *int32
 }
+
+// What the group lets its accounts do, from hst.groups.trade_flags.
+const (
+	TradeFlagSwaps         int32 = 0x0001
+	TradeFlagExpiration    int32 = 0x0008
+	TradeFlagSOFullyClose  int32 = 0x0080
+	TradeFlagFIFOClose     int32 = 0x0100
+	TradeFlagHedgeProhibit int32 = 0x0200
+)
+
+// Which order types and levels an instrument offers, from order_flags.
+const (
+	OrderFlagMarket    int32 = 1
+	OrderFlagLimit     int32 = 2
+	OrderFlagStop      int32 = 4
+	OrderFlagStopLimit int32 = 8
+	OrderFlagSL        int32 = 16
+	OrderFlagTP        int32 = 32
+	OrderFlagCloseBy   int32 = 64
+)
+
+// OrderFlagFor is the bit an order type needs to be allowed.
+func OrderFlagFor(t OrderType) int32 {
+	switch t {
+	case OrderBuy, OrderSell:
+		return OrderFlagMarket
+	case OrderBuyLimit, OrderSellLimit:
+		return OrderFlagLimit
+	case OrderBuyStop, OrderSellStop:
+		return OrderFlagStop
+	case OrderBuyStopLimit, OrderSellStopLimit:
+		return OrderFlagStopLimit
+	case OrderCloseBy:
+		return OrderFlagCloseBy
+	}
+	return 0
+}
