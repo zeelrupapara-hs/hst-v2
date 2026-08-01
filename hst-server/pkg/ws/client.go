@@ -21,6 +21,8 @@ type Client struct {
 	SessionId string
 	// Login owns the session.
 	Login int64
+	// Scope is the password slot the session authenticated with.
+	Scope int32
 	// Ip is the address resolved by the header reader.
 	Ip string
 	// IsManager is false for a trading account.
@@ -207,12 +209,12 @@ func (c *Client) readPump() {
 
 		// a client with no native ping support can send a ping event instead
 		var in model.Event
-		if err := json.Unmarshal(data, &in); err != nil {
+		if err := json.Unmarshal(data, &in); err == nil && in.Type == model.EventPing {
+			c.Send(&model.Event{Type: model.EventPong, At: time.Now().UnixNano()})
 			continue
 		}
-		if in.Type == model.EventPing {
-			c.Send(&model.Event{Type: model.EventPong, At: time.Now().UnixNano()})
-		}
+
+		c.hub.Dispatch(c, data)
 	}
 }
 

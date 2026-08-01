@@ -1,12 +1,4 @@
 // Package health serves the probes an orchestrator needs.
-//
-// Two endpoints, and the difference between them matters. /healthz says the
-// process is alive — fail it and kubernetes restarts the pod. /readyz says the
-// process can serve — fail it and kubernetes stops routing traffic but leaves
-// the pod alone. Wiring a dependency check into the liveness probe is how a
-// brief database blip turns into a restart loop across every replica.
-//
-// net/http on purpose: a probe listener is not worth a dependency.
 package health
 
 import (
@@ -21,24 +13,18 @@ import (
 	"hstcore/pkg/logger"
 )
 
-// Check reports whether one dependency is usable. Keep it cheap: readiness is
-// polled every couple of seconds, forever.
+// Check reports whether one dependency is usable.
 type Check func(ctx context.Context) error
 
-// Server is the probe listener. It runs on its own port so a probe never
-// queues behind application traffic, and so the port can stay off the public
-// service entirely.
+// Server is the probe listener.
 type Server struct {
 	log    *logger.Logger
 	srv    *http.Server
 	checks map[string]Check
 
-	// ready flips once boot has finished; until then /readyz fails and no
-	// traffic is routed to a pod that is still loading
+	// ready flips once boot has finished.
 	ready atomic.Bool
-	// shuttingDown makes /readyz fail on SIGTERM while the process keeps
-	// serving in-flight work, so the endpoints controller pulls this pod out
-	// before it stops answering
+	// shuttingDown makes /readyz fail on SIGTERM while the process keeps serving in-flight work.
 	shuttingDown atomic.Bool
 }
 
@@ -66,8 +52,7 @@ func New(cfg *config.Config, log *logger.Logger, checks map[string]Check) *Serve
 	return s
 }
 
-// Start listens in the background. It returns once the socket is bound, so a
-// port already in use is reported at boot rather than swallowed.
+// Start listens in the background.
 func (s *Server) Start() error {
 	ln, err := net.Listen("tcp", s.srv.Addr)
 	if err != nil {
@@ -89,10 +74,7 @@ func (s *Server) Start() error {
 // Ready marks boot complete. Call it after everything has loaded.
 func (s *Server) Ready() { s.ready.Store(true) }
 
-// Draining fails readiness while the process finishes what it is doing. Call
-// it first on SIGTERM, then sleep long enough for the endpoints controller to
-// notice, and only then stop the rest. Without that pause, traffic is still
-// being routed to a pod that has already begun shutting down.
+// Draining fails readiness while the process finishes what it is doing.
 func (s *Server) Draining() { s.shuttingDown.Store(true) }
 
 // Stop closes the listener.
@@ -100,14 +82,12 @@ func (s *Server) Stop(ctx context.Context) error {
 	return s.srv.Shutdown(ctx)
 }
 
-// live answers as long as the process is running. It checks nothing on
-// purpose: a dependency outage must not restart every pod at once.
+// live answers as long as the process is running.
 func (s *Server) live(w http.ResponseWriter, _ *http.Request) {
 	writePlain(w, http.StatusOK, "ok")
 }
 
-// readyz answers only when boot has finished, shutdown has not begun, and
-// every dependency answers.
+// readyz answers only when boot has finished, shutdown has not begun, and every dependency answers.
 func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 	if s.shuttingDown.Load() {
 		writePlain(w, http.StatusServiceUnavailable, "shutting down")
@@ -118,8 +98,7 @@ func (s *Server) readyz(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// bounded so a hung dependency fails the probe instead of holding the
-	// connection open until the kubelet's own timeout
+	// bounded so a hung dependency fails the probe instead of holding the connection open until the kubelet's.
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
 	defer cancel()
 

@@ -7,9 +7,6 @@ import (
 )
 
 // RegisterAdminV1 mounts the manager panel under /api/v1.
-//
-// Every route here is behind RequireManager and then a right, so a trading account cannot
-// reach any of it however it asks.
 func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	v1 := api.Group("/v1")
 
@@ -113,6 +110,37 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	groups.Get("/:id/commissions/:commissionId", s.Middleware.Authorization(model.MgrRightGroupCommission), s.GetGroupCommission)
 	groups.Patch("/:id/commissions/:commissionId", s.Middleware.Authorization(model.MgrRightGroupCommission), s.UpdateGroupCommission)
 	groups.Delete("/:id/commissions/:commissionId", s.Middleware.Authorization(model.MgrRightGroupCommission), s.DeleteGroupCommission)
+
+	// orders
+	orders := v1.Group("/orders", s.Middleware.Protect, s.Middleware.RequireManager)
+	orders.Get("/", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAllOrders)
+	orders.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAccountOrders)
+	orders.Get("/:order_id", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetOrder)
+	orders.Post("/", s.Middleware.Authorization(model.MgrRightTradesManager), s.CreateOrder)
+	orders.Put("/:order_id", s.Middleware.Authorization(model.MgrRightTradesManager), s.UpdateOrder)
+	orders.Post("/:order_id/cancel", s.Middleware.Authorization(model.MgrRightTradesManager), s.CancelOrder)
+
+	// positions
+	positions := v1.Group("/positions", s.Middleware.Protect, s.Middleware.RequireManager)
+	positions.Get("/", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAllPositions)
+	positions.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAccountPositions)
+	positions.Get("/:position_id", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetPosition)
+	positions.Put("/:position_id", s.Middleware.Authorization(model.MgrRightTradesManager), s.UpdatePosition)
+	positions.Post("/:position_id/close", s.Middleware.Authorization(model.MgrRightTradesManager), s.ClosePosition)
+	positions.Post("/:position_id/close-by", s.Middleware.Authorization(model.MgrRightTradesManager), s.CloseByPosition)
+
+	// deals
+	deals := v1.Group("/deals", s.Middleware.Protect, s.Middleware.RequireManager)
+	deals.Get("/", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAllDeals)
+	deals.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAccountDeals)
+	deals.Get("/:deal_id", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetDeal)
+
+	// the dealing desk
+	dealing := v1.Group("/dealing", s.Middleware.Protect, s.Middleware.RequireManager)
+	dealing.Post("/:request_id/confirm", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ConfirmRequest)
+	dealing.Post("/:request_id/requote", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RequoteRequest)
+	dealing.Post("/:request_id/reject", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RejectRequest)
+	dealing.Post("/:request_id/cancel", s.Middleware.Authorization(model.MgrRightTradesDealer), s.CancelRequest)
 
 	// server journal
 	journal := v1.Group("/journal", s.Middleware.Protect, s.Middleware.RequireManager)

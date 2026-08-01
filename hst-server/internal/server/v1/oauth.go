@@ -46,7 +46,7 @@ type ChangePasswordRequest struct {
 	NewPassword string `json:"new_password" validate:"required,min=8,max=128"`
 }
 
-// loginDenied is a refusal with the status and MT5 code it should carry.
+// loginDenied is a refusal with the status and the platform code it should carry.
 type loginDenied struct {
 	status int
 	code   http.RetCode
@@ -71,9 +71,6 @@ type ViewMe struct {
 }
 
 // LoginAs authenticates and opens a session for one panel.
-//
-// The panel is the caller's route, not a field in the body: a request that reached the manager
-// login may only open a staff session, whatever terminal type it claims.
 func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 	ctx := c.UserContext()
 	ip := utils.GetRealIP(c)
@@ -130,7 +127,7 @@ func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 		ConnectionType: body.ConnectionType,
 		IpAddress:      ip,
 		UserAgent:      utils.GetUserAgent(c),
-		// MT5 reset_pass: the session opens, but it may only change the password
+		// reset_pass: the session opens, but it may only change the password
 		Restricted: user.Rights.MustChangePassword(),
 	}, "", "")
 	if err != nil {
@@ -146,9 +143,6 @@ func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 }
 
 // checkPassword loads the login, verifies the password, and reports which slot answered.
-//
-// Staff authenticate with the master slot only. A trading terminal may also present the investor
-// password, which opens a session that sees everything and trades nothing.
 func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, ip string,
 	connType model.UsersConnectionTypes) (*model.User, model.UsersPasswords, error) {
 	user := &model.User{}
@@ -208,9 +202,6 @@ func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, i
 }
 
 // checkTraderAccess decides whether this login may use the trader panel.
-//
-// A trader needs no manager row; what it needs is an account that may connect and that somebody
-// has approved. A preliminary account exists but has not been approved, so it may not trade yet.
 func (s *HttpServer) checkTraderAccess(ctx context.Context, u *model.User) error {
 	// a member of staff is not a trading account, whichever door it knocks on
 	if _, err := s.SelectManager(ctx, u.Login); err == nil {
@@ -246,7 +237,7 @@ func (s *HttpServer) checkManagerAccess(ctx context.Context, login int64,
 		return nil, err
 	}
 
-	// admin and manager terminals are gated separately in MT5
+	// admin and manager terminals are gated separately in the platform
 	if !manager.PermitsTerminal(connType) {
 		return nil, denied(http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
 	}
@@ -357,8 +348,7 @@ func (s *HttpServer) RefreshSession(c *fiber.Ctx, staffOnly bool) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	// a session refreshes on the panel that issued it, and being on the wrong one is a plain
-	// refusal: the token is not locked yet, so a misaddressed client does not lose its session
+	// a session refreshes on the panel that issued it, and being on the wrong one is a plain refusal.
 	if model.UsersConnectionTypes(old.ConnectionType).IsStaff() != staffOnly {
 		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel)
 	}

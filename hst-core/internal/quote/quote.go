@@ -1,7 +1,4 @@
 // Package quote keeps the latest price for every symbol.
-//
-// Every pod holds every price, because any pod may hold an account trading any symbol. Prices
-// are small and change constantly, so they live in memory only and are never written down here.
 package quote
 
 import (
@@ -11,10 +8,6 @@ import (
 )
 
 // Book holds the last quote per symbol.
-//
-// Reads massively outnumber writes — one write per tick against a read for every account and
-// position touching that symbol — so this is a plain RWMutex over a map rather than anything
-// cleverer. Measure before changing it.
 type Book struct {
 	mu     sync.RWMutex
 	ticks  map[string]model.Tick
@@ -70,8 +63,7 @@ func (b *Book) Symbols() []string {
 	return out
 }
 
-// SetGap marks a symbol as having jumped. Routing rules can refuse or requote while this holds,
-// which is what the gap condition reads.
+// SetGap marks a symbol as having jumped.
 func (b *Book) SetGap(symbol string, gapped bool) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

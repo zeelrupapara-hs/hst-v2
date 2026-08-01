@@ -174,12 +174,12 @@ func (m *Manager) CanManageTrades() bool {
 	return m.RightTradesRead == 1 && m.RightTradesManager == 1
 }
 
-// CanDeleteTrades requires trades_manager per MT5.
+// CanDeleteTrades requires trades_manager.
 func (m *Manager) CanDeleteTrades() bool {
 	return m.CanManageTrades() && m.RightTradesDelete == 1
 }
 
-// CanDeleteAccounts requires acc_manager per MT5.
+// CanDeleteAccounts requires acc_manager.
 func (m *Manager) CanDeleteAccounts() bool {
 	return m.RightAccManager == 1 && m.RightAccDelete == 1
 }
@@ -391,12 +391,12 @@ func (r ManagerRights) CanManageTrades() bool {
 	return r.Has(MgrRightTradesRead) && r.Has(MgrRightTradesManager)
 }
 
-// CanDeleteTrades requires trades_manager per MT5.
+// CanDeleteTrades requires trades_manager.
 func (r ManagerRights) CanDeleteTrades() bool {
 	return r.CanManageTrades() && r.Has(MgrRightTradesDelete)
 }
 
-// CanDeleteAccounts requires acc_manager per MT5.
+// CanDeleteAccounts requires acc_manager.
 func (r ManagerRights) CanDeleteAccounts() bool {
 	return r.Has(MgrRightAccManager) && r.Has(MgrRightAccDelete)
 }

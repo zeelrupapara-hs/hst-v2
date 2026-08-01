@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-// DailyWriter writes <dir>/YYYYMMDD.log, rolling at midnight like MT5.
+// DailyWriter writes <dir>/YYYYMMDD.log, rolling at midnight.
 type DailyWriter struct {
 	dir     string
 	maxAge  time.Duration

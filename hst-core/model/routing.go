@@ -1,12 +1,6 @@
 package model
 
-// Routing rules, from route_enum.htm and routing_rules.htm.
-//
-// The rule list decides what happens to every trade request. It is a whitelist: a request that
-// reaches the end without a terminal action is not processed at all. That is MT5's own
-// behaviour, not a house rule — the documentation says of the final catch-all rule that
-// "if such a rule is not specified at the end of the list, such requests will not be processed
-// by the server".
+// The rule list is a whitelist: a request that reaches the end without a terminal action is not processed.
 
 // Which kinds of request a rule applies to, as a set of flags. Zero means all of them.
 type RouteFlags int32
@@ -47,7 +41,6 @@ const (
 	TypeSellStopLimit TypeFlags = 0x0080
 )
 
-// TypeFlagFor is the flag matching an order type.
 func TypeFlagFor(t OrderType) TypeFlags {
 	switch t {
 	case OrderBuy:
@@ -88,10 +81,7 @@ const (
 	ActionCancelOrder   RouteAction = 1007
 )
 
-// Terminal reports whether the action ends the walk through the rules.
-//
-// The non-terminal ones — a delay, or clearing a level — change the request and let it carry on
-// to the rules below. Everything else settles the request there and then.
+// A delay or a cleared level lets the request carry on; everything else settles it.
 func (a RouteAction) Terminal() bool {
 	switch a {
 	case ActionDelayTime, ActionDelayTick, ActionClearTP, ActionClearSL, ActionClearSLTP:
@@ -100,7 +90,6 @@ func (a RouteAction) Terminal() bool {
 	return true
 }
 
-// Executes reports whether the action fills the request rather than refusing or deferring it.
 func (a RouteAction) Executes() bool {
 	return a == ActionConfirmClient || a == ActionConfirmMarket
 }
@@ -193,15 +182,12 @@ type RoutingRule struct {
 	Index       int32
 
 	Conditions []RoutingCondition
-	// Dealers are the logins a "process to dealers" action hands the request to.
-	Dealers []int64
+	Dealers    []int64
 }
 
-// Enabled reports whether the rule takes part at all.
 func (r *RoutingRule) Enabled() bool { return r.Mode == 1 }
 
-// RoutingCondition is one line of a rule's conditions table. Every condition on a rule must
-// hold for the rule to match — they are joined with AND, never OR.
+// Every condition on a rule must hold for the rule to match.
 type RoutingCondition struct {
 	ConditionId int64
 	Condition   int32

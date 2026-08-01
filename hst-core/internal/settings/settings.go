@@ -1,9 +1,4 @@
-// Package settings answers one question: for this group and this symbol, what are the rules?
-//
-// A trade is checked against three things at once — the instrument, the group, and what the
-// group overrides about that instrument. Reading all three at every check would be slow and,
-// worse, easy to get subtly wrong in one place and not another. So the three are folded into a
-// single flat answer once, and everything downstream reads that.
+// Package settings folds the instrument, the group and the group's override of it into one flat answer.
 package settings
 
 import (
@@ -13,10 +8,7 @@ import (
 	"hstcore/model"
 )
 
-// Rules is the flat answer: everything a trade needs to know about one symbol for one group.
-//
-// Every field is already resolved. Nothing downstream needs to know whether a value came from
-// the symbol or from the group's override of it.
+// Rules is everything a trade needs to know about one symbol for one group, already resolved.
 type Rules struct {
 	Symbol   *model.Symbol
 	Group    *model.Group
@@ -55,32 +47,27 @@ type Rules struct {
 	CurrencyProfit string
 	CurrencyMargin string
 
-	// Instant execution slippage, in points, either side of the requested price.
-	SlipProfit int32
-	SlipLosing int32
-	// IEVolumeMax is the largest volume instant execution will take; above it MT5 falls back to
-	// the request mode and a dealer.
-	IEVolumeMax int64
+	// MaxDeviationTime is how stale a quote may be, in seconds, before instant execution requotes.
+	MaxDeviationTime int32
+	// Slippage in points either side of the requested price, before instant execution requotes.
+	MaxDeviationProfit int32
+	MaxDeviationLoss   int32
+	// MaxInstantVolume is the largest volume instant execution takes; above it the order becomes a request.
+	MaxInstantVolume int64
 }
 
-// Store holds the settings for every group and symbol, and resolves them on demand.
-//
-// Groups and symbols change rarely — a manager editing them — while lookups happen on every
-// tick and every trade. So the resolved answer is cached and thrown away wholesale whenever
-// anything underneath it changes.
+// Store holds the settings for every group and symbol, and caches the resolved answer.
 type Store struct {
 	mu sync.RWMutex
 
 	groups  map[string]*model.Group  // by group path
 	symbols map[string]*model.Symbol // by symbol name
-	// overrides are held per group, in the order the group lists them: the first path that
-	// matches a symbol wins, which is how MT5 resolves `Forex\*` against `Forex\EURUSD`.
+	// overrides are held per group, in the order the group lists them.
 	overrides map[int64][]*model.GroupSymbol
 
 	resolved map[string]*Rules // by group path + "\x00" + symbol
 }
 
-// New builds an empty store.
 func New() *Store {
 	return &Store{
 		groups:    make(map[string]*model.Group, 512),
@@ -90,8 +77,7 @@ func New() *Store {
 	}
 }
 
-// Load replaces everything at once. Anything half-loaded would let a trade be checked against
-// a group that has symbols but no overrides yet.
+// Load replaces everything at once; a half-loaded store would judge a trade wrongly.
 func (s *Store) Load(groups map[string]*model.Group, symbols map[string]*model.Symbol,
 	overrides map[int64][]*model.GroupSymbol) {
 	s.mu.Lock()
@@ -103,7 +89,6 @@ func (s *Store) Load(groups map[string]*model.Group, symbols map[string]*model.S
 	s.resolved = make(map[string]*Rules, 8192)
 }
 
-// Group returns one group by its path.
 func (s *Store) Group(path string) (*model.Group, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -112,7 +97,6 @@ func (s *Store) Group(path string) (*model.Group, bool) {
 	return g, ok
 }
 
-// Symbol returns one instrument by name.
 func (s *Store) Symbol(name string) (*model.Symbol, bool) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -121,7 +105,6 @@ func (s *Store) Symbol(name string) (*model.Symbol, bool) {
 	return sym, ok
 }
 
-// Groups is how many groups are loaded.
 func (s *Store) Groups() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -129,7 +112,6 @@ func (s *Store) Groups() int {
 	return len(s.groups)
 }
 
-// Symbols is how many instruments are loaded.
 func (s *Store) Symbols() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -137,10 +119,7 @@ func (s *Store) Symbols() int {
 	return len(s.symbols)
 }
 
-// For resolves the rules for a group and symbol, or reports that the group may not trade it.
-//
-// A symbol the group has no override for is not tradable by that group at all: MT5 groups list
-// what they can trade, so absence is a refusal rather than a default.
+// For resolves the rules, or reports that the group may not trade the symbol at all.
 func (s *Store) For(groupPath, symbol string) (*Rules, bool) {
 	key := groupPath + "\x00" + symbol
 
@@ -179,9 +158,7 @@ func (s *Store) For(groupPath, symbol string) (*Rules, bool) {
 	return r, true
 }
 
-// overrideFor finds the group's entry covering this symbol. The list is in the group's own
-// order and the first match wins, so a group can put `Forex\EURUSD` above `Forex\*` and have
-// the specific one take effect.
+// overrideFor finds the group's entry covering this symbol; the first match in the group's own order wins.
 func (s *Store) overrideFor(groupId int64, sym *model.Symbol) *model.GroupSymbol {
 	for _, o := range s.overrides[groupId] {
 		if matches(o.Path, sym) {
@@ -191,8 +168,7 @@ func (s *Store) overrideFor(groupId int64, sym *model.Symbol) *model.GroupSymbol
 	return nil
 }
 
-// matches reports whether a group-symbol path covers an instrument. `*` alone covers
-// everything, a trailing `*` covers a subtree, and anything else is the symbol or its path.
+// matches reports whether a group-symbol path covers an instrument.
 func matches(path string, sym *model.Symbol) bool {
 	switch {
 	case path == "" || path == "*":
@@ -205,11 +181,7 @@ func matches(path string, sym *model.Symbol) bool {
 	}
 }
 
-// resolve folds the override onto the instrument.
-//
-// An override that was never set is nil, and the instrument's own value stands. Setting a value
-// to zero on purpose is a different thing from not setting it, and the pointers keep the two
-// apart.
+// resolve folds the override onto the instrument; nil means the instrument's own value stands.
 func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 	r := &Rules{
 		Symbol:   sym,
@@ -249,9 +221,10 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		SwapLong:  pick(o.SwapLong, sym.SwapLong),
 		SwapShort: pick(o.SwapShort, sym.SwapShort),
 
-		SlipProfit:  pick(o.IESlipProfit, sym.SpreadDiff),
-		SlipLosing:  pick(o.IESlipLosing, sym.SpreadDiff),
-		IEVolumeMax: value(o.IEVolumeMax),
+		MaxDeviationTime:   value(o.IETimeout),
+		MaxDeviationProfit: pick(o.IESlipProfit, sym.SpreadDiff),
+		MaxDeviationLoss:   pick(o.IESlipLosing, sym.SpreadDiff),
+		MaxInstantVolume:   value(o.IEVolumeMax),
 	}
 
 	// a step of zero would make every volume invalid, so fall back to the smallest allowed
@@ -262,7 +235,6 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 	return r
 }
 
-// pick is the override if the group set one, otherwise the instrument's own value.
 func pick[T any](override *T, base T) T {
 	if override != nil {
 		return *override
@@ -270,7 +242,6 @@ func pick[T any](override *T, base T) T {
 	return base
 }
 
-// value is an optional number as a plain one, zero when unset.
 func value[T any](p *T) T {
 	var zero T
 	if p == nil {

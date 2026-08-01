@@ -1,9 +1,6 @@
 package model
 
-// Deal enums and record, from the MT5 SQL export (sql_mt5_deals) and admin_deals.htm.
-//
-// A deal is the money event. Orders express intent and positions hold state, but the ledger is
-// the deal table: every balance movement in the system is a row here.
+// Deal enums and record. The deal table is the ledger: every balance movement is a row here.
 
 // DealAction is what the deal did. Most values are not trades at all but balance operations.
 type DealAction int32
@@ -43,8 +40,7 @@ var DealAction_name = map[int32]string{
 // IsTrade reports whether the deal moved a position rather than only money.
 func (a DealAction) IsTrade() bool { return a == DealAction_buy || a == DealAction_sell }
 
-// IsCanceled reports whether an external system voided the deal. A canceled deal takes no part
-// in the account's financial state and is skipped when positions are recalculated.
+// IsCanceled reports whether an external system voided the deal, which takes it out of the money.
 func (a DealAction) IsCanceled() bool {
 	return a == DealAction_buy_canceled || a == DealAction_sell_canceled
 }

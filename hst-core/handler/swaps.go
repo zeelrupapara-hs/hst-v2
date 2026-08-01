@@ -10,16 +10,6 @@ import (
 	"hstcore/pkg/logger"
 )
 
-// Swaps: the cost of holding a position overnight.
-//
-// Once a day, every open position is charged or paid for being carried. What is charged depends
-// on the instrument's swap mode — some quote it in points, some as a yearly percentage of the
-// position's value.
-//
-// Wednesday is charged three times. The market settles two days after the trade, so a position
-// held through Wednesday night is really being carried over the weekend, and the industry
-// charges for those three days at once.
-
 // How the swap figure on an instrument should be read.
 const (
 	swapDisabled       = 0
@@ -37,9 +27,6 @@ const (
 const tripleSwapDay = time.Wednesday
 
 // ChargeSwaps walks every account this pod holds and charges a day's carry.
-//
-// Called once a day by the scheduler. It runs over the whole book rather than one symbol, which
-// is the one job that legitimately touches every account.
 func (h *Handler) ChargeSwaps(ctx context.Context, on time.Time) {
 	days := 1
 	if on.Weekday() == tripleSwapDay {
@@ -112,13 +99,12 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry, days in
 			"login", account.Login, "error", err.Error())
 	}
 
-	h.publishAccount(&account)
+	h.PublishAccount(&account)
 
 	return true
 }
 
-// swapFor is a day's carry on one position, in the deposit currency. A negative number is a
-// charge, a positive one is paid to the client.
+// swapFor is a day's carry on one position, in the deposit currency.
 func (h *Handler) swapFor(r *settings.Rules, p *model.Position, days int) float64 {
 	rate := r.SwapLong
 	if !p.Buy() {

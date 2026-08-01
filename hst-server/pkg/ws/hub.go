@@ -2,12 +2,14 @@
 package ws
 
 import (
+	"errors"
 	"sync"
 	"time"
 
 	"hstserver/model"
 	"hstserver/pkg/logger"
 
+	"github.com/goccy/go-json"
 	"github.com/gofiber/contrib/websocket"
 	"github.com/google/uuid"
 )
@@ -27,11 +29,24 @@ const (
 	maxDrops = 64
 )
 
+// Handler answers one inbound frame.
+type Handler func(*Ctx) error
+
+// ErrorHandler turns a handler's error into what the client is sent.
+type ErrorHandler func(err error) *model.Event
+
+// ErrUnknownEvent is what an unregistered event type turns into.
+var ErrUnknownEvent = errors.New("unknown event type")
+
 // Hub owns every live connection.
 type Hub struct {
 	mu      sync.RWMutex
 	clients map[string][]*Client
 	total   int
+
+	// RouterMap binds an inbound event type to its handler, written once at startup.
+	RouterMap map[string]Handler
+	onError   ErrorHandler
 
 	log *logger.Logger
 }
@@ -39,9 +54,43 @@ type Hub struct {
 // NewHub returns an empty hub.
 func NewHub(log *logger.Logger) *Hub {
 	return &Hub{
-		clients: make(map[string][]*Client),
-		log:     log,
+		clients:   make(map[string][]*Client),
+		RouterMap: make(map[string]Handler),
+		onError:   defaultErrorHandler,
+		log:       log,
 	}
+}
+
+// RegisterRoute binds an inbound event type to a handler.
+func (h *Hub) RegisterRoute(event string, handler Handler) { h.RouterMap[event] = handler }
+
+// SetErrorHandler decides what a handler's error turns into on the wire.
+func (h *Hub) SetErrorHandler(cb ErrorHandler) { h.onError = cb }
+
+// Dispatch parses a frame and calls the bound handler.
+func (h *Hub) Dispatch(c *Client, data []byte) {
+	var in struct {
+		Type    string          `json:"type"`
+		Payload json.RawMessage `json:"payload"`
+	}
+	if err := json.Unmarshal(data, &in); err != nil {
+		c.Send(h.onError(err))
+		return
+	}
+
+	handler, ok := h.RouterMap[in.Type]
+	if !ok {
+		c.Send(h.onError(ErrUnknownEvent))
+		return
+	}
+
+	if err := handler(NewCtx(c, in.Type, in.Payload)); err != nil {
+		c.Send(h.onError(err))
+	}
+}
+
+func defaultErrorHandler(error) *model.Event {
+	return &model.Event{Type: model.EventInternalServerError}
 }
 
 // Add registers a connection and starts its pumps.
@@ -50,6 +99,7 @@ func (h *Hub) Add(conn *websocket.Conn, snap Session, ip string) *Client {
 		Id:          uuid.NewString(),
 		SessionId:   snap.SessionId,
 		Login:       snap.Login,
+		Scope:       snap.Scope,
 		Ip:          ip,
 		rights:      snap.ManagerRights,
 		groups:      snap.ManagerGroups,
@@ -79,8 +129,10 @@ func (h *Hub) Add(conn *websocket.Conn, snap Session, ip string) *Client {
 
 // Session is what the hub needs from a session snapshot.
 type Session struct {
-	SessionId     string
-	Login         int64
+	SessionId string
+	Login     int64
+	// Scope is the password slot the session authenticated with: investor may look and not touch.
+	Scope         int32
 	IsManager     bool
 	ManagerRights model.ManagerRights
 	// ManagerGroups is the group access, a list of masks.

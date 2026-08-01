@@ -68,15 +68,11 @@ func NewApp(cfg *config.Config, log *logger.Logger) *App {
 		JSONDecoder: json.Unmarshal,
 		AppName:     "hstserver",
 
-		// X-Forwarded-For is believed only from the addresses in
-		// TrustedProxies, so a client that reaches this service directly
-		// cannot forge its own address. With the list empty nothing is
-		// trusted and c.IP() is the socket address.
+		// X-Forwarded-For is believed only from the addresses in TrustedProxies, so a client that reaches this.
 		EnableTrustedProxyCheck: true,
 		TrustedProxies:          cfg.HTTP.TrustedProxies,
 		ProxyHeader:             fiber.HeaderXForwardedFor,
-		// without this, c.IP() hands back the whole header verbatim,
-		// "client, proxy1, proxy2", instead of the first valid address
+		// without this, c.IP() hands back the whole header verbatim rather than the first hop
 		EnableIPValidation: true,
 		// timeouts guard against slowloris
 		ReadTimeout:  cfg.HTTP.ReadTimeout,

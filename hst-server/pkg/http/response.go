@@ -5,9 +5,11 @@ import (
 	"math/big"
 	"strconv"
 
+	"hstserver/model"
 	"hstserver/pkg/errors"
 	"hstserver/pkg/logger"
 
+	"github.com/goccy/go-json"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -126,7 +128,7 @@ func (a *App) HttpResponseStatus(c *fiber.Ctx, status int, message error) error 
 	}
 }
 
-// HttpResponseRetCode answers 200 with an MT5 retcode.
+// HttpResponseRetCode answers 200 with a platform retcode.
 func (a *App) HttpResponseRetCode(c *fiber.Ctx, code RetCode, data interface{}) error {
 	return c.Status(StatusOK).JSON(&HttpResponse{
 		Success: true,
@@ -135,7 +137,7 @@ func (a *App) HttpResponseRetCode(c *fiber.Ctx, code RetCode, data interface{}) 
 	})
 }
 
-// HttpResponseDenied refuses a request while still carrying the MT5 retcode.
+// HttpResponseDenied refuses a request while still carrying the platform retcode.
 func (a *App) HttpResponseDenied(c *fiber.Ctx, status int, code RetCode, message error) error {
 	errStr := ErrForbidden
 	if status == StatusUnauthorized {
@@ -148,6 +150,60 @@ func (a *App) HttpResponseDenied(c *fiber.Ctx, status int, code RetCode, message
 	}
 
 	return a.fail(c, status, code, errStr, message)
+}
+
+// WS 200, the answer to an inbound frame.
+func (a *App) WSResponseOK(event string, data any) *model.Event {
+	return &model.Event{Type: event, Payload: encode(data)}
+}
+
+// WS 400
+func (a *App) WSResponseBadRequest(event string, err error) *model.Event {
+	return a.wsFail(model.EventBadRequest, event, err)
+}
+
+// WS 404
+func (a *App) WSResponseNotFound(event string, err error) *model.Event {
+	return a.wsFail(model.EventNotFound, event, err)
+}
+
+// WS 403
+func (a *App) WSResponseForbidden(event string, err error) *model.Event {
+	return a.wsFail(model.EventForbidden, event, err)
+}
+
+// WS 401
+func (a *App) WSResponseUnauthorized(event string, err error) *model.Event {
+	return a.wsFail(model.EventUnauthorized, event, err)
+}
+
+// WS 500
+func (a *App) WSResponseInternalServerErrorRequest(event string, err error) *model.Event {
+	return a.wsFail(model.EventInternalServerError, event, err)
+}
+
+// wsFail builds one refusal, naming the event that caused it.
+func (a *App) wsFail(typ, event string, err error) *model.Event {
+	message := ""
+	if err != nil {
+		message = err.Error()
+		a.Log.Log(logger.TypeNet, logger.CodeWarn, "websocket request failed",
+			"event", event, "error", message)
+	}
+
+	return &model.Event{
+		Type:    typ,
+		Payload: encode(model.ErrorPayload{Message: message, Reason: event}),
+	}
+}
+
+// encode is the event payload, which is carried raw.
+func encode(data any) []byte {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return nil
+	}
+	return raw
 }
 
 // fail logs and writes one error body. message is a safe, caller-chosen string.

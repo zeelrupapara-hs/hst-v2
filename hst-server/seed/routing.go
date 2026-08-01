@@ -16,11 +16,6 @@ type ruleCond struct {
 }
 
 // startingRules are the rules a fresh install needs to be able to trade at all.
-//
-// Order is everything: rules run top to bottom and the first terminal action wins, so a rule
-// that refuses something must sit above the rule that would have accepted it. The last entry is
-// the catch-all, and without it nothing executes — MT5 is explicit that a request matching no
-// rule is not processed by the server.
 var startingRules = []struct {
 	Name    string
 	Request model.RouteFlags
@@ -37,15 +32,13 @@ var startingRules = []struct {
 		Conds:  []ruleCond{{model.RouteCondition_gap, model.ConditionRule_eq, "1"}},
 	},
 	{
-		// anything not caught above executes at the market price. Deleting this rule stops all
-		// trading on the server, which is why it ships enabled.
+		// anything not caught above executes at the market price.
 		Name:   "Automate other requests",
 		Action: model.RouteAction_confirm_market,
 	},
 }
 
-// SeedRouting fills an empty routing table with the starting rules, and is a no-op once any rule
-// exists — a broker's own list is never rewritten.
+// SeedRouting fills an empty routing table with the starting rules, and is a no-op once any rule exists —.
 func (s *Seeder) SeedRouting(ctx context.Context) error {
 	var rules int
 	if err := s.DB.DB.QueryRow(ctx, `SELECT count(*) FROM hst.routing`).Scan(&rules); err != nil {

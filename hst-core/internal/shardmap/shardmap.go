@@ -1,23 +1,16 @@
-// Package shardmap decides which pod holds which account.
-//
-// Two steps. A login maps to a shard by a hash that never changes, so an account stays in the
-// same shard for life. Shards then map to pods, and only that second step moves when pods come
-// and go. Hashing logins straight onto the pod count would move nearly every account every time
-// the pod count changed.
+// Package shardmap decides which pod holds which account: login -> shard by a fixed hash, shard -> pod on a ring.
 package shardmap
 
 import (
 	"fmt"
+	"slices"
 	"sort"
 )
 
 // Count is how many shards exist. Fixed forever: changing it would move every account.
 const Count = 1024
 
-// ShardOf maps a login to its shard.
-//
-// The login is hashed rather than divided, because logins are handed out in order and a plain
-// remainder would put every account created on the same day onto the same pod.
+// ShardOf maps a login to its shard. Hashed, not divided: logins are handed out in order.
 func ShardOf(login int64) uint32 {
 	const (
 		offset64 = uint64(14695981039346656037)
@@ -37,20 +30,7 @@ func ShardOf(login int64) uint32 {
 	return uint32(h % uint64(Count))
 }
 
-// Subject is where a request for this login is published. The shard is in the subject, so a pod
-// subscribes to the shards it owns and nothing has to look up an owner while a trade is waiting.
-func Subject(login int64) string {
-	return fmt.Sprintf("core.s%d.request.%d", ShardOf(login), login)
-}
-
-// SubjectFor is what a pod subscribes to for one shard it owns.
-func SubjectFor(shard uint32) string { return fmt.Sprintf("core.s%d.>", shard) }
-
 // Map says which shards belong to this pod, given every pod that is alive.
-//
-// Each shard goes to the pod whose name hashes closest above it on a ring. Adding or losing a
-// pod therefore moves only the shards near that pod's place on the ring, roughly one pod's
-// share, instead of reshuffling everything.
 type Map struct {
 	me     string
 	points []point
@@ -62,11 +42,9 @@ type point struct {
 	pod  string
 }
 
-// replicas spreads each pod over the ring. One point per pod would leave big gaps and some pods
-// holding far more shards than others; a hundred smooths that out.
+// replicas spreads each pod over the ring so the shares come out even.
 const replicas = 100
 
-// New builds the map for this pod from the list of pods currently alive.
 func New(me string, pods []string) *Map {
 	m := &Map{me: me, mine: make(map[uint32]bool)}
 
@@ -90,23 +68,19 @@ func New(me string, pods []string) *Map {
 	return m
 }
 
-// Mine lists the shards this pod is responsible for, in order.
 func (m *Map) Mine() []uint32 {
 	out := make([]uint32, 0, len(m.mine))
 	for s := range m.mine {
 		out = append(out, s)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
+	slices.Sort(out)
 	return out
 }
 
-// Holds reports whether this pod owns the shard.
 func (m *Map) Holds(shard uint32) bool { return m.mine[shard] }
 
-// HoldsLogin reports whether this pod owns the account.
 func (m *Map) HoldsLogin(login int64) bool { return m.Holds(ShardOf(login)) }
 
-// podFor walks the ring to the first point at or after the shard, wrapping at the end.
 func (m *Map) podFor(shard uint32) string {
 	if len(m.points) == 0 {
 		return m.me
@@ -121,11 +95,7 @@ func (m *Map) podFor(shard uint32) string {
 	return m.points[i].pod
 }
 
-// hashString places a name on the ring.
-//
-// FNV alone is not enough here. Pod names differ by a character or two, and taking part of the
-// raw hash leaves them clustered: with four pods, one of them ended up owning nothing at all.
-// The mix below spreads single-bit differences across the whole word before it is cut down.
+// hashString places a name on the ring; the avalanche keeps near-identical pod names apart.
 func hashString(s string) uint32 {
 	const (
 		offset64 = uint64(14695981039346656037)
@@ -138,7 +108,6 @@ func hashString(s string) uint32 {
 		h *= prime64
 	}
 
-	// avalanche, so "pod-a#1" and "pod-b#1" land nowhere near each other
 	h ^= h >> 33
 	h *= 0xff51afd7ed558ccd
 	h ^= h >> 33

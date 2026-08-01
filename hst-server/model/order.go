@@ -1,6 +1,6 @@
 package model
 
-// Order enums and record, from the MT5 SQL export (sql_mt5_orders) and admin_orders.htm.
+// Order enums and record.
 
 // OrderType is what the client asked for.
 type OrderType int32
@@ -164,10 +164,7 @@ const (
 	ModifyFlags_api_gateway TradeModifyFlags = 0x00000040
 )
 
-// Order is one row of hst.orders.
-//
-// Volume is in MT5 units: one unit is 1/10000 lot, and VolumeExt is 1/100000000 lot. Prices and
-// money are decimals; times are epoch nanoseconds.
+// Order is one row of hst.orders. Volume is integer units, money is decimal, times are epoch nanoseconds.
 type Order struct {
 	OrderId          int64   `json:"order_id"`
 	ExternalId       string  `json:"external_id"`
@@ -212,11 +209,11 @@ type Order struct {
 // VolumeLots is the order volume as a decimal number of lots.
 func (o *Order) VolumeLots() float64 { return VolumeToLots(o.VolumeCurrent) }
 
-// VolumeUnit is one MT5 volume unit: 1/10000 of a lot.
+// VolumeUnit is one volume unit: 1/10000 of a lot.
 const VolumeUnit = 10000.0
 
-// VolumeToLots converts MT5 integer volume into lots.
+// VolumeToLots converts integer volume into lots.
 func VolumeToLots(v int64) float64 { return float64(v) / VolumeUnit }
 
-// LotsToVolume converts lots into MT5 integer volume.
+// LotsToVolume converts lots into integer volume.
 func LotsToVolume(lots float64) int64 { return int64(lots*VolumeUnit + 0.5) }

@@ -1,6 +1,6 @@
 package model
 
-// Routing enums from MT5 SQL export / route_enum.htm.
+// Routing enums.
 
 type RouteFlags int32
 

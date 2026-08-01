@@ -33,9 +33,6 @@ type NewLogin struct {
 }
 
 // OpenLogin creates a login and the account row that holds its money, in one transaction.
-//
-// The group decides what the account opens with, so a demo signup lands funded and everything
-// else lands empty. A login without an account row has no money state, so neither is optional.
 func (s *HttpServer) OpenLogin(ctx context.Context, n NewLogin) (int64, int, error) {
 	// the group is what the account opens with, so it is read before anything is written
 	deposit, leverage, status, err := s.OpeningBalance(ctx, n.Group)
@@ -112,7 +109,7 @@ func (s *HttpServer) hashPasswords(passwords ...string) ([]string, error) {
 	return out, nil
 }
 
-// demoSection is the group tree whose accounts open funded, as MT5 names it.
+// demoSection is the group tree whose accounts open funded, as the platform names it.
 const demoSection = "demo"
 
 // preliminarySection is the tree a real signup waits in until it is approved.
@@ -122,18 +119,13 @@ const preliminarySection = "preliminary"
 const defaultLeverage int32 = 1
 
 // OpeningBalance is what an account in this group starts with.
-//
-// A demo group opens its accounts on the house: the deposit and the leverage are the group's, and
-// unset means no money and no leverage rather than zero and zero, which would be an account that
-// cannot trade at all. A live group opens empty and is funded by a real transfer.
 func (s *HttpServer) OpeningBalance(ctx context.Context, group string) (float64, int32, int, error) {
 	var (
 		deposit  *float64
 		leverage *int32
 	)
 
-	// the group is read whichever tree it is in: a login belongs to a group, so a group that does
-	// not exist is a bad request rather than a login left pointing at nothing
+	// the group is read whichever tree it is in.
 	err := s.DB.DB.QueryRow(ctx,
 		`SELECT demo_deposit, demo_leverage FROM hst.groups WHERE "group" = $1`, group).
 		Scan(&deposit, &leverage)

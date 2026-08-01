@@ -1,7 +1,6 @@
 package model
 
-// Symbol-domain enums from MT5 SQL export / En* catalogs.
-// SymbolMarginFlags and SymbolTradeFlags are distinct from group-level enums.
+// Symbol-domain enums.
 
 type CalcMode int32
 
@@ -381,8 +380,7 @@ var (
 	}
 )
 
-// SymbolIndustry stores EnIndustries. Full ~180-member catalog is banded by
-// sector; only the undefined sentinel is named here.
+// SymbolIndustry stores EnIndustries.
 type SymbolIndustry int32
 
 const (
@@ -401,7 +399,7 @@ var (
 	SymbolSessionType_value = map[string]int32{"quote": 0, "trade": 1}
 )
 
-// Symbol is the server-wide instrument master (mt5_symbols).
+// Symbol is the server-wide instrument master.
 type Symbol struct {
 	SymbolId                       int64             `db:"symbol_id" json:"symbol_id"`
 	Symbol                         string            `db:"symbol" json:"symbol"`

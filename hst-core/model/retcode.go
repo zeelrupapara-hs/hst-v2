@@ -1,9 +1,6 @@
 package model
 
-// Return codes, mirroring MT5's MT_RET_* set.
-//
-// A refusal carries a code rather than a message, because the client terminal shows its own
-// wording for each one and a plain string would arrive untranslatable.
+// status code of return response
 type RetCode int32
 
 const (
@@ -38,10 +35,11 @@ const (
 	RetTradeNotProcessed    RetCode = 10020
 	RetTradeMaxVolume       RetCode = 10021
 	RetTradeWrongShard      RetCode = 10022
+	RetTradeDealerQueued    RetCode = 10023
+	RetTradeDealerReturned  RetCode = 10024
 )
 
-// retNames is what each refusal means, for the journal and the log. The client terminal shows
-// its own text; this is for the people running the server.
+// retNames is what each refusal means, for the journal and the log.
 var retNames = map[RetCode]string{
 	RetOK:                   "done",
 	RetError:                "internal error",
@@ -71,9 +69,10 @@ var retNames = map[RetCode]string{
 	RetTradeNotProcessed:    "no routing rule admitted this request",
 	RetTradeMaxVolume:       "position volume limit reached",
 	RetTradeWrongShard:      "account is not held here",
+	RetTradeDealerQueued:    "request placed in a dealer queue",
+	RetTradeDealerReturned:  "request rejected, due all assigned dealers returned request in queue",
 }
 
-// String is what the code means, in words.
 func (r RetCode) String() string {
 	if s, ok := retNames[r]; ok {
 		return s
@@ -81,5 +80,4 @@ func (r RetCode) String() string {
 	return "unknown"
 }
 
-// OK reports whether the code means the request went through.
 func (r RetCode) OK() bool { return r == RetOK }

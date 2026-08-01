@@ -77,7 +77,7 @@ COMMENT ON COLUMN hst.groups.auth_mode IS 'EnAuthMode';
 COMMENT ON COLUMN hst.groups.news_langs IS 'Windows LANGID values';
 COMMENT ON COLUMN hst.groups.reports_smtp IS 'Obsolete';
 COMMENT ON COLUMN hst.groups.reports_smtp_login IS 'Obsolete';
-COMMENT ON COLUMN hst.groups.limit_positions_volume IS 'Unused by MT5 currently';
+COMMENT ON COLUMN hst.groups.limit_positions_volume IS 'Currently unused';
 
 CREATE UNIQUE INDEX IF NOT EXISTS groups_group_uidx ON hst.groups ("group");
 CREATE INDEX IF NOT EXISTS groups_updated_at_idx ON hst.groups (updated_at DESC);

@@ -1,9 +1,6 @@
 package model
 
 // Tick is one quote, as hst-quote publishes it on hstquote.tick.<symbol>.
-//
-// Bid and Ask are the only two prices the engine needs to fill: a buy trades at Ask, a sell at
-// Bid. Last and Volume are carried for exchange instruments and reporting.
 type Tick struct {
 	Symbol     string  `json:"symbol"`
 	Digits     int32   `json:"digits"`
@@ -41,6 +38,5 @@ func (t *Tick) ClosePriceFor(buyPosition bool) float64 {
 // SubjectTick is where hst-quote publishes a symbol's quotes.
 func SubjectTick(symbol string) string { return "hstquote.tick." + symbol }
 
-// SubjectTickAll matches every symbol's quotes. Every engine pod subscribes to this: quotes are
-// broadcast because any pod may hold an account trading any symbol.
+// SubjectTickAll matches every symbol's quotes.
 const SubjectTickAll = "hstquote.tick.*"

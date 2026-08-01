@@ -100,8 +100,7 @@ func Run() int {
 
 	log.Logger.Info("redis connected")
 
-	// probes, started before the handler so a slow boot reads as "not ready"
-	// rather than as a dead pod
+	// probes, started before the handler so a slow boot reads as "not ready" rather than as a dead pod.
 	probes := health.New(cfg, log, map[string]health.Check{
 		"postgres": func(ctx context.Context) error { return database.DB.Ping(ctx) },
 		"redis":    redisClient.Health,
@@ -146,9 +145,7 @@ func Run() int {
 	sig := <-quit
 	log.Logger.Infow("shutdown signal received", "signal", sig.String())
 
-	// fail readiness first and give the endpoints controller time to route
-	// away. Shutting down immediately means traffic is still arriving at a pod
-	// that has stopped answering.
+	// fail readiness first and give the endpoints controller time to route away.
 	probes.Draining()
 	log.Logger.Infow("draining before shutdown", "wait", cfg.Health.DrainWait.String())
 	time.Sleep(cfg.Health.DrainWait)

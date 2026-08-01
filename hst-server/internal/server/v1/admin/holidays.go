@@ -18,15 +18,11 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// holidayOrderLock serialises the two writers that pick a config_index. There is
-// no parent row to lock, unlike leverage rules, so the lock is on the table.
-//
+// holidayOrderLock serialises the two writers that pick a config_index.
 // ponytail: one advisory lock for the whole calendar; the table is tiny and edits
-// are rare, split it if that ever contends.
 const holidayOrderLock int64 = 0x484f4c49 // "HOLI"
 
-// CrtHoliday creates one holiday. from and to are the minutes the server stays
-// open, both zero means the day has no working time.
+// CrtHoliday creates one holiday.
 type CrtHoliday struct {
 	Year        int32    `json:"year" validate:"gte=0,lte=9999"`
 	Month       int16    `json:"month" validate:"required,gte=1,lte=12"`
@@ -38,10 +34,7 @@ type CrtHoliday struct {
 	Symbols     []string `json:"symbols" validate:"required,min=1,max=128,dive,required,max=128"`
 }
 
-// UptHoliday patches one holiday. Every field is a pointer, so an absent one
-// keeps its value. Symbols is a pointer to a slice for the same reason: absent
-// keeps the masks, a populated array replaces them. holiday_id, timestamp and
-// config_index are server owned and not settable.
+// UptHoliday patches one holiday.
 type UptHoliday struct {
 	Year        *int32    `json:"year" validate:"omitempty,gte=0,lte=9999"`
 	Month       *int16    `json:"month" validate:"omitempty,gte=1,lte=12"`
@@ -84,7 +77,7 @@ const holidayColumns = `holiday_id, year, month, day, "from", "to",
 	description, "timestamp", mode, symbols, config_index`
 
 // CreateHoliday appends a holiday to the calendar. It lands last, which matters
-// only for the MT5 list order, not for the resolver.
+// only for list order, not for the resolver.
 //
 //	@Id			CreateHoliday
 //	@Tags		Holidays
@@ -117,8 +110,7 @@ func (s *Server) CreateHoliday(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// without the lock two appends can pick the same config_index and one loses
-	// to the unique index
+	// without the lock two appends can pick the same config_index and one loses to the unique index.
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, holidayOrderLock); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -180,13 +172,12 @@ func (s *Server) ListHolidays(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
-	// the list order is the MT5 panel order, so ascending is the useful default
+	// the list order is panel order, so ascending is the useful default
 	if c.Query("order") == "" {
 		q.SortBy = strings.TrimSuffix(q.SortBy, " DESC") + " ASC"
 	}
 
-	// sort_by is validated against an allowlist in QueryFilter; a bind
-	// parameter cannot carry an ORDER BY clause
+	// sort_by is validated against an allowlist in QueryFilter.
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+holidayColumns+`
 		   FROM hst.holidays
@@ -277,8 +268,7 @@ func (s *Server) UpdateHoliday(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// the date and the work time are checked as a whole, and any part of either
-	// may be the one that is changing
+	// the date and the work time are checked as a whole, and any part of either may be the one that is changing.
 	var before model.Holiday
 	err = tx.QueryRow(ctx,
 		`SELECT year, month, day, "from", "to" FROM hst.holidays
@@ -420,7 +410,7 @@ func (s *Server) DeleteHoliday(c *fiber.Ctx) error {
 }
 
 // ReorderHolidays rewrites the list order. The body must list every holiday
-// exactly once, because a partial order is ambiguous. The order is MT5 parity
+// exactly once, because a partial order is ambiguous. The order is parity
 // only, the resolver does not read it.
 //
 //	@Id			ReorderHolidays
@@ -459,8 +449,7 @@ func (s *Server) ReorderHolidays(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// the lock stops a concurrent append slipping in between the count and the
-	// rewrite and leaving a holiday without an index
+	// the lock stops a concurrent append slipping in between the count and the rewrite and leaving a holiday.
 	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, holidayOrderLock); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -473,8 +462,7 @@ func (s *Server) ReorderHolidays(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrReorderMustListEveryHoliday)
 	}
 
-	// with the counts equal and no duplicates, every id existing proves the two
-	// sets are identical
+	// with the counts equal and no duplicates, every id existing proves the two sets are identical.
 	var owned int
 	if err := tx.QueryRow(ctx,
 		`SELECT count(*) FROM hst.holidays WHERE holiday_id = ANY($1)`,
@@ -485,8 +473,7 @@ func (s *Server) ReorderHolidays(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrReorderMustListEveryHoliday)
 	}
 
-	// park the indexes out of range first, otherwise the unique constraint fires
-	// the moment two holidays swap places
+	// park the indexes out of range first, otherwise the unique constraint fires the moment two holidays swap.
 	if _, err := tx.Exec(ctx,
 		`UPDATE hst.holidays SET config_index = -(config_index + 1)`); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
@@ -558,8 +545,7 @@ func (s *Server) CheckHoliday(c *fiber.Ctx) error {
 		on = parsed
 	}
 
-	// group masks are matched against the path, so it has to be resolved; an
-	// unknown symbol stands in for itself, masks are never validated anyway
+	// group masks are matched against the path, so it has to be resolved.
 	path := symbol
 	if err := s.DB.DB.QueryRow(ctx,
 		`SELECT path FROM hst.symbols WHERE symbol = $1`, symbol).Scan(&path); err != nil &&
@@ -595,14 +581,7 @@ func (s *Server) CheckHoliday(c *fiber.Ctx) error {
 	})
 }
 
-// HolidayWindows merges the work time every matching holiday leaves open for a
-// symbol on one date. holiday false means no record matched, in which case the
-// normal symbol sessions apply untouched, not that the symbol is closed.
-//
-// MT5 checks the list top down and the first record that allows a symbol-interval
-// wins, so a later record can only add open minutes and never take them back.
-// That makes the result the union of the matching work times, which is order
-// independent, so this does not read config_index.
+// HolidayWindows merges the work time every matching holiday leaves open for a symbol on one date.
 func HolidayWindows(hs []model.Holiday, symbol, path string, on time.Time) (
 	windows []HolidayWindow, matched []int64, holiday bool) {
 
@@ -664,8 +643,7 @@ func validateHoliday(year int32, month, day int16, from, to int32) error {
 		return fmt.Errorf("to must not be earlier than from, got %d and %d", from, to)
 	}
 
-	// day 31 does not exist in February and a CHECK constraint cannot tell. A
-	// yearly holiday is checked against a leap year so 29 February stays legal.
+	// day 31 does not exist in February and a CHECK constraint cannot tell.
 	y := int(year)
 	if y == 0 {
 		y = 2024

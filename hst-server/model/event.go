@@ -91,7 +91,37 @@ const (
 
 	// EventSessionRevoked tells a socket its session is gone; the server closes the connection right after sending it.
 	EventSessionRevoked = "session.revoked"
+
+	EventOrderCreate       = "order_create"
+	EventOrderDealerCreate = "order_dealer_create"
+	EventOrderUpdate       = "order_update"
+	EventOrderDealerUpdate = "order_dealer_update"
+	EventOrderCancel       = "order_cancel"
+	EventOrderDealerCancel = "order_dealer_cancel"
+
+	EventPositionUpdate       = "position_update"
+	EventPositionDealerUpdate = "position_dealer_update"
+	EventPositionClose        = "position_close"
+	EventPositionDealerClose  = "position_dealer_close"
+	EventPositionCloseBy      = "position_close_by"
+
+	EventDealerConfirm = "dealer_confirm"
+	EventDealerRequote = "dealer_requote"
+	EventDealerReject  = "dealer_reject"
+	EventDealerCancel  = "dealer_cancel"
+
+	EventBadRequest          = "bad_request"
+	EventNotFound            = "not_found"
+	EventForbidden           = "forbidden"
+	EventUnauthorized        = "unauthorized"
+	EventInternalServerError = "internal_server_error"
 )
+
+// ErrorPayload is what a refused socket request carries back.
+type ErrorPayload struct {
+	Message string `json:"message"`
+	Reason  string `json:"reason"`
+}
 
 // Subject roots.
 const (

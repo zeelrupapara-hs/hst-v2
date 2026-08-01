@@ -26,11 +26,7 @@ func (m *Middleware) Authorization(right uint) fiber.Handler {
 	}
 }
 
-// RequireTrader gates the trader panel: a session that owns one account and nothing else.
-//
-// Staff are refused here rather than let through with extra powers, because the two panels
-// answer different questions and a manager reading a trader route would be reading it as
-// somebody who has no account of their own.
+// RequireTrader gates the trader panel.
 func (m *Middleware) RequireTrader(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {

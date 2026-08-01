@@ -2,93 +2,22 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"hstcore/internal/book"
 	"hstcore/internal/settings"
 	"hstcore/model"
 	"hstcore/pkg/logger"
-
-	natscore "github.com/nats-io/nats.go"
 )
 
-// The trade request pipeline.
-//
-//	find the account   →  it must live in this pod
-//	resolve settings   →  what this group may do with this instrument
-//	check              →  the broker's own limits
-//	route              →  what the broker wants to do about it
-//	execute            →  deals and positions
-//	save and publish   →  the database, then the client
-//
-// The account is locked from the check to the save. Everything in between reads balances and
-// positions that must not move underneath it.
+// The order verbs.
 
-// TradeRequest is what the API server sends when a client asks to trade.
-type TradeRequest struct {
-	RequestId string  `json:"request_id"`
-	Login     int64   `json:"login"`
-	Symbol    string  `json:"symbol"`
-	Type      int32   `json:"type"`
-	Volume    int64   `json:"volume"`
-	Price     float64 `json:"price"`
-	PriceSL   float64 `json:"price_sl"`
-	PriceTP   float64 `json:"price_tp"`
-	TypeFill  int32   `json:"type_fill"`
-	TypeTime  int32   `json:"type_time"`
-	Expiry    int64   `json:"expiry"`
-	Comment   string  `json:"comment"`
-	ExpertId  int64   `json:"expert_id"`
-	Reason    int32   `json:"reason"`
-	Dealer    int64   `json:"dealer"`
-}
-
-// TradeResult is what goes back.
-type TradeResult struct {
-	RequestId  string  `json:"request_id"`
-	Login      int64   `json:"login"`
-	RetCode    int32   `json:"retcode"`
-	Message    string  `json:"message"`
-	OrderId    int64   `json:"order_id,omitempty"`
-	PositionId int64   `json:"position_id,omitempty"`
-	DealId     int64   `json:"deal_id,omitempty"`
-	Price      float64 `json:"price,omitempty"`
-	Volume     int64   `json:"volume,omitempty"`
-	Profit     float64 `json:"profit,omitempty"`
-	// Rule names the routing rule that settled the request, so a refusal can be explained.
-	Rule string `json:"rule,omitempty"`
-}
-
-// onTradeRequest handles one request off the wire.
-func (h *Handler) onTradeRequest(msg *natscore.Msg) {
-	var req TradeRequest
-	if err := json.Unmarshal(msg.Data, &req); err != nil {
-		h.Log.Log(logger.TypeTrade, logger.CodeErr, "bad trade request", "error", err.Error())
-		return
-	}
-
-	res := h.Trade(context.Background(), &req)
-
-	if msg.Reply != "" {
-		if body, err := json.Marshal(res); err == nil {
-			if err := msg.Respond(body); err != nil {
-				h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not answer a trade request",
-					"login", req.Login, "error", err.Error())
-			}
-		}
-	}
-
-	h.publishResult(res)
-}
-
-// Trade runs one request all the way through.
-func (h *Handler) Trade(ctx context.Context, req *TradeRequest) *TradeResult {
-	res := &TradeResult{RequestId: req.RequestId, Login: req.Login}
+// NewOrder runs one request all the way through.
+func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.TradeResult {
+	res := &model.TradeResult{RequestId: req.RequestId, Login: req.Login}
 
 	e, ok := h.Accounts.Get(req.Login)
 	if !ok {
-		// the request reached the wrong pod, which means the shard map disagrees somewhere
 		return h.refuse(res, model.RetTradeWrongShard, "")
 	}
 
@@ -106,30 +35,52 @@ func (h *Handler) Trade(ctx context.Context, req *TradeRequest) *TradeResult {
 
 	e.Lock()
 
-	if code := h.Check(e, order, r, tick); !code.OK() {
+	if code := h.ValidateOrder(e, order, r, tick); !code.OK() {
 		e.Unlock()
 		return h.refuse(res, code, "")
 	}
 
+	code, kind := h.checkExecution(order, r, tick)
+	if !code.OK() {
+		e.Unlock()
+		res.Bid, res.Ask = tick.Bid, tick.Ask
+		return h.refuse(res, code, "")
+	}
+
 	decision := h.Route(&Request{
-		Kind:      kindOf(order, r),
+		Kind:      kind,
 		Order:     order,
 		Entry:     e,
 		Rules:     r,
 		Tick:      tick,
 		Gapped:    h.Quotes.Gapped(req.Symbol),
-		Deviation: deviation(order, tick, r),
+		Deviation: h.deviation(order, tick, r),
 	})
 
-	// a rule asked to wait before deciding; hold the account through it so the request keeps
-	// its place, which is what MT5 does with a delay
+	e.Unlock()
+
+	// a rule asked to wait before deciding.
 	if decision.Delay > 0 {
 		time.Sleep(decision.Delay)
 	}
 
 	if !decision.Executes() {
+		return h.refuseByRule(res, decision, e, req, order, model.StateRequestAdd)
+	}
+
+	// a pending order does not fill now; it goes on the book and waits for its price
+	if order.Kind().Pending() {
+		return h.placeOrder(ctx, res, e, order, decision.Rule.Name)
+	}
+
+	e.Lock()
+
+	if t, ok := h.Quotes.Get(req.Symbol); ok {
+		tick = t
+	}
+	if code := h.checkMoney(e, order, r, tick); !code.OK() {
 		e.Unlock()
-		return h.refuseByRule(res, decision)
+		return h.refuse(res, code, "")
 	}
 
 	// confirm-by-request-price fills where the client asked; confirm-by-market fills here
@@ -146,7 +97,7 @@ func (h *Handler) Trade(ctx context.Context, req *TradeRequest) *TradeResult {
 	account := *e.Account
 	e.Unlock()
 
-	if err := h.save(ctx, e, order, fill, &account); err != nil {
+	if err := h.SaveOrderAndPublish(ctx, e, order, fill, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a trade",
 			"login", req.Login, "error", err.Error())
 		return h.refuse(res, model.RetError, "")
@@ -167,8 +118,6 @@ func (h *Handler) Trade(ctx context.Context, req *TradeRequest) *TradeResult {
 		res.DealId = fill.Deals[0].DealId
 	}
 
-	h.publishTrade(e, order, fill, &account)
-
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "trade done",
 		"login", req.Login, "symbol", req.Symbol, "volume", model.Lots(order.VolumeCurrent),
 		"price", price, "rule", decision.Rule.Name)
@@ -176,18 +125,349 @@ func (h *Handler) Trade(ctx context.Context, req *TradeRequest) *TradeResult {
 	return res
 }
 
+// UpdateOrder moves a working pending order's price, levels and expiry.
+func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *model.TradeResult {
+	res := &model.TradeResult{RequestId: req.RequestId, Login: req.Login}
+
+	e, ok := h.Accounts.Get(req.Login)
+	if !ok {
+		return h.refuse(res, model.RetTradeWrongShard, "")
+	}
+
+	e.Lock()
+
+	o, ok := e.Orders[req.OrderId]
+	if !ok {
+		e.Unlock()
+		return h.refuse(res, model.RetNotFound, "")
+	}
+	if !model.OrderState(o.State).Live() {
+		e.Unlock()
+		return h.refuse(res, model.RetTradeFrozen, "")
+	}
+	if o.Kind().Market() {
+		e.Unlock()
+		return h.refuse(res, model.RetInvalidData, "a market order cannot be modified")
+	}
+
+	r, ok := h.Settings.For(e.Account.Group, o.Symbol)
+	if !ok {
+		e.Unlock()
+		return h.refuse(res, model.RetTradeBadSymbol, "")
+	}
+
+	tick, ok := h.Quotes.Get(o.Symbol)
+	if !ok {
+		e.Unlock()
+		return h.refuse(res, model.RetTradeNoQuotes, "")
+	}
+
+	// the change is validated and routed on a copy, so a refusal leaves the working order alone
+	want := *o
+	if req.Price > 0 {
+		want.PriceOrder = req.Price
+	}
+	if req.PriceTrigger > 0 {
+		want.PriceTrigger = req.PriceTrigger
+	}
+	want.PriceSL, want.PriceTP = req.PriceSL, req.PriceTP
+	if req.TypeTime > 0 || req.Expiry > 0 {
+		want.TypeTime, want.TimeExpiration = req.TypeTime, req.Expiry
+	}
+
+	if code := h.checkExpiry(&want, r); !code.OK() {
+		e.Unlock()
+		return h.refuse(res, code, "")
+	}
+	if code := h.checkStops(&want, r, tick); !code.OK() {
+		e.Unlock()
+		return h.refuse(res, code, "")
+	}
+
+	decision := h.Route(&Request{
+		Kind:      model.RouteModify,
+		Order:     &want,
+		Entry:     e,
+		Rules:     r,
+		Tick:      tick,
+		Gapped:    h.Quotes.Gapped(o.Symbol),
+		Deviation: h.deviation(&want, tick, r),
+	})
+
+	if !decision.Executes() {
+		e.Unlock()
+		return h.refuseByRule(res, decision, e, req, &want, model.StateRequestModify)
+	}
+
+	*o = want
+	if req.Dealer != 0 {
+		o.Dealer = req.Dealer
+	}
+
+	saved := *o
+	e.Unlock()
+
+	if err := h.writeOrder(ctx, &saved); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not modify an order",
+			"login", saved.Login, "order", saved.OrderId, "error", err.Error())
+		return h.refuse(res, model.RetError, "")
+	}
+
+	h.PublishWS(model.SubjectAccountOrders(saved.Login), "order", &saved)
+
+	res.RetCode = int32(model.RetOK)
+	res.Message = model.RetOK.String()
+	res.OrderId = saved.OrderId
+	res.Price = saved.PriceOrder
+	res.Volume = saved.VolumeCurrent
+	res.Rule = decision.Rule.Name
+
+	h.Log.Log(logger.TypeTrade, logger.CodeOK, "order modified",
+		"login", saved.Login, "order", saved.OrderId, "price", saved.PriceOrder)
+
+	return res
+}
+
+// CancelOrder is the client's own removal of a working pending order.
+func (h *Handler) CancelOrder(ctx context.Context, req *model.TradeRequest) *model.TradeResult {
+	res := &model.TradeResult{RequestId: req.RequestId, Login: req.Login}
+
+	e, ok := h.Accounts.Get(req.Login)
+	if !ok {
+		return h.refuse(res, model.RetTradeWrongShard, "")
+	}
+
+	e.Lock()
+
+	o, ok := e.Orders[req.OrderId]
+	if !ok {
+		e.Unlock()
+		return h.refuse(res, model.RetNotFound, "")
+	}
+	if !model.OrderState(o.State).Live() {
+		e.Unlock()
+		return h.refuse(res, model.RetTradeFrozen, "")
+	}
+
+	r, ok := h.Settings.For(e.Account.Group, o.Symbol)
+	if !ok {
+		e.Unlock()
+		return h.refuse(res, model.RetTradeBadSymbol, "")
+	}
+
+	tick, _ := h.Quotes.Get(o.Symbol)
+
+	decision := h.Route(&Request{
+		Kind: model.RouteRemove, Order: o, Entry: e, Rules: r, Tick: tick,
+		Gapped: h.Quotes.Gapped(o.Symbol),
+	})
+
+	if !decision.Executes() {
+		e.Unlock()
+		return h.refuseByRule(res, decision, e, req, o, model.StateRequestCancel)
+	}
+
+	comment := req.Comment
+	if comment == "" {
+		comment = "deleted [by client]"
+	}
+
+	orderId, volume := o.OrderId, o.VolumeCurrent
+	h.removeOrder(ctx, e, o, comment)
+
+	res.RetCode = int32(model.RetOK)
+	res.Message = model.RetOK.String()
+	res.OrderId = orderId
+	res.Volume = volume
+	res.Rule = decision.Rule.Name
+
+	return res
+}
+
+// CookOrder fills a pending order the price reached, or turns a stop limit into a limit.
+func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, t model.Tick) error {
+	o := hit.order
+
+	e.Lock()
+
+	// another tick may have taken it already
+	if _, still := e.Orders[o.OrderId]; !still {
+		e.Unlock()
+		return nil
+	}
+
+	r, ok := h.Settings.For(e.Account.Group, o.Symbol)
+	if !ok {
+		e.Unlock()
+		return nil
+	}
+
+	// expiry first: an order whose time has run out must not fill on the tick that expires it
+	if o.ActivationFlags&model.ActivationFlagNoExpiry == 0 &&
+		o.TimeExpiration > 0 && o.TimeExpiration <= Now() {
+		h.removeOrder(ctx, e, o, "expired")
+		return nil
+	}
+
+	if hit.toLimit {
+		h.cookStopLimit(ctx, e, o, r)
+		return nil
+	}
+
+	// the rules see an activation as its own kind of request, so a broker can hold one during a gap
+	decision := h.Route(&Request{
+		Kind: model.RouteActivate, Order: o, Entry: e, Rules: r, Tick: t,
+		Gapped: h.Quotes.Gapped(o.Symbol),
+	})
+
+	if !decision.Executes() {
+		// cancel order is the rule that exists precisely for this.
+		if decision.Action == model.ActionCancelOrder {
+			h.removeOrder(ctx, e, o, "deleted [by routing rule]")
+			return nil
+		}
+
+		e.Unlock()
+		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "an activation was not admitted by any rule",
+			"login", o.Login, "order", o.OrderId)
+
+		return nil
+	}
+
+	// the margin is checked again when the order fires, not only when it was accepted
+	if code := h.checkMoney(e, o, r, t); !code.OK() {
+		h.removeOrder(ctx, e, o, "canceled, not enough money")
+		return nil
+	}
+
+	// a limit fills at its own price; anything else fills at the market
+	price := o.PriceOrder
+	if decision.AtMarket() && o.Kind() != model.OrderBuyLimit && o.Kind() != model.OrderSellLimit {
+		price = t.OpenPrice(o.Kind().Buy())
+	}
+	price = NormalisePrice(price, r.Digits)
+
+	// the fill is a market order of the same side and size, against the pending order's ticket
+	fillOrder := *o
+	fillOrder.Type = int32(model.OrderBuy)
+	if !o.Kind().Buy() {
+		fillOrder.Type = int32(model.OrderSell)
+	}
+	fillOrder.Reason = int32(model.ReasonClient)
+
+	fill := h.Execute(e, &fillOrder, r, price, Now())
+
+	delete(e.Orders, o.OrderId)
+	o.State = int32(model.StateFilled)
+	o.TimeDone = Now()
+	o.PriceCurrent = price
+
+	h.settle(e, &fillOrder, fill, r)
+
+	account := *e.Account
+	e.Unlock()
+
+	if err := h.SaveOrderAndPublish(ctx, e, o, fill, &account); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save an activation",
+			"login", o.Login, "order", o.OrderId, "error", err.Error())
+		return err
+	}
+
+	h.Log.Log(logger.TypeTrade, logger.CodeOK, "pending order filled",
+		"login", o.Login, "order", o.OrderId, "type", model.OrderType(o.Type),
+		"price", price)
+
+	return nil
+}
+
+// SaveOrderAndPublish writes the order and everything the fill produced, then announces it.
+func (h *Handler) SaveOrderAndPublish(ctx context.Context, e *book.Entry, o *model.Order,
+	f *Fill, a *model.Account) error {
+	if o.OrderId > 0 {
+		if err := h.writeOrder(ctx, o); err != nil {
+			return err
+		}
+		if err := h.saveFill(ctx, e, o, f, a); err != nil {
+			return err
+		}
+	} else if err := h.save(ctx, e, o, f, a); err != nil {
+		return err
+	}
+
+	h.PublishTrade(e, o, f, a)
+
+	return nil
+}
+
+// SaveOrderAndPublishAsync hands the write to the worker pool.
+func (h *Handler) SaveOrderAndPublishAsync(e *book.Entry, o *model.Order, f *Fill, a *model.Account) {
+	h.Workers.Submit(func(ctx context.Context) {
+		if err := h.SaveOrderAndPublish(ctx, e, o, f, a); err != nil {
+			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a trade",
+				"login", o.Login, "order", o.OrderId, "error", err.Error())
+		}
+	})
+}
+
+// placeOrder puts a working order on the book and leaves it there.
+func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *book.Entry,
+	o *model.Order, rule string) *model.TradeResult {
+	o.State = int32(model.StatePlaced)
+
+	e.Lock()
+	account := *e.Account
+	e.Unlock()
+
+	if err := h.save(ctx, e, o, &Fill{}, &account); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not place an order",
+			"login", o.Login, "error", err.Error())
+		return h.refuse(res, model.RetError, "")
+	}
+
+	e.Lock()
+	e.Orders[o.OrderId] = o
+	e.Unlock()
+
+	h.Accounts.Watch(o.Symbol, e)
+	h.PublishWS(model.SubjectAccountOrders(o.Login), "order", o)
+
+	res.RetCode = int32(model.RetOK)
+	res.Message = model.RetOK.String()
+	res.OrderId = o.OrderId
+	res.Price = o.PriceOrder
+	res.Volume = o.VolumeCurrent
+	res.Rule = rule
+
+	h.Log.Log(logger.TypeTrade, logger.CodeOK, "order placed",
+		"login", o.Login, "order", o.OrderId, "type", o.Kind(), "price", o.PriceOrder)
+
+	return res
+}
+
+// writeOrder puts a changed order back, in its own transaction.
+func (h *Handler) writeOrder(ctx context.Context, o *model.Order) error {
+	tx, err := h.DB.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := updateOrder(ctx, tx, o); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
 // settle puts the fill onto the account and recomputes the money.
 func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rules) {
 	// commission comes off as the deal is booked, so the client sees the true cost of the trade
-	// rather than a balance that moves again later
 	for _, d := range f.Deals {
 		d.Commission = -h.CommissionFor(d, r)
 		e.Account.Balance += d.Commission
 	}
 
-	// Only the swap comes off a closed position here. Its Profit field is the floating value
-	// the last tick worked out, and the same money is already in the fill's realised profit —
-	// adding both would credit the client twice.
+	// Only the swap comes off a closed position here.
 	for _, p := range f.Closed {
 		delete(e.Positions, p.PositionId)
 		e.Account.Balance += p.Storage
@@ -196,8 +476,7 @@ func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rul
 	e.Account.Balance += f.Profit
 
 	if f.Opened != nil {
-		// the id is filled in when the row is written; until then it is keyed by a temporary
-		// negative number so two opens in the same tick cannot collide
+		// the id is filled in when the row is written.
 		f.Opened.PositionId = h.nextTempId()
 		e.Positions[f.Opened.PositionId] = f.Opened
 	}
@@ -210,7 +489,7 @@ func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rul
 }
 
 // orderFrom builds the order record a request is asking for.
-func (h *Handler) orderFrom(req *TradeRequest, r *settings.Rules, t model.Tick) *model.Order {
+func (h *Handler) orderFrom(req *model.TradeRequest, r *settings.Rules, t model.Tick) *model.Order {
 	now := Now()
 
 	return &model.Order{
@@ -227,21 +506,27 @@ func (h *Handler) orderFrom(req *TradeRequest, r *settings.Rules, t model.Tick) 
 		TypeFill:       req.TypeFill,
 		TypeTime:       req.TypeTime,
 		PriceOrder:     req.Price,
+		PriceTrigger:   req.PriceTrigger,
 		PriceCurrent:   t.OpenPrice(model.OrderType(req.Type).Buy()),
 		PriceSL:        req.PriceSL,
 		PriceTP:        req.PriceTP,
 		VolumeInitial:  req.Volume,
 		VolumeCurrent:  req.Volume,
 		ExpertId:       req.ExpertId,
+		PositionId:     req.PositionId,
+		PositionById:   req.PositionById,
 		Comment:        req.Comment,
 		RateMargin:     1,
 	}
 }
 
 // kindOf is which routing request type this order counts as, which decides what rules see it.
-func kindOf(o *model.Order, r *settings.Rules) model.RouteFlags {
+func (h *Handler) kindOf(o *model.Order, r *settings.Rules) model.RouteFlags {
 	if o.Kind().Pending() {
 		return model.RoutePending
+	}
+	if o.Kind() == model.OrderCloseBy {
+		return model.RouteCloseBy
 	}
 
 	switch r.ExecMode {
@@ -256,9 +541,8 @@ func kindOf(o *model.Order, r *settings.Rules) model.RouteFlags {
 	}
 }
 
-// deviation is how far the requested price is from the market, in points. Positive means the
-// requested price favours the client.
-func deviation(o *model.Order, t model.Tick, r *settings.Rules) float64 {
+// deviation is how far the requested price is from the market, in points.
+func (h *Handler) deviation(o *model.Order, t model.Tick, r *settings.Rules) float64 {
 	if o.PriceOrder <= 0 || r.Point <= 0 {
 		return 0
 	}
@@ -271,10 +555,7 @@ func deviation(o *model.Order, t model.Tick, r *settings.Rules) float64 {
 }
 
 // refuse fills in a refusal with its return code.
-//
-// Every refusal is logged. A trade that quietly does not happen is the hardest thing to explain
-// to a client afterwards, and the reason has to be in the journal before they ask.
-func (h *Handler) refuse(res *TradeResult, code model.RetCode, message string) *TradeResult {
+func (h *Handler) refuse(res *model.TradeResult, code model.RetCode, message string) *model.TradeResult {
 	res.RetCode = int32(code)
 	res.Message = message
 	if res.Message == "" {
@@ -285,16 +566,12 @@ func (h *Handler) refuse(res *TradeResult, code model.RetCode, message string) *
 		"login", res.Login, "request", res.RequestId,
 		"retcode", int32(code), "reason", code.String(), "rule", res.Rule)
 
-	h.publishResult(res)
-
 	return res
 }
 
-// refuseByRule turns a routing decision that did not execute into a refusal.
-//
-// A request that no rule settled is refused with its own code, so an operator reading the log
-// can tell "the rules said no" from "the rules said nothing".
-func (h *Handler) refuseByRule(res *TradeResult, d Decision) *TradeResult {
+// refuseByRule turns a routing decision that did not execute into a refusal, or hands it to a dealer.
+func (h *Handler) refuseByRule(res *model.TradeResult, d Decision, e *book.Entry,
+	req *model.TradeRequest, o *model.Order, state model.OrderState) *model.TradeResult {
 	if d.Rule == nil {
 		return h.refuse(res, model.RetTradeNotProcessed, "")
 	}
@@ -307,10 +584,8 @@ func (h *Handler) refuseByRule(res *TradeResult, d Decision) *TradeResult {
 	case model.ActionRequote:
 		return h.refuse(res, model.RetTradeRequote, "")
 	case model.ActionDealer, model.ActionDealerOnline:
-		// the request is now a dealer's to settle, so it is neither done nor refused
-		res.RetCode = int32(model.RetTradeTimeout)
-		res.Message = "waiting for a dealer"
-		return res
+		o.State = int32(state)
+		return h.SendDealing(req, o, h.dealersFor(d, e))
 	case model.ActionCancelOrder:
 		return h.refuse(res, model.RetTradeRejected, "order cancelled")
 	}

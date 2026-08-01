@@ -71,9 +71,7 @@ const (
 	REDIS_TLS       = "REDIS_TLS"
 	CORS_ORIGINS    = "CORS_ORIGINS"
 
-	// Trusted Proxies are the value which we trust for example the nginx proxy
-	// ip address whatever request comes to nginx it will be the ip address of the nginx proxy
-	// it will be trusted by the server
+	// Trusted Proxies are the value which we trust for example the nginx proxy ip address whatever request.
 	TRUSTED_PROXIES = "TRUSTED_PROXIES"
 
 	// registration
@@ -152,7 +150,7 @@ type Logger struct {
 	DisableStacktrace bool
 	Encoding          string
 	Level             string
-	// LogDir holds one file per day named YYYYMMDD.log, as MT5 does
+	// LogDir holds one file per day named YYYYMMDD.log, as the platform does
 	LogDir string
 	// LogMaxAgeDays prunes day files older than this; 0 keeps them forever.
 	LogMaxAgeDays int
@@ -173,12 +171,9 @@ type Http struct {
 	SwaggerEnabled bool
 	// CorsOrigins is the allowlist, never a wildcard.
 	CorsOrigins []string
-	// TrustedProxies are the addresses or CIDR ranges X-Forwarded-For is
-	// believed from. Empty means believe nobody and use the socket address,
-	// which is the right answer when nothing proxies this service.
+	// TrustedProxies are the addresses or CIDR ranges X-Forwarded-For is believed from.
 	TrustedProxies []string
-	// TlsCert and TlsKey serve https directly; leave both empty to serve plain
-	// http behind a proxy that terminates tls for you.
+	// TlsCert and TlsKey serve https directly.
 	TlsCert string
 	TlsKey  string
 }
@@ -354,8 +349,7 @@ func (c *Config) validate() error {
 		return fmt.Errorf("%s must be shorter than the absolute family cap of %s",
 			AUTH_REFRESH_TTL, c.Auth.RefreshAbsoluteTTL)
 	}
-	// a typo here does not error at request time, it silently stops trusting
-	// the proxy and every client looks like the load balancer
+	// a typo here does not error at request time, it silently stops trusting the proxy and every client looks.
 	for _, p := range c.HTTP.TrustedProxies {
 		if strings.Contains(p, "/") {
 			if _, _, err := net.ParseCIDR(p); err != nil {
@@ -430,8 +424,7 @@ func getEnvAsInt32(name string, defaultVal int32) int32 {
 	return int32(v)
 }
 
-// getEnvAsInt records a set but unparsable value rather than quietly using the
-// default, which is how a setting you think you changed never takes effect.
+// getEnvAsInt records a set but unparsable value rather than quietly using the default.
 func getEnvAsInt(name string, defaultVal int) int {
 	raw, exists := os.LookupEnv(name)
 	raw = strings.TrimSpace(raw)

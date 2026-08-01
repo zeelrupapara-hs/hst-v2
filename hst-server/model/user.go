@@ -24,7 +24,7 @@ const (
 	UsersRights_exclude_reports   UsersRights = 0x20000
 )
 
-// 0x1000 is undocumented in the MT5 sources, treat as reserved.
+// 0x1000 is undocumented, treat as reserved.
 
 // Enum value maps for UsersRights.
 var (

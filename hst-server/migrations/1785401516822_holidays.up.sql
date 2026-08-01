@@ -1,5 +1,5 @@
 -- Holiday calendar: one row narrows the server work time for a set of symbol
--- masks on one date. Column names follow the MT5 SQL export, lowercased; from,
+-- masks on one date. Column names follow the export, lowercased; from,
 -- to and timestamp are quoted because they are SQL reserved words.
 
 CREATE TABLE IF NOT EXISTS hst.holidays (
@@ -41,10 +41,10 @@ COMMENT ON COLUMN hst.holidays."from" IS
 COMMENT ON COLUMN hst.holidays."to" IS
     'server work time end, minutes since 00:00, inclusive: 1080 stays open through 18:00:59';
 COMMENT ON COLUMN hst.holidays."timestamp" IS
-    'MT5 change marker, unix nanoseconds; a changed value means a changed record';
+    'change marker, unix nanoseconds; a changed value means a changed record';
 COMMENT ON COLUMN hst.holidays.mode IS
     '0=disabled 1=enabled';
 COMMENT ON COLUMN hst.holidays.symbols IS
-    'MT5 symbol or group masks, for example {EURUSD,"CFD\*"}; * matches every symbol';
+    'symbol or group masks, for example {EURUSD,"CFD\*"}; * matches every symbol';
 COMMENT ON COLUMN hst.holidays.config_index IS
-    'MT5 list order, 0 based; kept for parity and export, the resolver is order independent';
+    'list order, 0 based; kept for parity and export, the resolver is order independent';

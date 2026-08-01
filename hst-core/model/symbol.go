@@ -1,9 +1,6 @@
 package model
 
-// Symbol is an instrument, as far as the engine cares.
-//
-// hst.symbols has well over a hundred columns; only the ones a trade actually reads are loaded.
-// Anything the engine never looks at stays in the database where the admin panel edits it.
+// Symbol is an instrument, with only the columns a trade actually reads.
 type Symbol struct {
 	SymbolId     int64
 	Symbol       string
@@ -48,7 +45,7 @@ type Symbol struct {
 	TimeExpiration int64
 }
 
-// How the margin for an instrument is worked out. From symbol_enum.htm.
+// How the margin for an instrument is worked out.
 type CalcMode int32
 
 const (
@@ -65,7 +62,7 @@ const (
 	CalcExchOptionsMargin CalcMode = 36
 )
 
-// What a group may do with an instrument. From symbol_enum.htm.
+// What a group may do with an instrument.
 type TradeMode int32
 
 const (
@@ -76,7 +73,7 @@ const (
 	TradeFull      TradeMode = 4
 )
 
-// How a request is turned into a fill. From group_symbols_execution.htm.
+// How a request is turned into a fill.
 type ExecMode int32
 
 const (
@@ -102,11 +99,8 @@ const (
 	ExpirFlagSpecifiedDay = 0x08
 )
 
-// AllowsBuy reports whether the instrument may be bought.
 func (m TradeMode) AllowsBuy() bool { return m == TradeFull || m == TradeLongOnly }
 
-// AllowsSell reports whether the instrument may be sold.
 func (m TradeMode) AllowsSell() bool { return m == TradeFull || m == TradeShortOnly }
 
-// CloseOnly reports whether existing positions may be closed but nothing new opened.
 func (m TradeMode) CloseOnly() bool { return m == TradeCloseOnly }

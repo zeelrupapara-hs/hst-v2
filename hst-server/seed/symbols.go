@@ -27,7 +27,7 @@ var currencyNames = map[string]string{
 	"USD": "US Dollar", "ZAR": "South African Rand",
 }
 
-// smallDigitQuotes are quoted with 3 digits instead of 5, the way MT5 does.
+// smallDigitQuotes are quoted with 3 digits instead of 5, the way the platform does.
 var smallDigitQuotes = map[string]bool{"JPY": true, "HUF": true}
 
 // forexSymbols are the 60 instruments a fresh install starts with.
@@ -60,7 +60,7 @@ var forexSymbols = []forexSymbol{
 	{"GBPTRY", `Forex\Exotics`}, {"GBPZAR", `Forex\Exotics`},
 }
 
-// standard settings every seeded forex symbol shares, in MT5 units.
+// standard settings every seeded forex symbol shares, in platform units.
 const (
 	seedContractSize = 100000.0
 

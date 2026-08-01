@@ -19,7 +19,7 @@ const (
 	CodeLogin Code = 4 // system login message
 )
 
-// Type mirrors MT5's EnMTLogType — what the entry is about.
+// Type is what the entry is about.
 type Type int
 
 const (
@@ -47,7 +47,7 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 	}
 
 	encCfg := zap.NewProductionEncoderConfig()
-	// full timestamp with timezone, unlike MT5 which writes time only
+	// full timestamp with timezone
 	encCfg.EncodeTime = zapcore.RFC3339NanoTimeEncoder
 	encCfg.TimeKey = "ts"
 	encCfg.MessageKey = "msg"
@@ -77,7 +77,7 @@ func NewLogger(cfg *config.Config) (*Logger, error) {
 	return &Logger{Logger: zapLogger.Sugar(), writer: writer}, nil
 }
 
-// Log writes an entry tagged with MT5 type and severity codes.
+// Log writes an entry tagged with its type and severity code.
 func (l *Logger) Log(t Type, c Code, msg string, kv ...any) {
 	fields := append([]any{"type", int(t), "code", int(c)}, kv...)
 	switch c {
@@ -107,8 +107,7 @@ func (l *Logger) Close() error {
 	return nil
 }
 
-// NewNop is a logger that writes nowhere. For tests, which should not depend on a log file
-// existing or care what was written to it.
+// NewNop is a logger that writes nowhere.
 func NewNop() *Logger {
 	return &Logger{Logger: zap.NewNop().Sugar()}
 }

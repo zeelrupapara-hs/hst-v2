@@ -9,15 +9,7 @@ import (
 	"hstcore/pkg/logger"
 )
 
-// Margin call and stop out.
-//
-// When an account's equity falls far enough against the margin it has reserved, the broker
-// closes positions until it is safe again. The two levels come from the group: a margin call is
-// a warning, a stop out actually closes.
-//
-// MT5 closes the biggest loser first, which frees the most margin for the least damage. Every
-// close is written to hst.stopout_log — a forced close that cannot be explained afterwards is
-// not defensible to the client or to a regulator.
+// Both levels come from the group.
 
 // checkStopOut looks at where the account stands and closes positions if it must.
 func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Group, t model.Tick) {
@@ -49,7 +41,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "margin call",
 			"login", login, "level", level, "call_at", call)
 
-		h.publish(subjectAccount(login), "margin_call", map[string]any{
+		h.PublishWS(model.SubjectAccountSummary(login), "margin_call", map[string]any{
 			"login": login, "margin_level": level, "call_level": call,
 		})
 
@@ -74,7 +66,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 	for _, p := range worst {
 		h.logStopOut(ctx, e, p, money, stop)
-		h.closePosition2(ctx, e, p, h.tickFor(p.Symbol, t), model.ReasonStopOut,
+		h.CloseAtMarket(ctx, e, p, h.tickFor(p.Symbol, t), model.ReasonStopOut,
 			model.RouteStopOutPosition)
 
 		// stop as soon as the account is back above the line

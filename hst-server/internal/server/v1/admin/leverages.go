@@ -17,33 +17,27 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// MT5 caps both of these at 1024.
+// The platform caps both of these at 1024.
 const (
 	maxLeverageProfiles = 1024
 	maxLeverageRules    = 1024
 )
 
-// CrtLeverage creates a floating leverage configuration, optionally with its
-// whole rule tree in one request.
+// CrtLeverage creates a floating leverage configuration, optionally with its whole rule tree in one request.
 type CrtLeverage struct {
 	Name  string            `json:"name" validate:"required,max=128"`
 	Flags int32             `json:"flags"`
 	Rules []CrtLeverageRule `json:"rules" validate:"omitempty,max=1024,dive"`
 }
 
-// UptLeverage patches a configuration. Every field is a pointer, so an absent
-// one keeps its value and an explicit one overwrites it. Rules is a pointer to
-// a slice for the same reason: absent keeps the existing rules, [] clears them,
-// and a populated array replaces them. leverage_id and timestamp are server
-// owned and not settable.
+// UptLeverage patches a configuration.
 type UptLeverage struct {
 	Name  *string            `json:"name" validate:"omitempty,max=128"`
 	Flags *int32             `json:"flags"`
 	Rules *[]CrtLeverageRule `json:"rules" validate:"omitempty,max=1024,dive"`
 }
 
-// CrtLeverageRule is one rule with its levels. Rules arrive as whole documents,
-// tiers have no endpoints of their own.
+// CrtLeverageRule is one rule with its levels.
 type CrtLeverageRule struct {
 	Name                     string            `json:"name" validate:"required,max=128"`
 	Description              string            `json:"description" validate:"max=255"`
@@ -65,8 +59,7 @@ type UptLeverageRule struct {
 	Tiers                    *[]CrtLeverageTier `json:"tiers" validate:"omitempty,min=1,dive"`
 }
 
-// CrtLeverageTier is one level. Only the upper bound is given: MT5 sets the
-// minimum from the previous level, so the server derives range_from.
+// CrtLeverageTier is one level.
 type CrtLeverageTier struct {
 	RangeTo               float64 `json:"range_to" validate:"gte=0"`
 	MarginRateInitial     float64 `json:"margin_rate_initial" validate:"gte=0"`
@@ -194,8 +187,7 @@ func (s *Server) ListLeverageProfiles(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
-	// sort_by is validated against an allowlist in QueryFilter; a bind
-	// parameter cannot carry an ORDER BY clause
+	// sort_by is validated against an allowlist in QueryFilter.
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+leverageColumns+`
 		   FROM hst.leverages
@@ -676,9 +668,7 @@ func (s *Server) ReorderLeverageRules(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// lock the parent, so a concurrent append cannot slip in between the count
-	// and the rewrite and leave a rule without an index. The lock has to be on
-	// leverages: FOR UPDATE cannot be combined with an aggregate.
+	// lock the parent, so a concurrent append cannot slip in between the count and the rewrite
 	var exists bool
 	err = tx.QueryRow(ctx,
 		`SELECT true FROM hst.leverages WHERE leverage_id = $1 FOR UPDATE`, id).Scan(&exists)
@@ -699,8 +689,7 @@ func (s *Server) ReorderLeverageRules(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrReorderMustListEveryRule)
 	}
 
-	// every id must belong to this profile; with the counts equal and no
-	// duplicates, that also proves the two sets are identical
+	// every id must belong to this profile.
 	var owned int
 	if err := tx.QueryRow(ctx,
 		`SELECT count(*) FROM hst.leverage_rules
@@ -711,8 +700,7 @@ func (s *Server) ReorderLeverageRules(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRuleNotInProfile)
 	}
 
-	// park the indexes out of range first, otherwise the unique constraint
-	// fires the moment two rules swap places
+	// park the indexes out of range first, otherwise the unique constraint fires the moment two rules swap.
 	if _, err := tx.Exec(ctx,
 		`UPDATE hst.leverage_rules SET config_index = -(config_index + 1)
 		  WHERE leverage_id = $1`, id); err != nil {
@@ -743,7 +731,6 @@ func (s *Server) ReorderLeverageRules(c *fiber.Ctx) error {
 }
 
 // getLeverageProfile reads the whole tree and answers with the given responder.
-// Three queries rather than one per rule, the tree is small but nested.
 func (s *Server) getLeverageProfile(c *fiber.Ctx, id int64,
 	respond func(*fiber.Ctx, interface{}) error) error {
 
@@ -841,9 +828,7 @@ func insertRules(ctx context.Context, tx pgx.Tx, leverageId int64, from int32,
 	return nil
 }
 
-// insertTiers writes the levels of one rule. MT5 takes only the upper bound in
-// the interface and reads the lower one off the previous level, so range_from
-// is derived here rather than trusted from the request.
+// insertTiers writes the levels of one rule.
 func insertTiers(ctx context.Context, tx pgx.Tx, ruleId int64, tiers []CrtLeverageTier) error {
 	var from float64
 
@@ -861,8 +846,7 @@ func insertTiers(ctx context.Context, tx pgx.Tx, ruleId int64, tiers []CrtLevera
 	return nil
 }
 
-// touchLeverage moves the profile timestamp, MT5's marker that a record changed.
-// Rule and level edits change the profile as a whole, so they move it too.
+// touchLeverage moves the profile timestamp, the platform's marker that a record changed.
 func touchLeverage(ctx context.Context, tx pgx.Tx, id int64) error {
 	_, err := tx.Exec(ctx,
 		`UPDATE hst.leverages SET "timestamp" = $2 WHERE leverage_id = $1`,
@@ -889,9 +873,7 @@ func validateRules(rules []CrtLeverageRule) error {
 	return nil
 }
 
-// validateTiers enforces MT5's level rules: the levels are contiguous brackets
-// in ascending order, and the last one is open ended, which it signals with a
-// zero upper bound.
+// validateTiers enforces the platform's level rules.
 func validateTiers(tiers []CrtLeverageTier) error {
 	if len(tiers) == 0 {
 		return errors.New("at least one tier is required")

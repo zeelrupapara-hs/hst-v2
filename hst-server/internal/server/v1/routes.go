@@ -6,11 +6,7 @@ import (
 	"github.com/gofiber/swagger"
 )
 
-// RegisterV1 registers the surface both panels share, and hands back the groups they mount
-// under: root for the public routes, api for everything behind a token.
-//
-// A manager and a trading account authenticate the same way and listen on the same socket;
-// what differs is what each may reach afterwards, which is why the panels register separately.
+// RegisterV1 registers the surface both panels share, and hands back the groups they mount under.
 func (s *HttpServer) RegisterV1() (root, api fiber.Router) {
 
 	// Root group with the requests logger and the header reader
@@ -27,6 +23,8 @@ func (s *HttpServer) RegisterV1() (root, api fiber.Router) {
 		Subprotocols: []string{"bearer"},
 	}))
 
+	s.RegisterWSV1()
+
 	api = root.Group("/api")
 	v1 := api.Group("/v1")
 
@@ -40,8 +38,7 @@ func (s *HttpServer) RegisterV1() (root, api fiber.Router) {
 	return root, api
 }
 
-// registerSwagger serves one spec per panel, so a manager reading the docs is not shown the
-// trader API and the other way round.
+// registerSwagger serves one spec per panel.
 func (s *HttpServer) registerSwagger(root fiber.Router) {
 	for _, spec := range []struct{ path, instance string }{
 		{"/swagger/admin/*", "admin"},
@@ -50,7 +47,6 @@ func (s *HttpServer) registerSwagger(root fiber.Router) {
 		root.Get(spec.path, swagger.New(swagger.Config{
 			InstanceName: spec.instance,
 			// swagger 2.0 has no bearer scheme, so the token is sent verbatim.
-			// Add the prefix here when the pasted value is missing it.
 			RequestInterceptor: `(req) => {
 				const a = req.headers.Authorization;
 				if (a && !/^(Bearer|Basic) /i.test(a)) {

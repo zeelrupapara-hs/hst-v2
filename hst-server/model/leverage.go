@@ -1,12 +1,9 @@
 package model
 
-// RangeMode is EnRangeMode, the level type for a floating leverage rule. It
-// decides what quantity the rule's tiers are measured against.
+// RangeMode is EnRangeMode, the level type for a floating leverage rule.
 type RangeMode int32
 
-// The names follow the MT5 interface wording. RANGE_VALUE* are labelled
-// "Notional value" there, which also keeps them from colliding with the
-// RangeMode_value lookup map below.
+// The names follow the interface wording.
 const (
 	RangeMode_volume                    RangeMode = 0
 	RangeMode_volume_per_symbol         RangeMode = 1
@@ -30,15 +27,12 @@ var (
 	}
 )
 
-// NeedsCurrency reports whether the mode measures notional value, in which case
-// the rule must name the currency that value is converted to.
+// NeedsCurrency reports whether the mode measures notional value.
 func (r RangeMode) NeedsCurrency() bool {
 	return r == RangeMode_notional_value || r == RangeMode_notional_value_per_symbol
 }
 
-// Leverage is a floating leverage configuration. It does not replace the margin
-// calculated from symbol settings, it multiplies it: the tiers of the matching
-// rule carry rates that are applied as marginal brackets.
+// Leverage is a floating leverage configuration.
 type Leverage struct {
 	LeverageId int64  `db:"leverage_id" json:"leverage_id"`
 	Name       string `db:"name" json:"name"`
@@ -48,9 +42,7 @@ type Leverage struct {
 
 func (Leverage) TableName() string { return "hst.leverages" }
 
-// LeverageRule scopes a set of tiers to a symbol path mask. Rules are matched in
-// config_index order and the first one matching an instrument wins, so the order
-// is data rather than presentation.
+// LeverageRule scopes a set of tiers to a symbol path mask.
 type LeverageRule struct {
 	RuleId                   int64     `db:"rule_id" json:"rule_id"`
 	LeverageId               int64     `db:"leverage_id" json:"leverage_id"`
@@ -65,9 +57,7 @@ type LeverageRule struct {
 
 func (LeverageRule) TableName() string { return "hst.leverage_rules" }
 
-// LeverageTier is one level of a rule. RangeTo 0 on the last tier means infinity.
-// MarginRateMaintenance 0 means no margin is charged, not that the initial rate
-// stands in for it, which is where this differs from symbol settings.
+// LeverageTier is one level of a rule.
 type LeverageTier struct {
 	TierId                int64   `db:"tier_id" json:"tier_id"`
 	RuleId                int64   `db:"rule_id" json:"rule_id"`

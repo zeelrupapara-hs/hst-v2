@@ -9,18 +9,8 @@ import (
 	"hstcore/model"
 )
 
-// The checks a trade request must pass before the routing rules ever see it.
-//
-// Ordered cheapest first, and nothing here reads the database: everything it needs is already
-// in memory. Each check answers with a return code rather than a bare false, so the client is
-// told which rule it broke.
-//
-// These are the broker's own limits — what the group allows, what the instrument allows, what
-// the account can afford. The routing rules that run afterwards are a separate question: what
-// the broker wants to do about a request that is otherwise legal.
-
-// Check runs the whole chain and returns the first refusal.
-func (h *Handler) Check(e *book.Entry, o *model.Order, r *settings.Rules, t model.Tick) model.RetCode {
+// ValidateOrder runs the whole chain and returns the first refusal.
+func (h *Handler) ValidateOrder(e *book.Entry, o *model.Order, r *settings.Rules, t model.Tick) model.RetCode {
 	if code := h.checkAccount(e); !code.OK() {
 		return code
 	}
@@ -52,15 +42,78 @@ func (h *Handler) Check(e *book.Entry, o *model.Order, r *settings.Rules, t mode
 	return model.RetOK
 }
 
+// ValidatePosition checks a change of levels on a position that must still be open.
+func (h *Handler) ValidatePosition(e *book.Entry, p *model.Position, req *model.TradeRequest,
+	r *settings.Rules, t model.Tick) model.RetCode {
+	if code := h.checkAccount(e); !code.OK() {
+		return code
+	}
+	if p == nil || e.Positions[p.PositionId] == nil {
+		return model.RetNotFound
+	}
+	if code := h.checkQuote(r, t); !code.OK() {
+		return code
+	}
+	if r.TradeMode == model.TradeDisabled {
+		return model.RetTradeDisabled
+	}
+
+	// the levels are measured from a position, so the side is the position's own
+	level := &model.Order{
+		Symbol:     p.Symbol,
+		Type:       int32(model.OrderBuy),
+		PriceSL:    req.PriceSL,
+		PriceTP:    req.PriceTP,
+		RateMargin: p.RateMargin,
+	}
+	if !p.Buy() {
+		level.Type = int32(model.OrderSell)
+	}
+
+	return h.checkStops(level, r, t)
+}
+
+// checkExecution applies the instrument's execution mode.
+func (h *Handler) checkExecution(o *model.Order, r *settings.Rules,
+	t model.Tick) (model.RetCode, model.RouteFlags) {
+	kind := h.kindOf(o, r)
+
+	if kind != model.RouteInstant {
+		return model.RetOK, kind
+	}
+
+	// instant execution above the size the broker fills on the spot is not refused.
+	if r.MaxInstantVolume > 0 && o.VolumeCurrent > r.MaxInstantVolume {
+		return model.RetOK, model.RouteRequest
+	}
+
+	// a quote the client answered too late is no longer a price they can be held to
+	if r.MaxDeviationTime > 0 &&
+		time.Since(time.Unix(0, t.Time)) > time.Duration(r.MaxDeviationTime)*time.Second {
+		return model.RetTradeRequote, kind
+	}
+
+	if o.PriceOrder > 0 {
+		slip := h.deviation(o, t, r)
+
+		if slip > 0 && r.MaxDeviationProfit > 0 && slip > float64(r.MaxDeviationProfit) {
+			return model.RetTradeRequote, kind
+		}
+		if slip < 0 && r.MaxDeviationLoss > 0 && -slip > float64(r.MaxDeviationLoss) {
+			return model.RetTradeRequote, kind
+		}
+	}
+
+	return model.RetOK, kind
+}
+
 // checkAccount refuses a login that may not trade at all.
 func (h *Handler) checkAccount(e *book.Entry) model.RetCode {
 	if e == nil || e.Account == nil {
 		return model.RetNotFound
 	}
 
-	// The trading bits are refusals, not permissions: an ordinary account carries none of them.
-	// Reading trade_disabled as "may trade" would refuse everybody and let only the accounts a
-	// manager had explicitly stopped through.
+	// The trading bits are refusals, not permissions.
 	const (
 		enabled       = 0x0001
 		tradeDisabled = 0x0004
@@ -141,8 +194,7 @@ func (h *Handler) checkVolume(o *model.Order, r *settings.Rules) model.RetCode {
 	return model.RetOK
 }
 
-// checkLimits applies what the group caps: how many orders, how many positions, how much
-// volume on one symbol.
+// checkLimits applies what the group caps.
 func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) model.RetCode {
 	g := r.Group
 
@@ -171,6 +223,11 @@ func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) 
 
 // checkFilling refuses a filling policy the instrument does not offer.
 func (h *Handler) checkFilling(o *model.Order, r *settings.Rules) model.RetCode {
+	// book or cancel only ever sits in the book, so an order that would fill on entry is refused
+	if model.Filling(o.TypeFill) == model.FillBOC && o.Kind().Market() {
+		return model.RetTradeFillPolicy
+	}
+
 	if r.FillFlags == 0 {
 		return model.RetOK
 	}
@@ -228,8 +285,7 @@ func (h *Handler) checkExpiry(o *model.Order, r *settings.Rules) model.RetCode {
 	return model.RetOK
 }
 
-// checkStops keeps stop loss, take profit and a pending order's price far enough from the
-// market, using the instrument's stops level.
+// checkStops keeps stop loss, take profit and a pending order's price far enough from the market, using.
 func (h *Handler) checkStops(o *model.Order, r *settings.Rules, t model.Tick) model.RetCode {
 	if r.StopsLevel <= 0 || r.Point <= 0 {
 		return model.RetOK
@@ -270,9 +326,6 @@ func (h *Handler) checkStops(o *model.Order, r *settings.Rules, t model.Tick) mo
 }
 
 // checkMoney refuses a trade the account cannot cover.
-//
-// Only opening costs money. A trade that closes or shrinks a position frees margin rather than
-// taking it, so it is allowed even when free margin is already negative.
 func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t model.Tick) model.RetCode {
 	if h.closesPosition(e, o, r) {
 		return model.RetOK
@@ -293,9 +346,7 @@ func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t
 	return model.RetOK
 }
 
-// closesPosition reports whether the order would reduce what is already open rather than add
-// to it. Under netting an opposite order shrinks the position; under hedging every order opens
-// something new.
+// closesPosition reports whether the order would reduce what is already open rather than add to it.
 func (h *Handler) closesPosition(e *book.Entry, o *model.Order, r *settings.Rules) bool {
 	if model.MarginMode(r.Group.MarginMode).Hedging() {
 		return false

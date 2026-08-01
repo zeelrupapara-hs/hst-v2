@@ -225,7 +225,7 @@ var (
 	}
 )
 
-// Commission is a group commission header (mt5_commissions).
+// Commission is a group commission header.
 type Commission struct {
 	CommissionID     int64                 `db:"commission_id" json:"commission_id"`
 	GroupID          int64                 `db:"group_id" json:"group_id"`
@@ -243,7 +243,7 @@ type Commission struct {
 	UpdatedAt        int64                 `db:"updated_at" json:"updated_at"`
 }
 
-// CommissionTier is one level under a commission (mt5_commissions_tiers).
+// CommissionTier is one level under a commission.
 type CommissionTier struct {
 	TierID       int64              `db:"tier_id" json:"tier_id"`
 	CommissionID int64              `db:"commission_id" json:"commission_id"`

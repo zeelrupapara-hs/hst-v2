@@ -1,19 +1,15 @@
 package model
 
-// Orders, positions and deals. Field for field from the MT5 SQL export, the same shape the
-// hst.orders, hst.positions and hst.deals tables hold.
-
-// VolumeUnit is one MT5 volume unit: 1/10000 of a lot. Volume is an integer everywhere, so a
-// lot size can be compared and summed without the rounding a float would bring.
+// One volume unit is 1/10000 of a lot.
 const VolumeUnit = 10000.0
 
-// Lots turns MT5 integer volume into lots.
+// One extended volume unit is 1/100000000 of a lot.
+const VolumeUnitExt = 100000000.0
+
 func Lots(v int64) float64 { return float64(v) / VolumeUnit }
 
-// Volume turns lots into MT5 integer volume.
 func Volume(lots float64) int64 { return int64(lots*VolumeUnit + 0.5) }
 
-// What the client asked for.
 type OrderType int32
 
 const (
@@ -28,7 +24,6 @@ const (
 	OrderCloseBy       OrderType = 8
 )
 
-// Buy reports whether the order takes the buy side.
 func (t OrderType) Buy() bool {
 	switch t {
 	case OrderBuy, OrderBuyLimit, OrderBuyStop, OrderBuyStopLimit:
@@ -37,31 +32,35 @@ func (t OrderType) Buy() bool {
 	return false
 }
 
-// Pending reports whether the order waits for a price instead of filling now.
 func (t OrderType) Pending() bool { return t >= OrderBuyLimit && t <= OrderSellStopLimit }
 
-// Market reports whether the order fills immediately.
 func (t OrderType) Market() bool { return t == OrderBuy || t == OrderSell }
 
-// Where an order is in its life.
 type OrderState int32
 
 const (
-	StateStarted  OrderState = 0
-	StatePlaced   OrderState = 1
-	StateCanceled OrderState = 2
-	StatePartial  OrderState = 3
-	StateFilled   OrderState = 4
-	StateRejected OrderState = 5
-	StateExpired  OrderState = 6
+	StateStarted       OrderState = 0
+	StatePlaced        OrderState = 1
+	StateCanceled      OrderState = 2
+	StatePartial       OrderState = 3
+	StateFilled        OrderState = 4
+	StateRejected      OrderState = 5
+	StateExpired       OrderState = 6
+	StateRequestAdd    OrderState = 7
+	StateRequestModify OrderState = 8
+	StateRequestCancel OrderState = 9
 )
 
-// Live reports whether the order is still working.
+// A queued request still cooks and still expires, so it counts as live.
 func (s OrderState) Live() bool {
-	return s == StateStarted || s == StatePlaced || s == StatePartial
+	switch s {
+	case StateStarted, StatePlaced, StatePartial,
+		StateRequestAdd, StateRequestModify, StateRequestCancel:
+		return true
+	}
+	return false
 }
 
-// What to do when the whole volume cannot be filled.
 type Filling int32
 
 const (
@@ -71,7 +70,6 @@ const (
 	FillBOC    Filling = 3
 )
 
-// How long an order lives.
 type Expiry int32
 
 const (
@@ -81,7 +79,6 @@ const (
 	ExpirySpecifiedDay Expiry = 3
 )
 
-// Who or what caused an order.
 type Reason int32
 
 const (
@@ -96,7 +93,6 @@ const (
 	ReasonWeb      Reason = 17
 )
 
-// Order is one row of hst.orders.
 type Order struct {
 	OrderId        int64   `json:"order_id"`
 	Login          int64   `json:"login"`
@@ -120,16 +116,17 @@ type Order struct {
 	PriceTP        float64 `json:"price_tp"`
 	VolumeInitial  int64   `json:"volume_initial"`
 	VolumeCurrent  int64   `json:"volume_current"`
+	VolumeExt      int64   `json:"volume_ext"`
 	ExpertId       int64   `json:"expert_id"`
 	PositionId     int64   `json:"position_id"`
 	PositionById   int64   `json:"position_by_id"`
 	Comment        string  `json:"comment"`
 	RateMargin     float64 `json:"rate_margin"`
 
-	// Set when a stop limit's trigger is reached and it becomes a limit order.
 	ActivationMode  int32   `json:"activation_mode"`
 	ActivationTime  int64   `json:"activation_time"`
 	ActivationPrice float64 `json:"activation_price"`
+	ActivationFlags int32   `json:"activation_flags"`
 }
 
 // Why an order was last touched by the price.
@@ -142,16 +139,19 @@ const (
 	ActivationStopOut   = 5
 )
 
-// Lots is the working volume as a decimal number of lots.
+// Which levels the engine must leave alone because something upstream owns them.
+const (
+	ActivationFlagNone        int32 = 0x00
+	ActivationFlagNoExpiry    int32 = 0x01
+	ActivationFlagNoSL        int32 = 0x02
+	ActivationFlagNoTP        int32 = 0x04
+	ActivationFlagNoStopLimit int32 = 0x08
+)
+
 func (o *Order) Lots() float64 { return Lots(o.VolumeCurrent) }
 
-// Kind is the order's type.
 func (o *Order) Kind() OrderType { return OrderType(o.Type) }
 
-// Position is one row of hst.positions.
-//
-// PriceOpen is the weighted average: a netting position grown by a second deal carries the
-// blend of both, not the newer price.
 type Position struct {
 	PositionId     int64   `json:"position_id"`
 	Login          int64   `json:"login"`
@@ -169,6 +169,7 @@ type Position struct {
 	PriceSL        float64 `json:"price_sl"`
 	PriceTP        float64 `json:"price_tp"`
 	Volume         int64   `json:"volume"`
+	VolumeExt      int64   `json:"volume_ext"`
 	Profit         float64 `json:"profit"`
 	Storage        float64 `json:"storage"`
 	RateProfit     float64 `json:"rate_profit"`
@@ -176,18 +177,16 @@ type Position struct {
 	ExpertId       int64   `json:"expert_id"`
 	Comment        string  `json:"comment"`
 
-	// Margin is what this position currently reserves. Held in memory only: it is derived from
-	// the price and the settings, and recomputing it is cheaper than keeping it in step on disk.
+	ActivationFlags int32 `json:"activation_flags"`
+
+	// Held in memory only: derived from the price and the settings.
 	Margin float64 `json:"margin"`
 }
 
-// Buy reports whether the position is long.
 func (p *Position) Buy() bool { return p.Action == 0 }
 
-// Lots is the position volume as a decimal number of lots.
 func (p *Position) Lots() float64 { return Lots(p.Volume) }
 
-// What a deal did. Most values are not trades but balance movements.
 type DealAction int32
 
 const (
@@ -204,17 +203,15 @@ const (
 	DealSOCompensation  DealAction = 19
 )
 
-// Which way a deal moved the position.
 type DealEntry int32
 
 const (
-	EntryIn    DealEntry = 0 // opened or grew
-	EntryOut   DealEntry = 1 // closed or shrank
-	EntryInOut DealEntry = 2 // reversed
-	EntryOutBy DealEntry = 3 // closed against an opposite position
+	EntryIn    DealEntry = 0
+	EntryOut   DealEntry = 1
+	EntryInOut DealEntry = 2
+	EntryOutBy DealEntry = 3
 )
 
-// Deal is one row of hst.deals. This is the ledger: every money movement is a row here.
 type Deal struct {
 	DealId         int64   `json:"deal_id"`
 	Login          int64   `json:"login"`
@@ -231,6 +228,7 @@ type Deal struct {
 	PriceSL        float64 `json:"price_sl"`
 	PriceTP        float64 `json:"price_tp"`
 	Volume         int64   `json:"volume"`
+	VolumeExt      int64   `json:"volume_ext"`
 	VolumeClosed   int64   `json:"volume_closed"`
 	Profit         float64 `json:"profit"`
 	Value          float64 `json:"value"`
@@ -251,7 +249,6 @@ type Deal struct {
 	MarketAsk      float64 `json:"market_ask"`
 }
 
-// Account is the money state of one login, mirroring hst.accounts.
 type Account struct {
 	Login          int64  `json:"login"`
 	Group          string `json:"group"`
@@ -259,11 +256,10 @@ type Account struct {
 	CurrencyDigits int32  `json:"currency_digits"`
 	Leverage       int32  `json:"leverage"`
 
-	Balance    float64 `json:"balance"`
-	Credit     float64 `json:"credit"`
-	Margin     float64 `json:"margin"`
-	MarginFree float64 `json:"margin_free"`
-	// MarginLevel is equity over margin as a percentage. Zero margin means no level.
+	Balance           float64 `json:"balance"`
+	Credit            float64 `json:"credit"`
+	Margin            float64 `json:"margin"`
+	MarginFree        float64 `json:"margin_free"`
 	MarginLevel       float64 `json:"margin_level"`
 	MarginInitial     float64 `json:"margin_initial"`
 	MarginMaintenance float64 `json:"margin_maintenance"`
@@ -277,7 +273,5 @@ type Account struct {
 	BlockedProfit     float64 `json:"blocked_profit"`
 	UpdatedAt         int64   `json:"updated_at"`
 
-	// Rights carries the account's own permission bits, so a disabled login is refused without
-	// a second read.
 	Rights int64 `json:"rights"`
 }

@@ -68,7 +68,7 @@ type Logger struct {
 	DisableStacktrace bool
 	Encoding          string
 	Level             string
-	// LogDir holds one file per day named YYYYMMDD.log, as MT5 does
+	// LogDir holds one file per day named YYYYMMDD.log
 	LogDir string
 	// LogMaxAgeDays prunes day files older than this; 0 keeps them forever.
 	LogMaxAgeDays int
@@ -86,9 +86,7 @@ type GRPC struct {
 type Health struct {
 	Host string
 	Port string
-	// DrainWait is the pause between failing readiness and actually shutting
-	// down, so the endpoints controller stops routing first. Set it to at
-	// least twice the readiness probe period.
+	// DrainWait is the pause between failing readiness and actually shutting down, so the endpoints controller.
 	DrainWait time.Duration
 }
 
@@ -236,8 +234,7 @@ func getEnvAsInt32(name string, defaultVal int32) int32 {
 	return int32(v)
 }
 
-// getEnvAsInt records a set but unparsable value rather than quietly using the
-// default, which is how a setting you think you changed never takes effect.
+// getEnvAsInt records a set but unparsable value rather than quietly using the default.
 func getEnvAsInt(name string, defaultVal int) int {
 	raw, exists := os.LookupEnv(name)
 	raw = strings.TrimSpace(raw)

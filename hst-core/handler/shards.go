@@ -7,27 +7,18 @@ import (
 
 	"hstcore/internal/book"
 	"hstcore/internal/shardmap"
+	"hstcore/model"
 	"hstcore/pkg/logger"
 )
 
-// Which accounts this pod is responsible for, and keeping that right as pods come and go.
-//
-// Every pod writes a key to redis saying it is alive, with a short expiry, and refreshes it.
-// The set of live keys is the membership, and every pod derives the same shard map from it, so
-// no pod has to be told anything by another one.
-//
-// When the membership changes a pod drops the accounts it no longer owns and loads the ones it
-// gained. Nothing is handed over: the accounts are read from the database, which is where the
-// truth lives between one pod and the next.
+// Every pod claims itself in redis.
 
 const (
 	// podKeyPrefix is where a pod says it is alive.
 	podKeyPrefix = "core:pods:"
-	// podTTL is how long that claim stands without a refresh. A pod that dies is noticed within
-	// this long, so it is the worst case before its accounts are picked up.
+	// podTTL is how long that claim stands without a refresh
 	podTTL = 15 * time.Second
-	// podRefresh is how often the claim is renewed. Comfortably under the expiry, so a slow
-	// moment does not make a healthy pod look dead.
+	// podRefresh is how often the claim is renewed
 	podRefresh = 5 * time.Second
 )
 
@@ -77,8 +68,7 @@ func (h *Handler) livePods(ctx context.Context) []string {
 	if err != nil {
 		h.Log.Log(logger.TypeSys, logger.CodeWarn, "could not read the pod list",
 			"error", err.Error())
-		// alone is the safe assumption: this pod keeps what it has rather than dropping
-		// accounts nobody else is going to pick up
+		// alone is the safe assumption: keep what we have rather than drop unclaimed accounts
 		return []string{h.name}
 	}
 
@@ -124,7 +114,6 @@ func (h *Handler) rebalance(ctx context.Context) {
 	h.resubscribe(gained, lost)
 }
 
-// sameShards reports whether two shard lists are identical.
 func sameShards(a, b []uint32) bool {
 	if len(a) != len(b) {
 		return false
@@ -137,7 +126,6 @@ func sameShards(a, b []uint32) bool {
 	return true
 }
 
-// shardDiff is what this pod gained and lost between two maps.
 func shardDiff(before, after *shardmap.Map) (gained, lost []uint32) {
 	if before == nil {
 		return after.Mine(), nil
@@ -157,10 +145,7 @@ func shardDiff(before, after *shardmap.Map) (gained, lost []uint32) {
 	return gained, lost
 }
 
-// dropShards forgets the accounts that now belong elsewhere.
-//
-// Nothing is written on the way out. Everything the engine holds beyond the database is derived
-// from prices, and the pod picking these up will work it out again from the same rows.
+// dropShards forgets the accounts that now belong elsewhere; nothing is written on the way out.
 func (h *Handler) dropShards(lost []uint32) {
 	if len(lost) == 0 {
 		return
@@ -209,15 +194,19 @@ func (h *Handler) takeShards(ctx context.Context, gained []uint32) {
 // resubscribe listens to the shards this pod gained and stops listening to the ones it lost.
 func (h *Handler) resubscribe(gained, lost []uint32) {
 	for _, shard := range lost {
-		subject := shardmap.SubjectFor(shard)
+		dropped := map[string]bool{
+			model.SubjectShardOrders(shard):    true,
+			model.SubjectShardPositions(shard): true,
+			model.SubjectShardDealing(shard):   true,
+		}
 
 		h.mu.Lock()
 		kept := h.subs[:0]
 		for _, sub := range h.subs {
-			if sub.Subject == subject {
+			if dropped[sub.Subject] {
 				if err := sub.Unsubscribe(); err != nil {
 					h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not stop listening to a shard",
-						"subject", subject, "error", err.Error())
+						"subject", sub.Subject, "error", err.Error())
 				}
 				continue
 			}
@@ -228,15 +217,14 @@ func (h *Handler) resubscribe(gained, lost []uint32) {
 	}
 
 	for _, shard := range gained {
-		if err := h.subscribeQuiet(shardmap.SubjectFor(shard), h.onTradeRequest); err != nil {
+		if err := h.subscribeShard(shard); err != nil {
 			h.Log.Log(logger.TypeNet, logger.CodeErr, "could not listen to a shard this pod gained",
 				"shard", shard, "error", err.Error())
 		}
 	}
 }
 
-// Holds reports whether this pod is responsible for a login. Used by the health probe and by
-// anything that wants to check a request reached the right place.
+// Holds reports whether this pod is responsible for a login.
 func (h *Handler) Holds(login int64) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
@@ -248,5 +236,4 @@ func (h *Handler) Holds(login int64) bool {
 	return h.Shards.HoldsLogin(login)
 }
 
-// ShardCount is how many shards exist in total, for reporting.
 const ShardCount = shardmap.Count

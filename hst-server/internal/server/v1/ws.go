@@ -42,6 +42,7 @@ func (s *HttpServer) ServeWS(c *websocket.Conn) {
 	client := s.Hub.Add(c, ws.Session{
 		SessionId:     snap.SessionId,
 		Login:         snap.Login,
+		Scope:         snap.Scope,
 		IsManager:     snap.IsManager,
 		ManagerRights: snap.ManagerRights,
 		ManagerGroups: snap.ManagerGroups,
@@ -90,6 +91,11 @@ func (s *HttpServer) subjectsFor(c *ws.Client, rights model.ManagerRights, group
 
 	// the journal is the staff record of who did what
 	subjects = append(subjects, model.SubjectJournal(c.Login))
+
+	// a dealer works its own queue of requests waiting on an answer
+	if rights.Has(model.MgrRightTradesDealer) {
+		subjects = append(subjects, model.SubjectDealerRequests(c.Login))
+	}
 
 	// one subject per right, for records that have no group: symbols, other managers, the server journal
 	for _, r := range rightSubjects {

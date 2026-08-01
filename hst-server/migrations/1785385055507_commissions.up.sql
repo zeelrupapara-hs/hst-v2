@@ -1,4 +1,4 @@
--- Group commission settings and tier ladders (mt5_commissions / mt5_commissions_tiers).
+-- Group commission settings and tier ladders.
 
 CREATE SEQUENCE IF NOT EXISTS hst.commissions_commission_id_seq AS BIGINT START WITH 1 CACHE 1;
 CREATE SEQUENCE IF NOT EXISTS hst.commissions_tiers_tier_id_seq AS BIGINT START WITH 1 CACHE 1;

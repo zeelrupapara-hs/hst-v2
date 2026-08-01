@@ -1,12 +1,12 @@
 package http
 
-// RetCode is an MT5 return code.
+// RetCode is a platform return code.
 type RetCode int
 
 const (
 	RetOK RetCode = 0
 
-	// MT5 authentication block, 1000..1034.
+	// The platform authentication block, 1000..1034.
 	RetAuthClientInvalid   RetCode = 1000 // invalid type of the terminal
 	RetAuthAccountInvalid  RetCode = 1001 // invalid account, our wrong password case
 	RetAuthAccountDisabled RetCode = 1002 // the account is disabled

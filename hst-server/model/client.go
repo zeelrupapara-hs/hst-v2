@@ -27,7 +27,7 @@ var (
 
 type ClientStatus int32
 
-// the ladder steps by 100, MT5 leaves room between states
+// the ladder steps by 100, the platform leaves room between states
 const (
 	ClientStatus_unregistered            ClientStatus = 0
 	ClientStatus_registered              ClientStatus = 100

@@ -5,9 +5,6 @@ import (
 )
 
 // RegisterTraderV1 mounts the trader panel under /api/trader/v1, plus the public signup.
-//
-// Nothing here is mask filtered: RequireTrader refuses a manager session, and every handler
-// takes its login from the session, so there is nowhere to put somebody else's number.
 func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	// trading accounts sign in here, and a member of staff that tries is refused by the route it chose
 	signin := root.Group("/auth/trader/v1")
@@ -22,10 +19,15 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Get("/symbols", s.MySymbols)
 
 	// trading
-	trader.Post("/trade", s.MyTrade)
-	trader.Get("/orders", s.MyOrders)
-	trader.Get("/positions", s.MyPositions)
-	trader.Get("/deals", s.MyDeals)
+	trader.Get("/orders", s.GetMyOrders)
+	trader.Post("/orders", s.CreateMyOrder)
+	trader.Put("/orders/:order_id", s.UpdateMyOrder)
+	trader.Post("/orders/:order_id/cancel", s.CancelMyOrder)
+	trader.Get("/positions", s.GetMyPositions)
+	trader.Put("/positions/:position_id", s.UpdateMyPosition)
+	trader.Post("/positions/:position_id/close", s.CloseMyPosition)
+	trader.Post("/positions/:position_id/close-by", s.CloseByMyPosition)
+	trader.Get("/deals", s.GetMyDeals)
 
 	auth := trader.Group("/auth")
 	auth.Get("/me", s.Me)

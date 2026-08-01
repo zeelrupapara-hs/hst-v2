@@ -11,17 +11,7 @@ import (
 	"hstcore/pkg/logger"
 )
 
-// The routing gate.
-//
-// Every trade request walks the rule list from the top. A rule matches when its request mask,
-// its order mask and every one of its conditions agree. The first rule with a terminal action
-// settles the request; a rule with a non-terminal action changes the request and lets it carry
-// on down the list.
-//
-// A request that reaches the end of the list without a terminal action is NOT processed. This
-// is MT5's behaviour: the documentation is explicit that without a catch-all rule at the bottom
-// "such requests will not be processed by the server". It means the rule list is a whitelist,
-// and a broker who deletes the last rule stops all trading.
+// Every request walks the rule list from the top.
 
 // Decision is what the rule list decided to do with a request.
 type Decision struct {
@@ -55,8 +45,7 @@ type Request struct {
 	Tick   model.Tick
 	Gapped bool
 
-	// Deviation is how far the requested price sits from the market, in points. Positive is in
-	// the client's favour.
+	// Deviation is how far the requested price sits from the market, in points.
 	Deviation float64
 }
 
@@ -91,8 +80,7 @@ func (h *Handler) Route(req *Request) Decision {
 	return d
 }
 
-// applySoftAction handles the actions that let the request carry on: a delay, or stripping a
-// level off the order.
+// applySoftAction handles the actions that let the request carry on.
 func (h *Handler) applySoftAction(action model.RouteAction, rule *model.RoutingRule,
 	req *Request, d *Decision) {
 	switch action {
@@ -102,8 +90,7 @@ func (h *Handler) applySoftAction(action model.RouteAction, rule *model.RoutingR
 		}
 
 	case model.ActionDelayTick:
-		// a tick delay is counted in ticks, not time; the engine holds the request until that
-		// many quotes for the symbol have gone by
+		// a tick delay is counted in ticks, not time.
 		if n, err := strconv.Atoi(rule.ActionValue); err == nil && n > 0 {
 			d.Delay += time.Duration(n) * tickDelayEstimate
 		}
@@ -122,16 +109,12 @@ func (h *Handler) applySoftAction(action model.RouteAction, rule *model.RoutingR
 	}
 }
 
-// tickDelayEstimate stands in for how long one tick takes when a rule asks to wait a number of
-// ticks. MT5 counts actual quotes; this is a first approximation until the tick counter exists.
-//
-// ponytail: fixed estimate, swap for a real per-symbol tick counter if delay-in-ticks is used
+// ponytail: fixed estimate for one tick, swap for a per-symbol counter if delay-in-ticks is used
 const tickDelayEstimate = 100 * time.Millisecond
 
-// ruleMatches reports whether a rule covers this request. Masks first because they are cheap,
-// then the conditions, which may have to read the account.
+// ruleMatches checks the cheap masks first, then the conditions that may read the account.
 func (h *Handler) ruleMatches(rule *model.RoutingRule, req *Request) bool {
-	// a zero mask means "all", which is how MT5 shows an unset "Where request is"
+	// a zero mask means all
 	if rule.Request != 0 && int32(req.Kind)&rule.Request == 0 {
 		return false
 	}
@@ -236,8 +219,7 @@ func (h *Handler) conditionHolds(c *model.RoutingCondition, req *Request) bool {
 		return compareNumber(c, profitOnSymbol(req))
 	}
 
-	// a condition the engine does not know how to read must not silently pass: a rule that was
-	// meant to restrict something would then admit everything
+	// a condition the engine does not know how to read must not silently pass.
 	h.Log.Log(logger.TypeTrade, logger.CodeWarn, "routing condition not supported",
 		"condition", c.Condition, "value", c.Value)
 
@@ -269,7 +251,7 @@ func compareNumber(c *model.RoutingCondition, actual float64) bool {
 	return false
 }
 
-// compareBool handles the true/false conditions, which MT5 stores as 1 and 0.
+// compareBool handles the true/false conditions, stored as 1 and 0.
 func compareBool(c *model.RoutingCondition, actual bool) bool {
 	want := strings.TrimSpace(c.Value)
 	yes := want == "1" || strings.EqualFold(want, "true")
@@ -281,8 +263,7 @@ func compareBool(c *model.RoutingCondition, actual bool) bool {
 	return actual == yes
 }
 
-// matchText compares strings the way MT5 documents it: "=" is an exact match, "greater" looks
-// for the rule's value inside the actual one, and "less" looks for the actual inside the rule's.
+// "=" is exact, "greater" looks for the rule's value inside the actual, "less" the other way.
 func matchText(c *model.RoutingCondition, actual string) bool {
 	want := c.Value
 
@@ -300,8 +281,7 @@ func matchText(c *model.RoutingCondition, actual string) bool {
 	return false
 }
 
-// matchMask compares against a comma separated list of masks, where `*` stands for any run of
-// characters. Used for symbols and for groups.
+// matchMask compares against a comma separated list of masks, where `*` is any run of characters.
 func matchMask(c *model.RoutingCondition, actual string) bool {
 	hit := false
 
@@ -311,7 +291,7 @@ func matchMask(c *model.RoutingCondition, actual string) bool {
 			continue
 		}
 
-		// a leading "!" excludes, which is how MT5 writes "everything but this"
+		// a leading "!" excludes
 		if strings.HasPrefix(mask, "!") {
 			if globMatch(strings.TrimPrefix(mask, "!"), actual) {
 				return false

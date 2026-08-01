@@ -7,30 +7,36 @@ import (
 	"hstcore/pkg/logger"
 )
 
-// The end of the trading day.
-//
-// Swaps are charged once, at the same moment every day. Every pod runs this over its own
-// accounts, so no coordination is needed: an account belongs to one pod, and that pod charges
-// it. If a pod is down at rollover its accounts are charged by whoever picks up the shard,
-// which is why the last charge date is recorded per account rather than assumed.
+// Every pod charges its own accounts at rollover, so no coordination is needed.
 
-// rolloverHour is when the trading day turns over, in the server's clock.
-//
-// ponytail: fixed hour, make it a group setting if brokers need different ones
+// ponytail: fixed rollover hour, make it a group setting if brokers need different ones
 const rolloverHour = 0
 
-// runDaily waits for the rollover and charges the day.
+// dealingSweep is how often the dealer queue is checked for requests that ran out of time.
+const dealingSweep = time.Second
+
+// runDaily sweeps the dealer queue every second and charges the day at rollover.
 func (h *Handler) runDaily(ctx context.Context) {
+	sweep := time.NewTicker(dealingSweep)
+	defer sweep.Stop()
+
 	for {
 		wait := untilNextRollover(time.Now())
 
 		h.Log.Log(logger.TypeSys, logger.CodeOK, "next rollover",
 			"in", wait.Round(time.Minute).String())
 
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(wait):
+		rollover := time.After(wait)
+
+		for turned := false; !turned; {
+			select {
+			case <-ctx.Done():
+				return
+			case <-sweep.C:
+				h.CheckDealingRequests()
+			case <-rollover:
+				turned = true
+			}
 		}
 
 		h.ChargeSwaps(ctx, time.Now())

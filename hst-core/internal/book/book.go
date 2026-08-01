@@ -1,10 +1,4 @@
 // Package book holds the accounts this pod is responsible for.
-//
-// An account lives in exactly one pod, so nothing here needs a distributed lock: the only
-// contention is between this pod's own goroutines, and each account carries its own mutex.
-//
-// The index by symbol is the reason this scales. A tick on EURUSD must not wake ten thousand
-// accounts to ask whether they care; it wakes only those holding EURUSD.
 package book
 
 import (
@@ -14,9 +8,6 @@ import (
 )
 
 // Entry is one account and everything open on it.
-//
-// Lock it before touching anything inside. A tick handler and a trade request can arrive for
-// the same account at the same moment, and margin read halfway through a fill is wrong.
 type Entry struct {
 	mu sync.Mutex
 
@@ -115,10 +106,6 @@ func (b *Book) Len() int {
 }
 
 // Watching returns the accounts holding something on this symbol.
-//
-// The slice is a copy, so the caller can work through it without holding the book's lock while
-// it takes each account's own lock — taking the two in that order the other way round is how
-// deadlocks happen.
 func (b *Book) Watching(symbol string) []*Entry {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -136,8 +123,7 @@ func (b *Book) Watching(symbol string) []*Entry {
 	return out
 }
 
-// Watch records that an account now cares about a symbol. Called when an order or position
-// opens on an instrument the account had nothing on.
+// Watch records that an account now cares about a symbol.
 func (b *Book) Watch(symbol string, e *Entry) {
 	b.mu.Lock()
 	defer b.mu.Unlock()

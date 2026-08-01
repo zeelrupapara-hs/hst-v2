@@ -10,14 +10,6 @@ import (
 )
 
 // Charging commission on a deal.
-//
-// A commission belongs to a group and covers a path of instruments. It has tiers, and the tier
-// that applies is chosen by how much is being traded. Whether it applies at all depends on
-// which way the deal went, which side it took, and whether it made money — a broker can charge
-// only on the way in, only on losses, only on sells, and so on.
-//
-// Only instant commissions are taken here. Daily and monthly ones are gathered up by a job at
-// the end of the period, because that is when the total they are based on is known.
 
 // Commission is one rule from hst.commissions with its tiers.
 type Commission struct {
@@ -85,9 +77,6 @@ const (
 )
 
 // CommissionFor is what one deal costs, in the deposit currency.
-//
-// Every commission covering the instrument is considered, and their charges add up: a broker
-// may run a per-lot charge and a flat one at the same time.
 func (h *Handler) CommissionFor(d *model.Deal, r *settings.Rules) float64 {
 	var total float64
 

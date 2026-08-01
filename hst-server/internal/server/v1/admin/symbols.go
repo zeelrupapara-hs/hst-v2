@@ -333,7 +333,7 @@ func pointMultiply(digits int32) (float64, float64) {
 	return math.Pow10(int(-digits)), math.Pow10(int(digits))
 }
 
-// symbolPath puts the symbol at the end of its folder, the way MT5 stores it.
+// symbolPath puts the symbol at the end of its folder, the way the platform stores it.
 func symbolPath(folder, symbol string) string {
 	folder = strings.Trim(folder, `\`)
 	if folder == "" || folder == symbol {
@@ -413,7 +413,6 @@ func sameJSON(was, next json.RawMessage) bool {
 }
 
 // changedSymbolFields lists what the request really changes, as key=value.
-// A field the caller sent with the value it already had is left out.
 func changedSymbolFields(before map[string]json.RawMessage, body *UptSymbol, sessions []sessionWindow) string {
 	changes := make([]string, 0, 8)
 	fields := reflect.ValueOf(*body)
@@ -431,7 +430,6 @@ func changedSymbolFields(before map[string]json.RawMessage, body *UptSymbol, ses
 		}
 
 		// sessions replace every row, so the count says more than the whole list
-		// sessions replace every row, so the whole new list is the value
 		if name == "sessions" {
 			sent, ok := field.Interface().(*[]CrtSymbolSession)
 			if !ok {

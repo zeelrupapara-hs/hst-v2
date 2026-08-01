@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"strings"
 
 	"hstcore/internal/book"
 	"hstcore/internal/shardmap"
@@ -9,14 +10,9 @@ import (
 	"hstcore/pkg/logger"
 )
 
-// Reading the world into memory at boot.
-//
-// Configuration — groups, symbols, the group's overrides, the routing rules — is loaded whole
-// into every pod, because any pod may have to judge any trade. Accounts are loaded only for the
-// shards this pod owns, because that is the part that does not fit.
+// Configuration is loaded whole into every pod; accounts only for the shards this pod owns.
 
-// load fills the caches. Called before the first subscription, so nothing can be asked about a
-// world that is only half there.
+// load fills the caches, before the first subscription.
 func (h *Handler) load(ctx context.Context) error {
 	if err := h.loadSettings(ctx); err != nil {
 		return err
@@ -28,7 +24,6 @@ func (h *Handler) load(ctx context.Context) error {
 		return err
 	}
 
-	// alone until the first membership check, which happens as soon as the handler starts
 	h.Shards = shardmap.New(h.name, []string{h.name})
 
 	if err := h.loadAccounts(ctx); err != nil {
@@ -46,7 +41,6 @@ func (h *Handler) load(ctx context.Context) error {
 	return nil
 }
 
-// loadSettings reads groups, symbols and the per-group overrides, and swaps them in together.
 func (h *Handler) loadSettings(ctx context.Context) error {
 	groups := make(map[string]*model.Group, 512)
 
@@ -117,8 +111,7 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 
 	overrides := make(map[int64][]*model.GroupSymbol, 512)
 
-	// config_index is the group's own ordering of its entries, and the first match wins, so the
-	// order this comes back in decides which override applies
+	// config_index is the group's own ordering and the first match wins
 	rows, err = h.DB.DB.Query(ctx,
 		`SELECT symbol_id, group_id, path, config_index,
 		        trade_mode, exec_mode, fill_flags, expir_flags,
@@ -235,8 +228,6 @@ func (h *Handler) loadRules(ctx context.Context) error {
 	h.rules = rules
 	h.mu.Unlock()
 
-	// a list with nothing that can execute means the server will refuse every trade, which is
-	// almost always a mistake rather than a policy
 	if !h.canExecute(rules) {
 		h.Log.Log(logger.TypeTrade, logger.CodeAtt,
 			"no routing rule can execute a trade: every request will be refused until one is added",
@@ -246,7 +237,6 @@ func (h *Handler) loadRules(ctx context.Context) error {
 	return nil
 }
 
-// canExecute reports whether any enabled rule is able to fill a request.
 func (h *Handler) canExecute(rules []model.RoutingRule) bool {
 	for i := range rules {
 		if rules[i].Enabled() && model.RouteAction(rules[i].Action).Executes() {
@@ -256,9 +246,17 @@ func (h *Handler) canExecute(rules []model.RoutingRule) bool {
 	return false
 }
 
-// loadAccounts reads the accounts belonging to this pod's shards, with their open orders and
-// positions.
+// loadAccounts reads this pod's accounts with their open orders and positions.
+// LoadAccount takes on a single account, for one that appeared after boot.
+func (h *Handler) LoadAccount(ctx context.Context, login int64) error {
+	return h.readAccounts(ctx, `AND u.login = $1`, login)
+}
+
 func (h *Handler) loadAccounts(ctx context.Context) error {
+	return h.readAccounts(ctx, "")
+}
+
+func (h *Handler) readAccounts(ctx context.Context, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT u.login, u."group", u.rights, u.leverage,
 		        a.currency_digits, a.balance, a.credit, a.margin, a.margin_free,
@@ -268,7 +266,8 @@ func (h *Handler) loadAccounts(ctx context.Context) error {
 		        COALESCE(g.currency, '')
 		   FROM hst.users u
 		   JOIN hst.accounts a ON a.login = u.login
-		   LEFT JOIN hst.groups g ON g."group" = u."group"`)
+		   LEFT JOIN hst.groups g ON g."group" = u."group"
+		  WHERE TRUE `+and, args...)
 	if err != nil {
 		return err
 	}
@@ -284,7 +283,6 @@ func (h *Handler) loadAccounts(ctx context.Context) error {
 			return err
 		}
 
-		// only the accounts this pod is responsible for
 		if !h.Shards.HoldsLogin(a.Login) {
 			continue
 		}
@@ -299,21 +297,21 @@ func (h *Handler) loadAccounts(ctx context.Context) error {
 		return rows.Err()
 	}
 
-	if err := h.loadPositions(ctx); err != nil {
+	if err := h.loadPositions(ctx, and, args...); err != nil {
 		return err
 	}
 
-	return h.loadOrders(ctx)
+	return h.loadOrders(ctx, and, args...)
 }
 
-// loadPositions puts every open position back on its account.
-func (h *Handler) loadPositions(ctx context.Context) error {
+func (h *Handler) loadPositions(ctx context.Context, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT position_id, login, dealer, symbol, action, digits, digits_currency, reason,
 		        contract_size, time_create, time_update, price_open, price_current,
-		        price_sl, price_tp, volume, profit, storage, rate_profit, rate_margin,
-		        expert_id, comment
-		   FROM hst.positions`)
+		        price_sl, price_tp, volume, volume_ext, profit, storage, rate_profit,
+		        rate_margin, expert_id, comment, activation_flags
+		   FROM hst.positions
+		  WHERE TRUE `+strings.ReplaceAll(and, "u.login", "login"), args...)
 	if err != nil {
 		return err
 	}
@@ -324,8 +322,9 @@ func (h *Handler) loadPositions(ctx context.Context) error {
 		if err := rows.Scan(&p.PositionId, &p.Login, &p.Dealer, &p.Symbol, &p.Action,
 			&p.Digits, &p.DigitsCurrency, &p.Reason, &p.ContractSize,
 			&p.TimeCreate, &p.TimeUpdate, &p.PriceOpen, &p.PriceCurrent,
-			&p.PriceSL, &p.PriceTP, &p.Volume, &p.Profit, &p.Storage,
-			&p.RateProfit, &p.RateMargin, &p.ExpertId, &p.Comment); err != nil {
+			&p.PriceSL, &p.PriceTP, &p.Volume, &p.VolumeExt, &p.Profit, &p.Storage,
+			&p.RateProfit, &p.RateMargin, &p.ExpertId, &p.Comment,
+			&p.ActivationFlags); err != nil {
 			return err
 		}
 
@@ -344,18 +343,20 @@ func (h *Handler) loadPositions(ctx context.Context) error {
 	return rows.Err()
 }
 
-// loadOrders puts every working order back on its account. Filled and cancelled ones stay in
-// the database as history and are not held in memory.
-func (h *Handler) loadOrders(ctx context.Context) error {
+// loadOrders puts every working order back on its account; history stays on disk.
+func (h *Handler) loadOrders(ctx context.Context, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT order_id, login, dealer, symbol, digits, digits_currency, contract_size,
 		        state, reason, time_setup, time_expiration, time_done, type, type_fill,
 		        type_time, price_order, price_trigger, price_current, price_sl, price_tp,
-		        volume_initial, volume_current, expert_id, position_id, position_by_id,
-		        comment, rate_margin
+		        volume_initial, volume_current, volume_current_ext, expert_id, position_id,
+		        position_by_id, comment, rate_margin,
+		        activation_mode, activation_time, activation_price, activation_flags
 		   FROM hst.orders
-		  WHERE state IN ($1, $2, $3)`,
-		int32(model.StateStarted), int32(model.StatePlaced), int32(model.StatePartial))
+		  WHERE state IN ($1, $2, $3, $4, $5, $6)`,
+		int32(model.StateStarted), int32(model.StatePlaced), int32(model.StatePartial),
+		int32(model.StateRequestAdd), int32(model.StateRequestModify),
+		int32(model.StateRequestCancel))
 	if err != nil {
 		return err
 	}
@@ -367,8 +368,10 @@ func (h *Handler) loadOrders(ctx context.Context) error {
 			&o.DigitsCurrency, &o.ContractSize, &o.State, &o.Reason, &o.TimeSetup,
 			&o.TimeExpiration, &o.TimeDone, &o.Type, &o.TypeFill, &o.TypeTime,
 			&o.PriceOrder, &o.PriceTrigger, &o.PriceCurrent, &o.PriceSL, &o.PriceTP,
-			&o.VolumeInitial, &o.VolumeCurrent, &o.ExpertId, &o.PositionId,
-			&o.PositionById, &o.Comment, &o.RateMargin); err != nil {
+			&o.VolumeInitial, &o.VolumeCurrent, &o.VolumeExt, &o.ExpertId, &o.PositionId,
+			&o.PositionById, &o.Comment, &o.RateMargin,
+			&o.ActivationMode, &o.ActivationTime, &o.ActivationPrice,
+			&o.ActivationFlags); err != nil {
 			return err
 		}
 
@@ -386,3 +389,5 @@ func (h *Handler) loadOrders(ctx context.Context) error {
 
 	return rows.Err()
 }
+
+func shiftArgs(and string) string { return strings.ReplaceAll(and, "$1", "$2") }

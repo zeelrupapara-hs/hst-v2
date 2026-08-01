@@ -61,6 +61,11 @@ type ReorderRouting struct {
 	RoutingIds []int64 `json:"routing_ids" validate:"required,min=1"`
 }
 
+// ViewRoutingRef identifies the rule a change was about; the engine reloads the whole list either way.
+type ViewRoutingRef struct {
+	RoutingId int64 `json:"routing_id"`
+}
+
 // ViewRouting is one row in the list.
 type ViewRouting struct {
 	RoutingId    int64  `json:"routing_id"`
@@ -174,6 +179,8 @@ func (s *Server) CreateRouting(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rule created",
 		"actor", snap.Login, "target", body.Name, "conditions", len(body.Conditions))
+
+	s.NotifySystem(model.SubjectSystemRoutingCreated, ViewRoutingRef{RoutingId: id})
 
 	return s.getRoutingDetail(c, id, s.App.HttpResponseCreated)
 }
@@ -379,6 +386,8 @@ func (s *Server) UpdateRouting(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rule updated",
 		"actor", snap.Login, "target", target, "conditions_replaced", body.Conditions != nil)
 
+	s.NotifySystem(model.SubjectSystemRoutingUpdated, ViewRoutingRef{RoutingId: int64(id)})
+
 	return s.getRoutingDetail(c, int64(id), s.App.HttpResponseOK)
 }
 
@@ -433,6 +442,8 @@ func (s *Server) DeleteRouting(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "routing rule deleted",
 		"actor", snap.Login, "target", name)
+
+	s.NotifySystem(model.SubjectSystemRoutingDeleted, ViewRoutingRef{RoutingId: int64(id)})
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -513,6 +524,8 @@ func (s *Server) ReorderRouting(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rules reordered",
 		"actor", snap.Login, "rules", len(body.RoutingIds))
+
+	s.NotifySystem(model.SubjectSystemRoutingUpdated, ViewRoutingRef{})
 
 	out, err := s.listRoutingOrdered(ctx)
 	if err != nil {
@@ -634,6 +647,8 @@ func (s *Server) moveRoutingOneStep(c *fiber.Ctx, delta int32) error {
 	}
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "routing rule moved "+dir,
 		"actor", snap.Login, "target", name, "from", current, "to", target)
+
+	s.NotifySystem(model.SubjectSystemRoutingUpdated, ViewRoutingRef{RoutingId: int64(id)})
 
 	out, err := s.listRoutingOrdered(ctx)
 	if err != nil {

@@ -76,6 +76,36 @@ var (
 	SubjectJournal = func(login int64) string { return fmt.Sprintf("websocket.%d.journal", login) }
 )
 
+// server -> core, the shard routes it to the pod holding the account
+var (
+	SubjectSystemOrders    = func(login int64) string { return fmt.Sprintf("system.s%d.orders", ShardOf(login)) }
+	SubjectSystemPositions = func(login int64) string { return fmt.Sprintf("system.s%d.positions", ShardOf(login)) }
+	SubjectSystemDealing   = func(login int64) string { return fmt.Sprintf("system.s%d.dealing", ShardOf(login)) }
+
+	// core -> one trading account, under the ws.t.<login>.> tree the socket already holds
+	SubjectAccountOrders    = func(login int64) string { return fmt.Sprintf("ws.t.%d.orders", login) }
+	SubjectAccountPositions = func(login int64) string { return fmt.Sprintf("ws.t.%d.positions", login) }
+	SubjectAccountDeals     = func(login int64) string { return fmt.Sprintf("ws.t.%d.deals", login) }
+	SubjectAccountSummary   = func(login int64) string { return fmt.Sprintf("ws.t.%d.summary", login) }
+	SubjectAccountResult    = func(login int64) string { return fmt.Sprintf("ws.t.%d.result", login) }
+
+	// core -> one dealer's request queue
+	SubjectDealerRequests = func(login int64) string { return fmt.Sprintf("ws.m.%d.requests", login) }
+)
+
+const (
+	// ticks, produced outside both modules; the wire name does not change
+	SubjectSystemMarketFeedAll = "hstquote.tick.*"
+
+	// config reload, broadcast to every pod
+	SubjectSystemRoutingCreated = "system.routing.created"
+	SubjectSystemRoutingUpdated = "system.routing.updated"
+	SubjectSystemRoutingDeleted = "system.routing.deleted"
+)
+
+// SubjectSystemMarketFeed is the tick stream of one instrument.
+func SubjectSystemMarketFeed(symbol string) string { return "hstquote.tick." + symbol }
+
 // Records with no group of their own. Access to them is a right, not a path, so the subject carries no group.
 const (
 	SubjectSymbol   = "ws.right.symbols"

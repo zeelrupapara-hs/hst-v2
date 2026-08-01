@@ -5,17 +5,9 @@ import (
 	"hstcore/model"
 )
 
-// The money maths: what a trade reserves, what a position is worth, and where the account
-// stands. Taken from margin_formula.htm, margin_forex.htm and margin_exchange.htm.
-//
-// Everything here is pure. Give it the same numbers and it gives the same answer, which is what
-// makes it testable without a database, a broker or a clock.
+// What a trade reserves, what a position is worth, and where the account stands. All pure.
 
 // MarginFor is what one trade of this size reserves, in the deposit currency.
-//
-// The instrument's calculation mode decides the shape of the sum; the group's leverage and the
-// margin rates then scale it. A symbol carrying an explicit initial margin skips the formula
-// entirely, which is what MT5 does.
 func MarginFor(r *settings.Rules, lots float64, price float64, leverage int32, rate float64) float64 {
 	if leverage <= 0 {
 		leverage = 1
@@ -47,7 +39,7 @@ func MarginFor(r *settings.Rules, lots float64, price float64, leverage int32, r
 		base = lots * r.ContractSize * price
 	}
 
-	// an explicit initial margin on the instrument replaces the formula, per margin_formula.htm
+	// an explicit initial margin on the instrument replaces the formula
 	if r.MarginInitial > 0 && r.CalcMode != model.CalcFutures {
 		base = lots * r.MarginInitial
 	}
@@ -60,9 +52,6 @@ func MarginFor(r *settings.Rules, lots float64, price float64, leverage int32, r
 }
 
 // ProfitFor is what a position is worth right now, in the deposit currency.
-//
-// Forex and CFDs move by price difference times size. Instruments quoted in ticks rather than
-// price — futures — move by how many ticks it travelled times what a tick is worth.
 func ProfitFor(r *settings.Rules, buy bool, lots, open, current, rate float64) float64 {
 	diff := current - open
 	if !buy {
@@ -104,11 +93,6 @@ type Money struct {
 }
 
 // Settle adds up an account from its balance and its open positions.
-//
-// Equity is what the account is worth if everything closed now. Free margin is what is left to
-// open something new with. Margin level is the ratio the stop out watches, and is zero rather
-// than infinite when nothing is open — a level of zero with no margin means "not at risk",
-// which is why the stop out has to check margin before it reads the level.
 func Settle(a *model.Account, positions map[int64]*model.Position, freeProfitOnly bool) Money {
 	m := Money{
 		Balance:    a.Balance,
@@ -124,8 +108,7 @@ func Settle(a *model.Account, positions map[int64]*model.Position, freeProfitOnl
 
 	m.Equity = m.Balance + m.Credit + m.Floating + m.Storage - m.Commission
 
-	// MT5 lets a group choose whether unrealised profit may be used as margin. When it may not,
-	// only a loss counts against free margin and a gain is ignored.
+	// when the group forbids it, only a floating loss counts against free margin
 	usable := m.Floating
 	if freeProfitOnly && usable > 0 {
 		usable = 0
@@ -151,8 +134,7 @@ func (m Money) Apply(a *model.Account) {
 	a.Profit = m.Floating
 }
 
-// NormalisePrice rounds a price to the instrument's digits, so a fill never carries more
-// precision than the symbol is quoted in.
+// NormalisePrice rounds a price to the instrument's digits.
 func NormalisePrice(price float64, digits int32) float64 {
 	p := 1.0
 	for i := int32(0); i < digits; i++ {

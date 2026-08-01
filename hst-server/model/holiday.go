@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// HolidayMode is the Mode column, MT5's Enable checkbox.
+// HolidayMode is the Mode column, the platform's Enable checkbox.
 type HolidayMode int32
 
 const (
@@ -20,10 +20,6 @@ var (
 )
 
 // Holiday narrows the server work time for a set of symbol masks on one date.
-// From and To are the minutes the server stays open, not the minutes it closes,
-// which is why MT5 labels the pair "Work time". Both zero means the day has no
-// working time at all. The from and to columns are quoted in every query, they
-// are SQL reserved words.
 type Holiday struct {
 	HolidayId   int64       `db:"holiday_id" json:"holiday_id"`
 	Year        int32       `db:"year" json:"year"`
@@ -58,17 +54,11 @@ func (h Holiday) Covers(symbol, path string) bool {
 	return false
 }
 
-// Closed reports whether the record leaves no working time, MT5's "leave zero
-// values in these fields" for a day with no work time.
+// Closed reports whether the record leaves no working time, the platform's "leave zero values in these.
 func (h Holiday) Closed() bool { return h.From == 0 && h.To == 0 }
 
-// matchMask matches one MT5 symbol mask against a symbol and its path. The
-// stored path ends with the symbol, so a mask may name either.
-//
-// ponytail: only the prefix form of * is honoured, which is every mask MT5
-// writes. Swap in a real glob if a mid-pattern wildcard ever shows up.
-// filepath.Match is not usable here, it reads the MT5 path separator \ as an
-// escape character on Linux.
+// matchMask matches one symbol mask against a symbol and its path.
+// ponytail: only the prefix form of * is honoured, which is every mask the terminal
 func matchMask(mask, symbol, path string) bool {
 	if mask == "" || mask == "*" {
 		return true

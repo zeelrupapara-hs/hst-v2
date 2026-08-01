@@ -79,9 +79,6 @@ func (s *Server) MyAccount(c *fiber.Ctx) error {
 }
 
 // TraderAccount reads one login's money state.
-//
-// The login is an argument rather than a request field, so the trader route can pass the session's
-// own and a staff route can later pass somebody else's without either repeating the query.
 func (s *Server) TraderAccount(ctx context.Context, login int64) (*ViewTraderAccount, int, error) {
 	v := &ViewTraderAccount{}
 	err := s.DB.DB.QueryRow(ctx,
@@ -198,9 +195,6 @@ func (s *Server) MySymbols(c *fiber.Ctx) error {
 }
 
 // AccountTypeOf is the kind of account a group path holds.
-//
-// The path is the type: a manager approving a preliminary account moves it to the live tree and
-// the type follows, with nothing to keep in step.
 func AccountTypeOf(group string) string {
 	switch {
 	case v1.IsDemoGroup(group):

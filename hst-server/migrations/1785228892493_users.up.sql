@@ -95,7 +95,7 @@ COMMENT ON COLUMN hst.users.status IS 'free text, not an enum';
 COMMENT ON COLUMN hst.users.password_main IS 'EnUsersPasswords slot 0, argon2id PHC string';
 COMMENT ON COLUMN hst.users.password_investor IS 'EnUsersPasswords slot 1, read-only session';
 COMMENT ON COLUMN hst.users.password_api IS 'EnUsersPasswords slot 2, gated by rights 0x4000';
-COMMENT ON COLUMN hst.users.password_phone IS 'MT5 PhonePassword, support verification only, not a login credential';
+COMMENT ON COLUMN hst.users.password_phone IS 'PhonePassword, support verification only, not a login credential';
 
 COMMENT ON SEQUENCE hst.users_login_seq IS
     'CACHE 1: logins are user facing account numbers, gaps would confuse';

@@ -52,6 +52,14 @@ const (
 	ReorderMustListEveryHoliday  = "the reorder must list every holiday exactly once"
 	RoutingAlreadyFirst          = "the routing rule is already first"
 	RoutingAlreadyLast           = "the routing rule is already last"
+	InvalidOrderType             = "this order type does not exist"
+	PendingNeedsPrice            = "a pending order needs a price"
+	ExpiryRequired               = "this expiration policy needs an expiry time"
+	MarketOrderNotModifiable     = "a market order cannot be modified"
+	OrderNotWorking              = "the order is no longer working"
+	AccountOutOfReach            = "this account is outside your group access"
+	NotADealer                   = "this session may not work the dealing desk"
+	SamePosition                 = "a position cannot be closed by itself"
 )
 
 var (
@@ -103,8 +111,15 @@ var (
 	ErrReorderMustListEveryHoliday  = errors.New(ReorderMustListEveryHoliday)
 	ErrRoutingAlreadyFirst          = errors.New(RoutingAlreadyFirst)
 	ErrRoutingAlreadyLast           = errors.New(RoutingAlreadyLast)
+	ErrInvalidOrderType             = errors.New(InvalidOrderType)
+	ErrPendingNeedsPrice            = errors.New(PendingNeedsPrice)
+	ErrExpiryRequired               = errors.New(ExpiryRequired)
+	ErrMarketOrderNotModifiable     = errors.New(MarketOrderNotModifiable)
+	ErrOrderNotWorking              = errors.New(OrderNotWorking)
+	ErrAccountOutOfReach            = errors.New(AccountOutOfReach)
+	ErrNotADealer                   = errors.New(NotADealer)
+	ErrSamePosition                 = errors.New(SamePosition)
 )
 
-// New is an error carrying a message the engine sent back, so a refusal reaches the client in
-// the engine's own words.
+// New is an error carrying a message the engine sent back, so a refusal reaches the client in the engine's.
 func New(message string) error { return errors.New(message) }

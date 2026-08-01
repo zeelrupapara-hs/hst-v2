@@ -1,7 +1,6 @@
 package model
 
-// Group is a set of accounts sharing settings, and the path is the group: `demo\forex` sits
-// under `demo`. Only the fields a trade reads are loaded.
+// Group is a set of accounts sharing settings, keyed by its path.
 type Group struct {
 	GroupId        int64
 	Group          string
@@ -29,10 +28,7 @@ type Group struct {
 	DemoLeverage *int32
 }
 
-// How positions are kept for a group. From group_position.htm.
-//
-// Netting keeps one position per symbol: an opposite deal shrinks, closes or reverses it.
-// Hedging lets many positions sit side by side on the same symbol, including opposite ones.
+// Netting keeps one position per symbol; hedging lets many sit side by side.
 type MarginMode int32
 
 const (
@@ -41,13 +37,11 @@ const (
 	MarginRetailHedging MarginMode = 2
 )
 
-// Netting reports whether the group keeps a single position per symbol.
 func (m MarginMode) Netting() bool { return m != MarginRetailHedging }
 
-// Hedging reports whether the group allows several positions on one symbol.
 func (m MarginMode) Hedging() bool { return m == MarginRetailHedging }
 
-// How the stop out level is read. From group settings.
+// How the stop out level is read.
 type StopOutMode int32
 
 const (
@@ -55,12 +49,7 @@ const (
 	StopOutMoney   StopOutMode = 1
 )
 
-// GroupSymbol is what a group changes about one instrument, or a path of them.
-//
-// Every setting is a pointer because every one of them is optional: nil means the group did not
-// override it and the instrument's own value stands. That is what the nullable columns in
-// hst.groups_symbols mean, and it matters — a group deliberately setting a value to zero is not
-// the same as a group leaving it alone.
+// GroupSymbol is what a group changes about one instrument; nil means it did not override.
 type GroupSymbol struct {
 	SymbolId    int64
 	GroupId     int64
