@@ -1252,6 +1252,9 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 		"actor", snap.Login, "symbol_id", id,
 		"symbol", detail.Symbol.Symbol, "changes", changes)
 
+	if body.Sessions != nil {
+		s.NotifyDatafeedsForSymbolID(c.UserContext(), int64(id))
+	}
 	s.NotifyWS(model.SubjectSymbol, model.EventSymbolUpdated, detail)
 	s.NotifySystem(model.SubjectSystemSymbolUpdated, detail)
 	s.JournalEntry(c, logger.CodeOK, journal.SymbolUpdatedMsg(snap.Login, detail.Symbol.Symbol), detail)

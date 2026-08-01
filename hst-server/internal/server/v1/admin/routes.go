@@ -145,4 +145,35 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	// server journal
 	journal := v1.Group("/journal", s.Middleware.Protect, s.Middleware.RequireManager)
 	journal.Get("/", s.Middleware.Authorization(model.MgrRightSrvJournals), s.MyJournal)
+
+	// datafeeds
+	datafeeds := v1.Group("/datafeeds", s.Middleware.Protect, s.Middleware.RequireManager)
+	datafeeds.Get("/", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeeds)
+	datafeeds.Get("/modules", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedModules)
+	datafeeds.Post("/", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.CreateDatafeed)
+	datafeeds.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.GetDatafeed)
+	datafeeds.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.UpdateDatafeed)
+	datafeeds.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeed)
+	datafeeds.Post("/:id/activate", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ActivateDatafeed)
+
+	// datafeed symbols
+	datafeeds.Get("/:id/symbols", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedSymbols)
+	datafeeds.Post("/:id/symbols", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.CreateDatafeedSymbol)
+	datafeeds.Get("/:id/symbols/resolve", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ResolveDatafeedSymbols)
+	datafeeds.Get("/:id/symbols/:feedSymbolId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.GetDatafeedSymbol)
+	datafeeds.Delete("/:id/symbols/:feedSymbolId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeedSymbol)
+
+	// datafeed params
+	datafeeds.Get("/:id/params", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedParams)
+	datafeeds.Post("/:id/params", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.CreateDatafeedParam)
+	datafeeds.Get("/:id/params/:paramId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.GetDatafeedParam)
+	datafeeds.Patch("/:id/params/:paramId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.UpdateDatafeedParam)
+	datafeeds.Delete("/:id/params/:paramId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeedParam)
+
+	// datafeed translates
+	datafeeds.Get("/:id/translates", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedTranslates)
+	datafeeds.Post("/:id/translates", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.CreateDatafeedTranslate)
+	datafeeds.Get("/:id/translates/:translateId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.GetDatafeedTranslate)
+	datafeeds.Patch("/:id/translates/:translateId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.UpdateDatafeedTranslate)
+	datafeeds.Delete("/:id/translates/:translateId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeedTranslate)
 }

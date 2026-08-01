@@ -11,7 +11,7 @@ jobs:
       # one red module should not hide the state of the other
       fail-fast: false
       matrix:
-        module: [hst-server, hst-core]
+        module: [hst-server, hst-core, hst-news, hst-quote]
     defaults:
       run:
         working-directory: ${{ matrix.module }}

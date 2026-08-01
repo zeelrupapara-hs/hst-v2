@@ -77,6 +77,9 @@ const (
 	// registration
 	REGISTER_DEMO_GROUP        = "REGISTER_DEMO_GROUP"
 	REGISTER_PRELIMINARY_GROUP = "REGISTER_PRELIMINARY_GROUP"
+
+	// internal service auth
+	INTERNAL_SERVICE_TOKEN = "INTERNAL_SERVICE_TOKEN"
 )
 
 type Config struct {
@@ -88,7 +91,13 @@ type Config struct {
 	Redis    Redis
 	Auth     Auth
 	Cache    Cache
+	Internal Internal
 	Register Register
+}
+
+// Internal holds service-to-service auth settings.
+type Internal struct {
+	ServiceToken string
 }
 
 // Register config for public signups.
@@ -265,6 +274,7 @@ func NewConfig() (*Config, error) {
 	c.HTTP.SwaggerEnabled = getEnvAsBool(SWAGGER_ENABLED, false)
 	c.HTTP.CorsOrigins = splitCsv(getEnv(CORS_ORIGINS, "http://localhost:3000"))
 	c.HTTP.TrustedProxies = splitCsv(getEnv(TRUSTED_PROXIES, ""))
+	c.Internal.ServiceToken = getEnv(INTERNAL_SERVICE_TOKEN, "")
 	c.HTTP.TlsCert = getEnv(HTTP_TLS_CERT, "")
 	c.HTTP.TlsKey = getEnv(HTTP_TLS_KEY, "")
 

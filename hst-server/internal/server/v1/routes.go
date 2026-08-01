@@ -58,3 +58,10 @@ func (s *HttpServer) registerSwagger(root fiber.Router) {
 		}))
 	}
 }
+
+// RegisterInternal registers service-to-service routes for ingestion workers.
+func (s *HttpServer) RegisterInternal() {
+	internal := s.App.Group("/internal/v1", s.Middleware.ServiceAuth)
+	internal.Get("/datafeeds", s.ListInternalDatafeeds)
+	internal.Get("/datafeeds/:id", s.GetInternalDatafeed)
+}
