@@ -156,13 +156,31 @@ func (s *HttpServer) ListDealingRequests(c *fiber.Ctx) error {
 
 	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 1)
 
-	out, err := s.readOrders(c.UserContext(),
-		`o.state = ANY($`+strconv.Itoa(len(args)+1)+`) AND `+where,
-		append(args, []int32{
-			int32(model.OrderState_request_add),
-			int32(model.OrderState_request_modify),
-			int32(model.OrderState_request_cancel),
-		}))
+	where = `o.state = ANY($` + strconv.Itoa(len(args)+1) + `) AND ` + where
+	args = append(args, []int32{
+		int32(model.OrderState_request_add),
+		int32(model.OrderState_request_modify),
+		int32(model.OrderState_request_cancel),
+	})
+
+	// a dealer who has connected works their own queue; anyone else watching the desk, which
+	// is what the supervisor right is for, sees all of it
+	online, err := s.dealerOnline(c.UserContext(), snap.Login)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	if online {
+		args = append(args, snap.Login)
+		where += ` AND EXISTS (SELECT 1 FROM hst.routing_dealers rd
+		                        WHERE rd.routing_id = o.routing_id AND rd.login = $` +
+			strconv.Itoa(len(args)) + `)`
+	} else if !snap.ManagerRights.Has(model.MgrRightTradesSupervisor) {
+		// off the desk and not a supervisor: nothing to work on
+		return s.App.HttpResponseOK(c, []ViewOrder{})
+	}
+
+	out, err := s.readOrders(c.UserContext(), where, args)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

@@ -68,10 +68,18 @@ func (h *Handler) Route(req *Request) Decision {
 			continue
 		}
 
+		// a rule that sends work to the desk needs someone to send it to
+		if action.ToDealer() {
+			dealers, skip := h.deskFor(rule, action)
+			if skip {
+				continue
+			}
+			d.Dealers = dealers
+		}
+
 		d.Rule = rule
 		d.Action = action
 		d.Reason = rule.ActionValue
-		d.Dealers = rule.Dealers
 
 		return d
 	}
@@ -473,4 +481,32 @@ func profitOnSymbol(r *Request) float64 {
 	}
 
 	return p
+}
+
+// deskFor is who a dealer rule hands the request to, and whether the rule steps aside instead.
+//
+// Either action can carry the "skip this rule if no dealers online" box, and when it does and
+// nobody named on the rule has connected, the walk carries on to the rule below rather than
+// queueing work nobody is sitting in front of. What the two actions differ in is delivery: the
+// online action reaches only the dealers who have connected, the plain one reaches everyone
+// named, who will see it when they do.
+func (h *Handler) deskFor(rule *model.RoutingRule, action model.RouteAction) ([]int64, bool) {
+	online := h.onlineOf(rule.Dealers)
+
+	if len(online) == 0 && skipWhenDeskEmpty(rule.ActionValue) {
+		return nil, true
+	}
+
+	if action == model.ActionDealerOnline {
+		return online, false
+	}
+
+	return rule.Dealers, false
+}
+
+// skipWhenDeskEmpty reads the flag beside the dealer actions.
+func skipWhenDeskEmpty(actionValue string) bool {
+	n, err := strconv.Atoi(actionValue)
+
+	return err == nil && n == 1
 }

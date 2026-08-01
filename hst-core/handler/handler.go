@@ -39,6 +39,9 @@ type Handler struct {
 	// Redis is the cache
 	Redis *redis.Redis
 
+	// desk is who is on the dealing desk, as last read from redis
+	desk deskState
+
 	// Workers runs the background jobs this service queues
 	Workers *worker.Pool
 
@@ -116,8 +119,12 @@ func (h *Handler) Start(ctx context.Context) error {
 
 	h.Workers.Start(ctx)
 
+	// requests that were on a desk when this pod went down go back on it
+	h.RecoverDealingRequests()
+
 	h.Go(func() { h.RunEndOfDay(ctx) })
 	h.Go(func() { h.runMembership(ctx) })
+	h.Go(func() { h.runDealingSweep(ctx) })
 
 	// subscribe last: no message should arrive before the state it reads
 	if err := h.subscribe(); err != nil {

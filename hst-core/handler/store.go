@@ -30,9 +30,9 @@ func (h *Handler) save(ctx context.Context, e *book.Entry, o *model.Order, f *Fi
 		    volume_initial, volume_initial_ext, volume_current, volume_current_ext,
 		    expert_id, position_id, position_by_id, comment, rate_margin,
 		    activation_mode, activation_time, activation_price, activation_flags,
-		    date_created, date_modified)
+		    routing_id, date_created, date_modified)
 		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
-		         $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$33)
+		         $20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$34)
 		 RETURNING order_id`,
 		o.Login, o.Dealer, o.Symbol, o.Digits, o.DigitsCurrency, o.ContractSize,
 		o.State, o.Reason, o.TimeSetup, o.TimeExpiration, o.TimeDone, o.Type,
@@ -40,7 +40,7 @@ func (h *Handler) save(ctx context.Context, e *book.Entry, o *model.Order, f *Fi
 		o.PriceSL, o.PriceTP, o.VolumeInitial, o.VolumeExt, o.VolumeCurrent, o.VolumeExt,
 		o.ExpertId, o.PositionId, o.PositionById, o.Comment, o.RateMargin,
 		o.ActivationMode, o.ActivationTime, o.ActivationPrice, o.ActivationFlags,
-		now).Scan(&o.OrderId); err != nil {
+		o.RoutingId, now).Scan(&o.OrderId); err != nil {
 		return err
 	}
 

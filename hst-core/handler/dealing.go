@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"math"
+	"strconv"
 	"time"
 
 	"hstcore/internal/book"
+
 	"hstcore/internal/settings"
 	"hstcore/model"
 	"hstcore/pkg/logger"
@@ -16,6 +18,9 @@ import (
 
 // dealingTimeout is how long a request waits when the instrument names no timeout of its own.
 const dealingTimeout = 30 * time.Second
+
+// dealingSweepEvery is how often the queue is checked for requests that ran out of time.
+const dealingSweepEvery = time.Second
 
 // dealingReasonMax is how much of a dealer's reason the client terminal shows.
 const dealingReasonMax = 31
@@ -66,7 +71,7 @@ func (h *Handler) DealingSystemEventHandler(msg *natscore.Msg) {
 
 // SendDealing registers a request, offers it to every assigned dealer, and answers the caller queued.
 func (h *Handler) SendDealing(req *model.TradeRequest, o *model.Order,
-	dealers []int64) *model.TradeResult {
+	dealers []int64, routingId int64) *model.TradeResult {
 	res := &model.TradeResult{RequestId: req.RequestId, Login: req.Login}
 
 	if len(dealers) == 0 {
@@ -77,6 +82,9 @@ func (h *Handler) SendDealing(req *model.TradeRequest, o *model.Order,
 	if o.OrderId > 0 {
 		o.State = int32(model.StateRequestModify)
 	}
+
+	// the rule is written down so the desk can show each dealer only their own queue
+	o.RoutingId = routingId
 
 	// the row goes down first, so the request is visible in the back office while it waits
 	if err := h.saveRequest(context.Background(), o); err != nil {
@@ -428,6 +436,22 @@ func (h *Handler) ReturnRequest(ev *model.DealingEvent) *model.TradeResult {
 	return h.refuse(res, model.RetTradeDealerReturned, "")
 }
 
+// runDealingSweep gives up on unanswered requests, on a tick short enough that the shortest
+// instrument timeout is still roughly honoured.
+func (h *Handler) runDealingSweep(ctx context.Context) {
+	t := time.NewTicker(dealingSweepEvery)
+	defer t.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+			h.CheckDealingRequests()
+		}
+	}
+}
+
 // CheckDealingRequests gives up on the requests nobody answered in time.
 func (h *Handler) CheckDealingRequests() {
 	now := Now()
@@ -469,12 +493,6 @@ func (h *Handler) dealingTimeout(p *Pending) time.Duration {
 	}
 
 	return time.Duration(r.RequestTimeout) * time.Second
-}
-
-// dealersFor is who the rule hands the request to.
-// ponytail: the online action takes the rule's list too, until dealer presence reaches the pod
-func (h *Handler) dealersFor(d Decision, e *book.Entry) []int64 {
-	return d.Dealers
 }
 
 // offer puts the request on every assigned dealer's queue.
@@ -550,4 +568,93 @@ func (h *Handler) saveRequest(ctx context.Context, o *model.Order) error {
 	h.Accounts.Watch(o.Symbol, e)
 
 	return nil
+}
+
+// RecoverDealingRequests puts the requests that were waiting on a dealer back on the desk after
+// a restart.
+//
+// The order row survives a pod going down; the queue it was sitting in does not. Without this
+// the request would stay in its request state for good, answerable by nobody and swept by
+// nothing. The rule that queued it was written down with it, so it goes back to the same desk
+// with its clock started again.
+func (h *Handler) RecoverDealingRequests() {
+	var back, dropped int
+
+	h.Accounts.Each(func(e *book.Entry) {
+		e.Lock()
+		waiting := make([]*model.Order, 0, 2)
+		for _, o := range e.Orders {
+			if model.OrderState(o.State).AwaitingDealer() {
+				waiting = append(waiting, o)
+			}
+		}
+		e.Unlock()
+
+		for _, o := range waiting {
+			dealers := h.dealersOfRule(o.RoutingId)
+			if len(dealers) == 0 {
+				// the rule is gone, or names nobody: nothing can answer this any more.
+				// removeOrder takes the entry locked and gives it back unlocked.
+				e.Lock()
+				h.removeOrder(context.Background(), e, o, "no dealer is assigned")
+				dropped++
+				continue
+			}
+
+			p := &Pending{
+				Request: &model.TradeRequest{
+					RequestId: recoveredRequestId(o.OrderId),
+					Login:     o.Login,
+					Symbol:    o.Symbol,
+					Type:      o.Type,
+					Volume:    o.VolumeCurrent,
+					Price:     o.PriceOrder,
+					PriceSL:   o.PriceSL,
+					PriceTP:   o.PriceTP,
+					TypeFill:  o.TypeFill,
+					TypeTime:  o.TypeTime,
+					Expiry:    o.TimeExpiration,
+					Comment:   o.Comment,
+					ExpertId:  o.ExpertId,
+					Reason:    o.Reason,
+				},
+				Order:    o,
+				Dealers:  dealers,
+				Returned: make(map[int64]bool, len(dealers)),
+				At:       Now(),
+			}
+
+			h.dealingMu.Lock()
+			h.dealing[p.Request.RequestId] = p
+			h.dealingMu.Unlock()
+
+			h.offer(p, model.DealingEventOffer, 0)
+			back++
+		}
+	})
+
+	if back > 0 || dropped > 0 {
+		h.Log.Log(logger.TypeTrade, logger.CodeOK, "dealer requests recovered",
+			"requeued", back, "dropped", dropped)
+	}
+}
+
+// dealersOfRule is the desk a rule still names.
+func (h *Handler) dealersOfRule(routingId int64) []int64 {
+	if routingId == 0 {
+		return nil
+	}
+
+	for i := range h.rules {
+		if h.rules[i].RoutingId == routingId {
+			return h.rules[i].Dealers
+		}
+	}
+
+	return nil
+}
+
+// recoveredRequestId names a request whose original id went down with the pod.
+func recoveredRequestId(orderId int64) string {
+	return "recovered." + strconv.FormatInt(orderId, 10)
 }

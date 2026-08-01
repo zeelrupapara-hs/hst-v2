@@ -590,7 +590,7 @@ func (h *Handler) refuseByRule(res *model.TradeResult, d Decision, e *book.Entry
 		return h.refuse(res, model.RetTradeRequote, "")
 	case model.ActionDealer, model.ActionDealerOnline:
 		o.State = int32(state)
-		return h.SendDealing(req, o, h.dealersFor(d, e))
+		return h.SendDealing(req, o, d.Dealers, d.Rule.RoutingId)
 	case model.ActionCancelOrder:
 		return h.refuse(res, model.RetTradeRejected, "order cancelled")
 	}

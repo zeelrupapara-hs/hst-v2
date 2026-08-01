@@ -421,7 +421,8 @@ func (h *Handler) loadOrders(ctx context.Context, and string, args ...any) error
 		        type_time, price_order, price_trigger, price_current, price_sl, price_tp,
 		        volume_initial, volume_current, volume_current_ext, expert_id, position_id,
 		        position_by_id, comment, rate_margin,
-		        activation_mode, activation_time, activation_price, activation_flags
+		        activation_mode, activation_time, activation_price, activation_flags,
+		        routing_id
 		   FROM hst.orders
 		  WHERE state IN ($1, $2, $3, $4, $5, $6)`,
 		int32(model.StateStarted), int32(model.StatePlaced), int32(model.StatePartial),
@@ -441,7 +442,7 @@ func (h *Handler) loadOrders(ctx context.Context, and string, args ...any) error
 			&o.VolumeInitial, &o.VolumeCurrent, &o.VolumeExt, &o.ExpertId, &o.PositionId,
 			&o.PositionById, &o.Comment, &o.RateMargin,
 			&o.ActivationMode, &o.ActivationTime, &o.ActivationPrice,
-			&o.ActivationFlags); err != nil {
+			&o.ActivationFlags, &o.RoutingId); err != nil {
 			return err
 		}
 

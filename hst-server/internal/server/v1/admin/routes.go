@@ -88,6 +88,10 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	routing.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgRequests), s.GetRouting)
 	routing.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgRequests), s.UpdateRouting)
 	routing.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgRequests), s.DeleteRouting)
+	// the Dealers tab: who a "process to dealers" rule hands its requests to
+	routing.Get("/:id/dealers", s.Middleware.Authorization(model.MgrRightCfgRequests), s.ListRoutingDealers)
+	routing.Post("/:id/dealers", s.Middleware.Authorization(model.MgrRightCfgRequests), s.CreateRoutingDealer)
+	routing.Delete("/:id/dealers/:login", s.Middleware.Authorization(model.MgrRightCfgRequests), s.DeleteRoutingDealer)
 
 	// groups
 	groups := v1.Group("/groups", s.Middleware.Protect, s.Middleware.RequireManager)
@@ -138,6 +142,11 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	// the dealing desk
 	dealing := v1.Group("/dealing", s.Middleware.Protect, s.Middleware.RequireManager)
 	dealing.Get("/", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ListDealingRequests)
+	// connecting as a dealer is what makes routing rules hand this manager work
+	dealing.Get("/state", s.Middleware.Authorization(model.MgrRightTradesDealer), s.GetDealerState)
+	dealing.Post("/connect", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ConnectDealer)
+	dealing.Post("/heartbeat", s.Middleware.Authorization(model.MgrRightTradesDealer), s.HeartbeatDealer)
+	dealing.Post("/disconnect", s.Middleware.Authorization(model.MgrRightTradesDealer), s.DisconnectDealer)
 	dealing.Post("/:request_id/confirm", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ConfirmRequest)
 	dealing.Post("/:request_id/requote", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RequoteRequest)
 	dealing.Post("/:request_id/reject", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RejectRequest)

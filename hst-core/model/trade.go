@@ -51,6 +51,15 @@ const (
 	StateRequestCancel OrderState = 9
 )
 
+// AwaitingDealer reports whether the order is sitting on a dealing desk.
+func (s OrderState) AwaitingDealer() bool {
+	switch s {
+	case StateRequestAdd, StateRequestModify, StateRequestCancel:
+		return true
+	}
+	return false
+}
+
 // A queued request still cooks and still expires, so it counts as live.
 func (s OrderState) Live() bool {
 	switch s {
@@ -122,6 +131,8 @@ type Order struct {
 	PositionById   int64   `json:"position_by_id"`
 	Comment        string  `json:"comment"`
 	RateMargin     float64 `json:"rate_margin"`
+	// RoutingId is the rule that sent this request to the dealing desk, if one did.
+	RoutingId int64 `json:"routing_id"`
 
 	ActivationMode  int32   `json:"activation_mode"`
 	ActivationTime  int64   `json:"activation_time"`

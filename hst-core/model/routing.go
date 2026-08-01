@@ -90,6 +90,11 @@ func (a RouteAction) Terminal() bool {
 	return true
 }
 
+// ToDealer reports whether the action hands the request to the dealing desk.
+func (a RouteAction) ToDealer() bool {
+	return a == ActionDealer || a == ActionDealerOnline
+}
+
 func (a RouteAction) Executes() bool {
 	return a == ActionConfirmClient || a == ActionConfirmMarket
 }

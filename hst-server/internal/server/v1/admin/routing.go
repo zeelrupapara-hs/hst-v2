@@ -737,7 +737,14 @@ func insertRoutingConditions(ctx context.Context, tx pgx.Tx, routingId int64,
 func validateRoutingAction(action int32, actionValue string) error {
 	switch action {
 	case routeActionDealer, routeActionDealerOnline:
-		return fmt.Errorf("action %d is not supported", action)
+		// the extra parameter is the "skip this rule if no dealers online" box
+		if actionValue == "" {
+			return nil
+		}
+		n, err := strconv.ParseInt(actionValue, 10, 32)
+		if err != nil || n < 0 || n > 1 {
+			return fmt.Errorf("skip if no dealers online must be 0 or 1")
+		}
 	case int32(model.RouteAction_delay_tick):
 		if actionValue == "" {
 			return fmt.Errorf("delay tick count is required")
