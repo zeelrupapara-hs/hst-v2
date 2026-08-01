@@ -28,6 +28,7 @@ func (h *Handler) load(ctx context.Context) error {
 		return err
 	}
 
+	// alone until the first membership check, which happens as soon as the handler starts
 	h.Shards = shardmap.New(h.name, []string{h.name})
 
 	if err := h.loadAccounts(ctx); err != nil {

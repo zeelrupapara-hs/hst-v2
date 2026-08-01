@@ -1,6 +1,9 @@
 package shardmap
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+)
 
 // The engine and the API server both compute the shard from the login, in different modules.
 // If these two ever disagree a request is published to a subject nobody is listening on, so
@@ -77,5 +80,30 @@ func TestAddingAPodMovesAFraction(t *testing.T) {
 func TestSinglePodHoldsAll(t *testing.T) {
 	if got := len(New("only", []string{"only"}).Mine()); got != Count {
 		t.Fatalf("single pod holds %d shards, want %d", got, Count)
+	}
+}
+
+// Every pod must get a real share. A ring that leaves one pod holding nothing, or holding most
+// of the accounts, is worse than no sharding at all — and that is exactly what a weak hash did
+// here before: with four pods one of them owned zero shards.
+func TestShardsAreSpreadEvenly(t *testing.T) {
+	for _, n := range []int{2, 3, 4, 8, 16} {
+		pods := make([]string, n)
+		for i := range pods {
+			pods[i] = fmt.Sprintf("pod-%02d", i)
+		}
+
+		ideal := Count / n
+		for _, pod := range pods {
+			held := len(New(pod, pods).Mine())
+
+			if held == 0 {
+				t.Fatalf("%d pods: %s holds nothing", n, pod)
+			}
+			// a hash ring is never exact; twice or half the fair share is the alarm
+			if held > ideal*2 || held < ideal/2 {
+				t.Errorf("%d pods: %s holds %d shards, fair share is %d", n, pod, held, ideal)
+			}
+		}
 	}
 }

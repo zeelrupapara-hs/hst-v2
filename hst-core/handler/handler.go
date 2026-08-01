@@ -117,8 +117,9 @@ func (h *Handler) Start(ctx context.Context) error {
 
 	h.Workers.Start(ctx)
 
-	// the daily rollover runs for as long as the handler does
+	// the daily rollover and the membership watch run for as long as the handler does
 	h.Go(func() { h.runDaily(ctx) })
+	h.Go(func() { h.runMembership(ctx) })
 
 	// subscribe last: no message should arrive before the state it reads
 	if err := h.subscribe(); err != nil {

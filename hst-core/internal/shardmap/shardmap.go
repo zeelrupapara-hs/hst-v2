@@ -121,7 +121,11 @@ func (m *Map) podFor(shard uint32) string {
 	return m.points[i].pod
 }
 
-// hashString is the same FNV-1a used for logins, over a string.
+// hashString places a name on the ring.
+//
+// FNV alone is not enough here. Pod names differ by a character or two, and taking part of the
+// raw hash leaves them clustered: with four pods, one of them ended up owning nothing at all.
+// The mix below spreads single-bit differences across the whole word before it is cut down.
 func hashString(s string) uint32 {
 	const (
 		offset64 = uint64(14695981039346656037)
@@ -134,5 +138,12 @@ func hashString(s string) uint32 {
 		h *= prime64
 	}
 
-	return uint32(h >> 32)
+	// avalanche, so "pod-a#1" and "pod-b#1" land nowhere near each other
+	h ^= h >> 33
+	h *= 0xff51afd7ed558ccd
+	h ^= h >> 33
+	h *= 0xc4ceb9fe1a85ec53
+	h ^= h >> 33
+
+	return uint32(h)
 }
