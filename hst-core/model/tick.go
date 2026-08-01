@@ -1,15 +1,65 @@
 package model
 
+import (
+	"encoding/json"
+	"strconv"
+	"time"
+)
+
 // Tick is one quote as the feed publishes it.
 type Tick struct {
+	DatafeedId int64   `json:"datafeed_id"`
+	SymbolId   int64   `json:"symbol_id"`
 	Symbol     string  `json:"symbol"`
+	Source     string  `json:"source"`
 	Digits     int32   `json:"digits"`
 	Bid        float64 `json:"bid"`
 	Ask        float64 `json:"ask"`
 	Last       float64 `json:"last"`
-	Volume     int64   `json:"volume"`
-	VolumeReal float64 `json:"volume_real"`
-	Time       int64   `json:"time"`
+	High       float64 `json:"high"`
+	Low        float64 `json:"low"`
+	Open       float64 `json:"open"`
+	Close      float64 `json:"close"`
+	Volume     float64 `json:"volume"`
+	Time       int64   `json:"-"`
+}
+
+// the feed sends time as RFC3339; older producers send epoch nanoseconds
+func (t *Tick) UnmarshalJSON(b []byte) error {
+	type wire Tick
+
+	var w struct {
+		wire
+		Time json.RawMessage `json:"time"`
+	}
+	if err := json.Unmarshal(b, &w); err != nil {
+		return err
+	}
+
+	*t = Tick(w.wire)
+
+	raw := string(w.Time)
+	if raw == "" || raw == "null" {
+		return nil
+	}
+
+	// a quoted value is a timestamp; a bare number is already epoch nanoseconds, and is read
+	// as an integer so the low digits survive
+	if raw[0] == '"' {
+		var text string
+		if err := json.Unmarshal(w.Time, &text); err == nil {
+			if ts, err := time.Parse(time.RFC3339Nano, text); err == nil {
+				t.Time = ts.UnixNano()
+			}
+		}
+		return nil
+	}
+
+	if n, err := strconv.ParseInt(raw, 10, 64); err == nil {
+		t.Time = n
+	}
+
+	return nil
 }
 
 func (t *Tick) Spread() float64 { return t.Ask - t.Bid }
