@@ -242,3 +242,35 @@ func (s *HttpServer) AcceptMyRequote(c *fiber.Ctx) error {
 	res, status, err := s.acceptRequote(c.UserContext(), &body)
 	return s.answer(c, res, status, err)
 }
+
+// ReturnRequest hands a request back so the next dealer on the rule can take it.
+//
+//	@Id			ReturnRequest
+//	@Tags		Dealing
+//	@Accept		json
+//	@Produce	json
+//	@Param		request_id	path		string				true	"the queued request"
+//	@Param		body		body		ReturnRequestBody	true	"the account"
+//	@Success	200			{object}	Response{data=TradeResult}
+//	@Failure	400			{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/dealing/{request_id}/return [post]
+func (s *HttpServer) ReturnRequest(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	var body ReturnRequestBody
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	body.RequestId = c.Params("request_id", body.RequestId)
+
+	if ok, err := s.inReach(c, snap, body.Login); !ok {
+		return err
+	}
+
+	res, status, err := s.returnRequest(c.UserContext(), &body, snap.Login)
+	return s.answer(c, res, status, err)
+}

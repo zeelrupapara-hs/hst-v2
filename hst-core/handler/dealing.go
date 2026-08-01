@@ -36,6 +36,19 @@ type Pending struct {
 
 	// Requoted is the price a dealer offered back, while it waits for the client to take it.
 	Requoted float64
+
+	// Holder is where in Dealers the request currently sits. The list is the rule's own order,
+	// so the request travels down it: whoever holds it answers, and passing it back moves it on.
+	Holder int
+}
+
+// holder is the dealer the request is with, or 0 when it has run off the end of the list.
+func (p *Pending) holder() int64 {
+	if p.Holder < 0 || p.Holder >= len(p.Dealers) {
+		return 0
+	}
+
+	return p.Dealers[p.Holder]
 }
 
 // DealingSystemEventHandler takes one dealer's answer off the wire.
@@ -60,7 +73,7 @@ func (h *Handler) DealingSystemEventHandler(msg *natscore.Msg) {
 		res = h.RejectRequest(ctx, &e)
 	case model.DealingEventCancel:
 		res = h.CancelRequest(ctx, &e)
-	case model.DealingEventOffer:
+	case model.DealingEventReturn, model.DealingEventOffer:
 		res = h.ReturnRequest(&e)
 	default:
 		res = h.refuse(res, model.RetInvalidData, "unknown dealing event")
@@ -406,18 +419,26 @@ func (h *Handler) ReturnRequest(ev *model.DealingEvent) *model.TradeResult {
 		return h.refuse(res, model.RetNotFound, "")
 	}
 
-	p.Returned[ev.Dealer] = true
-
-	all := true
-	for _, d := range p.Dealers {
-		if !p.Returned[d] {
-			all = false
-			break
-		}
+	// only whoever is holding it can hand it back
+	if p.holder() != ev.Dealer {
+		h.dealingMu.Unlock()
+		return h.refuse(res, model.RetNotFound, "")
 	}
 
-	if !all {
+	p.Returned[ev.Dealer] = true
+
+	// down the list to the next dealer who can take it
+	next := h.nextHolder(p)
+	if next >= 0 {
+		p.Holder = next
+		p.At = Now()
 		h.dealingMu.Unlock()
+
+		h.offer(p, model.DealingEventOffer, 0)
+
+		h.Log.Log(logger.TypeTrade, logger.CodeOK, "request passed to the next dealer",
+			"login", p.Request.Login, "request", ev.RequestId,
+			"from", ev.Dealer, "to", p.holder())
 
 		res.RetCode = int32(model.RetTradeDealerQueued)
 		res.Message = model.RetTradeDealerQueued.String()
@@ -434,6 +455,24 @@ func (h *Handler) ReturnRequest(ev *model.DealingEvent) *model.TradeResult {
 	h.done(p, ev.Dealer)
 
 	return h.refuse(res, model.RetTradeDealerReturned, "")
+}
+
+// nextHolder is the position of the next dealer below the current one who has not already
+// handed the request back. It returns -1 when the list is exhausted.
+//
+// Presence is not re-checked here: the rule's action already decided whether the list was
+// narrowed to dealers who had connected, and re-reading it would quietly change what the
+// broker configured.
+//
+// Called with the dealing lock held.
+func (h *Handler) nextHolder(p *Pending) int {
+	for i := p.Holder + 1; i < len(p.Dealers); i++ {
+		if !p.Returned[p.Dealers[i]] {
+			return i
+		}
+	}
+
+	return -1
 }
 
 // runDealingSweep gives up on unanswered requests, on a tick short enough that the shortest
@@ -495,7 +534,7 @@ func (h *Handler) dealingTimeout(p *Pending) time.Duration {
 	return time.Duration(r.RequestTimeout) * time.Second
 }
 
-// offer puts the request on every assigned dealer's queue.
+// offer puts the request on the queue of the dealer whose turn it is.
 func (h *Handler) offer(p *Pending, kind model.DealingEventType, dealer int64) {
 	ev := &model.DealingEvent{
 		EventType: kind,
@@ -506,14 +545,30 @@ func (h *Handler) offer(p *Pending, kind model.DealingEventType, dealer int64) {
 		At:        Now(),
 	}
 
-	for _, d := range p.Dealers {
-		h.PublishDealing(d, ev)
+	if to := p.holder(); to != 0 {
+		h.PublishDealing(to, ev)
 	}
 }
 
-// done tells every dealer the request is settled, so it leaves their queues.
+// done tells everyone who has seen the request that it is settled, so it leaves their queues.
+func (h *Handler) announceDone(p *Pending, dealer int64) {
+	ev := &model.DealingEvent{
+		EventType: model.DealingEventConfirm,
+		RequestId: p.Request.RequestId,
+		Login:     p.Request.Login,
+		Dealer:    dealer,
+		Request:   p.Request,
+		At:        Now(),
+	}
+
+	// everyone up to and including the holder has had it on their screen at some point
+	for i := 0; i <= p.Holder && i < len(p.Dealers); i++ {
+		h.PublishDealing(p.Dealers[i], ev)
+	}
+}
+
 func (h *Handler) done(p *Pending, dealer int64) {
-	h.offer(p, model.DealingEventConfirm, dealer)
+	h.announceDone(p, dealer)
 }
 
 // takeRequest lifts a request out of the queue. Whoever gets it settles it.

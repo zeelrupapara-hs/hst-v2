@@ -42,6 +42,12 @@ type AcceptRequote struct {
 	Login     int64  `json:"login" validate:"required,gt=0"`
 }
 
+// ReturnRequestBody is a dealer putting the request back on the desk.
+type ReturnRequestBody struct {
+	RequestId string `json:"request_id" validate:"required,max=64"`
+	Login     int64  `json:"login" validate:"required,gt=0"`
+}
+
 // sendDealing hands the dealer's answer to the pod holding the account.
 func (s *HttpServer) sendDealing(ctx context.Context, e *model.DealingEvent) (*model.TradeResult, int, error) {
 	e.At = time.Now().UnixNano()
@@ -113,5 +119,19 @@ func (s *HttpServer) acceptRequote(ctx context.Context, payload *AcceptRequote) 
 		EventType: model.DealingEventAccept,
 		RequestId: payload.RequestId,
 		Login:     payload.Login,
+	})
+}
+
+func (s *HttpServer) returnRequest(ctx context.Context, payload *ReturnRequestBody,
+	dealer int64) (*model.TradeResult, int, error) {
+	if err := s.Validate.Struct(payload); err != nil {
+		return nil, nethttp.StatusBadRequest, err
+	}
+
+	return s.sendDealing(ctx, &model.DealingEvent{
+		EventType: model.DealingEventReturn,
+		RequestId: payload.RequestId,
+		Login:     payload.Login,
+		Dealer:    dealer,
 	})
 }

@@ -42,6 +42,9 @@ type Handler struct {
 	// desk is who is on the dealing desk, as last read from redis
 	desk deskState
 
+	// managerGroups is the client groups each dealer services, by login
+	managerGroups map[int64][]string
+
 	// Workers runs the background jobs this service queues
 	Workers *worker.Pool
 

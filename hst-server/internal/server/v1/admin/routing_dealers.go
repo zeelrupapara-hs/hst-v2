@@ -22,13 +22,19 @@ type CrtRoutingDealer struct {
 
 // ViewRoutingDealer is one row of the tab.
 type ViewRoutingDealer struct {
-	DealerId  int64  `json:"dealer_id"`
-	RoutingId int64  `json:"routing_id"`
-	Login     int64  `json:"login"`
-	Name      string `json:"name"`
+	DealerId    int64  `json:"dealer_id"`
+	RoutingId   int64  `json:"routing_id"`
+	Login       int64  `json:"login"`
+	Name        string `json:"name"`
+	DealerIndex int32  `json:"dealer_index"`
 }
 
-const routingDealerColumns = `dealer_id, routing_id, login, name`
+// MoveRoutingDealer is where in the order a dealer should sit.
+type MoveRoutingDealer struct {
+	DealerIndex int32 `json:"dealer_index" validate:"gte=0"`
+}
+
+const routingDealerColumns = `dealer_id, routing_id, login, name, dealer_index`
 
 // ListRoutingDealers is who the rule hands its requests to.
 //
@@ -48,7 +54,7 @@ func (s *Server) ListRoutingDealers(c *fiber.Ctx) error {
 
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+routingDealerColumns+`
-		   FROM hst.routing_dealers WHERE routing_id = $1 ORDER BY login`, routingId)
+		   FROM hst.routing_dealers WHERE routing_id = $1 ORDER BY dealer_index`, routingId)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -58,7 +64,7 @@ func (s *Server) ListRoutingDealers(c *fiber.Ctx) error {
 
 	for rows.Next() {
 		var v ViewRoutingDealer
-		if err := rows.Scan(&v.DealerId, &v.RoutingId, &v.Login, &v.Name); err != nil {
+		if err := rows.Scan(&v.DealerId, &v.RoutingId, &v.Login, &v.Name, &v.DealerIndex); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
 		out = append(out, v)
@@ -110,10 +116,13 @@ func (s *Server) CreateRoutingDealer(c *fiber.Ctx) error {
 	var v ViewRoutingDealer
 
 	err = s.DB.DB.QueryRow(c.UserContext(),
-		`INSERT INTO hst.routing_dealers (routing_id, login, name)
-		 VALUES ($1,$2,$3) RETURNING `+routingDealerColumns,
+		`INSERT INTO hst.routing_dealers (routing_id, login, name, dealer_index)
+		 VALUES ($1,$2,$3,
+		         (SELECT COALESCE(MAX(dealer_index) + 1, 0)
+		            FROM hst.routing_dealers WHERE routing_id = $1))
+		 RETURNING `+routingDealerColumns,
 		routingId, body.Login, name).
-		Scan(&v.DealerId, &v.RoutingId, &v.Login, &v.Name)
+		Scan(&v.DealerId, &v.RoutingId, &v.Login, &v.Name, &v.DealerIndex)
 
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
@@ -188,4 +197,103 @@ func (s *Server) dealerName(ctx context.Context, login int64) (string, error) {
 	}
 
 	return name, nil
+}
+
+// MoveRoutingDealer changes where a dealer sits in the rule's order, which is the order the
+// request is offered in.
+//
+//	@Id			MoveRoutingDealer
+//	@Tags		Routing
+//	@Accept		json
+//	@Produce	json
+//	@Param		id		path		int					true	"the rule"
+//	@Param		login	path		int					true	"the dealer"
+//	@Param		body	body		MoveRoutingDealer	true	"the new position"
+//	@Success	200		{object}	Response{data=[]ViewRoutingDealer}
+//	@Failure	404		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/routing/{id}/dealers/{login}/move [put]
+func (s *Server) MoveRoutingDealer(c *fiber.Ctx) error {
+	routingId, err := c.ParamsInt("id")
+	if err != nil {
+		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+	login, err := c.ParamsInt("login")
+	if err != nil {
+		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	var body MoveRoutingDealer
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	if err := s.Validate.Struct(body); err != nil {
+		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	tx, err := s.DB.DB.Begin(c.UserContext())
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	defer func() { _ = tx.Rollback(c.UserContext()) }()
+
+	// the order is rewritten whole: the moved dealer is lifted out, then everyone is numbered
+	// again in the order that leaves, which keeps the positions dense and unique
+	var order []int64
+
+	rows, err := tx.Query(c.UserContext(),
+		`SELECT login FROM hst.routing_dealers
+		  WHERE routing_id = $1 AND login <> $2 ORDER BY dealer_index FOR UPDATE`,
+		routingId, login)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	for rows.Next() {
+		var l int64
+		if err := rows.Scan(&l); err != nil {
+			rows.Close()
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		order = append(order, l)
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+	}
+
+	at := int(body.DealerIndex)
+	if at > len(order) {
+		at = len(order)
+	}
+
+	order = append(order[:at], append([]int64{int64(login)}, order[at:]...)...)
+
+	// out of the way first, so the unique index never sees two dealers on one position
+	if _, err := tx.Exec(c.UserContext(),
+		`UPDATE hst.routing_dealers SET dealer_index = -1 - dealer_index WHERE routing_id = $1`,
+		routingId); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	for i, l := range order {
+		tag, err := tx.Exec(c.UserContext(),
+			`UPDATE hst.routing_dealers SET dealer_index = $1
+			  WHERE routing_id = $2 AND login = $3`, i, routingId, l)
+		if err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		if tag.RowsAffected() == 0 && l == int64(login) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+	}
+
+	if err := tx.Commit(c.UserContext()); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	s.NotifySystem(model.SubjectSystemRoutingUpdated,
+		ViewRoutingDealer{RoutingId: int64(routingId), Login: int64(login)})
+
+	return s.ListRoutingDealers(c)
 }

@@ -274,7 +274,7 @@ func (h *Handler) loadRules(ctx context.Context) error {
 	}
 
 	rows, err = h.DB.DB.Query(ctx,
-		`SELECT routing_id, login FROM hst.routing_dealers ORDER BY routing_id, login`)
+		`SELECT routing_id, login FROM hst.routing_dealers ORDER BY routing_id, dealer_index`)
 	if err != nil {
 		return err
 	}
@@ -292,6 +292,10 @@ func (h *Handler) loadRules(ctx context.Context) error {
 	rows.Close()
 	if rows.Err() != nil {
 		return rows.Err()
+	}
+
+	if err := h.loadManagerGroups(ctx); err != nil {
+		return err
 	}
 
 	h.mu.Lock()
@@ -496,4 +500,51 @@ func (h *Handler) RefreshAccount(ctx context.Context, e *book.Entry) error {
 		"login", login, "group", account.Group, "leverage", account.Leverage)
 
 	return nil
+}
+
+// loadManagerGroups reads which client groups each dealer services.
+//
+// A dealer can only work an account they are allowed to see, so a request from a group outside
+// their masks is not theirs to answer even when a rule names them.
+func (h *Handler) loadManagerGroups(ctx context.Context) error {
+	rows, err := h.DB.DB.Query(ctx,
+		`SELECT login, COALESCE(groups, '{}') FROM hst.managers`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	masks := make(map[int64][]string, 64)
+
+	for rows.Next() {
+		var login int64
+		var groups []string
+
+		if err := rows.Scan(&login, &groups); err != nil {
+			return err
+		}
+
+		masks[login] = cleanMasks(groups)
+	}
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	h.mu.Lock()
+	h.managerGroups = masks
+	h.mu.Unlock()
+
+	return nil
+}
+
+func cleanMasks(groups []string) []string {
+	out := make([]string, 0, len(groups))
+
+	for _, m := range groups {
+		if m = strings.TrimSpace(m); m != "" {
+			out = append(out, m)
+		}
+	}
+
+	return out
 }

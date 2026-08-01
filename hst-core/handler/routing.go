@@ -70,7 +70,7 @@ func (h *Handler) Route(req *Request) Decision {
 
 		// a rule that sends work to the desk needs someone to send it to
 		if action.ToDealer() {
-			dealers, skip := h.deskFor(rule, action)
+			dealers, skip := h.deskFor(rule, action, groupOf(req))
 			if skip {
 				continue
 			}
@@ -485,13 +485,19 @@ func profitOnSymbol(r *Request) float64 {
 
 // deskFor is who a dealer rule hands the request to, and whether the rule steps aside instead.
 //
+// The list keeps the order the rule names it in, because that order is the order the request is
+// offered in. Only dealers who service the account's group are on it: a request a dealer cannot
+// even open is not theirs to answer.
+//
 // Either action can carry the "skip this rule if no dealers online" box, and when it does and
-// nobody named on the rule has connected, the walk carries on to the rule below rather than
-// queueing work nobody is sitting in front of. What the two actions differ in is delivery: the
-// online action reaches only the dealers who have connected, the plain one reaches everyone
-// named, who will see it when they do.
-func (h *Handler) deskFor(rule *model.RoutingRule, action model.RouteAction) ([]int64, bool) {
-	online := h.onlineOf(rule.Dealers)
+// nobody eligible has connected, the walk carries on to the rule below rather than queueing
+// work nobody is sitting in front of. What the two actions differ in is delivery: the online
+// action reaches only the dealers who have connected, the plain one reaches everyone eligible,
+// who will see it when they do.
+func (h *Handler) deskFor(rule *model.RoutingRule, action model.RouteAction,
+	group string) ([]int64, bool) {
+	eligible := h.servicing(rule.Dealers, group)
+	online := h.onlineOf(eligible)
 
 	if len(online) == 0 && skipWhenDeskEmpty(rule.ActionValue) {
 		return nil, true
@@ -501,7 +507,48 @@ func (h *Handler) deskFor(rule *model.RoutingRule, action model.RouteAction) ([]
 		return online, false
 	}
 
-	return rule.Dealers, false
+	return eligible, false
+}
+
+// servicing keeps the dealers whose group masks cover this account.
+func (h *Handler) servicing(dealers []int64, group string) []int64 {
+	if len(dealers) == 0 {
+		return nil
+	}
+
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	out := make([]int64, 0, len(dealers))
+
+	for _, login := range dealers {
+		if maskCovers(h.managerGroups[login], group) {
+			out = append(out, login)
+		}
+	}
+
+	return out
+}
+
+// maskCovers reads a manager's group masks the way the rest of the platform does: a bare match
+// admits, a leading "!" refuses outright, and nothing granted is nothing seen.
+func maskCovers(masks []string, group string) bool {
+	hit := false
+
+	for _, mask := range masks {
+		if strings.HasPrefix(mask, "!") {
+			if globMatch(strings.TrimPrefix(mask, "!"), group) {
+				return false
+			}
+			continue
+		}
+
+		if globMatch(mask, group) {
+			hit = true
+		}
+	}
+
+	return hit
 }
 
 // skipWhenDeskEmpty reads the flag beside the dealer actions.

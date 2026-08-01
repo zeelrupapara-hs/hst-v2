@@ -92,6 +92,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	routing.Get("/:id/dealers", s.Middleware.Authorization(model.MgrRightCfgRequests), s.ListRoutingDealers)
 	routing.Post("/:id/dealers", s.Middleware.Authorization(model.MgrRightCfgRequests), s.CreateRoutingDealer)
 	routing.Delete("/:id/dealers/:login", s.Middleware.Authorization(model.MgrRightCfgRequests), s.DeleteRoutingDealer)
+	routing.Put("/:id/dealers/:login/move", s.Middleware.Authorization(model.MgrRightCfgRequests), s.MoveRoutingDealer)
 
 	// groups
 	groups := v1.Group("/groups", s.Middleware.Protect, s.Middleware.RequireManager)
@@ -151,6 +152,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	dealing.Post("/:request_id/requote", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RequoteRequest)
 	dealing.Post("/:request_id/reject", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RejectRequest)
 	dealing.Post("/:request_id/accept", s.Middleware.Authorization(model.MgrRightTradesDealer), s.AcceptRequote)
+	dealing.Post("/:request_id/return", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ReturnRequest)
 	dealing.Post("/:request_id/cancel", s.Middleware.Authorization(model.MgrRightTradesDealer), s.CancelRequest)
 
 	// balance operations, for the accountant only
