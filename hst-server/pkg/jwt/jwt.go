@@ -106,13 +106,10 @@ func KeyID(pub ed25519.PublicKey) string {
 }
 
 // PublicKey is what other services need to verify, and nothing more.
-func (s *Signer) PublicKey() ed25519.PublicKey { return s.public }
 
 // KeyID is the kid header the signer puts on new tokens.
-func (s *Signer) KeyID() string { return s.kid }
 
 // TTL is the access token lifetime.
-func (s *Signer) TTL() time.Duration { return s.ttl }
 
 // Sign mints an access token for a session.
 func (s *Signer) Sign(login int64, c *Claims) (string, error) {

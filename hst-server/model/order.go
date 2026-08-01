@@ -22,15 +22,6 @@ var OrderType_name = map[int32]string{
 	5: "sell_stop", 6: "buy_stop_limit", 7: "sell_stop_limit", 8: "close_by",
 }
 
-// IsBuy reports whether the order takes the buy side. Buy orders trade at Ask.
-func (t OrderType) IsBuy() bool {
-	switch t {
-	case OrderType_buy, OrderType_buy_limit, OrderType_buy_stop, OrderType_buy_stop_limit:
-		return true
-	}
-	return false
-}
-
 // IsPending reports whether the order waits for a price rather than filling now.
 func (t OrderType) IsPending() bool {
 	return t >= OrderType_buy_limit && t <= OrderType_sell_stop_limit
@@ -146,9 +137,6 @@ const (
 	ActivationFlags_no_so     TradeActivationFlags = 0x00000020
 	ActivationFlags_no_expiry TradeActivationFlags = 0x00000040
 )
-
-// Has reports whether the flag is set.
-func (f TradeActivationFlags) Has(x TradeActivationFlags) bool { return f&x != 0 }
 
 // TradeModifyFlags records who edited the record by hand.
 type TradeModifyFlags int32

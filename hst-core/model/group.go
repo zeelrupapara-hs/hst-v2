@@ -37,8 +37,6 @@ const (
 	MarginRetailHedging MarginMode = 2
 )
 
-func (m MarginMode) Netting() bool { return m != MarginRetailHedging }
-
 func (m MarginMode) Hedging() bool { return m == MarginRetailHedging }
 
 // How the stop out level is read.

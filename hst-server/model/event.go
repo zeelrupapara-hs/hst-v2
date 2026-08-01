@@ -100,11 +100,12 @@ const (
 	EventOrderCancel       = "order_cancel"
 	EventOrderDealerCancel = "order_dealer_cancel"
 
-	EventPositionUpdate       = "position_update"
-	EventPositionDealerUpdate = "position_dealer_update"
-	EventPositionClose        = "position_close"
-	EventPositionDealerClose  = "position_dealer_close"
-	EventPositionCloseBy      = "position_close_by"
+	EventPositionUpdate        = "position_update"
+	EventPositionDealerUpdate  = "position_dealer_update"
+	EventPositionClose         = "position_close"
+	EventPositionDealerClose   = "position_dealer_close"
+	EventPositionCloseBy       = "position_close_by"
+	EventPositionDealerCloseBy = "position_dealer_close_by"
 
 	EventDealerConfirm = "dealer_confirm"
 	EventDealerRequote = "dealer_requote"
@@ -141,45 +142,14 @@ func SubjectSession(sid string) string {
 	return fmt.Sprintf("%s.%s.>", SubjectSessionRoot, sid)
 }
 
-// SubjectSessionEvent addresses one event at one session.
-func SubjectSessionEvent(sid, event string) string {
-	return fmt.Sprintf("%s.%s.%s", SubjectSessionRoot, sid, event)
-}
-
 // SubjectLogin is every session of one login: ws.login.<login>.>
 func SubjectLogin(login int64) string {
 	return fmt.Sprintf("%s.%d.>", SubjectLoginRoot, login)
 }
 
-// SubjectLoginEvent addresses one event at every session of one login.
-func SubjectLoginEvent(login int64, event string) string {
-	return fmt.Sprintf("%s.%d.%s", SubjectLoginRoot, login, event)
-}
-
-// SubjectRight is every manager holding one right: ws.right.<right>.>
-func SubjectRight(right string) string {
-	return fmt.Sprintf("%s.%s.>", SubjectRightRoot, right)
-}
-
-// SubjectRightEvent addresses one event at every manager holding one right.
-func SubjectRightEvent(right, event string) string {
-	return fmt.Sprintf("%s.%s.%s", SubjectRightRoot, right, event)
-}
-
 // SubjectBroadcast is every connected socket.
 func SubjectBroadcast() string {
 	return SubjectBroadcastRoot + ".>"
-}
-
-// SubjectBroadcastEvent addresses one event at every connected socket.
-func SubjectBroadcastEvent(event string) string {
-	return SubjectBroadcastRoot + "." + event
-}
-
-// EventTypeFromSubject recovers the event name from the subject, so a publisher does not have to repeat it inside the payload.
-func EventTypeFromSubject(subject string) string {
-	typ, _ := ParseSubject(subject)
-	return typ
 }
 
 // ParseSubject splits a subject into the event type and, for a group scoped subject, the group path it happened in.

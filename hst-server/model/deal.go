@@ -37,14 +37,6 @@ var DealAction_name = map[int32]string{
 	19: "so_compensation", 20: "so_compensation_credit",
 }
 
-// IsTrade reports whether the deal moved a position rather than only money.
-func (a DealAction) IsTrade() bool { return a == DealAction_buy || a == DealAction_sell }
-
-// IsCanceled reports whether an external system voided the deal, which takes it out of the money.
-func (a DealAction) IsCanceled() bool {
-	return a == DealAction_buy_canceled || a == DealAction_sell_canceled
-}
-
 // DealEntry says which way the deal moved the position.
 type DealEntry int32
 
@@ -102,6 +94,3 @@ type Deal struct {
 	ApiData         string  `json:"api_data"`
 	DateCreated     int64   `json:"date_created"`
 }
-
-// VolumeLots is the deal volume as a decimal number of lots.
-func (d *Deal) VolumeLots() float64 { return VolumeToLots(d.Volume) }

@@ -142,6 +142,3 @@ var (
 	ErrNotADealer                   = errors.New(NotADealer)
 	ErrSamePosition                 = errors.New(SamePosition)
 )
-
-// New is an error carrying a message the engine sent back, so a refusal reaches the client in the engine's.
-func New(message string) error { return errors.New(message) }

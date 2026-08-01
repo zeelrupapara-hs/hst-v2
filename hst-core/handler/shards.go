@@ -224,16 +224,4 @@ func (h *Handler) resubscribe(gained, lost []uint32) {
 	}
 }
 
-// Holds reports whether this pod is responsible for a login.
-func (h *Handler) Holds(login int64) bool {
-	h.mu.RLock()
-	defer h.mu.RUnlock()
-
-	if h.Shards == nil {
-		return false
-	}
-
-	return h.Shards.HoldsLogin(login)
-}
-
 const ShardCount = shardmap.Count

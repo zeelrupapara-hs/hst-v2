@@ -31,11 +31,6 @@ func BalanceActionName(action int32) string {
 	return "balance"
 }
 
-// AffectsCredit reports whether the action moves credit rather than balance.
-func AffectsCredit(action int32) bool {
-	return action == int32(DealAction_credit) || action == int32(DealAction_bonus)
-}
-
 // IsBalanceAction reports whether an action is a money operation rather than a trade.
 func IsBalanceAction(action int32) bool {
 	switch DealAction(action) {

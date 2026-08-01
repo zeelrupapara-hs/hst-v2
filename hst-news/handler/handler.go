@@ -131,17 +131,6 @@ func (h *Handler) runConfigReload(ctx context.Context) {
 	}
 }
 
-func (h *Handler) Subscribe(subject string, cb natscore.MsgHandler) error {
-	sub, err := h.Nats.NC.Subscribe(subject, cb)
-	if err != nil {
-		return err
-	}
-	h.subs = append(h.subs, sub)
-
-	h.Log.Log(logger.TypeNet, logger.CodeOK, "watching subject", "subject", subject)
-	return nil
-}
-
 func (h *Handler) QueueSubscribe(subject, group string, cb natscore.MsgHandler) error {
 	sub, err := h.Nats.NC.QueueSubscribe(subject, group, cb)
 	if err != nil {

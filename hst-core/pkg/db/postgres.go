@@ -42,12 +42,3 @@ func NewPostgresDB(cfg *config.Config) (*PostgresDB, error) {
 
 	return &PostgresDB{DB: pool}, nil
 }
-
-// Migrate will create the schema, called once at startup
-func (db *PostgresDB) Migrate() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	_, err := db.DB.Exec(ctx, `CREATE SCHEMA IF NOT EXISTS hst`)
-	return err
-}

@@ -172,11 +172,6 @@ func (a *App) WSResponseForbidden(event string, err error) *model.Event {
 	return a.wsFail(model.EventForbidden, event, err)
 }
 
-// WS 401
-func (a *App) WSResponseUnauthorized(event string, err error) *model.Event {
-	return a.wsFail(model.EventUnauthorized, event, err)
-}
-
 // WS 500
 func (a *App) WSResponseInternalServerErrorRequest(event string, err error) *model.Event {
 	return a.wsFail(model.EventInternalServerError, event, err)

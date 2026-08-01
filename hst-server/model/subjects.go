@@ -105,9 +105,6 @@ const (
 	SubjectSystemRoutingDeleted = "system.routing.deleted"
 )
 
-// SubjectSystemMarketFeed is the tick stream of one instrument.
-func SubjectSystemMarketFeed(symbol string) string { return "hstquote.tick." + symbol }
-
 // Records with no group of their own. Access to them is a right, not a path, so the subject carries no group.
 const (
 	SubjectSymbol   = "ws.right.symbols"

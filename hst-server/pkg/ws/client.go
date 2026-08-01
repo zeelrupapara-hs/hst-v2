@@ -123,17 +123,6 @@ func (c *Client) Send(e *model.Event) bool {
 // Dropped is how many events this socket has lost, worth exporting as a metric.
 func (c *Client) Dropped() int64 { return c.dropped.Load() }
 
-// AddSub records a subscription to be closed with the connection.
-func (c *Client) AddSub(s Unsubscriber) {
-	if s == nil {
-		return
-	}
-
-	c.access.Lock()
-	defer c.access.Unlock()
-	c.subs = append(c.subs, s)
-}
-
 // close tears the connection down exactly once.
 func (c *Client) close() {
 	c.once.Do(func() {

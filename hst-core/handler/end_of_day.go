@@ -22,22 +22,6 @@ const (
 	SwapPercentOpen    = 8
 )
 
-func (h *Handler) ChangeEndOfDayDate(ctx context.Context, at string) {
-	t, err := time.Parse("15:04", at)
-	if err != nil {
-		h.Log.Log(logger.TypeSys, logger.CodeErr, "could not read the end of day time",
-			"at", at, "error", err.Error())
-		return
-	}
-
-	h.mu.Lock()
-	h.endOfDay = t.Add(59 * time.Second)
-	h.mu.Unlock()
-
-	h.Log.Log(logger.TypeSys, logger.CodeOK, "end of day time changed",
-		"at", h.EndOfDayAt().Format("15:04:05"))
-}
-
 func (h *Handler) EndOfDayAt() time.Time {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

@@ -84,25 +84,6 @@ func (h *Handler) GetAllPositions(login int64) ([]model.Position, bool) {
 	return out, true
 }
 
-func (h *Handler) GetPosition(login, positionId int64) (*model.Position, bool) {
-	e, ok := h.Accounts.Get(login)
-	if !ok {
-		return nil, false
-	}
-
-	e.Lock()
-	defer e.Unlock()
-
-	p, ok := e.Positions[positionId]
-	if !ok {
-		return nil, false
-	}
-
-	out := *p
-
-	return &out, true
-}
-
 func (h *Handler) GetAllOrders(login int64) ([]model.Order, bool) {
 	e, ok := h.Accounts.Get(login)
 	if !ok {

@@ -34,5 +34,3 @@ const (
 	SubjectSystemAccounts     = "system.user.*"
 	SubjectSystemEndOfDay     = "system.core.endofday"
 )
-
-func SubjectSystemMarketFeed(symbol string) string { return "hstquote.tick." + symbol }

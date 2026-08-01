@@ -12,65 +12,6 @@ type SymbolRef struct {
 	Path     string
 }
 
-type condition struct {
-	exclude bool
-	pattern string
-}
-
-// MatchMasks expands MT5-style comma-separated path/name masks into symbol ids.
-// Conditions apply sequentially: includes add matches, excludes remove them.
-func MatchMasks(masks string, symbols []SymbolRef) []int64 {
-	conds := parseConditions(masks)
-	if len(conds) == 0 {
-		return nil
-	}
-
-	selected := map[int64]struct{}{}
-	for _, cond := range conds {
-		for _, sym := range symbols {
-			if !matchesSymbol(cond.pattern, sym) {
-				continue
-			}
-			if cond.exclude {
-				delete(selected, sym.SymbolID)
-			} else {
-				selected[sym.SymbolID] = struct{}{}
-			}
-		}
-	}
-
-	out := make([]int64, 0, len(selected))
-	for id := range selected {
-		out = append(out, id)
-	}
-	return out
-}
-
-func parseConditions(masks string) []condition {
-	masks = strings.TrimSpace(masks)
-	if masks == "" {
-		return nil
-	}
-	parts := strings.Split(masks, ",")
-	out := make([]condition, 0, len(parts))
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
-		}
-		excl := false
-		if strings.HasPrefix(part, "!") {
-			excl = true
-			part = strings.TrimSpace(strings.TrimPrefix(part, "!"))
-		}
-		if part == "" {
-			continue
-		}
-		out = append(out, condition{exclude: excl, pattern: part})
-	}
-	return out
-}
-
 func matchesSymbol(pattern string, sym SymbolRef) bool {
 	return matchPattern(pattern, sym.Path) || matchPattern(pattern, sym.Symbol)
 }

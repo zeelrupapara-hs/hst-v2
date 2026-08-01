@@ -113,6 +113,7 @@ func (s *Server) Shutdown() error {
 	}
 	// websockets never end on their own, so fiber would otherwise wait out the whole timeout
 	s.Web.Hub.Shutdown()
+	s.Web.History.Close()
 
 	s.Log.Logger.Infow("draining in-flight requests",
 		"timeout", s.Cfg.HTTP.ShutdownTimeout.String())

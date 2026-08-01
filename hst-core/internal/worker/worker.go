@@ -75,9 +75,6 @@ func (p *Pool) Stop() {
 	})
 }
 
-// Pending is the queue depth, worth exporting as a metric.
-func (p *Pool) Pending() int { return len(p.jobs) }
-
 func (p *Pool) run(ctx context.Context) {
 	defer p.wg.Done()
 

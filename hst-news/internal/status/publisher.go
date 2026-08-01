@@ -64,13 +64,3 @@ func (p *Publisher) Disconnected(datafeedID int64) {
 		Connected:  false,
 	})
 }
-
-func (p *Publisher) News(datafeedID int64, count int64, bytes int64) {
-	p.Publish(Event{
-		DatafeedID:         datafeedID,
-		Connected:          true,
-		SysLastTime:        time.Now().UTC().UnixNano(),
-		NewsDelta:          count,
-		BytesReceivedDelta: bytes,
-	})
-}

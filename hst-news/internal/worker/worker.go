@@ -54,24 +54,6 @@ func (p *Pool) Start(ctx context.Context) {
 		"workers", p.size, "queue", cap(p.jobs))
 }
 
-// Submit queues a job. It reports false when the queue is full rather than
-// blocking the caller, which is usually a nats callback that must not stall.
-// A false return is a real signal: log it, count it, shed load.
-func (p *Pool) Submit(job Job) bool {
-	if !p.ready || job == nil {
-		return false
-	}
-
-	select {
-	case p.jobs <- job:
-		return true
-	default:
-		p.log.Log(logger.TypeSys, logger.CodeWarn, "worker queue full, job dropped",
-			"queue", cap(p.jobs))
-		return false
-	}
-}
-
 // Stop closes the queue and waits for the in-flight jobs to finish. Queued
 // jobs still run: they were accepted, so dropping them would be a lie.
 // Safe to call more than once.
@@ -86,10 +68,6 @@ func (p *Pool) Stop() {
 		p.log.Log(logger.TypeSys, logger.CodeOK, "worker pool stopped")
 	})
 }
-
-// Pending is the queue depth, worth exporting as a metric: it is the first
-// number that moves when the service starts falling behind.
-func (p *Pool) Pending() int { return len(p.jobs) }
 
 func (p *Pool) run(ctx context.Context) {
 	defer p.wg.Done()

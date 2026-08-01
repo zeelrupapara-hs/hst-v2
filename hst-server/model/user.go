@@ -167,5 +167,3 @@ type User struct {
 	LastIp         string `db:"last_ip" json:"last_ip"`
 	UpdatedAt      int64  `db:"updated_at" json:"updated_at"`
 }
-
-func (User) TableName() string { return "hst.users" }

@@ -182,19 +182,6 @@ func (h *Handler) subscribeQuiet(subject string, cb natscore.MsgHandler) error {
 	return nil
 }
 
-// QueueSubscribe is Subscribe with a queue group.
-func (h *Handler) QueueSubscribe(subject, group string, cb natscore.MsgHandler) error {
-	sub, err := h.Nats.NC.QueueSubscribe(subject, group, cb)
-	if err != nil {
-		return err
-	}
-	h.subs = append(h.subs, sub)
-
-	h.Log.Log(logger.TypeNet, logger.CodeOK, "watching subject",
-		"subject", subject, "queue", group)
-	return nil
-}
-
 // Go runs f in a goroutine the handler waits for on Stop.
 func (h *Handler) Go(f func()) {
 	h.wg.Add(1)

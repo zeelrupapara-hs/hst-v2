@@ -42,27 +42,6 @@ func (b *Book) Get(symbol string) (model.Tick, bool) {
 	return t, ok
 }
 
-// Len is how many symbols have ever quoted.
-func (b *Book) Len() int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
-	return len(b.ticks)
-}
-
-// Symbols lists every symbol that has quoted.
-func (b *Book) Symbols() []string {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
-	out := make([]string, 0, len(b.ticks))
-	for s := range b.ticks {
-		out = append(out, s)
-	}
-
-	return out
-}
-
 // SetGap marks a symbol as having jumped.
 func (b *Book) SetGap(symbol string, gapped bool) {
 	b.mu.Lock()

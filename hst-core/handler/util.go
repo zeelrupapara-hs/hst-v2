@@ -98,26 +98,3 @@ func (h *Handler) RateMargin(r *settings.Rules, a *model.Account, buy bool) floa
 	}
 	return rate
 }
-
-func GetPrice(t model.Tick, buy bool, dir model.Direction) float64 {
-	if dir == model.DirectionOut {
-		return t.ClosePrice(buy)
-	}
-	return t.OpenPrice(buy)
-}
-
-func GetStopLevel(point float64, level int32) float64 { return float64(level) * point }
-
-func CheckPendingPriceHit(price, pending float64, kind model.OrderType) bool {
-	switch kind {
-	case model.OrderBuyLimit:
-		return price <= pending
-	case model.OrderSellLimit:
-		return price >= pending
-	case model.OrderBuyStop, model.OrderBuyStopLimit:
-		return price >= pending
-	case model.OrderSellStop, model.OrderSellStopLimit:
-		return price <= pending
-	}
-	return false
-}

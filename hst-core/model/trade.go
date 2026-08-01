@@ -8,8 +8,6 @@ const VolumeUnitExt = 100000000.0
 
 func Lots(v int64) float64 { return float64(v) / VolumeUnit }
 
-func Volume(lots float64) int64 { return int64(lots*VolumeUnit + 0.5) }
-
 type OrderType int32
 
 const (

@@ -84,5 +84,3 @@ const (
 	SessionRevokedReuseDetected = "reuse_detected"
 	SessionRevokedRightsChanged = "rights_changed"
 )
-
-func (Session) TableName() string { return "hst.sessions" }

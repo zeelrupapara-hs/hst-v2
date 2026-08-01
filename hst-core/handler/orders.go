@@ -404,16 +404,6 @@ func (h *Handler) SaveOrderAndPublish(ctx context.Context, e *book.Entry, o *mod
 	return nil
 }
 
-// SaveOrderAndPublishAsync hands the write to the worker pool.
-func (h *Handler) SaveOrderAndPublishAsync(e *book.Entry, o *model.Order, f *Fill, a *model.Account) {
-	h.Workers.Submit(func(ctx context.Context) {
-		if err := h.SaveOrderAndPublish(ctx, e, o, f, a); err != nil {
-			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a trade",
-				"login", o.Login, "order", o.OrderId, "error", err.Error())
-		}
-	})
-}
-
 // placeOrder puts a working order on the book and leaves it there.
 func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *book.Entry,
 	o *model.Order, rule string) *model.TradeResult {

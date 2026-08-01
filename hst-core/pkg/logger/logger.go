@@ -106,8 +106,3 @@ func (l *Logger) Close() error {
 	}
 	return nil
 }
-
-// NewNop is a logger that writes nowhere.
-func NewNop() *Logger {
-	return &Logger{Logger: zap.NewNop().Sugar()}
-}

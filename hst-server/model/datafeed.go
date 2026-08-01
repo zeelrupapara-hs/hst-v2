@@ -106,8 +106,6 @@ type Datafeed struct {
 	StateFlags       int32                 `db:"state_flags" json:"state_flags"`
 }
 
-func (Datafeed) TableName() string { return "hst.datafeeds" }
-
 // DatafeedParam is an additional data feed setting.
 type DatafeedParam struct {
 	ParamID    int64           `db:"param_id" json:"param_id"`
@@ -117,8 +115,6 @@ type DatafeedParam struct {
 	Value      string          `db:"value" json:"value"`
 	Priority   int32           `db:"priority" json:"priority"` // unique with datafeed_id, not globally
 }
-
-func (DatafeedParam) TableName() string { return "hst.datafeed_params" }
 
 // DatafeedTranslate maps platform symbols to external source symbols.
 type DatafeedTranslate struct {
@@ -132,8 +128,6 @@ type DatafeedTranslate struct {
 	Digits      int16  `db:"digits" json:"digits"`
 }
 
-func (DatafeedTranslate) TableName() string { return "hst.datafeed_translates" }
-
 // DatafeedSymbol is one MT5 Symbols tab row (explicit symbol or path mask rule).
 type DatafeedSymbol struct {
 	FeedSymbolID int64  `db:"feed_symbol_id" json:"feed_symbol_id"`
@@ -143,5 +137,3 @@ type DatafeedSymbol struct {
 	Exclude      int16  `db:"exclude" json:"exclude"`
 	Symbol       string `db:"symbol" json:"symbol"`
 }
-
-func (DatafeedSymbol) TableName() string { return "hst.datafeed_symbols" }
