@@ -17,10 +17,6 @@ const (
 	LOG_DIR          = "LOG_DIR"
 	LOG_MAX_AGE_DAYS = "LOG_MAX_AGE_DAYS"
 
-	GRPC_HOST             = "GRPC_HOST"
-	GRPC_PORT             = "GRPC_PORT"
-	GRPC_SHUTDOWN_TIMEOUT = "GRPC_SHUTDOWN_TIMEOUT"
-
 	POSTGRES_HOST = "POSTGRES_HOST"
 	POSTGRES_PORT = "POSTGRES_PORT"
 	POSTGRES_USER = "POSTGRES_USER"
@@ -51,7 +47,6 @@ const (
 type Config struct {
 	Setting  Setting
 	Logger   Logger
-	GRPC     GRPC
 	Health   Health
 	Postgres Postgres
 	Nats     Nats
@@ -72,14 +67,6 @@ type Logger struct {
 	LogDir string
 	// LogMaxAgeDays prunes day files older than this; 0 keeps them forever.
 	LogMaxAgeDays int
-}
-
-// GRPC config
-type GRPC struct {
-	Host string
-	Port string
-	// ShutdownTimeout caps how long we wait for in-flight rpcs to drain
-	ShutdownTimeout time.Duration
 }
 
 // Health config for the probe listener
@@ -147,11 +134,6 @@ func NewConfig() (*Config, error) {
 	// Logger
 	c.Logger.LogDir = getEnv(LOG_DIR, "logs")
 	c.Logger.LogMaxAgeDays = getEnvAsInt(LOG_MAX_AGE_DAYS, 365)
-
-	// GRPC
-	c.GRPC.Host = getEnv(GRPC_HOST, "0.0.0.0")
-	c.GRPC.Port = getEnv(GRPC_PORT, "3001")
-	c.GRPC.ShutdownTimeout = time.Duration(getEnvAsInt(GRPC_SHUTDOWN_TIMEOUT, 15)) * time.Second
 
 	// Health
 	c.Health.Host = getEnv(HEALTH_HOST, "0.0.0.0")
