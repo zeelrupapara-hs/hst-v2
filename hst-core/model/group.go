@@ -73,6 +73,9 @@ type GroupSymbol struct {
 	MarginHedged      *float64
 	MarginFlags       *int32
 
+	MarginRateInitial     [8]*float64
+	MarginRateMaintenance [8]*float64
+
 	SwapMode    *int32
 	SwapRate    [7]*float64
 	SwapYearDay *int32

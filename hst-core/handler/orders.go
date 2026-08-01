@@ -426,6 +426,9 @@ func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *boo
 	h.Accounts.Watch(o.Symbol, e)
 	h.PublishWS(model.SubjectAccountOrders(o.Login), "order", o)
 
+	// a working order can reserve margin of its own, so the account changed even with no deal
+	h.SettleAndPublish(ctx, e)
+
 	res.RetCode = int32(model.RetOK)
 	res.Message = model.RetOK.String()
 	res.OrderId = o.OrderId

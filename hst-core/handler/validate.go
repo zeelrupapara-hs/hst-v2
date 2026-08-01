@@ -451,7 +451,8 @@ func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t
 		price = t.OpenPrice(o.Kind().Buy())
 	}
 
-	need := MarginFor(r, o.Lots(), price, e.Account.Leverage, o.RateMargin)
+	// the order's own type decides the multiplier, and a pending type rated zero costs nothing
+	need := MarginForType(r, o.Lots(), price, e.Account.Leverage, o.RateMargin, o.Kind(), false)
 
 	money := h.SettleAccount(e)
 	if money.FreeMargin < need {

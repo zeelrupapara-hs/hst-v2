@@ -115,6 +115,9 @@ func (h *Handler) removeOrder(ctx context.Context, e *book.Entry, o *model.Order
 	h.unwatchIfLast(e, saved.Symbol)
 	h.PublishWS(model.SubjectAccountOrders(saved.Login), "order_canceled", &saved)
 
+	// whatever the order was reserving goes back
+	h.SettleAndPublish(ctx, e)
+
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "order canceled",
 		"login", saved.Login, "order", saved.OrderId, "comment", comment)
 }

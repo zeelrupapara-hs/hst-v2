@@ -34,6 +34,10 @@ type Symbol struct {
 	MarginHedged      float64
 	MarginFlags       int32
 
+	// MarginRates multiply the margin a formula produced, one per order type.
+	MarginRateInitial     MarginRates
+	MarginRateMaintenance MarginRates
+
 	SwapMode    int32
 	SwapLong    float64
 	SwapShort   float64
@@ -128,3 +132,15 @@ const InstantFlagFastConfirmation int32 = 1
 
 // RequestFlagOrder makes the dealer confirm once more after the client accepts their price.
 const RequestFlagOrder int32 = 1
+
+// MarginRates is a multiplier per order type, in OrderType order.
+type MarginRates [8]float64
+
+// For is the rate an order type carries. A maintenance rate of zero means the initial one stands.
+func (m MarginRates) For(t OrderType) float64 {
+	if int(t) < 0 || int(t) >= len(m) {
+		return 1
+	}
+
+	return m[t]
+}

@@ -7,8 +7,42 @@ import (
 
 // What a trade reserves, what a position is worth, and where the account stands. All pure.
 
-// MarginFor is what one trade of this size reserves, in the deposit currency.
+// MarginFor is what one trade of this size reserves, in the deposit currency, for a market position.
 func MarginFor(r *settings.Rules, lots float64, price float64, leverage int32, rate float64) float64 {
+	return MarginForType(r, lots, price, leverage, rate, model.OrderBuy, false)
+}
+
+// MarginForPosition is what one position reserves, charged at its own side's rate.
+func MarginForPosition(r *settings.Rules, p *model.Position, price float64, leverage int32) float64 {
+	kind := model.OrderBuy
+	if !p.Buy() {
+		kind = model.OrderSell
+	}
+
+	return MarginForType(r, p.Lots(), price, leverage, p.RateMargin, kind, false)
+}
+
+// MarginForType is the same for a named order type, which decides the multiplier applied at the end.
+//
+// The order of the stages is the platform's: the formula runs in the instrument's margin currency,
+// the result is converted to the deposit currency, and only then is the rate applied. A rate of zero
+// is not a missing setting, it is the instruction to charge nothing for that type.
+func MarginForType(r *settings.Rules, lots float64, price float64, leverage int32, rate float64,
+	kind model.OrderType, maintenance bool) float64 {
+	base := marginBase(r, lots, price, leverage, rate)
+
+	multiplier := r.MarginRate.For(kind)
+	if maintenance {
+		// no maintenance rate means the initial one stands
+		if m := r.MarginRateMaintenance.For(kind); m > 0 {
+			multiplier = m
+		}
+	}
+
+	return base * multiplier
+}
+
+func marginBase(r *settings.Rules, lots float64, price float64, leverage int32, rate float64) float64 {
 	if leverage <= 0 {
 		leverage = 1
 	}
@@ -96,8 +130,10 @@ type Money struct {
 //
 // excluded is the floating result of instruments the group told us to leave out of the money
 // entirely, and free says how much of what remains counts toward free margin.
+// reserved is margin held by something other than an open position, which is what a working
+// order does when its type carries a rate.
 func Settle(a *model.Account, positions map[int64]*model.Position,
-	free model.FreeMarginMode, excluded float64) Money {
+	free model.FreeMarginMode, excluded, reserved float64) Money {
 	m := Money{
 		Balance:    a.Balance,
 		Credit:     a.Credit,
@@ -115,6 +151,8 @@ func Settle(a *model.Account, positions map[int64]*model.Position,
 		m.Storage += p.Storage
 		m.Margin += p.Margin
 	}
+
+	m.Margin += reserved
 
 	// an excluded instrument is invisible to the money: not in equity, not in free margin
 	counted := m.Floating - excluded

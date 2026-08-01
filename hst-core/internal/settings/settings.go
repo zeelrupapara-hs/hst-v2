@@ -40,6 +40,10 @@ type Rules struct {
 	MarginHedged      float64
 	MarginFlags       int32
 
+	// MarginRate multiplies the margin once it is in the deposit currency, per order type.
+	MarginRate            model.MarginRates
+	MarginRateMaintenance model.MarginRates
+
 	SwapMode    int32
 	SwapRate    [7]float64
 	SwapYearDay int32
@@ -223,6 +227,9 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		MarginHedged:      pick(o.MarginHedged, sym.MarginHedged),
 		MarginFlags:       pick(o.MarginFlags, sym.MarginFlags),
 
+		MarginRate:            rates(o.MarginRateInitial, sym.MarginRateInitial),
+		MarginRateMaintenance: rates(o.MarginRateMaintenance, sym.MarginRateMaintenance),
+
 		SwapMode:    pick(o.SwapMode, sym.SwapMode),
 		SwapYearDay: pick(o.SwapYearDay, sym.SwapYearDay),
 		SwapLong:    pick(o.SwapLong, sym.SwapLong),
@@ -255,6 +262,17 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 	}
 
 	return r
+}
+
+// rates folds a group's per-order-type overrides onto the instrument's own.
+func rates(override [8]*float64, base model.MarginRates) model.MarginRates {
+	var out model.MarginRates
+
+	for i := range out {
+		out[i] = pick(override[i], base[i])
+	}
+
+	return out
 }
 
 func pick[T any](override *T, base T) T {

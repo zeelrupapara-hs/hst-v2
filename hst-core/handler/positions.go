@@ -83,7 +83,7 @@ func (h *Handler) NewPosition(f *Fill, e *book.Entry, o *model.Order, r *setting
 		ActivationFlags: o.ActivationFlags,
 	}
 
-	p.Margin = MarginFor(r, p.Lots(), price, e.Account.Leverage, p.RateMargin)
+	p.Margin = MarginForPosition(r, p, price, e.Account.Leverage)
 
 	f.Opened = p
 	f.Deals = append(f.Deals, h.MakeDealIn(o, r, e, price, o.VolumeCurrent, 0, now))
@@ -510,7 +510,7 @@ func (h *Handler) growPosition(f *Fill, e *book.Entry, p *model.Position, o *mod
 	p.PriceOpen = NormalisePrice(p.PriceOpen, r.Digits)
 	p.Volume = total
 	p.TimeUpdate = now
-	p.Margin = MarginFor(r, p.Lots(), p.PriceOpen, e.Account.Leverage, p.RateMargin)
+	p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
 
 	f.Changed = append(f.Changed, p)
 	f.Deals = append(f.Deals, h.MakeDealIn(o, r, e, price, o.VolumeCurrent, p.PositionId, now))
@@ -524,7 +524,7 @@ func (h *Handler) reducePosition(f *Fill, e *book.Entry, p *model.Position, o *m
 
 	p.Volume -= closed
 	p.TimeUpdate = now
-	p.Margin = MarginFor(r, p.Lots(), p.PriceOpen, e.Account.Leverage, p.RateMargin)
+	p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
 
 	f.Profit += profit
 	f.Changed = append(f.Changed, p)
@@ -588,7 +588,7 @@ func (h *Handler) reversePosition(f *Fill, e *book.Entry, p *model.Position, o *
 		Comment:         o.Comment,
 		ActivationFlags: o.ActivationFlags,
 	}
-	np.Margin = MarginFor(r, np.Lots(), price, e.Account.Leverage, np.RateMargin)
+	np.Margin = MarginForPosition(r, np, price, e.Account.Leverage)
 
 	f.Opened = np
 }
@@ -618,7 +618,7 @@ func (h *Handler) takeOff(f *Fill, e *book.Entry, p *model.Position, r *settings
 
 	p.Volume -= volume
 	p.TimeUpdate = now
-	p.Margin = MarginFor(r, p.Lots(), p.PriceOpen, e.Account.Leverage, p.RateMargin)
+	p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
 
 	f.Changed = append(f.Changed, p)
 }
@@ -748,7 +748,7 @@ func (h *Handler) Revalue(e *book.Entry, symbol string, t model.Tick) {
 
 		p.PriceCurrent = t.ClosePrice(p.Buy())
 		p.Profit = ProfitFor(r, p.Buy(), p.Lots(), p.PriceOpen, p.PriceCurrent, p.RateProfit)
-		p.Margin = MarginFor(r, p.Lots(), p.PriceOpen, e.Account.Leverage, p.RateMargin)
+		p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
 	}
 }
 
@@ -777,5 +777,7 @@ func (h *Handler) coversAfterClose(e *book.Entry, p *model.Position) bool {
 		free = model.FreeMarginMode(g.MarginFreeMode)
 	}
 
-	return Settle(&after, kept, free, 0).FreeMargin >= 0
+	reserved, _ := h.pendingMargin(e)
+
+	return Settle(&after, kept, free, 0, reserved).FreeMargin >= 0
 }
