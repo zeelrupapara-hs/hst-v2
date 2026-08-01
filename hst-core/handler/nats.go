@@ -38,6 +38,10 @@ func (h *Handler) subscribe() error {
 		return err
 	}
 
+	if err := h.Subscribe(model.SubjectSystemEndOfDayTime, h.EndOfDayTimeSystemEventHandler); err != nil {
+		return err
+	}
+
 	for _, shard := range h.Shards.Mine() {
 		if err := h.subscribeShard(shard); err != nil {
 			return err
@@ -166,6 +170,19 @@ func (h *Handler) AccountSystemEventHandler(msg *natscore.Msg) {
 // rather than at the scheduled hour.
 func (h *Handler) EndOfDaySystemEventHandler(msg *natscore.Msg) {
 	h.EndOfDayProcess(context.Background())
+}
+
+// EndOfDayTimeSystemEventHandler moves the hour the rollover runs at, on every pod at once.
+func (h *Handler) EndOfDayTimeSystemEventHandler(msg *natscore.Msg) {
+	var ev struct {
+		At string `json:"at"`
+	}
+	if err := json.Unmarshal(msg.Data, &ev); err != nil || ev.At == "" {
+		h.Log.Log(logger.TypeCfg, logger.CodeWarn, "bad end of day time", "subject", msg.Subject)
+		return
+	}
+
+	h.ChangeEndOfDayDate(ev.At)
 }
 
 // MarketSystemEventHandler takes one quote off the wire.

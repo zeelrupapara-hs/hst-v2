@@ -33,4 +33,5 @@ const (
 	SubjectSystemRules        = "system.routing.*"
 	SubjectSystemAccounts     = "system.user.*"
 	SubjectSystemEndOfDay     = "system.core.endofday"
+	SubjectSystemEndOfDayTime = "system.core.endofday.time"
 )

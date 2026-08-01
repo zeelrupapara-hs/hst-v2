@@ -140,6 +140,12 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	deals.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAccountDeals)
 	deals.Get("/:deal_id", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetDeal)
 
+	// the daily rollover: when it runs, and running it by hand
+	eod := v1.Group("/system/end-of-day", s.Middleware.Protect, s.Middleware.RequireManager)
+	eod.Get("/", s.Middleware.Authorization(model.MgrRightCfgTime), s.GetEndOfDay)
+	eod.Put("/", s.Middleware.Authorization(model.MgrRightCfgTime), s.UpdateEndOfDay)
+	eod.Post("/run", s.Middleware.Authorization(model.MgrRightCfgTime), s.RunEndOfDay)
+
 	// chart history, for the manager panel
 	v1.Get("/history", s.Middleware.Protect, s.Middleware.RequireManager,
 		s.Middleware.Authorization(model.MgrRightSymbolDetails), s.GetHistory)

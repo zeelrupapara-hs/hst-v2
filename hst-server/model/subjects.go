@@ -115,6 +115,9 @@ const (
 
 // From the api to the other services.
 const (
+	SubjectSystemEndOfDay     = "system.core.endofday"
+	SubjectSystemEndOfDayTime = "system.core.endofday.time"
+
 	SubjectSystemGroupCreated = "system.group.created"
 	SubjectSystemGroupUpdated = "system.group.updated"
 	SubjectSystemGroupDeleted = "system.group.deleted"

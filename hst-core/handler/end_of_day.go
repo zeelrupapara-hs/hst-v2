@@ -22,6 +22,28 @@ const (
 	SwapPercentOpen    = 8
 )
 
+// ChangeEndOfDayDate moves when the rollover runs. Every pod holds the same answer, so the
+// change reaches all of them at once and is read back from the setting on the next boot.
+func (h *Handler) ChangeEndOfDayDate(at string) {
+	t, err := time.Parse(endOfDayLayout, at)
+	if err != nil {
+		h.Log.Log(logger.TypeSys, logger.CodeErr, "could not read the end of day time",
+			"at", at, "error", err.Error())
+		return
+	}
+
+	h.mu.Lock()
+	// the rollover runs on the last second of the named minute
+	h.endOfDay = t.Add(59 * time.Second)
+	h.mu.Unlock()
+
+	h.Log.Log(logger.TypeSys, logger.CodeOK, "end of day time changed",
+		"at", h.EndOfDayAt().Format("15:04:05"))
+}
+
+// endOfDayLayout is how the time is written down, both on the wire and in the setting.
+const endOfDayLayout = "15:04"
+
 func (h *Handler) EndOfDayAt() time.Time {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

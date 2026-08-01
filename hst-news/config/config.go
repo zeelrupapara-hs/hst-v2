@@ -4,7 +4,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"runtime"
 	"strconv"
@@ -21,15 +20,7 @@ const (
 	GRPC_PORT             = "GRPC_PORT"
 	GRPC_SHUTDOWN_TIMEOUT = "GRPC_SHUTDOWN_TIMEOUT"
 
-	POSTGRES_HOST = "POSTGRES_HOST"
-	POSTGRES_PORT = "POSTGRES_PORT"
-	POSTGRES_USER = "POSTGRES_USER"
 	// #nosec G101 -- env var name, not a credential
-	POSTGRES_PASSWORD = "POSTGRES_PASSWORD"
-	POSTGRES_DB       = "POSTGRES_DB"
-	POSTGRES_SSL_MODE = "POSTGRES_SSL_MODE"
-	POSTGRES_MAX_CONN = "POSTGRES_MAX_CONN"
-	POSTGRES_MIN_CONN = "POSTGRES_MIN_CONN"
 
 	HEALTH_HOST       = "HEALTH_HOST"
 	HEALTH_PORT       = "HEALTH_PORT"
@@ -56,14 +47,13 @@ const (
 
 // Config hstnews microservice
 type Config struct {
-	Setting  Setting
-	Logger   Logger
-	GRPC     GRPC
-	Health   Health
-	Postgres Postgres
-	Nats     Nats
-	Redis    Redis
-	News     News
+	Setting Setting
+	Logger  Logger
+	GRPC    GRPC
+	Health  Health
+	Nats    Nats
+	Redis   Redis
+	News    News
 }
 
 type Setting struct {
@@ -98,18 +88,6 @@ type Health struct {
 	// down, so the endpoints controller stops routing first. Set it to at
 	// least twice the readiness probe period.
 	DrainWait time.Duration
-}
-
-// Postgres config
-type Postgres struct {
-	PostgresHost     string
-	PostgresPort     string
-	PostgresUser     string
-	PostgresPassword string
-	PostgresDB       string
-	PostgresSSLMode  string
-	PostgresMaxConn  int32
-	PostgresMinConn  int32
 }
 
 // Nats config
@@ -178,14 +156,6 @@ func NewConfig() (*Config, error) {
 	c.Health.DrainWait = time.Duration(getEnvAsInt(HEALTH_DRAIN_WAIT, 5)) * time.Second
 
 	// Postgres
-	c.Postgres.PostgresHost = getEnv(POSTGRES_HOST, "localhost")
-	c.Postgres.PostgresPort = getEnv(POSTGRES_PORT, "5432")
-	c.Postgres.PostgresUser = getEnv(POSTGRES_USER, "hst")
-	c.Postgres.PostgresPassword = getEnv(POSTGRES_PASSWORD, "hst")
-	c.Postgres.PostgresDB = getEnv(POSTGRES_DB, "hst")
-	c.Postgres.PostgresSSLMode = getEnv(POSTGRES_SSL_MODE, "disable")
-	c.Postgres.PostgresMaxConn = getEnvAsInt32(POSTGRES_MAX_CONN, 20)
-	c.Postgres.PostgresMinConn = getEnvAsInt32(POSTGRES_MIN_CONN, 2)
 
 	// Nats
 	c.Nats.Host = getEnv(NATS_HOST, "localhost")
@@ -240,13 +210,6 @@ func (c *Config) validate() error {
 	return nil
 }
 
-// Dsn will return the postgres connection string
-func (p *Postgres) Dsn() string {
-	return fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=%s",
-		p.PostgresUser, p.PostgresPassword, p.PostgresHost,
-		p.PostgresPort, p.PostgresDB, p.PostgresSSLMode)
-}
-
 func getEnv(key string, defaultVal string) string {
 	if value, exists := os.LookupEnv(key); exists && value != "" {
 		return value
@@ -256,16 +219,6 @@ func getEnv(key string, defaultVal string) string {
 
 // badEnv collects every malformed value so the service can report them all at once.
 var badEnv []error
-
-// getEnvAsInt32 clamps to int32 range so a bad env value cannot overflow.
-func getEnvAsInt32(name string, defaultVal int32) int32 {
-	v := getEnvAsInt(name, int(defaultVal))
-	if v < 0 || v > math.MaxInt32 {
-		badEnv = append(badEnv, fmt.Errorf("%s must be between 0 and %d, got %d", name, math.MaxInt32, v))
-		return defaultVal
-	}
-	return int32(v)
-}
 
 // getEnvAsInt records a set but unparsable value rather than quietly using the
 // default, which is how a setting you think you changed never takes effect.

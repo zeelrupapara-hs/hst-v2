@@ -10,6 +10,11 @@ var (
 
 	GroupCreatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group created", login, path) }
 	GroupUpdatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group updated", login, path) }
+
+	EndOfDayTimeMsg = func(login int64, at string) string {
+		return fmt.Sprintf("%d: end of day moved to %s", login, at)
+	}
+	EndOfDayRunMsg  = func(login int64) string { return fmt.Sprintf("%d: end of day run by hand", login) }
 	GroupDeletedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group deleted", login, path) }
 
 	GroupSymbolCreatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group symbol created", login, path) }

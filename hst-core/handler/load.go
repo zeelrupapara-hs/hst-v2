@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"strings"
 
 	"hstcore/internal/book"
@@ -9,6 +10,8 @@ import (
 	"hstcore/internal/shardmap"
 	"hstcore/model"
 	"hstcore/pkg/logger"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // Configuration is loaded whole into every pod; accounts only for the shards this pod owns.
@@ -19,6 +22,9 @@ func (h *Handler) load(ctx context.Context) error {
 		return err
 	}
 	if err := h.loadRules(ctx); err != nil {
+		return err
+	}
+	if err := h.loadSettingsRow(ctx); err != nil {
 		return err
 	}
 	if err := h.loadCommissions(ctx); err != nil {
@@ -545,4 +551,26 @@ func cleanMasks(groups []string) []string {
 	}
 
 	return out
+}
+
+// loadSettingsRow picks up the platform settings that outlive a pod, so a restart does not
+// quietly put one of them back to its default.
+func (h *Handler) loadSettingsRow(ctx context.Context) error {
+	var at string
+
+	err := h.DB.DB.QueryRow(ctx,
+		`SELECT value FROM hst.settings WHERE key = 'end_of_day_at'`).Scan(&at)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	if at != "" {
+		h.ChangeEndOfDayDate(at)
+	}
+
+	return nil
 }

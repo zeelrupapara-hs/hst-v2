@@ -54,6 +54,7 @@ const (
 	InvalidMarginFlags           = "unknown margin flag"
 	InvalidSwapFlags             = "unknown swap flag"
 	InvalidOrderFlags            = "unknown order flag"
+	InvalidEndOfDayTime          = "the end of day time must be written as 15:04"
 	InvalidResolution            = "unknown chart resolution"
 	InvalidRange                 = "the range must end after it starts"
 	HistoryUnavailable           = "chart history is not configured on this server"
@@ -124,6 +125,7 @@ var (
 	ErrInvalidMarginFlags           = errors.New(InvalidMarginFlags)
 	ErrInvalidSwapFlags             = errors.New(InvalidSwapFlags)
 	ErrInvalidOrderFlags            = errors.New(InvalidOrderFlags)
+	ErrInvalidEndOfDayTime          = errors.New(InvalidEndOfDayTime)
 	ErrInvalidResolution            = errors.New(InvalidResolution)
 	ErrInvalidRange                 = errors.New(InvalidRange)
 	ErrHistoryUnavailable           = errors.New(HistoryUnavailable)
