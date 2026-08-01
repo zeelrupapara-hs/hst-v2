@@ -37,10 +37,12 @@ const (
 
 	REDIS_URL = "REDIS_URL"
 	// #nosec G101 -- env var name, not a credential
-	REDIS_PASSWORD  = "REDIS_PASSWORD"
-	REDIS_DB        = "REDIS_DB"
-	REDIS_POOL_SIZE = "REDIS_POOL_SIZE"
-	REDIS_TLS       = "REDIS_TLS"
+	REDIS_PASSWORD = "REDIS_PASSWORD"
+	REDIS_DB       = "REDIS_DB"
+
+	ENGINE_PRICE_MAX_AGE_HOURS = "ENGINE_PRICE_MAX_AGE_HOURS"
+	REDIS_POOL_SIZE            = "REDIS_POOL_SIZE"
+	REDIS_TLS                  = "REDIS_TLS"
 )
 
 // Config hstcore microservice
@@ -51,10 +53,19 @@ type Config struct {
 	Postgres Postgres
 	Nats     Nats
 	Redis    Redis
+	Engine   Engine
 }
 
 type Setting struct {
 	Version string
+}
+
+// Engine is how the trading engine itself behaves.
+type Engine struct {
+	// PriceMaxAge is how old a price may be and still be worth starting from. Beyond it the
+	// instrument starts with no price at all, which refuses a trade rather than filling one at
+	// a mark the market has long left behind.
+	PriceMaxAge time.Duration
 }
 
 // Logger config
@@ -164,6 +175,9 @@ func NewConfig() (*Config, error) {
 	c.Redis.RedisUrl = getEnv(REDIS_URL, "localhost:6379")
 	c.Redis.RedisPassword = getEnv(REDIS_PASSWORD, "")
 	c.Redis.RedisDB = getEnvAsInt(REDIS_DB, 0)
+
+	// three days covers a weekend, which is the longest a price is normally left standing
+	c.Engine.PriceMaxAge = time.Duration(getEnvAsInt(ENGINE_PRICE_MAX_AGE_HOURS, 72)) * time.Hour
 	c.Redis.DialTimeout = 5 * time.Second
 	c.Redis.ReadTimeout = 3 * time.Second
 	c.Redis.WriteTimeout = 3 * time.Second

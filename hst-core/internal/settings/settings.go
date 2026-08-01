@@ -121,6 +121,19 @@ func (s *Store) Groups() int {
 	return len(s.groups)
 }
 
+// SymbolNames is every instrument the platform knows.
+func (s *Store) SymbolNames() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := make([]string, 0, len(s.symbols))
+	for name := range s.symbols {
+		out = append(out, name)
+	}
+
+	return out
+}
+
 func (s *Store) Symbols() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

@@ -33,5 +33,7 @@ const (
 	SubjectSystemRules        = "system.routing.*"
 	SubjectSystemAccounts     = "system.user.*"
 	SubjectSystemEndOfDay     = "system.core.endofday"
+	// SubjectSystemSnapshot asks the feed for the last price of every instrument.
+	SubjectSystemSnapshot     = "hstquote.snapshot"
 	SubjectSystemEndOfDayTime = "system.core.endofday.time"
 )

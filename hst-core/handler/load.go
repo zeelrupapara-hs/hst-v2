@@ -2,8 +2,10 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
+	"time"
 
 	"hstcore/internal/book"
 	"hstcore/internal/settings"
@@ -35,6 +37,11 @@ func (h *Handler) StartMarket(ctx context.Context) error {
 		return err
 	}
 	if err := h.LoadManagerGroups(ctx); err != nil {
+		return err
+	}
+
+	// the last price of every instrument, so a restart is not blind until each one next prints
+	if err := h.LoadMarketData(ctx); err != nil {
 		return err
 	}
 
@@ -612,4 +619,76 @@ func (h *Handler) LoadSystemConfig(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// LoadMarketData reads back the last price of every instrument, so the engine is not blind until
+// each one next prints.
+//
+// It reads them out of the cache the feed keeps rather than asking the feed, because the moment
+// this matters most is the moment the feed is down: a pod coming up on a weekend has no quotes
+// coming and nobody to ask for them. The cache outlives both services.
+//
+// Nothing here is fatal. A pod that refuses to start is an outage; a pod with an empty book is
+// only degraded, and every symbol heals on its first tick. A price older than the configured
+// bound is left out rather than seeded: a missing symbol makes the book report nothing and the
+// caller refuse, while a stale one would be taken for the market and could stop an account out
+// on Monday against Friday's close.
+func (h *Handler) LoadMarketData(ctx context.Context) error {
+	symbols := h.Settings.SymbolNames()
+	if len(symbols) == 0 || h.Redis == nil || h.Redis.Client == nil {
+		return nil
+	}
+
+	keys := make([]string, 0, len(symbols))
+	for _, symbol := range symbols {
+		keys = append(keys, lastPriceKey+symbol)
+	}
+
+	values, err := h.Redis.Client.MGet(ctx, keys...).Result()
+	if err != nil {
+		h.Log.Log(logger.TypeCfg, logger.CodeWarn, "no last prices to start from",
+			"error", err.Error())
+		return nil
+	}
+
+	maxAge := h.priceMaxAge()
+
+	var seeded, stale int
+
+	for _, v := range values {
+		text, ok := v.(string)
+		if !ok {
+			continue
+		}
+
+		var t model.Tick
+		if err := json.Unmarshal([]byte(text), &t); err != nil || !t.Ok() {
+			continue
+		}
+
+		if time.Since(time.Unix(0, t.Time)) > maxAge {
+			stale++
+			continue
+		}
+
+		h.Quotes.Set(t)
+		seeded++
+	}
+
+	h.Log.Log(logger.TypeCfg, logger.CodeOK, "last prices loaded",
+		"seeded", seeded, "too_old", stale, "max_age", maxAge.String())
+
+	return nil
+}
+
+// lastPriceKey is where the feed leaves the last price of a symbol.
+const lastPriceKey = "hstquote:last:"
+
+// priceMaxAge is how old a price may be and still be worth starting from.
+func (h *Handler) priceMaxAge() time.Duration {
+	if h.Cfg.Engine.PriceMaxAge > 0 {
+		return h.Cfg.Engine.PriceMaxAge
+	}
+
+	return 72 * time.Hour
 }
