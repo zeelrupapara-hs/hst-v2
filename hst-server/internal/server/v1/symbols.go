@@ -1263,6 +1263,10 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 		"actor", snap.Login, "symbol_id", id,
 		"symbol", detail.Symbol.Symbol, "changes", changes)
 
+	if body.Sessions != nil {
+		s.notifyDatafeedsForSymbolID(c.UserContext(), int64(id))
+	}
+
 	return s.App.HttpResponseOK(c, detail)
 }
 

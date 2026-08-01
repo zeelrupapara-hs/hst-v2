@@ -33,6 +33,14 @@ type Snapshot struct {
 	TimeoutReconnect int32                 `json:"timeout_reconnect"`
 	Params           []Param               `json:"params"`
 	Translates       []Translate           `json:"translates"`
+	Sessions         []SnapshotSession     `json:"sessions"`
+}
+
+type SnapshotSession struct {
+	SymbolID int64 `json:"symbol_id"`
+	Day      int16 `json:"day"`
+	Open     int32 `json:"open"`
+	Close    int32 `json:"close"`
 }
 
 type Param struct {
@@ -157,6 +165,15 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 			Digits:      t.Digits,
 		})
 	}
+	sessions := make([]model.SymbolSession, 0, len(s.Sessions))
+	for _, sess := range s.Sessions {
+		sessions = append(sessions, model.SymbolSession{
+			SymbolID: sess.SymbolID,
+			Day:      sess.Day,
+			Open:     sess.Open,
+			Close:    sess.Close,
+		})
+	}
 	return model.QuoteFeed{
 		Datafeed: model.Datafeed{
 			DatafeedID:       s.DatafeedID,
@@ -171,6 +188,7 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 		},
 		Params:     params,
 		Translates: translates,
+		Sessions:   sessions,
 	}
 }
 

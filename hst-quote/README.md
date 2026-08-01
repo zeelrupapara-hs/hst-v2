@@ -59,18 +59,20 @@ hst-quote reads config from hst-server. Three layers matter:
 |-------|--------|---------|
 | **Feed row** | `POST /api/v1/datafeeds` | Module, enable/mode, connection host/credentials |
 | **Params** | `POST /api/v1/datafeeds/{id}/params` | FIX session tuning (Comp IDs, dialect, depth, …) |
-| **Translates** | `POST /api/v1/datafeeds/{id}/translates` | LP symbol → platform symbol + markups |
+| **Feed symbols** | `POST /api/v1/datafeeds/{id}/symbols` | MT5 Symbols tab — explicit symbol or path mask rows |
+| **Translates** | `POST /api/v1/datafeeds/{id}/translates` | LP symbol → platform symbol + markups (prefer `symbol_id`) |
 
-Params are stored in `hst.datafeed_params`. Each row needs **`param_key`**, **`name`** (display label), and **`value`**. `type` defaults to `0` (string) if omitted.
+Params are stored in `hst.datafeed_params`. Each row needs **`param_key`** and **`value`**. `type` defaults to `0` (string) if omitted. Rows include **`priority`** (0-based order **within that datafeed only** — feed 1 and feed 2 each have their own 0..n-1 sequence; the DB enforces `UNIQUE (datafeed_id, priority)`). `GET` returns params sorted by priority. Reorder via **`PATCH /api/v1/datafeeds/{id}/params/{paramId}`** with `{ "priority": N }` — always scoped to the `{id}` datafeed in the URL; the server swaps with the row already at that priority on the same feed (frontend Up/Down sends one PATCH per click).
 
 ```json
 POST /api/v1/datafeeds/{id}/params
 {
   "param_key": "SenderCompID",
-  "name": "Sender Comp ID",
   "value": "HS2"
 }
 ```
+
+New params append at the bottom (`priority = max + 1`). Deleting a param compacts priorities. The worker config snapshot returns params in priority order.
 
 After any param or translate change, hst-server publishes a NATS config snapshot; hst-quote reloads the feed automatically. You still need **`POST …/activate`** once when the feed is first created.
 
@@ -129,11 +131,27 @@ Auto-generated QuickFIX cfg is written to `{FIX_CONFIG_DIR}/feed_{datafeed_id}/s
 
 | Field | Example | Notes |
 |-------|---------|-------|
-| `symbol` | `EURUSD` | Platform symbol; must exist in `hst.symbols` for Influx (`symbol_id`) |
+| `symbol_id` | `42` | Preferred stable key from `hst.symbols` |
+| `symbol` | `EURUSD` | Alternative lookup; stored denormalized on the translate row |
 | `source` | `EURUSD` or `EUR/USD` | LP symbol subscribed on FIX / matched on wire |
 | `bid_markup` | `0` | Added in points (× 10^-digits) |
 | `ask_markup` | `0` | Subtracted in points |
 | `digits` | `5` | Price rounding (default 5) |
+
+Preview mask expansion: `GET /api/v1/datafeeds/{id}/symbols/resolve` returns `{ "count": N, "symbols": [...] }`.
+
+Symbol scope is configured via `feed_symbols` rows only (explicit symbol or path mask). Example:
+
+```json
+POST /api/v1/datafeeds/{id}/symbols
+{ "path": "Forex\\*" }
+```
+
+`GET /api/v1/datafeeds/{id}` returns configured rows (`params`, `feed_symbols`, `translates`) — same pattern as the other tabs.
+
+### Quote sessions
+
+Quote session windows come from `hst.symbols_sessions` (type `quote`) in the worker config snapshot. hst-quote **always** writes Redis cache and Influx; **NATS tick publish** is gated when the quote session is closed for that `symbol_id` (vfxmarket-style).
 
 ## FIX example
 
@@ -155,12 +173,12 @@ POST /api/v1/datafeeds
 }
 ```
 
-Add params (repeat per row; `name` is required by the API):
+Add params (repeat per row):
 
 ```json
-{ "param_key": "SenderCompID", "name": "Sender Comp ID", "value": "HS2" }
-{ "param_key": "TargetCompID", "name": "Target Comp ID", "value": "HSSRVR" }
-{ "param_key": "Feed login",   "name": "Feed login",     "value": "HSFIXUser" }
+{ "param_key": "SenderCompID", "value": "HS2" }
+{ "param_key": "TargetCompID", "value": "HSSRVR" }
+{ "param_key": "Feed login",   "value": "HSFIXUser" }
 ```
 
 Add translate (LP symbol must match what the simulator sends):

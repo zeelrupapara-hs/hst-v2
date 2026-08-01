@@ -32,7 +32,9 @@ type Event struct {
 	BytesReceivedDelta int64  `json:"bytes_received_delta"`
 }
 
-// Subscriber aggregates worker status into hst.datafeeds admin fields.
+// Subscriber applies low-frequency worker connection state to hst.datafeeds.
+// Session counters (ticks, bytes, news) are not persisted yet; live stats will
+// use in-memory aggregation + WebSocket when implemented.
 type Subscriber struct {
 	db   *db.PostgresDB
 	log  *logger.Logger
@@ -78,6 +80,9 @@ func (s *Subscriber) onQuoteStatus(msg *natscore.Msg) {
 	if err := json.Unmarshal(msg.Data, &evt); err != nil {
 		return
 	}
+	if evt.TicksDelta != 0 || evt.BytesReceivedDelta != 0 {
+		return
+	}
 	conn := model.DatafeedSysConnection_down
 	if evt.Connected {
 		conn = model.DatafeedSysConnection_connected
@@ -85,11 +90,9 @@ func (s *Subscriber) onQuoteStatus(msg *natscore.Msg) {
 	_, err := s.db.DB.Exec(context.Background(),
 		`UPDATE hst.datafeeds SET
 		    sys_connection = $2,
-		    sys_last_time = CASE WHEN $3::bigint > 0 THEN $3::bigint ELSE sys_last_time END,
-		    ticks_count = ticks_count + $4,
-		    bytes_received = bytes_received + $5
+		    sys_last_time = CASE WHEN $3::bigint > 0 THEN $3::bigint ELSE sys_last_time END
 		  WHERE datafeed_id = $1`,
-		evt.DatafeedID, conn, evt.SysLastTime, evt.TicksDelta, evt.BytesReceivedDelta)
+		evt.DatafeedID, conn, evt.SysLastTime)
 	if err != nil {
 		s.log.Log(logger.TypeNet, logger.CodeWarn, "quote status update failed",
 			"datafeed_id", evt.DatafeedID, "error", err.Error())
@@ -101,6 +104,9 @@ func (s *Subscriber) onNewsStatus(msg *natscore.Msg) {
 	if err := json.Unmarshal(msg.Data, &evt); err != nil {
 		return
 	}
+	if evt.NewsDelta != 0 || evt.BytesReceivedDelta != 0 {
+		return
+	}
 	conn := model.DatafeedSysConnection_down
 	if evt.Connected {
 		conn = model.DatafeedSysConnection_connected
@@ -108,11 +114,9 @@ func (s *Subscriber) onNewsStatus(msg *natscore.Msg) {
 	_, err := s.db.DB.Exec(context.Background(),
 		`UPDATE hst.datafeeds SET
 		    sys_connection = $2,
-		    sys_last_time = CASE WHEN $3::bigint > 0 THEN $3::bigint ELSE sys_last_time END,
-		    news_count = news_count + $4,
-		    bytes_received = bytes_received + $5
+		    sys_last_time = CASE WHEN $3::bigint > 0 THEN $3::bigint ELSE sys_last_time END
 		  WHERE datafeed_id = $1`,
-		evt.DatafeedID, conn, evt.SysLastTime, evt.NewsDelta, evt.BytesReceivedDelta)
+		evt.DatafeedID, conn, evt.SysLastTime)
 	if err != nil {
 		s.log.Log(logger.TypeNet, logger.CodeWarn, "news status update failed",
 			"datafeed_id", evt.DatafeedID, "error", err.Error())

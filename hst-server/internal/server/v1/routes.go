@@ -123,7 +123,7 @@ func (s *HttpServer) RegisterV1() {
 	groups.Patch("/:id/commissions/:commissionId", s.Middleware.Authorization(model.MgrRightGroupCommission), s.UpdateGroupCommission)
 	groups.Delete("/:id/commissions/:commissionId", s.Middleware.Authorization(model.MgrRightGroupCommission), s.DeleteGroupCommission)
 
-	// data feeds
+	// datafeeds
 	datafeeds := v1.Group("/datafeeds", s.Middleware.Protect, s.Middleware.RequireManager)
 	datafeeds.Get("/", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeeds)
 	datafeeds.Get("/modules", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedModules)
@@ -133,17 +133,27 @@ func (s *HttpServer) RegisterV1() {
 	datafeeds.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeed)
 	datafeeds.Post("/:id/activate", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ActivateDatafeed)
 
+	// datafeed symbols
+	datafeeds.Get("/:id/symbols", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedSymbols)
+	datafeeds.Post("/:id/symbols", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.CreateDatafeedSymbol)
+	datafeeds.Get("/:id/symbols/resolve", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ResolveDatafeedSymbols)
+	datafeeds.Get("/:id/symbols/:feedSymbolId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.GetDatafeedSymbol)
+	datafeeds.Delete("/:id/symbols/:feedSymbolId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeedSymbol)
+
+	// datafeed params
 	datafeeds.Get("/:id/params", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedParams)
 	datafeeds.Post("/:id/params", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.CreateDatafeedParam)
 	datafeeds.Get("/:id/params/:paramId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.GetDatafeedParam)
 	datafeeds.Patch("/:id/params/:paramId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.UpdateDatafeedParam)
 	datafeeds.Delete("/:id/params/:paramId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeedParam)
 
+	// datafeed translates
 	datafeeds.Get("/:id/translates", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedTranslates)
 	datafeeds.Post("/:id/translates", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.CreateDatafeedTranslate)
 	datafeeds.Get("/:id/translates/:translateId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.GetDatafeedTranslate)
 	datafeeds.Patch("/:id/translates/:translateId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.UpdateDatafeedTranslate)
 	datafeeds.Delete("/:id/translates/:translateId", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeedTranslate)
+
 }
 
 // RegisterInternal registers service-to-service routes for ingestion workers.

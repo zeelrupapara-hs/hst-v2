@@ -13,6 +13,9 @@ func ApplyMarkup(feed model.QuoteFeed, raw provider.RawTick) (*model.Tick, bool)
 		if tr.ExternalSymbol() != raw.SourceSymbol {
 			continue
 		}
+		if tr.SymbolID <= 0 {
+			continue
+		}
 		digits := tr.Digits
 		if digits <= 0 {
 			digits = 5

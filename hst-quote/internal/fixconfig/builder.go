@@ -53,13 +53,8 @@ ReconnectInterval=%s
 ResetOnLogon=%s
 ResetOnLogout=Y
 ResetOnDisconnect=Y
-StartTime=00:00:00
-EndTime=00:00:00
-StartDay=Sun
-EndDay=Sat
 FileLogPath=%s
 FileStorePath=%s
-UseLocalTime=Y
 
 [SESSION]
 BeginString=%s

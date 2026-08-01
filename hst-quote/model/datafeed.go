@@ -62,11 +62,20 @@ type DatafeedTranslate struct {
 	Digits      int16  `db:"digits"`
 }
 
-// QuoteFeed bundles a feed with params and symbol translations.
+// QuoteFeed bundles a feed with params, symbol translations, and quote sessions.
 type QuoteFeed struct {
 	Datafeed   Datafeed
 	Params     map[string]string
 	Translates []DatafeedTranslate
+	Sessions   []SymbolSession
+}
+
+// SymbolSession is one quote session window for a symbol weekday.
+type SymbolSession struct {
+	SymbolID int64
+	Day      int16
+	Open     int32
+	Close    int32
 }
 
 func (f QuoteFeed) Param(key string) string {

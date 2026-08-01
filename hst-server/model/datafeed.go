@@ -88,7 +88,6 @@ type Datafeed struct {
 	FeedPassword     string                `db:"feed_password" json:"-"`
 	GatewayLogin     int64                 `db:"gateway_login" json:"gateway_login"`
 	GatewayPassword  string                `db:"gateway_password" json:"-"`
-	Symbols          string                `db:"symbols" json:"symbols"`
 	Timeout          int32                 `db:"timeout" json:"timeout"`
 	TimeoutReconnect int32                 `db:"timeout_reconnect" json:"timeout_reconnect"`
 	TimeoutSleep     int32                 `db:"timeout_sleep" json:"timeout_sleep"`
@@ -115,16 +114,17 @@ type DatafeedParam struct {
 	DatafeedID int64           `db:"datafeed_id" json:"datafeed_id"`
 	ParamKey   string          `db:"param_key" json:"param_key"`
 	Type       FeederParamType `db:"type" json:"type"`
-	Name       string          `db:"name" json:"name"`
 	Value      string          `db:"value" json:"value"`
+	Priority   int32           `db:"priority" json:"priority"` // unique with datafeed_id, not globally
 }
 
 func (DatafeedParam) TableName() string { return "hst.datafeed_params" }
 
-// DatafeedTranslate maps platform symbol names to external source symbols.
+// DatafeedTranslate maps platform symbols to external source symbols.
 type DatafeedTranslate struct {
 	TranslateID int64  `db:"translate_id" json:"translate_id"`
 	DatafeedID  int64  `db:"datafeed_id" json:"datafeed_id"`
+	SymbolID    int64  `db:"symbol_id" json:"symbol_id"`
 	Symbol      string `db:"symbol" json:"symbol"`
 	Source      string `db:"source" json:"source"`
 	BidMarkup   int32  `db:"bid_markup" json:"bid_markup"`
@@ -133,3 +133,15 @@ type DatafeedTranslate struct {
 }
 
 func (DatafeedTranslate) TableName() string { return "hst.datafeed_translates" }
+
+// DatafeedSymbol is one MT5 Symbols tab row (explicit symbol or path mask rule).
+type DatafeedSymbol struct {
+	FeedSymbolID int64  `db:"feed_symbol_id" json:"feed_symbol_id"`
+	DatafeedID   int64  `db:"datafeed_id" json:"datafeed_id"`
+	SymbolID     *int64 `db:"symbol_id" json:"symbol_id,omitempty"`
+	Path         string `db:"path" json:"path"`
+	Exclude      int16  `db:"exclude" json:"exclude"`
+	Symbol       string `db:"symbol" json:"symbol"`
+}
+
+func (DatafeedSymbol) TableName() string { return "hst.datafeed_symbols" }

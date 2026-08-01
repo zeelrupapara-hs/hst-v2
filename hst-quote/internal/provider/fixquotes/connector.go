@@ -19,6 +19,8 @@ import (
 	fix43mdfs "github.com/quickfixgo/fix43/marketdatasnapshotfullrefresh"
 	fix44mdir "github.com/quickfixgo/fix44/marketdataincrementalrefresh"
 	fix44mdfs "github.com/quickfixgo/fix44/marketdatasnapshotfullrefresh"
+	fixfilelog "github.com/quickfixgo/quickfix/log/file"
+	fixfilestore "github.com/quickfixgo/quickfix/store/file"
 	"github.com/quickfixgo/quickfix"
 )
 
@@ -105,6 +107,13 @@ func (c *Connector) Close() error {
 }
 
 func (c *Connector) startInitiator() error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.initiator != nil {
+		return nil
+	}
+
 	f, err := os.Open(c.cfgPath)
 	if err != nil {
 		return fmt.Errorf("open fix cfg: %w", err)
@@ -121,8 +130,11 @@ func (c *Connector) startInitiator() error {
 		return fmt.Errorf("parse fix cfg: %w", err)
 	}
 
-	store := quickfix.NewMemoryStoreFactory()
-	logFactory := quickfix.NewNullLogFactory()
+	store := fixfilestore.NewStoreFactory(settings)
+	logFactory, err := fixfilelog.NewLogFactory(settings)
+	if err != nil {
+		return fmt.Errorf("fix log factory: %w", err)
+	}
 
 	initiator, err := quickfix.NewInitiator(c, store, settings, logFactory)
 	if err != nil {
@@ -136,6 +148,8 @@ func (c *Connector) startInitiator() error {
 }
 
 func (c *Connector) stopInitiator() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	if c.initiator != nil {
 		c.initiator.Stop()
 		c.initiator = nil

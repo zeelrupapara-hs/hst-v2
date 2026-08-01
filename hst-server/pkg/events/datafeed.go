@@ -39,19 +39,28 @@ type WorkerTranslate struct {
 	Digits      int16  `json:"digits"`
 }
 
+// WorkerSymbolSession is one quote session window for a symbol weekday.
+type WorkerSymbolSession struct {
+	SymbolID int64 `json:"symbol_id"`
+	Day      int16 `json:"day"`
+	Open     int32 `json:"open"`
+	Close    int32 `json:"close"`
+}
+
 // WorkerDatafeedConfig is the full config snapshot workers need without DB access.
 type WorkerDatafeedConfig struct {
-	DatafeedID       int64                `json:"datafeed_id"`
-	Name             string               `json:"name"`
-	Module           string               `json:"module"`
-	Enable           model.DatafeedEnable `json:"enable"`
-	Mode             model.FeederFlags    `json:"mode"`
-	FeedServer       string               `json:"feed_server"`
-	FeedLogin        int64                `json:"feed_login"`
-	FeedPassword     string               `json:"feed_password"`
-	TimeoutReconnect int32                `json:"timeout_reconnect"`
-	Params           []WorkerParam        `json:"params"`
-	Translates       []WorkerTranslate    `json:"translates"`
+	DatafeedID       int64                 `json:"datafeed_id"`
+	Name             string                `json:"name"`
+	Module           string                `json:"module"`
+	Enable           model.DatafeedEnable  `json:"enable"`
+	Mode             model.FeederFlags     `json:"mode"`
+	FeedServer       string                `json:"feed_server"`
+	FeedLogin        int64                 `json:"feed_login"`
+	FeedPassword     string                `json:"feed_password"`
+	TimeoutReconnect int32                 `json:"timeout_reconnect"`
+	Params           []WorkerParam         `json:"params"`
+	Translates       []WorkerTranslate     `json:"translates"`
+	Sessions         []WorkerSymbolSession `json:"sessions"`
 }
 
 // ConfigSubject returns the per-feed config subject.

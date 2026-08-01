@@ -183,7 +183,7 @@ func (f *Feeds) pollOnce(ctx context.Context, feed model.NewsFeed) {
 		return
 	}
 
-	raw, bytesRead, err := conn.Fetch(ctx, feed)
+	raw, _, err := conn.Fetch(ctx, feed)
 	if err != nil {
 		f.status.Disconnected(feed.Datafeed.DatafeedID)
 		f.h.Log.Log(logger.TypeNet, logger.CodeErr, "news fetch failed",
@@ -219,7 +219,6 @@ func (f *Feeds) pollOnce(ctx context.Context, feed model.NewsFeed) {
 		f.publishItem(item)
 	}
 
-	f.status.News(feed.Datafeed.DatafeedID, int64(len(newItems)), bytesRead)
 	f.h.Log.Log(logger.TypeNotify, logger.CodeOK, "news items ingested",
 		"datafeed_id", feed.Datafeed.DatafeedID, "count", len(newItems))
 }

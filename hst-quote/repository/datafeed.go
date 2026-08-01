@@ -31,15 +31,14 @@ const listParamsSQL = `
 SELECT param_id, datafeed_id, param_key, value
 FROM hst.datafeed_params
 WHERE datafeed_id = ANY($1)
-ORDER BY datafeed_id, param_id`
+ORDER BY datafeed_id, priority, param_id`
 
 const listTranslatesSQL = `
-SELECT t.translate_id, t.datafeed_id, COALESCE(s.symbol_id, 0), t.symbol, t.source,
-       t.bid_markup, t.ask_markup, t.digits
-FROM hst.datafeed_translates t
-LEFT JOIN hst.symbols s ON s.symbol = t.symbol
-WHERE t.datafeed_id = ANY($1)
-ORDER BY t.datafeed_id, t.translate_id`
+SELECT translate_id, datafeed_id, symbol_id, symbol, source,
+       bid_markup, ask_markup, digits
+FROM hst.datafeed_translates
+WHERE datafeed_id = ANY($1)
+ORDER BY datafeed_id, translate_id`
 
 const getQuoteFeedSQL = `
 SELECT datafeed_id, name, module, enable, mode, feed_server, feed_login,
