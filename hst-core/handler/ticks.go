@@ -39,7 +39,7 @@ func (h *Handler) Notify(ctx context.Context, e *book.Entry, t model.Tick) {
 		return
 	}
 
-	h.Revalue(e, t.Symbol, t)
+	h.CalcPosition(e, t.Symbol, t)
 
 	money := h.SettleAccount(e)
 	money.Apply(e.Account)

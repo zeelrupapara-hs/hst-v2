@@ -1,12 +1,31 @@
 package model
 
-// One volume unit is 1/10000 of a lot.
+// One volume unit is 1/10000 of a lot, which is what the legacy volume columns hold.
 const VolumeUnit = 10000.0
 
-// One extended volume unit is 1/100000000 of a lot.
+// The engine counts in extended units of 1/100000000 of a lot, so an instrument can be traded
+// finer than a legacy unit allows. The legacy number is derived from this one, never the reverse.
 const VolumeUnitExt = 100000000.0
 
-func Lots(v int64) float64 { return float64(v) / VolumeUnit }
+// ExtPerUnit is how many extended units one legacy unit is worth.
+const ExtPerUnit = int64(VolumeUnitExt / VolumeUnit)
+
+func Lots(v int64) float64 { return float64(v) / VolumeUnitExt }
+
+// Legacy is an extended volume as the coarser number the old columns carry.
+func Legacy(ext int64) int64 { return ext / ExtPerUnit }
+
+// FromLegacy reads a coarse volume as extended units, for a row written before the change.
+func FromLegacy(v int64) int64 { return v * ExtPerUnit }
+
+// Extended picks whichever of the two a row actually carries.
+func Extended(volume, ext int64) int64 {
+	if ext > 0 {
+		return ext
+	}
+
+	return FromLegacy(volume)
+}
 
 type OrderType int32
 

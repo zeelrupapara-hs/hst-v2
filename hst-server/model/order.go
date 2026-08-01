@@ -197,11 +197,30 @@ type Order struct {
 // VolumeLots is the order volume as a decimal number of lots.
 func (o *Order) VolumeLots() float64 { return VolumeToLots(o.VolumeCurrent) }
 
-// VolumeUnit is one volume unit: 1/10000 of a lot.
+// VolumeUnit is one legacy volume unit: 1/10000 of a lot.
 const VolumeUnit = 10000.0
+
+// VolumeUnitExt is one extended volume unit: 1/100000000 of a lot. The engine counts in these,
+// so a request carries them and the coarse columns are only ever read for display.
+const VolumeUnitExt = 100000000.0
+
+// ExtPerUnit is how many extended units one legacy unit is worth.
+const ExtPerUnit = int64(VolumeUnitExt / VolumeUnit)
+
+// ExtendedVolume picks whichever of the two columns a row actually carries.
+func ExtendedVolume(volume, ext int64) int64 {
+	if ext > 0 {
+		return ext
+	}
+
+	return volume * ExtPerUnit
+}
+
+// ExtToLots is an extended volume as a decimal number of lots.
+func ExtToLots(v int64) float64 { return float64(v) / VolumeUnitExt }
 
 // VolumeToLots converts integer volume into lots.
 func VolumeToLots(v int64) float64 { return float64(v) / VolumeUnit }
 
 // LotsToVolume converts lots into integer volume.
-func LotsToVolume(lots float64) int64 { return int64(lots*VolumeUnit + 0.5) }
+func LotsToVolume(lots float64) int64 { return int64(lots*VolumeUnitExt + 0.5) }

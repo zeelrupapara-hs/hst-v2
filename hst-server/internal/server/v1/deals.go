@@ -23,6 +23,7 @@ type ViewDeal struct {
 	Reason      int32   `json:"reason"`
 	Volume      float64 `json:"volume"`
 	VolumeUnits int64   `json:"-"`
+	VolumeExt   int64   `json:"-"`
 	Price       float64 `json:"price"`
 	Profit      float64 `json:"profit"`
 	Storage     float64 `json:"storage"`
@@ -33,7 +34,7 @@ type ViewDeal struct {
 }
 
 const dealColumns = `d.deal_id, d.login, d.order_id, d.position_id, d.symbol, d.action, d.entry,
-	d.reason, d.volume, d.price, d.profit, d.storage, d.commission, d.fee, d.time, d.comment`
+	d.reason, d.volume, d.volume_ext, d.price, d.profit, d.storage, d.commission, d.fee, d.time, d.comment`
 
 const dealFrom = ` FROM hst.deals d JOIN hst.users u ON u.login = d.login WHERE `
 
@@ -50,11 +51,11 @@ func (s *HttpServer) readDeals(ctx context.Context, where string, args []any, li
 	for rows.Next() {
 		var v ViewDeal
 		if err := rows.Scan(&v.DealId, &v.Login, &v.OrderId, &v.PositionId, &v.Symbol,
-			&v.Action, &v.Entry, &v.Reason, &v.VolumeUnits, &v.Price, &v.Profit,
+			&v.Action, &v.Entry, &v.Reason, &v.VolumeUnits, &v.VolumeExt, &v.Price, &v.Profit,
 			&v.Storage, &v.Commission, &v.Fee, &v.Time, &v.Comment); err != nil {
 			return nil, err
 		}
-		v.Volume = model.VolumeToLots(v.VolumeUnits)
+		v.Volume = model.ExtToLots(model.ExtendedVolume(v.VolumeUnits, v.VolumeExt))
 		out = append(out, v)
 	}
 

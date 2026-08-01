@@ -89,6 +89,7 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 		        spread, spread_diff, stops_level, freeze_level,
 		        currency_base, currency_profit, currency_margin,
 		        volume_min, volume_max, volume_step, volume_limit,
+		        volume_min_ext, volume_max_ext, volume_step_ext, volume_limit_ext,
 		        margin_initial, margin_maintenance, margin_hedged, margin_flags,
 		        margin_initial_buy, margin_initial_sell,
 		        margin_initial_buy_limit, margin_initial_sell_limit,
@@ -115,6 +116,7 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 			&s.Spread, &s.SpreadDiff, &s.StopsLevel, &s.FreezeLevel,
 			&s.CurrencyBase, &s.CurrencyProfit, &s.CurrencyMargin,
 			&s.VolumeMin, &s.VolumeMax, &s.VolumeStep, &s.VolumeLimit,
+			&s.VolumeMinExt, &s.VolumeMaxExt, &s.VolumeStepExt, &s.VolumeLimitExt,
 			&s.MarginInitial, &s.MarginMaintenance, &s.MarginHedged, &s.MarginFlags,
 			&s.MarginRateInitial[0], &s.MarginRateInitial[1], &s.MarginRateInitial[2], &s.MarginRateInitial[3], &s.MarginRateInitial[4], &s.MarginRateInitial[5], &s.MarginRateInitial[6], &s.MarginRateInitial[7],
 			&s.MarginRateMaintenance[0], &s.MarginRateMaintenance[1], &s.MarginRateMaintenance[2], &s.MarginRateMaintenance[3], &s.MarginRateMaintenance[4], &s.MarginRateMaintenance[5], &s.MarginRateMaintenance[6], &s.MarginRateMaintenance[7],
@@ -140,6 +142,7 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 		        trade_mode, exec_mode, fill_flags, expir_flags,
 		        spread_diff, stops_level, freeze_level,
 		        volume_min, volume_max, volume_step, volume_limit,
+		        volume_min_ext, volume_max_ext, volume_step_ext, volume_limit_ext,
 		        margin_initial, margin_maintenance, margin_hedged, margin_flags,
 		        margin_initial_buy, margin_initial_sell,
 		        margin_initial_buy_limit, margin_initial_sell_limit,
@@ -166,6 +169,7 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 			&o.TradeMode, &o.ExecMode, &o.FillFlags, &o.ExpirFlags,
 			&o.SpreadDiff, &o.StopsLevel, &o.FreezeLevel,
 			&o.VolumeMin, &o.VolumeMax, &o.VolumeStep, &o.VolumeLimit,
+			&o.VolumeMinExt, &o.VolumeMaxExt, &o.VolumeStepExt, &o.VolumeLimitExt,
 			&o.MarginInitial, &o.MarginMaintenance, &o.MarginHedged, &o.MarginFlags,
 			&o.MarginRateInitial[0], &o.MarginRateInitial[1], &o.MarginRateInitial[2], &o.MarginRateInitial[3], &o.MarginRateInitial[4], &o.MarginRateInitial[5], &o.MarginRateInitial[6], &o.MarginRateInitial[7],
 			&o.MarginRateMaintenance[0], &o.MarginRateMaintenance[1], &o.MarginRateMaintenance[2], &o.MarginRateMaintenance[3], &o.MarginRateMaintenance[4], &o.MarginRateMaintenance[5], &o.MarginRateMaintenance[6], &o.MarginRateMaintenance[7],
@@ -419,10 +423,12 @@ func (h *Handler) loadPositions(ctx context.Context, and string, args ...any) er
 
 	for rows.Next() {
 		p := &model.Position{}
+		var legacyVolume int64
+
 		if err := rows.Scan(&p.PositionId, &p.Login, &p.Dealer, &p.Symbol, &p.Action,
 			&p.Digits, &p.DigitsCurrency, &p.Reason, &p.ContractSize,
 			&p.TimeCreate, &p.TimeUpdate, &p.PriceOpen, &p.PriceCurrent,
-			&p.PriceSL, &p.PriceTP, &p.Volume, &p.VolumeExt, &p.Profit, &p.Storage,
+			&p.PriceSL, &p.PriceTP, &legacyVolume, &p.Volume, &p.Profit, &p.Storage,
 			&p.RateProfit, &p.RateMargin, &p.ExpertId, &p.Comment,
 			&p.ActivationFlags); err != nil {
 			return err
@@ -465,16 +471,22 @@ func (h *Handler) loadOrders(ctx context.Context, and string, args ...any) error
 
 	for rows.Next() {
 		o := &model.Order{}
+
+		var legacyInitial, legacyCurrent int64
+
 		if err := rows.Scan(&o.OrderId, &o.Login, &o.Dealer, &o.Symbol, &o.Digits,
 			&o.DigitsCurrency, &o.ContractSize, &o.State, &o.Reason, &o.TimeSetup,
 			&o.TimeExpiration, &o.TimeDone, &o.Type, &o.TypeFill, &o.TypeTime,
 			&o.PriceOrder, &o.PriceTrigger, &o.PriceCurrent, &o.PriceSL, &o.PriceTP,
-			&o.VolumeInitial, &o.VolumeCurrent, &o.VolumeExt, &o.ExpertId, &o.PositionId,
+			&legacyInitial, &legacyCurrent, &o.VolumeCurrent, &o.ExpertId, &o.PositionId,
 			&o.PositionById, &o.Comment, &o.RateMargin,
 			&o.ActivationMode, &o.ActivationTime, &o.ActivationPrice,
 			&o.ActivationFlags, &o.RoutingId); err != nil {
 			return err
 		}
+
+		o.VolumeInitial = model.FromLegacy(legacyInitial)
+		o.VolumeCurrent = model.Extended(legacyCurrent, o.VolumeCurrent)
 
 		e, ok := h.Accounts.Get(o.Login)
 		if !ok {

@@ -37,7 +37,8 @@ func (h *Handler) save(ctx context.Context, e *book.Entry, o *model.Order, f *Fi
 		o.Login, o.Dealer, o.Symbol, o.Digits, o.DigitsCurrency, o.ContractSize,
 		o.State, o.Reason, o.TimeSetup, o.TimeExpiration, o.TimeDone, o.Type,
 		o.TypeFill, o.TypeTime, o.PriceOrder, o.PriceTrigger, o.PriceCurrent,
-		o.PriceSL, o.PriceTP, o.VolumeInitial, o.VolumeExt, o.VolumeCurrent, o.VolumeExt,
+		o.PriceSL, o.PriceTP, model.Legacy(o.VolumeInitial), o.VolumeInitial,
+		model.Legacy(o.VolumeCurrent), o.VolumeCurrent,
 		o.ExpertId, o.PositionId, o.PositionById, o.Comment, o.RateMargin,
 		o.ActivationMode, o.ActivationTime, o.ActivationPrice, o.ActivationFlags,
 		o.RoutingId, now).Scan(&o.OrderId); err != nil {
@@ -77,7 +78,7 @@ func (h *Handler) writeFill(ctx context.Context, tx pgx.Tx, e *book.Entry, o *mo
 			f.Opened.Login, f.Opened.Dealer, f.Opened.Symbol, f.Opened.Action,
 			f.Opened.Digits, f.Opened.DigitsCurrency, f.Opened.Reason, f.Opened.ContractSize,
 			f.Opened.TimeCreate, f.Opened.TimeUpdate, f.Opened.PriceOpen, f.Opened.PriceCurrent,
-			f.Opened.PriceSL, f.Opened.PriceTP, f.Opened.Volume, f.Opened.VolumeExt,
+			f.Opened.PriceSL, f.Opened.PriceTP, model.Legacy(f.Opened.Volume), f.Opened.Volume,
 			f.Opened.Profit, f.Opened.Storage, f.Opened.RateProfit, f.Opened.RateMargin,
 			f.Opened.ExpertId, f.Opened.Comment, f.Opened.ActivationFlags,
 			now).Scan(&f.Opened.PositionId); err != nil {
@@ -99,7 +100,7 @@ func (h *Handler) writeFill(ctx context.Context, tx pgx.Tx, e *book.Entry, o *mo
 			        price_sl = $5, price_tp = $6, profit = $7, storage = $8,
 			        time_update = $9, date_modified = $9
 			  WHERE position_id = $10`,
-			p.Volume, p.VolumeExt, p.PriceOpen, p.PriceCurrent, p.PriceSL, p.PriceTP,
+			model.Legacy(p.Volume), p.Volume, p.PriceOpen, p.PriceCurrent, p.PriceSL, p.PriceTP,
 			p.Profit, p.Storage, now, p.PositionId); err != nil {
 			return err
 		}
@@ -130,8 +131,8 @@ func (h *Handler) writeFill(ctx context.Context, tx pgx.Tx, e *book.Entry, o *mo
 			         $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
 			 RETURNING deal_id`,
 			d.Login, d.Dealer, d.OrderId, d.Action, d.Entry, d.Digits, d.DigitsCurrency,
-			d.ContractSize, d.Time, d.Symbol, d.Price, d.PriceSL, d.PriceTP, d.Volume,
-			d.VolumeExt, d.VolumeClosed, d.Profit, d.Value, d.Storage, d.Commission, d.Fee,
+			d.ContractSize, d.Time, d.Symbol, d.Price, d.PriceSL, d.PriceTP,
+			model.Legacy(d.Volume), d.Volume, model.Legacy(d.VolumeClosed), d.Profit, d.Value, d.Storage, d.Commission, d.Fee,
 			d.RateProfit, d.RateMargin, d.ExpertId, d.PositionId, d.Comment, d.ProfitRaw,
 			d.PricePosition, d.TickValue, d.TickSize, d.Reason, d.MarketBid, d.MarketAsk,
 			now).Scan(&d.DealId); err != nil {

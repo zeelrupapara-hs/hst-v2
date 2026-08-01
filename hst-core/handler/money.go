@@ -7,11 +7,6 @@ import (
 
 // What a trade reserves, what a position is worth, and where the account stands. All pure.
 
-// MarginFor is what one trade of this size reserves, in the deposit currency, for a market position.
-func MarginFor(r *settings.Rules, lots float64, price float64, leverage int32, rate float64) float64 {
-	return MarginForType(r, lots, price, leverage, rate, model.OrderBuy, false)
-}
-
 // MarginForPosition is what one position reserves, charged at its own side's rate.
 func MarginForPosition(r *settings.Rules, p *model.Position, price float64, leverage int32) float64 {
 	kind := model.OrderBuy

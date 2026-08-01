@@ -71,6 +71,7 @@ type ViewPosition struct {
 	Reason       int32   `json:"reason"`
 	Volume       float64 `json:"volume"`
 	VolumeUnits  int64   `json:"-"`
+	VolumeExt    int64   `json:"-"`
 	PriceOpen    float64 `json:"price_open"`
 	PriceCurrent float64 `json:"price_current"`
 	PriceSL      float64 `json:"price_sl"`
@@ -82,7 +83,7 @@ type ViewPosition struct {
 	Comment      string  `json:"comment"`
 }
 
-const positionColumns = `p.position_id, p.login, p.symbol, p.action, p.reason, p.volume,
+const positionColumns = `p.position_id, p.login, p.symbol, p.action, p.reason, p.volume, p.volume_ext,
 	p.price_open, p.price_current, p.price_sl, p.price_tp, p.profit, p.storage,
 	p.time_create, p.time_update, p.comment`
 
@@ -196,7 +197,7 @@ func (s *HttpServer) sendPosition(ctx context.Context, login int64, e *model.Pos
 // positionState is what the write paths need before they may ask.
 func (s *HttpServer) positionState(ctx context.Context, positionId, login int64) (symbol string, volume int64, err error) {
 	err = s.DB.DB.QueryRow(ctx,
-		`SELECT symbol, volume FROM hst.positions WHERE position_id = $1 AND login = $2`,
+		`SELECT symbol, GREATEST(volume_ext, volume * 10000) FROM hst.positions WHERE position_id = $1 AND login = $2`,
 		positionId, login).Scan(&symbol, &volume)
 	return symbol, volume, err
 }
@@ -213,12 +214,12 @@ func (s *HttpServer) readPositions(ctx context.Context, where string, args []any
 	out := []ViewPosition{}
 	for rows.Next() {
 		var v ViewPosition
-		if err := rows.Scan(&v.PositionId, &v.Login, &v.Symbol, &v.Action, &v.Reason, &v.VolumeUnits,
+		if err := rows.Scan(&v.PositionId, &v.Login, &v.Symbol, &v.Action, &v.Reason, &v.VolumeUnits, &v.VolumeExt,
 			&v.PriceOpen, &v.PriceCurrent, &v.PriceSL, &v.PriceTP, &v.Profit, &v.Storage,
 			&v.TimeCreate, &v.TimeUpdate, &v.Comment); err != nil {
 			return nil, err
 		}
-		v.Volume = model.VolumeToLots(v.VolumeUnits)
+		v.Volume = model.ExtToLots(model.ExtendedVolume(v.VolumeUnits, v.VolumeExt))
 		out = append(out, v)
 	}
 

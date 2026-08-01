@@ -300,19 +300,33 @@ func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) 
 		return model.RetTradeTooManyOrder
 	}
 
-	var onSymbol, total int64
+	var sameSide, total int64
 	symbols := make(map[string]bool, len(e.Positions))
+	buying := o.Kind().Buy()
 
 	for _, p := range e.Positions {
 		total += p.Volume
 		symbols[p.Symbol] = true
-		if p.Symbol == o.Symbol {
-			onSymbol += p.Volume
+		if p.Symbol == o.Symbol && p.Buy() == buying {
+			sameSide += p.Volume
 		}
 	}
 
-	// the instrument's own cap on how much may be held at once, across everything on it
-	if r.VolumeLimit > 0 && onSymbol+o.VolumeCurrent > r.VolumeLimit {
+	// a working order counts toward the cap too, because it is volume waiting to become a position
+	for _, w := range e.Orders {
+		if w.Symbol != o.Symbol || w.OrderId == o.OrderId {
+			continue
+		}
+		if !w.Kind().Pending() || !model.OrderState(w.State).Live() {
+			continue
+		}
+		if w.Kind().Buy() == buying {
+			sameSide += w.VolumeCurrent
+		}
+	}
+
+	// the instrument's cap on how much may be held in one direction, positions and orders together
+	if r.VolumeLimit > 0 && sameSide+o.VolumeCurrent > r.VolumeLimit {
 		return model.RetTradeMaxVolume
 	}
 

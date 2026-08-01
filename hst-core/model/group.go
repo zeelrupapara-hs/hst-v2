@@ -68,6 +68,11 @@ type GroupSymbol struct {
 	VolumeStep  *int64
 	VolumeLimit *int64
 
+	VolumeMinExt   *int64
+	VolumeMaxExt   *int64
+	VolumeStepExt  *int64
+	VolumeLimitExt *int64
+
 	MarginInitial     *float64
 	MarginMaintenance *float64
 	MarginHedged      *float64

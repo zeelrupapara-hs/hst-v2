@@ -734,8 +734,8 @@ func closeComment(reason model.Reason) string {
 	return ""
 }
 
-// Revalue prices every position on a symbol against a new quote.
-func (h *Handler) Revalue(e *book.Entry, symbol string, t model.Tick) {
+// CalcPosition prices every position on a symbol against a new quote.
+func (h *Handler) CalcPosition(e *book.Entry, symbol string, t model.Tick) {
 	for _, p := range e.Positions {
 		if p.Symbol != symbol {
 			continue

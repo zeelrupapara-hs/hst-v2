@@ -106,6 +106,7 @@ type ViewOrder struct {
 	Volume         float64 `json:"volume"`
 	VolumeInitial  int64   `json:"-"`
 	VolumeCurrent  int64   `json:"-"`
+	VolumeExt      int64   `json:"-"`
 	PriceOrder     float64 `json:"price_order"`
 	PriceTrigger   float64 `json:"price_trigger"`
 	PriceCurrent   float64 `json:"price_current"`
@@ -117,7 +118,7 @@ type ViewOrder struct {
 }
 
 const orderColumns = `o.order_id, o.login, o.symbol, o.type, o.state, o.reason,
-	o.volume_initial, o.volume_current, o.price_order, o.price_trigger, o.price_current,
+	o.volume_initial, o.volume_current, o.volume_current_ext, o.price_order, o.price_trigger, o.price_current,
 	o.price_sl, o.price_tp, o.time_setup, o.time_expiration, o.comment`
 
 const orderFrom = ` FROM hst.orders o JOIN hst.users u ON u.login = o.login WHERE `
@@ -292,11 +293,11 @@ func (s *HttpServer) readOrders(ctx context.Context, where string, args []any) (
 	for rows.Next() {
 		var v ViewOrder
 		if err := rows.Scan(&v.OrderId, &v.Login, &v.Symbol, &v.Type, &v.State, &v.Reason,
-			&v.VolumeInitial, &v.VolumeCurrent, &v.PriceOrder, &v.PriceTrigger, &v.PriceCurrent,
+			&v.VolumeInitial, &v.VolumeCurrent, &v.VolumeExt, &v.PriceOrder, &v.PriceTrigger, &v.PriceCurrent,
 			&v.PriceSL, &v.PriceTP, &v.TimeSetup, &v.TimeExpiration, &v.Comment); err != nil {
 			return nil, err
 		}
-		v.Volume = model.VolumeToLots(v.VolumeCurrent)
+		v.Volume = model.ExtToLots(model.ExtendedVolume(v.VolumeCurrent, v.VolumeExt))
 		out = append(out, v)
 	}
 

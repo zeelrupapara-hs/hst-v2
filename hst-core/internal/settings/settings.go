@@ -217,10 +217,12 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		StopsLevel:  pick(o.StopsLevel, sym.StopsLevel),
 		FreezeLevel: pick(o.FreezeLevel, sym.FreezeLevel),
 
-		VolumeMin:   pick(o.VolumeMin, sym.VolumeMin),
-		VolumeMax:   pick(o.VolumeMax, sym.VolumeMax),
-		VolumeStep:  pick(o.VolumeStep, sym.VolumeStep),
-		VolumeLimit: pick(o.VolumeLimit, sym.VolumeLimit),
+		// the extended column wins where it is set, and the coarse one is read up to the same
+		// scale where it is not, so every comparison happens in one unit
+		VolumeMin:   volumeOf(o.VolumeMinExt, sym.VolumeMinExt, o.VolumeMin, sym.VolumeMin),
+		VolumeMax:   volumeOf(o.VolumeMaxExt, sym.VolumeMaxExt, o.VolumeMax, sym.VolumeMax),
+		VolumeStep:  volumeOf(o.VolumeStepExt, sym.VolumeStepExt, o.VolumeStep, sym.VolumeStep),
+		VolumeLimit: volumeOf(o.VolumeLimitExt, sym.VolumeLimitExt, o.VolumeLimit, sym.VolumeLimit),
 
 		MarginInitial:     pick(o.MarginInitial, sym.MarginInitial),
 		MarginMaintenance: pick(o.MarginMaintenance, sym.MarginMaintenance),
@@ -262,6 +264,15 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 	}
 
 	return r
+}
+
+// volumeOf resolves one volume limit into extended units.
+func volumeOf(overrideExt *int64, baseExt int64, override *int64, base int64) int64 {
+	if v := pick(overrideExt, baseExt); v > 0 {
+		return v
+	}
+
+	return model.FromLegacy(pick(override, base))
 }
 
 // rates folds a group's per-order-type overrides onto the instrument's own.
