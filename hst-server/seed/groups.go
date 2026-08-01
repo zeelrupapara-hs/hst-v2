@@ -50,3 +50,36 @@ func (s *Seeder) SeedGroups(ctx context.Context) error {
 
 	return nil
 }
+
+// SeedGroupSymbols gives every group a "*" entry, so a fresh install can trade.
+//
+// A group lists what it may trade, and a symbol with no entry covering it is refused. Without
+// this a fresh install has sixty instruments and four groups and cannot place a single order,
+// which reads as broken rather than as a configuration step — the same reason the routing seed
+// ships a catch-all rule.
+//
+// Every setting is left null, meaning the instrument's own value stands. A broker narrowing
+// this later adds a more specific path above it: entries are read in config_index order and
+// the first one matching a symbol wins.
+func (s *Seeder) SeedGroupSymbols(ctx context.Context) error {
+	var rows int
+	if err := s.DB.DB.QueryRow(ctx, `SELECT count(*) FROM hst.groups_symbols`).Scan(&rows); err != nil {
+		return err
+	}
+	if rows > 0 {
+		return nil
+	}
+
+	tag, err := s.DB.DB.Exec(ctx,
+		`INSERT INTO hst.groups_symbols (group_id, path, config_index, updated_at)
+		 SELECT group_id, '*', 0, $1 FROM hst.groups`,
+		time.Now().UnixNano())
+	if err != nil {
+		return err
+	}
+
+	s.Log.Log(logger.TypeSys, logger.CodeOK, "seed group symbols created",
+		"groups", tag.RowsAffected(), "path", "*")
+
+	return nil
+}
