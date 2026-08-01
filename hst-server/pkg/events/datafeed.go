@@ -47,20 +47,44 @@ type WorkerSymbolSession struct {
 	Close    int32 `json:"close"`
 }
 
+// WorkerSymbolSettings is per-symbol quote handling config for quote workers.
+type WorkerSymbolSettings struct {
+	SymbolID        int64   `json:"symbol_id"`
+	Digits          int16   `json:"digits"`
+	Point           float64 `json:"point"`
+	TickFlags       int32   `json:"tick_flags"`
+	TickBookDepth   int32   `json:"tick_book_depth"`
+	CalcMode        int16   `json:"calc_mode"`
+	TickChartMode   int16   `json:"tick_chart_mode"`
+	SpliceType      int16   `json:"splice_type"`
+	FilterSoft      int32   `json:"filter_soft"`
+	FilterSoftTicks int32   `json:"filter_soft_ticks"`
+	FilterHard      int32   `json:"filter_hard"`
+	FilterHardTicks int32   `json:"filter_hard_ticks"`
+	FilterDiscard   int32   `json:"filter_discard"`
+	FilterSpreadMin int32   `json:"filter_spread_min"`
+	FilterSpreadMax int32   `json:"filter_spread_max"`
+	FilterGap       int32   `json:"filter_gap"`
+	FilterGapTicks  int32   `json:"filter_gap_ticks"`
+	Spread          int32   `json:"spread"`
+	SpreadBalance   int32   `json:"spread_balance"`
+}
+
 // WorkerDatafeedConfig is the full config snapshot workers need without DB access.
 type WorkerDatafeedConfig struct {
-	DatafeedID       int64                 `json:"datafeed_id"`
-	Name             string                `json:"name"`
-	Module           string                `json:"module"`
-	Enable           model.DatafeedEnable  `json:"enable"`
-	Mode             model.FeederFlags     `json:"mode"`
-	FeedServer       string                `json:"feed_server"`
-	FeedLogin        int64                 `json:"feed_login"`
-	FeedPassword     string                `json:"feed_password"`
-	TimeoutReconnect int32                 `json:"timeout_reconnect"`
-	Params           []WorkerParam         `json:"params"`
-	Translates       []WorkerTranslate     `json:"translates"`
-	Sessions         []WorkerSymbolSession `json:"sessions"`
+	DatafeedID       int64                  `json:"datafeed_id"`
+	Name             string                 `json:"name"`
+	Module           string                 `json:"module"`
+	Enable           model.DatafeedEnable   `json:"enable"`
+	Mode             model.FeederFlags      `json:"mode"`
+	FeedServer       string                 `json:"feed_server"`
+	FeedLogin        int64                  `json:"feed_login"`
+	FeedPassword     string                 `json:"feed_password"`
+	TimeoutReconnect int32                  `json:"timeout_reconnect"`
+	Params           []WorkerParam          `json:"params"`
+	Translates       []WorkerTranslate      `json:"translates"`
+	Sessions         []WorkerSymbolSession  `json:"sessions"`
+	Settings         []WorkerSymbolSettings `json:"settings"`
 }
 
 // ConfigSubject returns the per-feed config subject.

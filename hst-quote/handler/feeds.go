@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"reflect"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"hstquote/internal/configclient"
+	"hstquote/internal/filter"
 	"hstquote/internal/fixconfig"
 	"hstquote/internal/provider"
 	"hstquote/internal/provider/fixquotes"
@@ -65,7 +67,7 @@ type Feeds struct {
 
 	mu        sync.Mutex
 	runners   map[int64]feedRunner
-	liveFeeds map[int64]*model.QuoteFeed
+	liveFeeds map[int64]*atomic.Pointer[model.QuoteFeed]
 }
 
 func newFeeds(h *Handler) *Feeds {
@@ -76,7 +78,7 @@ func newFeeds(h *Handler) *Feeds {
 		status:    status.New(h.Nats, h.Cfg.Nats.Name),
 		influx:    h.Influx,
 		runners:   make(map[int64]feedRunner),
-		liveFeeds: make(map[int64]*model.QuoteFeed),
+		liveFeeds: make(map[int64]*atomic.Pointer[model.QuoteFeed]),
 	}
 }
 
@@ -89,14 +91,15 @@ func (f *Feeds) ownsFeed(datafeedID int64) bool {
 	return datafeedID%int64(count) == int64(idx)
 }
 
-func (f *Feeds) bindLiveFeed(id int64, feed model.QuoteFeed) *model.QuoteFeed {
-	if ptr, ok := f.liveFeeds[id]; ok {
-		*ptr = feed
-		return ptr
+// bindLiveFeed swaps in a whole new config; runners read it without a lock, so it is never mutated in place.
+func (f *Feeds) bindLiveFeed(id int64, feed model.QuoteFeed) *atomic.Pointer[model.QuoteFeed] {
+	ptr, ok := f.liveFeeds[id]
+	if !ok {
+		ptr = &atomic.Pointer[model.QuoteFeed]{}
+		f.liveFeeds[id] = ptr
 	}
-	cp := feed
-	f.liveFeeds[id] = &cp
-	return f.liveFeeds[id]
+	ptr.Store(&feed)
+	return ptr
 }
 
 func (f *Feeds) reload(ctx context.Context) error {
@@ -141,7 +144,7 @@ func (f *Feeds) reload(ctx context.Context) error {
 	for id, feed := range want {
 		if _, running := f.runners[id]; running {
 			old := f.liveFeeds[id]
-			if old != nil && !quoteFeedNeedsRestart(*old, feed) {
+			if old != nil && !quoteFeedNeedsRestart(*old.Load(), feed) {
 				f.bindLiveFeed(id, feed)
 				continue
 			}
@@ -244,16 +247,18 @@ func (f *Feeds) stopAll() {
 	}
 }
 
-func (f *Feeds) newConnector(feed *model.QuoteFeed) streamConnector {
+func (f *Feeds) newConnector(feedPtr *atomic.Pointer[model.QuoteFeed]) streamConnector {
 	tickCh := make(chan provider.RawTick, 256)
+	feed := feedPtr.Load()
 	typ, _ := provider.ModuleType(feed.Datafeed.Module)
 
 	switch typ {
 	case provider.TypeSimulator:
 		return &simConnector{
 			inner: simulator.NewConnector(*feed, tickCh),
-			feed:  feed,
+			feed:  feedPtr,
 			ticks: tickCh,
+			state: filter.New(),
 			f:     f,
 		}
 	case provider.TypeFIX:
@@ -271,8 +276,9 @@ func (f *Feeds) newConnector(feed *model.QuoteFeed) streamConnector {
 		}
 		return &fixConnector{
 			inner: fixquotes.NewConnector(settings, cfgPath, fixconfig.ExternalSymbols(*feed), f.h.Log, tickCh),
-			feed:  feed,
+			feed:  feedPtr,
 			ticks: tickCh,
+			state: filter.New(),
 			f:     f,
 		}
 	default:
@@ -283,8 +289,9 @@ func (f *Feeds) newConnector(feed *model.QuoteFeed) streamConnector {
 // fixConnector wraps FIX and forwards ticks to the feed handler.
 type fixConnector struct {
 	inner *fixquotes.Connector
-	feed  *model.QuoteFeed
+	feed  *atomic.Pointer[model.QuoteFeed]
 	ticks <-chan provider.RawTick
+	state *filter.State
 	f     *Feeds
 }
 
@@ -296,6 +303,7 @@ func (c *fixConnector) Run(ctx context.Context) error {
 		errCh <- c.inner.Run(ctx)
 	}()
 
+	logons := c.inner.Logons()
 	for {
 		select {
 		case <-ctx.Done():
@@ -311,7 +319,12 @@ func (c *fixConnector) Run(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			c.f.handleRawTick(ctx, *c.feed, raw)
+			// a reconnect is a break in the stream, so the tick that follows it cannot be filtered
+			if n := c.inner.Logons(); n != logons {
+				logons = n
+				c.state.Reset()
+			}
+			c.f.handleRawTick(ctx, *c.feed.Load(), c.state, raw)
 		}
 	}
 }
@@ -320,8 +333,9 @@ func (c *fixConnector) Close() error { return c.inner.Close() }
 
 type simConnector struct {
 	inner *simulator.Connector
-	feed  *model.QuoteFeed
+	feed  *atomic.Pointer[model.QuoteFeed]
 	ticks <-chan provider.RawTick
+	state *filter.State
 	f     *Feeds
 }
 
@@ -348,18 +362,50 @@ func (c *simConnector) Run(ctx context.Context) error {
 			if !ok {
 				return nil
 			}
-			c.f.handleRawTick(ctx, *c.feed, raw)
+			c.f.handleRawTick(ctx, *c.feed.Load(), c.state, raw)
 		}
 	}
 }
 
 func (c *simConnector) Close() error { return c.inner.Close() }
 
-func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, raw provider.RawTick) {
+func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *filter.State, raw provider.RawTick) {
 	tick, ok := translate.ApplyMarkup(feed, raw)
 	if !ok {
 		return
 	}
+
+	set, hasSet := feed.Settings[tick.SymbolID]
+	// every discard path feeds the raw series, that is what it is for
+	discard := func() {
+		if hasSet && set.CollectRaw() && f.influx != nil {
+			f.influx.WriteRawTick(*tick)
+		}
+	}
+
+	if hasSet && !set.RealtimeAllowed() {
+		st.MarkBreak(tick.SymbolID)
+		if st.WarnOnce(tick.SymbolID) {
+			f.h.Log.Log(logger.TypeSys, logger.CodeWarn, "symbol drops ticks, realtime flag off",
+				"datafeed_id", tick.DatafeedID, "symbol", tick.Symbol, "tick_flags", set.TickFlags)
+		}
+		discard()
+		return
+	}
+
+	// a closed quote session is no stream at all, so the next tick starts a fresh channel
+	if !f.isQuoteSessionOpen(feed, tick.SymbolID) {
+		st.MarkBreak(tick.SymbolID)
+		discard()
+		return
+	}
+
+	if !st.Apply(set, tick) {
+		discard()
+		return
+	}
+
+	translate.ApplySpread(set, tick)
 
 	if err := f.cache.Put(ctx, *tick); err != nil {
 		f.h.Log.Log(logger.TypeNet, logger.CodeErr, "tick cache failed",
@@ -370,14 +416,16 @@ func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, raw pro
 		f.influx.WriteTick(*tick)
 	}
 
-	if f.isQuoteSessionOpen(feed, tick.SymbolID) {
-		f.publishTick(*tick)
-	}
+	f.publishTick(*tick)
 }
 
 func (f *Feeds) isQuoteSessionOpen(feed model.QuoteFeed, symbolID int64) bool {
-	windows := make([]session.Window, 0, len(feed.Sessions))
+	// only this symbol's rows, the feed carries every symbol's and the tick path runs hot
+	var windows []session.Window
 	for _, s := range feed.Sessions {
+		if s.SymbolID != symbolID {
+			continue
+		}
 		windows = append(windows, session.Window{
 			SymbolID: s.SymbolID,
 			Day:      s.Day,
@@ -448,8 +496,8 @@ func (f *Feeds) onConfigSnapshot(msg *natscore.Msg) {
 	feed := configclient.FromSnapshot(snap)
 	f.mu.Lock()
 	if _, running := f.runners[snap.DatafeedID]; running {
-		if ptr := f.liveFeeds[snap.DatafeedID]; ptr != nil && !quoteFeedNeedsRestart(*ptr, feed) {
-			*ptr = feed
+		if ptr := f.liveFeeds[snap.DatafeedID]; ptr != nil && !quoteFeedNeedsRestart(*ptr.Load(), feed) {
+			f.bindLiveFeed(snap.DatafeedID, feed)
 			f.mu.Unlock()
 			return
 		}

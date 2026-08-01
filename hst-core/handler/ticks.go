@@ -2,24 +2,17 @@ package handler
 
 import (
 	"context"
-	"math"
 
 	"hstcore/internal/book"
 	"hstcore/model"
 )
 
-// gapPoints is how far a price has to jump before the symbol counts as gapped.
-// ponytail: one threshold for every instrument, split it per symbol if a broker needs it
-const gapPoints = 100
-
 // NotifyAll records a price and works through the accounts it affects.
 func (h *Handler) NotifyAll(t model.Tick) {
-	previous, had := h.Quotes.Set(t)
+	h.Quotes.Set(t)
 
-	// a jump beyond the threshold puts the symbol in a gap, which the routing rules can see
-	if had {
-		h.checkGap(t, previous)
-	}
+	// hst-quote owns gap detection, it sees the unfiltered stream and the per-symbol settings
+	h.Quotes.SetGap(t.Symbol, t.Gap)
 
 	watching := h.Accounts.Watching(t.Symbol)
 	if len(watching) == 0 {
@@ -32,18 +25,6 @@ func (h *Handler) NotifyAll(t model.Tick) {
 			h.Notify(ctx, entry, t)
 		})
 	}
-}
-
-// checkGap decides whether the price jumped far enough to count as a gap.
-func (h *Handler) checkGap(t, previous model.Tick) {
-	sym, ok := h.Settings.Symbol(t.Symbol)
-	if !ok || sym.Point <= 0 {
-		return
-	}
-
-	jump := math.Max(math.Abs(t.Bid-previous.Bid), math.Abs(t.Ask-previous.Ask))
-
-	h.Quotes.SetGap(t.Symbol, Points(jump, sym.Point) >= gapPoints)
 }
 
 // Notify brings one account up to date with a new price.

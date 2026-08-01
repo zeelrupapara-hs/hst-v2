@@ -22,6 +22,12 @@ const workerDatafeedColumns = `datafeed_id, name, module, enable, mode,
 
 const datafeedSymbolColumns = `feed_symbol_id, datafeed_id, symbol_id, path, exclude, symbol`
 
+const symbolSettingsColumns = `symbol_id, digits, point, tick_flags, tick_book_depth,
+	calc_mode, tick_chart_mode, splice_type,
+	filter_soft, filter_soft_ticks, filter_hard, filter_hard_ticks, filter_discard,
+	filter_spread_min, filter_spread_max, filter_gap, filter_gap_ticks,
+	spread, spread_balance`
+
 // ViewDatafeedQuoteSession is a quote session window for one feed-scoped symbol.
 type ViewDatafeedQuoteSession struct {
 	SymbolID int64  `json:"symbol_id"`
@@ -291,6 +297,11 @@ func (s *HttpServer) loadWorkerDatafeedConfig(ctx context.Context, datafeedID in
 		return nil, err
 	}
 
+	cfg.Settings, err = loadSymbolSettingsForSymbols(ctx, s, symbolIDs)
+	if err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
 }
 
@@ -384,8 +395,13 @@ func (s *HttpServer) listWorkerDatafeedConfigs(ctx context.Context, mode int32) 
 	if err != nil {
 		return nil, err
 	}
+	settingsBySymbol, err := loadSymbolSettingsBySymbolIDs(ctx, s, sessionIDs)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out {
 		out[i].Sessions = flattenQuoteSessions(out[i].Translates, sessionsBySymbol)
+		out[i].Settings = symbolSettingsForTranslates(out[i].Translates, settingsBySymbol)
 	}
 
 	return out, nil
@@ -426,25 +442,28 @@ func (s *HttpServer) NotifyDatafeedsForSymbolID(ctx context.Context, symbolID in
 	}
 
 	rows, err := s.DB.DB.Query(ctx,
-		`SELECT datafeed_id FROM hst.datafeeds WHERE enable = 1`)
+		`SELECT DISTINCT datafeed_id FROM hst.datafeeds WHERE enable = 1`)
 	if err != nil {
 		return
 	}
-	defer rows.Close()
-
-	notified := map[int64]struct{}{}
+	// drain first: the checks below borrow more connections, and this cursor is holding one
+	var feedIDs []int64
 	for rows.Next() {
 		var feedID int64
 		if err := rows.Scan(&feedID); err != nil {
+			rows.Close()
 			return
 		}
-		if feedIncludesSymbol(ctx, s, feedID, *symRef, catalog) {
-			if _, ok := notified[feedID]; ok {
-				continue
-			}
-			notified[feedID] = struct{}{}
-			s.notifyDatafeedConfigChanged(feedID)
+		feedIDs = append(feedIDs, feedID)
+	}
+	rows.Close()
+
+	for _, feedID := range feedIDs {
+		if !feedIncludesSymbol(ctx, s, feedID, *symRef, catalog) {
+			continue
 		}
+		// only the config snapshot: a symbol edit hot-applies, it must not bounce the live feed
+		s.publishWorkerConfigSnapshot(ctx, feedID)
 	}
 }
 
@@ -663,6 +682,57 @@ func flattenQuoteSessionsFromIDs(symbolIDs []int64, bySymbol map[int64][]events.
 		out = append(out, bySymbol[id]...)
 	}
 	return out
+}
+
+func loadSymbolSettingsForSymbols(ctx context.Context, s *HttpServer, symbolIDs []int64) ([]events.WorkerSymbolSettings, error) {
+	bySymbol, err := loadSymbolSettingsBySymbolIDs(ctx, s, symbolIDs)
+	if err != nil {
+		return nil, err
+	}
+	return flattenSymbolSettingsFromIDs(symbolIDs, bySymbol), nil
+}
+
+func symbolSettingsForTranslates(translates []events.WorkerTranslate, bySymbol map[int64]events.WorkerSymbolSettings) []events.WorkerSymbolSettings {
+	return flattenSymbolSettingsFromIDs(translateSymbolIDs(translates), bySymbol)
+}
+
+func flattenSymbolSettingsFromIDs(symbolIDs []int64, bySymbol map[int64]events.WorkerSymbolSettings) []events.WorkerSymbolSettings {
+	out := []events.WorkerSymbolSettings{}
+	for _, id := range symbolIDs {
+		if set, ok := bySymbol[id]; ok {
+			out = append(out, set)
+		}
+	}
+	return out
+}
+
+func loadSymbolSettingsBySymbolIDs(ctx context.Context, s *HttpServer, symbolIDs []int64) (map[int64]events.WorkerSymbolSettings, error) {
+	out := map[int64]events.WorkerSymbolSettings{}
+	if len(symbolIDs) == 0 {
+		return out, nil
+	}
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT `+symbolSettingsColumns+`
+		   FROM hst.symbols
+		  WHERE symbol_id = ANY($1)
+		  ORDER BY symbol_id`, symbolIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var set events.WorkerSymbolSettings
+		if err := rows.Scan(&set.SymbolID, &set.Digits, &set.Point, &set.TickFlags, &set.TickBookDepth,
+			&set.CalcMode, &set.TickChartMode, &set.SpliceType,
+			&set.FilterSoft, &set.FilterSoftTicks, &set.FilterHard, &set.FilterHardTicks, &set.FilterDiscard,
+			&set.FilterSpreadMin, &set.FilterSpreadMax, &set.FilterGap, &set.FilterGapTicks,
+			&set.Spread, &set.SpreadBalance); err != nil {
+			return nil, err
+		}
+		out[set.SymbolID] = set
+	}
+	return out, rows.Err()
 }
 
 func loadQuoteSessionsBySymbolIDs(ctx context.Context, s *HttpServer, symbolIDs []int64) (map[int64][]events.WorkerSymbolSession, error) {

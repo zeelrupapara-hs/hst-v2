@@ -21,6 +21,7 @@ type Tick struct {
 	Open       float64 `json:"open"`
 	Close      float64 `json:"close"`
 	Volume     float64 `json:"volume"`
+	Gap        bool    `json:"gap"`
 	Time       int64   `json:"-"`
 }
 

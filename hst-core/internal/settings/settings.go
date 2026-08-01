@@ -110,14 +110,6 @@ func (s *Store) Group(path string) (*model.Group, bool) {
 	return g, ok
 }
 
-func (s *Store) Symbol(name string) (*model.Symbol, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	sym, ok := s.symbols[name]
-	return sym, ok
-}
-
 func (s *Store) Groups() int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

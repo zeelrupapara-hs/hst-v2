@@ -77,17 +77,31 @@ func (c *Client) WriteTick(tick model.Tick) {
 		return
 	}
 
-	point := pointFromTick(tick)
+	point := pointFromTick(tick, strconv.FormatInt(tick.SymbolID, 10))
 	c.writer.WritePoint(point)
 }
 
-func pointFromTick(tick model.Tick) *write.Point {
+// WriteRawTick stores a discarded tick in its own measurement, so it never mixes with the accepted stream.
+func (c *Client) WriteRawTick(tick model.Tick) {
+	if c == nil || c.writer == nil {
+		return
+	}
+	if tick.SymbolID <= 0 {
+		return
+	}
+	c.writer.WritePoint(pointFromTick(tick, RawMeasurementPrefix+strconv.FormatInt(tick.SymbolID, 10)))
+}
+
+// RawMeasurementPrefix marks the discarded-tick series; the candle rollup skips anything carrying it.
+const RawMeasurementPrefix = "raw_"
+
+func pointFromTick(tick model.Tick, measurement string) *write.Point {
 	ts := tick.Time
 	if ts.IsZero() {
 		ts = time.Now().UTC()
 	}
 
-	point := influxdb2.NewPointWithMeasurement(strconv.FormatInt(tick.SymbolID, 10)).
+	point := influxdb2.NewPointWithMeasurement(measurement).
 		AddField("bid", tick.Bid).
 		AddField("ask", tick.Ask).
 		AddField("high", tick.High).

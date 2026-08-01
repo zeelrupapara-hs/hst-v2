@@ -1,5 +1,7 @@
 package model
 
+import "math"
+
 // FeederFlags is EnFeederFlags — data feed operation mode as a bitmask.
 type FeederFlags int32
 
@@ -68,6 +70,76 @@ type QuoteFeed struct {
 	Params     map[string]string
 	Translates []DatafeedTranslate
 	Sessions   []SymbolSession
+	Settings   map[int64]SymbolSettings
+}
+
+// SymbolSettings is the per-symbol quote handling config from hst.symbols.
+type SymbolSettings struct {
+	SymbolID        int64
+	Digits          int16
+	Point           float64
+	TickFlags       int32
+	TickBookDepth   int32
+	CalcMode        int16
+	TickChartMode   int16
+	SpliceType      int16
+	FilterSoft      int32
+	FilterSoftTicks int32
+	FilterHard      int32
+	FilterHardTicks int32
+	FilterDiscard   int32
+	FilterSpreadMin int32
+	FilterSpreadMax int32
+	FilterGap       int32
+	FilterGapTicks  int32
+	Spread          int32
+	SpreadBalance   int32
+}
+
+// EnTickFlags — how the server treats incoming ticks for a symbol.
+const (
+	TickFlagRealtime   int32 = 1
+	TickFlagCollectRaw int32 = 2
+	TickFlagFeedStats  int32 = 4
+)
+
+// PointValue is the symbol point, falling back to digits when the column is unset.
+func (s SymbolSettings) PointValue() float64 {
+	if s.Point > 0 {
+		return s.Point
+	}
+	if s.Digits > 0 {
+		return math.Pow10(-int(s.Digits))
+	}
+	return 1e-5
+}
+
+// RealtimeAllowed treats an unconfigured tick_flags as "allow", never blackholing a feed.
+func (s SymbolSettings) RealtimeAllowed() bool {
+	return s.TickFlags == 0 || s.TickFlags&TickFlagRealtime != 0
+}
+
+func (s SymbolSettings) CollectRaw() bool { return s.TickFlags&TickFlagCollectRaw != 0 }
+
+func (s SymbolSettings) HasDOM() bool { return s.TickBookDepth != 0 }
+
+// FloatingSpread reports a feed-formed spread; market depth makes the fixed spread ignored.
+func (s SymbolSettings) FloatingSpread() bool { return s.Spread == 0 || s.HasDOM() }
+
+func (s SymbolSettings) IsExchange() bool { return s.CalcMode >= 32 && s.CalcMode <= 37 }
+
+// FiltersEnabled reports whether the soft/hard/discard channel applies to this symbol.
+func (s SymbolSettings) FiltersEnabled() bool {
+	if s.FilterSoft == 0 && s.FilterHard == 0 && s.FilterDiscard == 0 {
+		return false
+	}
+	if s.SpliceType != 0 {
+		return false
+	}
+	if s.HasDOM() && (s.IsExchange() || s.TickChartMode == 1) {
+		return false
+	}
+	return true
 }
 
 // SymbolSession is one quote session window for a symbol weekday.

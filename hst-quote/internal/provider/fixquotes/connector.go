@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"hstquote/internal/fixconfig"
@@ -37,6 +38,7 @@ type Connector struct {
 	ticks   chan<- provider.RawTick
 
 	shutdown  chan struct{}
+	logons    atomic.Uint64
 	initiator *quickfix.Initiator
 	connected bool
 	mu        sync.Mutex
@@ -81,6 +83,9 @@ func toMDUpdateEnum(v string) enum.MDUpdateType {
 func (c *Connector) Type() provider.ConnectorType { return provider.TypeFIX }
 
 func (c *Connector) Dialect() fixconfig.Dialect { return c.cfg.Dialect }
+
+// Logons counts sessions logged on; a change means the stream broke and reconnected.
+func (c *Connector) Logons() uint64 { return c.logons.Load() }
 
 func (c *Connector) Run(ctx context.Context) error {
 	if err := c.startInitiator(); err != nil {
@@ -186,6 +191,9 @@ func (c *Connector) OnLogon(sessionID quickfix.SessionID) {
 	c.mu.Lock()
 	c.connected = true
 	c.mu.Unlock()
+
+	// the link was down, so what follows is a break in the stream and cannot be filtered
+	c.logons.Add(1)
 
 	time.Sleep(500 * time.Millisecond)
 	for _, symbol := range c.symbols {

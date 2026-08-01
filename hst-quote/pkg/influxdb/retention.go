@@ -153,11 +153,11 @@ const taskOptions = "option task = {name: \"" + downsampleTaskName + "\", every:
 func candleBody(from, to string) string {
 	return fmt.Sprintf(`bid = from(bucket: %q)
   |> range(start: -2m)
-  |> filter(fn: (r) => r._field == "bid")
+  |> filter(fn: (r) => r._field == "bid" and not r._measurement =~ /^%s/)
 
 vol = from(bucket: %q)
   |> range(start: -2m)
-  |> filter(fn: (r) => r._field == "volume")
+  |> filter(fn: (r) => r._field == "volume" and not r._measurement =~ /^%s/)
 
 o = bid |> aggregateWindow(every: 1m, fn: first, timeSrc: "_start", createEmpty: false) |> set(key: "_field", value: "open")
 h = bid |> aggregateWindow(every: 1m, fn: max,   timeSrc: "_start", createEmpty: false) |> set(key: "_field", value: "high")
@@ -167,5 +167,5 @@ v = vol |> aggregateWindow(every: 1m, fn: sum,   timeSrc: "_start", createEmpty:
 
 union(tables: [o, h, l, c, v])
   |> to(bucket: %q)
-`, from, from, to)
+`, from, RawMeasurementPrefix, from, RawMeasurementPrefix, to)
 }

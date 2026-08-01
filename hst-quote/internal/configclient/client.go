@@ -34,6 +34,29 @@ type Snapshot struct {
 	Params           []Param              `json:"params"`
 	Translates       []Translate          `json:"translates"`
 	Sessions         []SnapshotSession    `json:"sessions"`
+	Settings         []SymbolSettings     `json:"settings"`
+}
+
+type SymbolSettings struct {
+	SymbolID        int64   `json:"symbol_id"`
+	Digits          int16   `json:"digits"`
+	Point           float64 `json:"point"`
+	TickFlags       int32   `json:"tick_flags"`
+	TickBookDepth   int32   `json:"tick_book_depth"`
+	CalcMode        int16   `json:"calc_mode"`
+	TickChartMode   int16   `json:"tick_chart_mode"`
+	SpliceType      int16   `json:"splice_type"`
+	FilterSoft      int32   `json:"filter_soft"`
+	FilterSoftTicks int32   `json:"filter_soft_ticks"`
+	FilterHard      int32   `json:"filter_hard"`
+	FilterHardTicks int32   `json:"filter_hard_ticks"`
+	FilterDiscard   int32   `json:"filter_discard"`
+	FilterSpreadMin int32   `json:"filter_spread_min"`
+	FilterSpreadMax int32   `json:"filter_spread_max"`
+	FilterGap       int32   `json:"filter_gap"`
+	FilterGapTicks  int32   `json:"filter_gap_ticks"`
+	Spread          int32   `json:"spread"`
+	SpreadBalance   int32   `json:"spread_balance"`
 }
 
 type SnapshotSession struct {
@@ -174,6 +197,30 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 			Close:    sess.Close,
 		})
 	}
+	settings := make(map[int64]model.SymbolSettings, len(s.Settings))
+	for _, st := range s.Settings {
+		settings[st.SymbolID] = model.SymbolSettings{
+			SymbolID:        st.SymbolID,
+			Digits:          st.Digits,
+			Point:           st.Point,
+			TickFlags:       st.TickFlags,
+			TickBookDepth:   st.TickBookDepth,
+			CalcMode:        st.CalcMode,
+			TickChartMode:   st.TickChartMode,
+			SpliceType:      st.SpliceType,
+			FilterSoft:      st.FilterSoft,
+			FilterSoftTicks: st.FilterSoftTicks,
+			FilterHard:      st.FilterHard,
+			FilterHardTicks: st.FilterHardTicks,
+			FilterDiscard:   st.FilterDiscard,
+			FilterSpreadMin: st.FilterSpreadMin,
+			FilterSpreadMax: st.FilterSpreadMax,
+			FilterGap:       st.FilterGap,
+			FilterGapTicks:  st.FilterGapTicks,
+			Spread:          st.Spread,
+			SpreadBalance:   st.SpreadBalance,
+		}
+	}
 	return model.QuoteFeed{
 		Datafeed: model.Datafeed{
 			DatafeedID:       s.DatafeedID,
@@ -189,6 +236,7 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 		Params:     params,
 		Translates: translates,
 		Sessions:   sessions,
+		Settings:   settings,
 	}
 }
 

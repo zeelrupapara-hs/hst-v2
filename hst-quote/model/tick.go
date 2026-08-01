@@ -15,5 +15,6 @@ type Tick struct {
 	Open       float64   `json:"open,omitempty"`
 	Close      float64   `json:"close,omitempty"`
 	Volume     float64   `json:"volume,omitempty"`
+	Gap        bool      `json:"gap,omitempty"`
 	Time       time.Time `json:"time"`
 }
