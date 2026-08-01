@@ -300,7 +300,10 @@ func (c *fixConnector) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			_ = c.inner.Close()
-			<-errCh
+			select {
+			case <-errCh:
+			case <-time.After(runnerStopTimeout):
+			}
 			return ctx.Err()
 		case err := <-errCh:
 			return err
@@ -334,7 +337,10 @@ func (c *simConnector) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			_ = c.inner.Close()
-			<-errCh
+			select {
+			case <-errCh:
+			case <-time.After(runnerStopTimeout):
+			}
 			return ctx.Err()
 		case err := <-errCh:
 			return err

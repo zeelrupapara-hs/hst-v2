@@ -21,6 +21,8 @@ import (
 
 var NumCPU = runtime.NumCPU()
 
+const handlerStopTimeout = 15 * time.Second
+
 // Handler is the service entry point.
 type Handler struct {
 	Cfg     *config.Config
@@ -87,7 +89,17 @@ func (h *Handler) Stop() {
 		}
 		h.Feeds.stopAll()
 		h.Workers.Stop()
-		h.wg.Wait()
+
+		done := make(chan struct{})
+		go func() {
+			h.wg.Wait()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(handlerStopTimeout):
+			h.Log.Log(logger.TypeSys, logger.CodeWarn, "handler stop timed out waiting for goroutines")
+		}
 
 		h.Log.Log(logger.TypeSys, logger.CodeOK, "handler stopped")
 	})

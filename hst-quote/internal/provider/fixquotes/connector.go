@@ -19,9 +19,9 @@ import (
 	fix43mdfs "github.com/quickfixgo/fix43/marketdatasnapshotfullrefresh"
 	fix44mdir "github.com/quickfixgo/fix44/marketdataincrementalrefresh"
 	fix44mdfs "github.com/quickfixgo/fix44/marketdatasnapshotfullrefresh"
+	"github.com/quickfixgo/quickfix"
 	fixfilelog "github.com/quickfixgo/quickfix/log/file"
 	fixfilestore "github.com/quickfixgo/quickfix/store/file"
-	"github.com/quickfixgo/quickfix"
 )
 
 type quoteBook struct {
@@ -108,11 +108,11 @@ func (c *Connector) Close() error {
 
 func (c *Connector) startInitiator() error {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if c.initiator != nil {
+		c.mu.Unlock()
 		return nil
 	}
+	c.mu.Unlock()
 
 	f, err := os.Open(c.cfgPath)
 	if err != nil {
@@ -143,16 +143,40 @@ func (c *Connector) startInitiator() error {
 	if err := initiator.Start(); err != nil {
 		return fmt.Errorf("start initiator: %w", err)
 	}
+
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.initiator != nil {
+		go initiator.Stop()
+		return nil
+	}
 	c.initiator = initiator
 	return nil
 }
 
 func (c *Connector) stopInitiator() {
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	if c.initiator != nil {
-		c.initiator.Stop()
-		c.initiator = nil
+	initiator := c.initiator
+	c.initiator = nil
+	c.mu.Unlock()
+
+	if initiator == nil {
+		return
+	}
+
+	// Stop must run without holding c.mu: QuickFIX invokes OnLogout synchronously,
+	// and OnLogout locks c.mu — holding it here deadlocks shutdown.
+	done := make(chan struct{})
+	go func() {
+		initiator.Stop()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		c.log.Log(logger.TypeNet, logger.CodeWarn, "fix initiator stop timed out",
+			"feed", c.cfg.Name)
 	}
 }
 
