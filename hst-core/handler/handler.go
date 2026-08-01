@@ -65,6 +65,9 @@ type Handler struct {
 	// tempId hands out the keys a position is held under until its row exists
 	tempId int64
 
+	// commissions by group id, loaded with the rest of the configuration
+	commissions map[int64][]Commission
+
 	// rules is the routing list, in evaluation order. Replaced wholesale on reload, never
 	// edited in place, so a request already walking it sees one consistent list.
 	rules []model.RoutingRule
@@ -113,6 +116,9 @@ func (h *Handler) Start(ctx context.Context) error {
 	}
 
 	h.Workers.Start(ctx)
+
+	// the daily rollover runs for as long as the handler does
+	h.Go(func() { h.runDaily(ctx) })
 
 	// subscribe last: no message should arrive before the state it reads
 	if err := h.subscribe(); err != nil {

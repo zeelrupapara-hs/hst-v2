@@ -178,6 +178,13 @@ func (h *Handler) Trade(ctx context.Context, req *TradeRequest) *TradeResult {
 
 // settle puts the fill onto the account and recomputes the money.
 func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rules) {
+	// commission comes off as the deal is booked, so the client sees the true cost of the trade
+	// rather than a balance that moves again later
+	for _, d := range f.Deals {
+		d.Commission = -h.CommissionFor(d, r)
+		e.Account.Balance += d.Commission
+	}
+
 	// Only the swap comes off a closed position here. Its Profit field is the floating value
 	// the last tick worked out, and the same money is already in the fill's realised profit —
 	// adding both would credit the client twice.

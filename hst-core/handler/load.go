@@ -24,6 +24,9 @@ func (h *Handler) load(ctx context.Context) error {
 	if err := h.loadRules(ctx); err != nil {
 		return err
 	}
+	if err := h.loadCommissions(ctx); err != nil {
+		return err
+	}
 
 	h.Shards = shardmap.New(h.name, []string{h.name})
 
