@@ -221,7 +221,7 @@ func reasonFlagFor(reason model.Reason) int32 {
 }
 
 // loadCommissions reads every group's commissions and their tiers.
-func (h *Handler) loadCommissions(ctx context.Context) error {
+func (h *Handler) LoadCommission(ctx context.Context) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT commission_id, group_id, name, path, mode, mode_range, mode_charge,
 		        mode_entry, mode_action, mode_profit, mode_reason, turnover_currency

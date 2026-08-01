@@ -115,7 +115,7 @@ func (h *Handler) Start(ctx context.Context) error {
 	ctx, cancel := context.WithCancel(ctx)
 	h.stop = cancel
 
-	if err := h.load(ctx); err != nil {
+	if err := h.StartMarket(ctx); err != nil {
 		cancel()
 		return err
 	}

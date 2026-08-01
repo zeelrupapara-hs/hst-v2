@@ -170,3 +170,33 @@ func (b *Book) indexLocked(symbol string, e *Entry) {
 	}
 	set[e.Account.Login] = e
 }
+
+// Positions is how many open positions the pod is holding, across every account.
+func (b *Book) Positions() int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	var n int
+	for _, e := range b.accounts {
+		e.Lock()
+		n += len(e.Positions)
+		e.Unlock()
+	}
+
+	return n
+}
+
+// Orders is how many working orders the pod is holding, across every account.
+func (b *Book) Orders() int {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	var n int
+	for _, e := range b.accounts {
+		e.Lock()
+		n += len(e.Orders)
+		e.Unlock()
+	}
+
+	return n
+}

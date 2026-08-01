@@ -17,23 +17,32 @@ import (
 // Configuration is loaded whole into every pod; accounts only for the shards this pod owns.
 
 // load fills the caches, before the first subscription.
-func (h *Handler) load(ctx context.Context) error {
-	if err := h.loadSettings(ctx); err != nil {
+// StartMarket fills memory from the database. Everything the engine prices against lives in
+// memory, so on a restart it is read back in the order it depends on: configuration first, then
+// the accounts, then what those accounts already had open when the pod went down.
+func (h *Handler) StartMarket(ctx context.Context) error {
+	// configuration, replicated in every pod
+	if err := h.LoadSettings(ctx); err != nil {
 		return err
 	}
-	if err := h.loadRules(ctx); err != nil {
+	if err := h.LoadRoutingRules(ctx); err != nil {
 		return err
 	}
-	if err := h.loadSettingsRow(ctx); err != nil {
+	if err := h.LoadSystemConfig(ctx); err != nil {
 		return err
 	}
-	if err := h.loadCommissions(ctx); err != nil {
+	if err := h.LoadCommission(ctx); err != nil {
+		return err
+	}
+	if err := h.LoadManagerGroups(ctx); err != nil {
 		return err
 	}
 
+	// which accounts belong to this pod
 	h.Shards = shardmap.New(h.name, []string{h.name})
 
-	if err := h.loadAccounts(ctx); err != nil {
+	// accounts, and what they had open: this is the case of a crash
+	if err := h.LoadAccount(ctx); err != nil {
 		return err
 	}
 
@@ -45,12 +54,14 @@ func (h *Handler) load(ctx context.Context) error {
 		"holidays", h.Holidays.Len(),
 		"rules", len(h.rules),
 		"shards", len(h.Shards.Mine()),
-		"accounts", h.Accounts.Len())
+		"accounts", h.Accounts.Len(),
+		"positions", h.Accounts.Positions(),
+		"orders", h.Accounts.Orders())
 
 	return nil
 }
 
-func (h *Handler) loadSettings(ctx context.Context) error {
+func (h *Handler) LoadSettings(ctx context.Context) error {
 	groups := make(map[string]*model.Group, 512)
 
 	rows, err := h.DB.DB.Query(ctx,
@@ -190,14 +201,14 @@ func (h *Handler) loadSettings(ctx context.Context) error {
 
 	h.Settings.Load(groups, symbols, overrides)
 
-	if err := h.loadCalendar(ctx); err != nil {
+	if err := h.LoadCalendar(ctx); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (h *Handler) loadCalendar(ctx context.Context) error {
+func (h *Handler) LoadCalendar(ctx context.Context) error {
 	windows := make(map[int64][]settings.Window, 4096)
 
 	rows, err := h.DB.DB.Query(ctx,
@@ -253,7 +264,7 @@ func (h *Handler) loadCalendar(ctx context.Context) error {
 }
 
 // loadRules reads the routing list in evaluation order, with each rule's conditions and dealers.
-func (h *Handler) loadRules(ctx context.Context) error {
+func (h *Handler) LoadRoutingRules(ctx context.Context) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT routing_id, name, mode, request, type, flags, action, action_value, routing_index
 		   FROM hst.routing
@@ -324,10 +335,6 @@ func (h *Handler) loadRules(ctx context.Context) error {
 		return rows.Err()
 	}
 
-	if err := h.loadManagerGroups(ctx); err != nil {
-		return err
-	}
-
 	h.mu.Lock()
 	h.rules = rules
 	h.mu.Unlock()
@@ -352,11 +359,11 @@ func (h *Handler) canExecute(rules []model.RoutingRule) bool {
 
 // loadAccounts reads this pod's accounts with their open orders and positions.
 // LoadAccount takes on a single account, for one that appeared after boot.
-func (h *Handler) LoadAccount(ctx context.Context, login int64) error {
+func (h *Handler) LoadAccountById(ctx context.Context, login int64) error {
 	return h.readAccounts(ctx, `AND u.login = $1`, login)
 }
 
-func (h *Handler) loadAccounts(ctx context.Context) error {
+func (h *Handler) LoadAccount(ctx context.Context) error {
 	return h.readAccounts(ctx, "")
 }
 
@@ -401,14 +408,14 @@ func (h *Handler) readAccounts(ctx context.Context, and string, args ...any) err
 		return rows.Err()
 	}
 
-	if err := h.loadPositions(ctx, and, args...); err != nil {
+	if err := h.LoadPositions(ctx, and, args...); err != nil {
 		return err
 	}
 
-	return h.loadOrders(ctx, and, args...)
+	return h.LoadPendingOrders(ctx, and, args...)
 }
 
-func (h *Handler) loadPositions(ctx context.Context, and string, args ...any) error {
+func (h *Handler) LoadPositions(ctx context.Context, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT position_id, login, dealer, symbol, action, digits, digits_currency, reason,
 		        contract_size, time_create, time_update, price_open, price_current,
@@ -450,7 +457,7 @@ func (h *Handler) loadPositions(ctx context.Context, and string, args ...any) er
 }
 
 // loadOrders puts every working order back on its account; history stays on disk.
-func (h *Handler) loadOrders(ctx context.Context, and string, args ...any) error {
+func (h *Handler) LoadPendingOrders(ctx context.Context, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT order_id, login, dealer, symbol, digits, digits_currency, contract_size,
 		        state, reason, time_setup, time_expiration, time_done, type, type_fill,
@@ -542,7 +549,7 @@ func (h *Handler) RefreshAccount(ctx context.Context, e *book.Entry) error {
 //
 // A dealer can only work an account they are allowed to see, so a request from a group outside
 // their masks is not theirs to answer even when a rule names them.
-func (h *Handler) loadManagerGroups(ctx context.Context) error {
+func (h *Handler) LoadManagerGroups(ctx context.Context) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT login, COALESCE(groups, '{}') FROM hst.managers`)
 	if err != nil {
@@ -587,7 +594,7 @@ func cleanMasks(groups []string) []string {
 
 // loadSettingsRow picks up the platform settings that outlive a pod, so a restart does not
 // quietly put one of them back to its default.
-func (h *Handler) loadSettingsRow(ctx context.Context) error {
+func (h *Handler) LoadSystemConfig(ctx context.Context) error {
 	var at string
 
 	err := h.DB.DB.QueryRow(ctx,

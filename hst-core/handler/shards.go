@@ -181,7 +181,7 @@ func (h *Handler) takeShards(ctx context.Context, gained []uint32) {
 	before := h.Accounts.Len()
 
 	// the loaders already skip anything outside this pod's shards, so the new map is enough
-	if err := h.loadAccounts(ctx); err != nil {
+	if err := h.LoadAccount(ctx); err != nil {
 		h.Log.Log(logger.TypeSys, logger.CodeErr, "could not load the accounts this pod gained",
 			"shards", len(gained), "error", err.Error())
 		return

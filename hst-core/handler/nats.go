@@ -78,15 +78,15 @@ func (h *Handler) subscribeShard(shard uint32) error {
 func (h *Handler) ConfigSystemEventHandler(msg *natscore.Msg) {
 	ctx := context.Background()
 
-	if err := h.loadSettings(ctx); err != nil {
+	if err := h.LoadSettings(ctx); err != nil {
 		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not reload settings", "error", err.Error())
 		return
 	}
-	if err := h.loadRules(ctx); err != nil {
+	if err := h.LoadRoutingRules(ctx); err != nil {
 		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not reload routing rules", "error", err.Error())
 		return
 	}
-	if err := h.loadCommissions(ctx); err != nil {
+	if err := h.LoadCommission(ctx); err != nil {
 		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not reload commissions", "error", err.Error())
 		return
 	}
@@ -156,7 +156,7 @@ func (h *Handler) AccountSystemEventHandler(msg *natscore.Msg) {
 		return
 	}
 
-	if err := h.LoadAccount(context.Background(), ev.Login); err != nil {
+	if err := h.LoadAccountById(context.Background(), ev.Login); err != nil {
 		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not take on an account",
 			"login", ev.Login, "error", err.Error())
 		return
