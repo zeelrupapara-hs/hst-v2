@@ -58,16 +58,24 @@ func (h *Handler) checkAccount(e *book.Entry) model.RetCode {
 		return model.RetNotFound
 	}
 
-	// UsersRights: bit 0 enabled, bit 1 may change password, bit 2 may trade
+	// The trading bits are refusals, not permissions: an ordinary account carries none of them.
+	// Reading trade_disabled as "may trade" would refuse everybody and let only the accounts a
+	// manager had explicitly stopped through.
 	const (
-		rightEnabled = 1 << 0
-		rightTrade   = 1 << 2
+		enabled       = 0x0001
+		tradeDisabled = 0x0004
+		investor      = 0x0008
+		readOnly      = 0x0200
 	)
 
-	if e.Account.Rights&rightEnabled == 0 {
+	if e.Account.Rights&enabled == 0 {
 		return model.RetAuthDisabled
 	}
-	if e.Account.Rights&rightTrade == 0 {
+	if e.Account.Rights&tradeDisabled != 0 {
+		return model.RetTradeDisabled
+	}
+	// an investor password sees everything and trades nothing
+	if e.Account.Rights&(investor|readOnly) != 0 {
 		return model.RetTradeDisabled
 	}
 

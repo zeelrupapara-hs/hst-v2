@@ -62,6 +62,9 @@ type Handler struct {
 	// name is how this pod is known on the ring
 	name string
 
+	// tempId hands out the keys a position is held under until its row exists
+	tempId int64
+
 	// rules is the routing list, in evaluation order. Replaced wholesale on reload, never
 	// edited in place, so a request already walking it sees one consistent list.
 	rules []model.RoutingRule
@@ -69,6 +72,9 @@ type Handler struct {
 	// subs are unsubscribed on Stop, so a shutdown does not leave a consumer
 	// attached to a connection that is about to drain
 	subs []*natscore.Subscription
+
+	// mu guards the rule list, which is swapped wholesale on reload
+	mu sync.RWMutex
 
 	// stop cancels everything Start launched
 	stop context.CancelFunc
@@ -139,22 +145,52 @@ func (h *Handler) Stop() {
 	})
 }
 
-// load reads whatever this service keeps in memory. Called before the first
-// subscription, so a handler never sees a half loaded world.
-func (h *Handler) load(ctx context.Context) error {
-	// TODO: load what this service caches at boot.
-	_ = ctx
+// subscribe registers every consumer.
+//
+// Prices are broadcast: every pod hears every symbol, because any pod may hold an account
+// trading it. Trade requests are not: a pod hears only the shards it owns, so a request is
+// handled once, by the pod that already has the account in memory.
+func (h *Handler) subscribe() error {
+	if err := h.Subscribe(model.TickSubjectAll, h.onTick); err != nil {
+		return err
+	}
+
+	for _, shard := range h.Shards.Mine() {
+		if err := h.subscribeQuiet(shardmap.SubjectFor(shard), h.onTradeRequest); err != nil {
+			return err
+		}
+	}
+
+	// a manager changing the rules or the groups tells every pod to read them again
+	if err := h.Subscribe(SubjectReload, h.onReload); err != nil {
+		return err
+	}
+
+	h.Log.Log(logger.TypeNet, logger.CodeOK, "engine listening",
+		"shards", len(h.Shards.Mine()), "ticks", model.TickSubjectAll)
+
 	return nil
 }
 
-// subscribe registers every consumer. Keep the subjects in nats.go.
-func (h *Handler) subscribe() error {
-	// TODO: register this service's subjects, for example
-	//
-	//	if err := h.Subscribe(SubjectExample, h.onExample); err != nil {
-	//		return err
-	//	}
-	return nil
+// SubjectReload is what the API server publishes when configuration changed underneath us.
+const SubjectReload = "system.core.reload"
+
+// onReload reads the configuration again. Cheap enough to do wholesale: it is a handful of
+// tables and it happens when somebody clicks save, not on the trading path.
+func (h *Handler) onReload(msg *natscore.Msg) {
+	ctx := context.Background()
+
+	if err := h.loadSettings(ctx); err != nil {
+		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not reload settings", "error", err.Error())
+		return
+	}
+	if err := h.loadRules(ctx); err != nil {
+		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not reload routing rules", "error", err.Error())
+		return
+	}
+
+	h.Log.Log(logger.TypeCfg, logger.CodeOK, "configuration reloaded",
+		"groups", h.Settings.Groups(), "symbols", h.Settings.Symbols())
 }
 
 // Subscribe registers a handler and records it for shutdown. Unlike a Fatal on
@@ -168,6 +204,18 @@ func (h *Handler) Subscribe(subject string, cb natscore.MsgHandler) error {
 	h.subs = append(h.subs, sub)
 
 	h.Log.Log(logger.TypeNet, logger.CodeOK, "watching subject", "subject", subject)
+	return nil
+}
+
+// subscribeQuiet is Subscribe without the log line. Used for the shard subjects, where there
+// is one per shard and the count is the only interesting part.
+func (h *Handler) subscribeQuiet(subject string, cb natscore.MsgHandler) error {
+	sub, err := h.Nats.NC.Subscribe(subject, cb)
+	if err != nil {
+		return err
+	}
+	h.subs = append(h.subs, sub)
+
 	return nil
 }
 

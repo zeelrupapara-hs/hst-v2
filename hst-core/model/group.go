@@ -57,48 +57,50 @@ const (
 
 // GroupSymbol is what a group changes about one instrument, or a path of them.
 //
-// Every field is an override. Which ones actually apply is decided in the settings package,
-// because MT5 lets a group say "use the symbol's own value" per block rather than per field.
+// Every setting is a pointer because every one of them is optional: nil means the group did not
+// override it and the instrument's own value stands. That is what the nullable columns in
+// hst.groups_symbols mean, and it matters — a group deliberately setting a value to zero is not
+// the same as a group leaving it alone.
 type GroupSymbol struct {
 	SymbolId    int64
 	GroupId     int64
 	Path        string
 	ConfigIndex int32
 
-	TradeMode  int32
-	ExecMode   int32
-	FillFlags  int32
-	ExpirFlags int32
+	TradeMode  *int32
+	ExecMode   *int32
+	FillFlags  *int32
+	ExpirFlags *int32
 
-	SpreadDiff  int32
-	StopsLevel  int32
-	FreezeLevel int32
+	SpreadDiff  *int32
+	StopsLevel  *int32
+	FreezeLevel *int32
 
-	VolumeMin   int64
-	VolumeMax   int64
-	VolumeStep  int64
-	VolumeLimit int64
+	VolumeMin   *int64
+	VolumeMax   *int64
+	VolumeStep  *int64
+	VolumeLimit *int64
 
-	MarginInitial     float64
-	MarginMaintenance float64
-	MarginHedged      float64
-	MarginFlags       int32
+	MarginInitial     *float64
+	MarginMaintenance *float64
+	MarginHedged      *float64
+	MarginFlags       *int32
 
-	SwapMode  int32
-	SwapLong  float64
-	SwapShort float64
-	SwapFlags int32
+	SwapMode  *int32
+	SwapLong  *float64
+	SwapShort *float64
+	SwapFlags *int32
 
-	IECheckMode  int32
-	IETimeout    int32
-	IESlipProfit int32
-	IESlipLosing int32
-	IEVolumeMax  int64
-	IEFlags      int32
+	IECheckMode  *int32
+	IETimeout    *int32
+	IESlipProfit *int32
+	IESlipLosing *int32
+	IEVolumeMax  *int64
+	IEFlags      *int32
 
-	RETimeout int32
-	REFlags   int32
+	RETimeout *int32
+	REFlags   *int32
 
-	OrderFlags       int32
-	PermissionsFlags int32
+	OrderFlags       *int32
+	PermissionsFlags *int32
 }

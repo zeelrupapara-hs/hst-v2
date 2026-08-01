@@ -207,8 +207,9 @@ func matches(path string, sym *model.Symbol) bool {
 
 // resolve folds the override onto the instrument.
 //
-// A zero in an override means "leave the symbol's value alone" — MT5 stores an unset override
-// as zero rather than null, so a group that overrides nothing carries zeros throughout.
+// An override that was never set is nil, and the instrument's own value stands. Setting a value
+// to zero on purpose is a different thing from not setting it, and the pointers keep the two
+// apart.
 func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 	r := &Rules{
 		Symbol:   sym,
@@ -226,31 +227,31 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		CurrencyProfit: sym.CurrencyProfit,
 		CurrencyMargin: sym.CurrencyMargin,
 
-		TradeMode:  model.TradeMode(pickInt32(o.TradeMode, sym.TradeMode)),
-		ExecMode:   model.ExecMode(pickInt32(o.ExecMode, sym.ExecMode)),
-		FillFlags:  pickInt32(o.FillFlags, sym.FillFlags),
-		ExpirFlags: pickInt32(o.ExpirFlags, sym.ExpirFlags),
+		TradeMode:  model.TradeMode(pick(o.TradeMode, sym.TradeMode)),
+		ExecMode:   model.ExecMode(pick(o.ExecMode, sym.ExecMode)),
+		FillFlags:  pick(o.FillFlags, sym.FillFlags),
+		ExpirFlags: pick(o.ExpirFlags, sym.ExpirFlags),
 
-		SpreadDiff:  pickInt32(o.SpreadDiff, sym.SpreadDiff),
-		StopsLevel:  pickInt32(o.StopsLevel, sym.StopsLevel),
-		FreezeLevel: pickInt32(o.FreezeLevel, sym.FreezeLevel),
+		SpreadDiff:  pick(o.SpreadDiff, sym.SpreadDiff),
+		StopsLevel:  pick(o.StopsLevel, sym.StopsLevel),
+		FreezeLevel: pick(o.FreezeLevel, sym.FreezeLevel),
 
-		VolumeMin:   pickInt64(o.VolumeMin, sym.VolumeMin),
-		VolumeMax:   pickInt64(o.VolumeMax, sym.VolumeMax),
-		VolumeStep:  pickInt64(o.VolumeStep, sym.VolumeStep),
-		VolumeLimit: pickInt64(o.VolumeLimit, sym.VolumeLimit),
+		VolumeMin:   pick(o.VolumeMin, sym.VolumeMin),
+		VolumeMax:   pick(o.VolumeMax, sym.VolumeMax),
+		VolumeStep:  pick(o.VolumeStep, sym.VolumeStep),
+		VolumeLimit: pick(o.VolumeLimit, sym.VolumeLimit),
 
-		MarginInitial:     pickFloat(o.MarginInitial, sym.MarginInitial),
-		MarginMaintenance: pickFloat(o.MarginMaintenance, sym.MarginMaintenance),
-		MarginHedged:      pickFloat(o.MarginHedged, sym.MarginHedged),
+		MarginInitial:     pick(o.MarginInitial, sym.MarginInitial),
+		MarginMaintenance: pick(o.MarginMaintenance, sym.MarginMaintenance),
+		MarginHedged:      pick(o.MarginHedged, sym.MarginHedged),
 
-		SwapMode:  pickInt32(o.SwapMode, sym.SwapMode),
-		SwapLong:  pickFloat(o.SwapLong, sym.SwapLong),
-		SwapShort: pickFloat(o.SwapShort, sym.SwapShort),
+		SwapMode:  pick(o.SwapMode, sym.SwapMode),
+		SwapLong:  pick(o.SwapLong, sym.SwapLong),
+		SwapShort: pick(o.SwapShort, sym.SwapShort),
 
-		SlipProfit:  pickInt32(o.IESlipProfit, sym.SpreadDiff),
-		SlipLosing:  pickInt32(o.IESlipLosing, sym.SpreadDiff),
-		IEVolumeMax: o.IEVolumeMax,
+		SlipProfit:  pick(o.IESlipProfit, sym.SpreadDiff),
+		SlipLosing:  pick(o.IESlipLosing, sym.SpreadDiff),
+		IEVolumeMax: value(o.IEVolumeMax),
 	}
 
 	// a step of zero would make every volume invalid, so fall back to the smallest allowed
@@ -261,23 +262,19 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 	return r
 }
 
-func pickInt32(override, base int32) int32 {
-	if override != 0 {
-		return override
+// pick is the override if the group set one, otherwise the instrument's own value.
+func pick[T any](override *T, base T) T {
+	if override != nil {
+		return *override
 	}
 	return base
 }
 
-func pickInt64(override, base int64) int64 {
-	if override != 0 {
-		return override
+// value is an optional number as a plain one, zero when unset.
+func value[T any](p *T) T {
+	var zero T
+	if p == nil {
+		return zero
 	}
-	return base
-}
-
-func pickFloat(override, base float64) float64 {
-	if override != 0 {
-		return override
-	}
-	return base
+	return *p
 }

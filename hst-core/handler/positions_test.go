@@ -190,3 +190,24 @@ func TestSellProfitsWhenPriceFalls(t *testing.T) {
 		t.Fatalf("profit = %v, want 100", f.Profit)
 	}
 }
+
+// Closing a position must credit the profit once. The position carries the floating value the
+// last tick worked out, and the fill carries the same money as realised profit; adding both
+// would pay the client twice.
+func TestClosingCreditsProfitOnce(t *testing.T) {
+	h, e, r := newEngine(), account(), rules(true)
+	opening := e.Account.Balance
+
+	place(e, h.Execute(e, order(true, 1), r, 1.1000, 1), 1)
+
+	// a tick has since revalued the position, exactly as the live engine does
+	e.Positions[1].Profit = 190
+
+	f := h.Execute(e, order(false, 1), r, 1.1019, 2)
+	h.settle(e, order(false, 1), f, r)
+
+	// 19 points on one lot is 190, and it should land once
+	if got := e.Account.Balance - opening; math.Abs(got-190) > 1e-6 {
+		t.Fatalf("balance moved by %v, want 190 — the profit was counted %.1f times", got, got/190)
+	}
+}
