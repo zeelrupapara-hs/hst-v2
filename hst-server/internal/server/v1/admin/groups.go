@@ -1,12 +1,15 @@
-package v1
+package admin
 
 import (
+	"context"
 	"errors"
+	v1 "hstserver/internal/server/v1"
 	"strings"
 	"time"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -16,10 +19,8 @@ import (
 
 // CrtGroup creates a group template. Path is required; other fields optional.
 type CrtGroup struct {
-	Group    string `json:"group" validate:"required,max=255"`
-	ParentID *int64 `json:"parent_id"`
-	Root     *bool  `json:"root"`
-	Status   string `json:"status" validate:"omitempty,oneof=active inactive enabled disabled"`
+	Group  string `json:"group" validate:"required,max=255"`
+	Status string `json:"status" validate:"omitempty,oneof=active inactive enabled disabled"`
 
 	PermissionFlags *model.PermissionsFlags `json:"permission_flags"`
 	AuthMode        *model.AuthMode         `json:"auth_mode"`
@@ -126,9 +127,11 @@ type ViewGroup struct {
 	GroupID   int64  `json:"group_id"`
 	UpdatedAt int64  `json:"updated_at"`
 	Group     string `json:"group"`
-	Root      bool   `json:"root"`
-	ParentID  *int64 `json:"parent_id,omitempty"`
-	Status    string `json:"status"`
+	// Name is the last segment of the path, what a tree renders on the node.
+	Name string `json:"name"`
+	// Exists is false for a section: a node the path of some group passes through, with no group of its own.
+	Exists bool   `json:"exists"`
+	Status string `json:"status"`
 
 	PermissionFlags model.PermissionsFlags `json:"permission_flags"`
 	AuthMode        model.AuthMode         `json:"auth_mode"`
@@ -168,8 +171,8 @@ type ViewGroup struct {
 	MarginMode           model.MarginMode           `json:"margin_mode"`
 	MarginFlags          model.GroupMarginFlags     `json:"margin_flags"`
 
-	DemoLeverage int32   `json:"demo_leverage"`
-	DemoDeposit  float64 `json:"demo_deposit"`
+	DemoLeverage *int32   `json:"demo_leverage"`
+	DemoDeposit  *float64 `json:"demo_deposit"`
 
 	LimitHistory         model.HistoryLimit `json:"limit_history"`
 	LimitOrders          int32              `json:"limit_orders"`
@@ -180,7 +183,7 @@ type ViewGroup struct {
 	Groups []*ViewGroup `json:"groups,omitempty"`
 }
 
-const groupColumns = `group_id, updated_at, "group", root, parent_id,
+const groupColumns = `group_id, updated_at, "group",
 	permission_flags, auth_mode, auth_password_min,
 	company, company_page, company_email, company_support_page, company_support_email, company_catalog,
 	currency, currency_digits,
@@ -195,7 +198,7 @@ const groupColumns = `group_id, updated_at, "group", root, parent_id,
 func scanViewGroup(row pgx.Row) (*ViewGroup, error) {
 	v := &ViewGroup{}
 	err := row.Scan(
-		&v.GroupID, &v.UpdatedAt, &v.Group, &v.Root, &v.ParentID,
+		&v.GroupID, &v.UpdatedAt, &v.Group,
 		&v.PermissionFlags, &v.AuthMode, &v.AuthPasswordMin,
 		&v.Company, &v.CompanyPage, &v.CompanyEmail, &v.CompanySupportPage, &v.CompanySupportEmail, &v.CompanyCatalog,
 		&v.Currency, &v.CurrencyDigits,
@@ -217,36 +220,48 @@ func scanViewGroup(row pgx.Row) (*ViewGroup, error) {
 	return v, nil
 }
 
-func buildGroupTree(flat []ViewGroup) []*ViewGroup {
-	byID := make(map[int64]*ViewGroup, len(flat))
-	nodes := make([]*ViewGroup, len(flat))
+// ViewGroupTree derives the tree from the paths, which are the only thing that describes the hierarchy.
+func ViewGroupTree(flat []ViewGroup) []*ViewGroup {
+	byPath := make(map[string]*ViewGroup, len(flat)*2)
+	var roots []*ViewGroup
+
+	// node returns the tree node for a path, synthesising the sections above it on the way down
+	var node func(path string) *ViewGroup
+	node = func(path string) *ViewGroup {
+		if n, ok := byPath[path]; ok {
+			return n
+		}
+
+		n := &ViewGroup{Group: path, Name: path, Exists: false}
+		byPath[path] = n
+
+		if cut := strings.LastIndex(path, model.GroupSep); cut >= 0 {
+			n.Name = path[cut+len(model.GroupSep):]
+			parent := node(path[:cut])
+			parent.Groups = append(parent.Groups, n)
+		} else {
+			roots = append(roots, n)
+		}
+
+		return n
+	}
+
 	for i := range flat {
 		g := flat[i]
-		g.Groups = nil
-		nodes[i] = &g
-		byID[g.GroupID] = nodes[i]
+		n := node(g.Group)
+
+		// keep the children collected so far: a section may be reached before the group that sits at the same path
+		children := n.Groups
+		*n = g
+		n.Groups = children
+		n.Exists = true
+		n.Name = g.Group
+		if cut := strings.LastIndex(g.Group, model.GroupSep); cut >= 0 {
+			n.Name = g.Group[cut+len(model.GroupSep):]
+		}
 	}
 
-	var roots []*ViewGroup
-	for _, g := range nodes {
-		if g.ParentID == nil {
-			roots = append(roots, g)
-			continue
-		}
-		if p, ok := byID[*g.ParentID]; ok {
-			p.Groups = append(p.Groups, g)
-		} else {
-			roots = append(roots, g)
-		}
-	}
 	return roots
-}
-
-func ptrOr[T any](p *T, def T) T {
-	if p != nil {
-		return *p
-	}
-	return def
 }
 
 // ListGroups returns the group tree, or a flat list when ?flat=1.
@@ -260,9 +275,17 @@ func ptrOr[T any](p *T, def T) T {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups [get]
-func (s *HttpServer) ListGroups(c *fiber.Ctx) error {
+func (s *Server) ListGroups(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	// a node can be a group and a section at once, so Exists says which are real
+	where, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `"group"`, 1)
+
 	rows, err := s.DB.DB.Query(c.UserContext(),
-		`SELECT `+groupColumns+` FROM hst.groups ORDER BY "group"`)
+		`SELECT `+groupColumns+` FROM hst.groups WHERE `+where+` ORDER BY "group"`, args...)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -283,7 +306,7 @@ func (s *HttpServer) ListGroups(c *fiber.Ctx) error {
 	if c.Query("flat") == "1" {
 		return s.App.HttpResponseOK(c, flat)
 	}
-	return s.App.HttpResponseOK(c, buildGroupTree(flat))
+	return s.App.HttpResponseOK(c, ViewGroupTree(flat))
 }
 
 // GetGroup returns one group template.
@@ -298,7 +321,7 @@ func (s *HttpServer) ListGroups(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id} [get]
-func (s *HttpServer) GetGroup(c *fiber.Ctx) error {
+func (s *Server) GetGroup(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -329,7 +352,7 @@ func (s *HttpServer) GetGroup(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups [post]
-func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
+func (s *Server) CreateGroup(c *fiber.Ctx) error {
 	var body CrtGroup
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -341,14 +364,6 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 	path := strings.TrimSpace(body.Group)
 	if path == "" {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
-	}
-
-	root := body.ParentID == nil
-	if body.Root != nil {
-		root = *body.Root
-	}
-	if root {
-		body.ParentID = nil
 	}
 
 	flags := model.PermissionFlagsFromStatus("active")
@@ -372,7 +387,7 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 
 	v, err := scanViewGroup(s.DB.DB.QueryRow(c.UserContext(),
 		`INSERT INTO hst.groups (
-		    "group", root, parent_id,
+		    "group",
 		    permission_flags, auth_mode, auth_password_min,
 		    company, company_page, company_email, company_support_page, company_support_email, company_catalog,
 		    currency, currency_digits,
@@ -385,35 +400,30 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 		    limit_history, limit_orders, limit_symbols, limit_positions, limit_positions_volume,
 		    updated_at
 		 ) VALUES (
-		    $1,$2,$3,
-		    $4,$5,$6,
+		    $1,$2,$3,$4,$5,$6,
 		    $7,$8,$9,$10,$11,$12,
-		    $13,$14,
-		    $15,$16,$17,$18,$19,
-		    $20,$21,$22,$23,
-		    $24,$25,$26,$27,
-		    $28,$29,$30,$31,
-		    $32,$33,$34,
-		    $35,$36,
-		    $37,$38,$39,$40,$41,
-		    $42
+		    $13,$14,$15,$16,$17,$18,
+		    $19,$20,$21,$22,$23,$24,
+		    $25,$26,$27,$28,$29,$30,
+		    $31,$32,$33,$34,$35,$36,
+		    $37,$38,$39,$40
 		 ) RETURNING `+groupColumns,
-		path, root, body.ParentID,
-		flags, ptrOr(body.AuthMode, model.AuthMode_standard), ptrOr(body.AuthPasswordMin, int32(0)),
+		path,
+		flags, v1.PtrOr(body.AuthMode, model.AuthMode_standard), v1.PtrOr(body.AuthPasswordMin, int32(0)),
 		body.Company, body.CompanyPage, body.CompanyEmail, body.CompanySupportPage, body.CompanySupportEmail, body.CompanyCatalog,
-		currency, ptrOr(body.CurrencyDigits, int32(2)),
-		ptrOr(body.ReportsMode, model.ReportsMode_disabled), ptrOr(body.ReportsFlags, model.ReportsFlags_none),
+		currency, v1.PtrOr(body.CurrencyDigits, int32(2)),
+		v1.PtrOr(body.ReportsMode, model.ReportsMode_disabled), v1.PtrOr(body.ReportsFlags, model.ReportsFlags_none),
 		body.ReportsEmail, body.ReportsSMTP, body.ReportsSMTPLogin,
-		ptrOr(body.NewsMode, model.NewsMode_disabled), body.NewsCategory, newsLangs, ptrOr(body.MailMode, model.MailMode_disabled),
-		ptrOr(body.TradeFlags, model.GroupTradeFlags_none), ptrOr(body.TradeInterestRate, 0.0),
-		ptrOr(body.TradeVirtualCredit, 0.0), ptrOr(body.TradeTransferMode, model.TransferMode_disabled),
-		ptrOr(body.MarginFreeMode, model.FreeMarginMode_not_use_pl), ptrOr(body.MarginSOMode, model.StopOutMode_percent),
-		ptrOr(body.MarginCall, 0.0), ptrOr(body.MarginStopOut, 0.0),
-		ptrOr(body.MarginFreeProfitMode, model.MarginFreeProfitMode_pl),
-		ptrOr(body.MarginMode, model.MarginMode_retail), ptrOr(body.MarginFlags, model.GroupMarginFlags_none),
-		ptrOr(body.DemoLeverage, int32(0)), ptrOr(body.DemoDeposit, 0.0),
-		ptrOr(body.LimitHistory, model.HistoryLimit_all), ptrOr(body.LimitOrders, int32(0)),
-		ptrOr(body.LimitSymbols, int32(0)), ptrOr(body.LimitPositions, int32(0)), ptrOr(body.LimitPositionsVolume, 0.0),
+		v1.PtrOr(body.NewsMode, model.NewsMode_disabled), body.NewsCategory, newsLangs, v1.PtrOr(body.MailMode, model.MailMode_disabled),
+		v1.PtrOr(body.TradeFlags, model.GroupTradeFlags_none), v1.PtrOr(body.TradeInterestRate, 0.0),
+		v1.PtrOr(body.TradeVirtualCredit, 0.0), v1.PtrOr(body.TradeTransferMode, model.TransferMode_disabled),
+		v1.PtrOr(body.MarginFreeMode, model.FreeMarginMode_not_use_pl), v1.PtrOr(body.MarginSOMode, model.StopOutMode_percent),
+		v1.PtrOr(body.MarginCall, 0.0), v1.PtrOr(body.MarginStopOut, 0.0),
+		v1.PtrOr(body.MarginFreeProfitMode, model.MarginFreeProfitMode_pl),
+		v1.PtrOr(body.MarginMode, model.MarginMode_retail), v1.PtrOr(body.MarginFlags, model.GroupMarginFlags_none),
+		body.DemoLeverage, body.DemoDeposit,
+		v1.PtrOr(body.LimitHistory, model.HistoryLimit_all), v1.PtrOr(body.LimitOrders, int32(0)),
+		v1.PtrOr(body.LimitSymbols, int32(0)), v1.PtrOr(body.LimitPositions, int32(0)), v1.PtrOr(body.LimitPositionsVolume, 0.0),
 		now))
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
@@ -424,6 +434,14 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group created",
 		"actor", snap.Login, "group_id", v.GroupID, "group", v.Group)
+
+	// a manager allowed to create groups but granted none would otherwise create one and immediately be unable to see it
+	s.grantCreatorAccess(c.UserContext(), snap.Login, v.Group)
+
+	// every manager whose access covers this path hears about it, including the ones granted a parent long before this group existed
+	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupCreated, v)
+	s.NotifySystem(model.SubjectSystemGroupCreated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupCreatedMsg(snap.Login, v.Group), v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -442,7 +460,7 @@ func (s *HttpServer) CreateGroup(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id} [patch]
-func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
+func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -529,6 +547,10 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group updated",
 		"actor", snap.Login, "group_id", v.GroupID)
 
+	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupUpdated, v)
+	s.NotifySystem(model.SubjectSystemGroupUpdated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupUpdatedMsg(snap.Login, v.Group), v)
+
 	return s.App.HttpResponseOK(c, v)
 }
 
@@ -545,7 +567,7 @@ func (s *HttpServer) UpdateGroup(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id} [delete]
-func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
+func (s *Server) DeleteGroup(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -561,8 +583,11 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	// a section disappears when the last group under it goes
 	var children int
-	if err := s.DB.DB.QueryRow(ctx, `SELECT COUNT(*) FROM hst.groups WHERE parent_id = $1`, id).Scan(&children); err != nil {
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT COUNT(*) FROM hst.groups WHERE starts_with("group", $1)`,
+		path+`\`).Scan(&children); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 	if children > 0 {
@@ -590,5 +615,43 @@ func (s *HttpServer) DeleteGroup(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group deleted",
 		"actor", snap.Login, "group_id", id, "group", path)
 
+	ref := v1.ViewGroupRef{GroupID: id, Group: path}
+	s.NotifyWS(model.SubjectGroup(path), model.EventGroupDeleted, ref)
+	s.NotifySystem(model.SubjectSystemGroupDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.GroupDeletedMsg(snap.Login, path), ref)
+
 	return s.App.HttpResponseNoContent(c)
+}
+
+// a manager permitted to create groups but granted none would not see what it made
+func (s *Server) grantCreatorAccess(ctx context.Context, login int64, path string) {
+	tag, err := s.DB.DB.Exec(ctx,
+		`UPDATE hst.managers
+		    SET groups = ARRAY[$2], updated_at = $3
+		  WHERE login = $1 AND COALESCE(cardinality(groups), 0) = 0`,
+		login, path+model.GroupSep+"*", time.Now().UnixNano())
+	if err != nil {
+		s.Log.Log(logger.TypeCfg, logger.CodeWarn, "could not grant the creator access to its group",
+			"login", login, "group", path, "error", err.Error())
+		return
+	}
+	if tag.RowsAffected() == 0 {
+		// the manager already had access somewhere, so nothing is assumed
+		return
+	}
+
+	s.Log.Log(logger.TypeCfg, logger.CodeOK, "granted the creator access to its first group",
+		"login", login, "group", path)
+
+	// the access just widened, and the session carries a copy of it.
+	mgr, err := s.SelectManager(ctx, login)
+	if err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not reload the manager after granting access",
+			"login", login, "error", err.Error())
+		return
+	}
+	if err := s.OAuth2.RefreshLogin(ctx, login, mgr); err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not refresh the session after granting access",
+			"login", login, "error", err.Error())
+	}
 }

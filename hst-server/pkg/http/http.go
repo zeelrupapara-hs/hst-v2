@@ -64,10 +64,20 @@ type App struct {
 
 func NewApp(cfg *config.Config, log *logger.Logger) *App {
 	newapp := fiber.New(fiber.Config{
-		JSONEncoder:             json.Marshal,
-		JSONDecoder:             json.Unmarshal,
+		JSONEncoder: json.Marshal,
+		JSONDecoder: json.Unmarshal,
+		AppName:     "hstserver",
+
+		// X-Forwarded-For is believed only from the addresses in
+		// TrustedProxies, so a client that reaches this service directly
+		// cannot forge its own address. With the list empty nothing is
+		// trusted and c.IP() is the socket address.
 		EnableTrustedProxyCheck: true,
-		AppName:                 "hstserver",
+		TrustedProxies:          cfg.HTTP.TrustedProxies,
+		ProxyHeader:             fiber.HeaderXForwardedFor,
+		// without this, c.IP() hands back the whole header verbatim,
+		// "client, proxy1, proxy2", instead of the first valid address
+		EnableIPValidation: true,
 		// timeouts guard against slowloris
 		ReadTimeout:  cfg.HTTP.ReadTimeout,
 		WriteTimeout: cfg.HTTP.WriteTimeout,

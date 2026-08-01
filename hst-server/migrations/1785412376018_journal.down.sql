@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS hst.journal CASCADE;

@@ -22,6 +22,10 @@ func New(database *db.PostgresDB, hasher *crypto.Hasher, log *logger.Logger, cfg
 }
 
 func (s *Seeder) Seed(ctx context.Context) error {
+	// the groups come first: a login belongs to one, and the administrator below is a login
+	if err := s.SeedGroups(ctx); err != nil {
+		return err
+	}
 	if err := s.SeedManager(ctx); err != nil {
 		return err
 	}

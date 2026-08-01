@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net"
 	"os"
 	"runtime"
 	"strconv"
@@ -21,40 +22,65 @@ const (
 	HTTP_PORT             = "HTTP_PORT"
 	HTTP_SHUTDOWN_TIMEOUT = "HTTP_SHUTDOWN_TIMEOUT"
 	HTTP_BODY_LIMIT       = "HTTP_BODY_LIMIT"
-	POSTGRES_HOST         = "POSTGRES_HOST"
-	POSTGRES_PORT         = "POSTGRES_PORT"
-	POSTGRES_USER         = "POSTGRES_USER"
+
+	// database
+	POSTGRES_HOST = "POSTGRES_HOST"
+	POSTGRES_PORT = "POSTGRES_PORT"
+	POSTGRES_USER = "POSTGRES_USER"
 	// #nosec G101 -- env var name, not a credential
 	POSTGRES_PASSWORD = "POSTGRES_PASSWORD"
 	POSTGRES_DB       = "POSTGRES_DB"
 	POSTGRES_SSL_MODE = "POSTGRES_SSL_MODE"
 	POSTGRES_MAX_CONN = "POSTGRES_MAX_CONN"
 	POSTGRES_MIN_CONN = "POSTGRES_MIN_CONN"
-	NATS_HOST         = "NATS_HOST"
-	NATS_PORT         = "NATS_PORT"
-	NATS_NAME         = "NATS_NAME"
-	REDIS_URL         = "REDIS_URL"
-	REDIS_PASSWORD    = "REDIS_PASSWORD"
-	REDIS_DB          = "REDIS_DB"
-	REDIS_POOL_SIZE   = "REDIS_POOL_SIZE"
+
+	// nats
+	NATS_HOST = "NATS_HOST"
+	NATS_PORT = "NATS_PORT"
+	NATS_NAME = "NATS_NAME"
+
+	// redis
+	REDIS_URL       = "REDIS_URL"
+	REDIS_PASSWORD  = "REDIS_PASSWORD"
+	REDIS_DB        = "REDIS_DB"
+	REDIS_POOL_SIZE = "REDIS_POOL_SIZE"
+
+	// auth
 	// #nosec G101 -- env var name, not a credential
 	AUTH_JWT_PRIVATE_KEY   = "AUTH_JWT_PRIVATE_KEY"
 	AUTH_ACCESS_TTL        = "AUTH_ACCESS_TTL"
 	AUTH_REFRESH_TTL       = "AUTH_REFRESH_TTL"
 	AUTH_ARGON2_MEMORY_KIB = "AUTH_ARGON2_MEMORY_KIB"
 	AUTH_ARGON2_TIME       = "AUTH_ARGON2_TIME"
-	SHARD_ID               = "SHARD_ID"
-	SHARD_COUNT            = "SHARD_COUNT"
-	MAX_ACCOUNT_PER_SHARD  = "MAX_ACCOUNT_PER_SHARD"
+	// #nosec G101 -- env var name, not a credential
+	AUTH_PASSWORD_PEPPER = "AUTH_PASSWORD_PEPPER"
+
+	// cache
+	SHARD_ID              = "SHARD_ID"
+	SHARD_COUNT           = "SHARD_COUNT"
+	MAX_ACCOUNT_PER_SHARD = "MAX_ACCOUNT_PER_SHARD"
+
+	// first manager password (seed)
 	// #nosec G101 -- env var name, not a credential
 	FIRST_MANAGER_PASSWORD = "FIRST_MANAGER_PASSWORD"
-	// #nosec G101 -- env var name, not a credential
-	AUTH_PASSWORD_PEPPER   = "AUTH_PASSWORD_PEPPER"
-	SWAGGER_ENABLED        = "SWAGGER_ENABLED"
-	HTTP_TLS_CERT          = "HTTP_TLS_CERT"
-	HTTP_TLS_KEY           = "HTTP_TLS_KEY"
-	REDIS_TLS              = "REDIS_TLS"
-	CORS_ORIGINS           = "CORS_ORIGINS"
+
+	// swagger
+	SWAGGER_ENABLED = "SWAGGER_ENABLED"
+	HTTP_TLS_CERT   = "HTTP_TLS_CERT"
+	HTTP_TLS_KEY    = "HTTP_TLS_KEY"
+	REDIS_TLS       = "REDIS_TLS"
+	CORS_ORIGINS    = "CORS_ORIGINS"
+
+	// Trusted Proxies are the value which we trust for example the nginx proxy
+	// ip address whatever request comes to nginx it will be the ip address of the nginx proxy
+	// it will be trusted by the server
+	TRUSTED_PROXIES = "TRUSTED_PROXIES"
+
+	// registration
+	REGISTER_DEMO_GROUP        = "REGISTER_DEMO_GROUP"
+	REGISTER_PRELIMINARY_GROUP = "REGISTER_PRELIMINARY_GROUP"
+
+	// internal service auth
 	INTERNAL_SERVICE_TOKEN = "INTERNAL_SERVICE_TOKEN"
 )
 
@@ -68,11 +94,19 @@ type Config struct {
 	Auth     Auth
 	Cache    Cache
 	Internal Internal
+	Register Register
 }
 
 // Internal holds service-to-service auth settings.
 type Internal struct {
 	ServiceToken string
+}
+
+// Register config for public signups.
+type Register struct {
+	// DemoGroup and PreliminaryGroup are where a signup lands; blank disables that type.
+	DemoGroup        string
+	PreliminaryGroup string
 }
 
 // Auth config
@@ -148,6 +182,10 @@ type Http struct {
 	SwaggerEnabled bool
 	// CorsOrigins is the allowlist, never a wildcard.
 	CorsOrigins []string
+	// TrustedProxies are the addresses or CIDR ranges X-Forwarded-For is
+	// believed from. Empty means believe nobody and use the socket address,
+	// which is the right answer when nothing proxies this service.
+	TrustedProxies []string
 	// TlsCert and TlsKey serve https directly; leave both empty to serve plain
 	// http behind a proxy that terminates tls for you.
 	TlsCert string
@@ -240,7 +278,7 @@ func NewConfig() (*Config, error) {
 	c.HTTP.BodyLimit = getEnvAsInt(HTTP_BODY_LIMIT, 4*1024*1024)
 	c.HTTP.SwaggerEnabled = getEnvAsBool(SWAGGER_ENABLED, false)
 	c.HTTP.CorsOrigins = splitCsv(getEnv(CORS_ORIGINS, "http://localhost:3000"))
-
+	c.HTTP.TrustedProxies = splitCsv(getEnv(TRUSTED_PROXIES, ""))
 	c.Internal.ServiceToken = getEnv(INTERNAL_SERVICE_TOKEN, "")
 	c.HTTP.TlsCert = getEnv(HTTP_TLS_CERT, "")
 	c.HTTP.TlsKey = getEnv(HTTP_TLS_KEY, "")
@@ -295,6 +333,10 @@ func NewConfig() (*Config, error) {
 	c.Auth.MaxFailedPerIP = 50
 	c.Auth.FirstManagerPassword = getEnv(FIRST_MANAGER_PASSWORD, "")
 
+	// Register
+	c.Register.DemoGroup = getEnv(REGISTER_DEMO_GROUP, "demo")
+	c.Register.PreliminaryGroup = getEnv(REGISTER_PRELIMINARY_GROUP, "preliminary")
+
 	// Cache
 	c.Cache.ShardId = getEnvAsInt(SHARD_ID, 0)
 	c.Cache.ShardCount = getEnvAsInt(SHARD_COUNT, 1)
@@ -322,6 +364,20 @@ func (c *Config) validate() error {
 		return fmt.Errorf("%s must be shorter than the absolute family cap of %s",
 			AUTH_REFRESH_TTL, c.Auth.RefreshAbsoluteTTL)
 	}
+	// a typo here does not error at request time, it silently stops trusting
+	// the proxy and every client looks like the load balancer
+	for _, p := range c.HTTP.TrustedProxies {
+		if strings.Contains(p, "/") {
+			if _, _, err := net.ParseCIDR(p); err != nil {
+				return fmt.Errorf("%s entry %q is not a valid CIDR range", TRUSTED_PROXIES, p)
+			}
+			continue
+		}
+		if net.ParseIP(p) == nil {
+			return fmt.Errorf("%s entry %q is not a valid ip address", TRUSTED_PROXIES, p)
+		}
+	}
+
 	// one without the other is a misconfiguration, not a fallback to http
 	if (c.HTTP.TlsCert == "") != (c.HTTP.TlsKey == "") {
 		return fmt.Errorf("%s and %s must be set together", HTTP_TLS_CERT, HTTP_TLS_KEY)

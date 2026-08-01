@@ -1,5 +1,16 @@
 -- hst.groups — client group config templates (path hierarchy).
--- Server column omitted: single-server. parent_id / root for tree APIs.
+-- Server column omitted: single-server.
+--
+-- There is no parent column and no child column. A group's name is its whole
+-- path, demo\demo2\test, and a section is only a prefix that some group's path
+-- passes through: sections come into being when a group is created below them
+-- and vanish when the last one is deleted, because they were never stored. A
+-- path can be both at once, so a group keeps its settings and its accounts
+-- after another group appears beneath it.
+--
+-- The path is therefore the identity, and it is also the manager's access mask
+-- and the websocket subject. Storing the hierarchy a second time in a parent
+-- link would be a second copy of the same fact, free to disagree with it.
 
 CREATE SEQUENCE IF NOT EXISTS hst.groups_group_id_seq AS BIGINT START WITH 1 CACHE 1;
 
@@ -7,8 +18,6 @@ CREATE TABLE IF NOT EXISTS hst.groups (
     group_id                BIGINT       PRIMARY KEY DEFAULT nextval('hst.groups_group_id_seq'),
     updated_at              BIGINT       NOT NULL DEFAULT 0,
     "group"                 VARCHAR(255) NOT NULL,
-    root                    BOOLEAN      NOT NULL DEFAULT FALSE,
-    parent_id               BIGINT       NULL REFERENCES hst.groups (group_id) ON DELETE RESTRICT,
 
     permission_flags        INTEGER      NOT NULL DEFAULT 1,
     auth_mode               INTEGER      NOT NULL DEFAULT 0,
@@ -48,8 +57,9 @@ CREATE TABLE IF NOT EXISTS hst.groups (
     margin_mode             INTEGER      NOT NULL DEFAULT 0,
     margin_flags            INTEGER      NOT NULL DEFAULT 0,
 
-    demo_leverage           INTEGER      NOT NULL DEFAULT 0,
-    demo_deposit            NUMERIC(20,8) NOT NULL DEFAULT 0,
+    -- both are genuinely unset when empty, which is not the same as zero: no deposit is a zero balance, no leverage is 1
+    demo_leverage           INTEGER       NULL,
+    demo_deposit            NUMERIC(20,8) NULL,
 
     limit_history           INTEGER      NOT NULL DEFAULT 0,
     limit_orders            INTEGER      NOT NULL DEFAULT 0,
@@ -60,10 +70,8 @@ CREATE TABLE IF NOT EXISTS hst.groups (
     CONSTRAINT groups_path_set CHECK ("group" <> '')
 );
 
-COMMENT ON TABLE hst.groups IS 'Group config templates; path hierarchy via parent_id / root';
+COMMENT ON TABLE hst.groups IS 'Group config templates; the path in "group" is the identity and the whole hierarchy';
 COMMENT ON COLUMN hst.groups."group" IS 'Hierarchical path (e.g. demo\forex\usd)';
-COMMENT ON COLUMN hst.groups.root IS 'True for top sections (parent_id IS NULL)';
-COMMENT ON COLUMN hst.groups.parent_id IS 'Parent group_id; NULL for roots';
 COMMENT ON COLUMN hst.groups.permission_flags IS 'EnPermissionsFlags bitmask; 0 = disabled';
 COMMENT ON COLUMN hst.groups.auth_mode IS 'EnAuthMode';
 COMMENT ON COLUMN hst.groups.news_langs IS 'Windows LANGID values';
@@ -72,7 +80,6 @@ COMMENT ON COLUMN hst.groups.reports_smtp_login IS 'Obsolete';
 COMMENT ON COLUMN hst.groups.limit_positions_volume IS 'Unused by MT5 currently';
 
 CREATE UNIQUE INDEX IF NOT EXISTS groups_group_uidx ON hst.groups ("group");
-CREATE INDEX IF NOT EXISTS groups_parent_id_idx ON hst.groups (parent_id);
 CREATE INDEX IF NOT EXISTS groups_updated_at_idx ON hst.groups (updated_at DESC);
 
 -- Per-group symbol overrides. NULL from trade_mode onward = inherit base symbol.

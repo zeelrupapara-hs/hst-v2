@@ -1,13 +1,15 @@
-package v1
+package admin
 
 import (
 	"context"
 	"errors"
+	v1 "hstserver/internal/server/v1"
 	"strings"
 	"time"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -231,14 +233,33 @@ func scanViewGroupSymbol(row pgx.Row) (*ViewGroupSymbol, error) {
 	return v, nil
 }
 
-func groupExists(c *fiber.Ctx, s *HttpServer, groupID int) error {
+// groupExists reports whether the group is there and this manager may see it.
+func groupExists(c *fiber.Ctx, s *Server, groupID int) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return errs.ErrCouldNotParseClientCfg
+	}
+
+	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `"group"`, 2)
+
 	var exists int
 	err := s.DB.DB.QueryRow(c.UserContext(),
-		`SELECT 1 FROM hst.groups WHERE group_id = $1`, groupID).Scan(&exists)
+		`SELECT 1 FROM hst.groups WHERE group_id = $1 AND `+access,
+		append([]any{groupID}, args...)...).Scan(&exists)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return errs.ErrNotFound
 	}
 	return err
+}
+
+// GroupPath is the path of a group, for announcing a change to its symbols.
+func (s *Server) GroupPath(c *fiber.Ctx, groupID int) string {
+	var path string
+	if err := s.DB.DB.QueryRow(c.UserContext(),
+		`SELECT "group" FROM hst.groups WHERE group_id = $1`, groupID).Scan(&path); err != nil {
+		return ""
+	}
+	return path
 }
 
 // ListGroupSymbols lists sparse symbol overrides for one group (NULL fields inherit from base symbol).
@@ -253,7 +274,7 @@ func groupExists(c *fiber.Ctx, s *HttpServer, groupID int) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/symbols [get]
-func (s *HttpServer) ListGroupSymbols(c *fiber.Ctx) error {
+func (s *Server) ListGroupSymbols(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -300,7 +321,7 @@ func (s *HttpServer) ListGroupSymbols(c *fiber.Ctx) error {
 //	@Failure	500			{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/symbols/{symbolId} [get]
-func (s *HttpServer) GetGroupSymbol(c *fiber.Ctx) error {
+func (s *Server) GetGroupSymbol(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -327,7 +348,7 @@ func normalizeSymbolPath(p string) string {
 	return strings.ReplaceAll(p, "/", `\`)
 }
 
-func (s *HttpServer) loadBaseSymbolByName(ctx context.Context, name string) (*model.Symbol, error) {
+func (s *Server) loadBaseSymbolByName(ctx context.Context, name string) (*model.Symbol, error) {
 	var id int64
 	err := s.DB.DB.QueryRow(ctx,
 		`SELECT symbol_id FROM hst.symbols WHERE symbol = $1`, strings.TrimSpace(name)).Scan(&id)
@@ -337,7 +358,7 @@ func (s *HttpServer) loadBaseSymbolByName(ctx context.Context, name string) (*mo
 	return s.loadBaseSymbolByID(ctx, id)
 }
 
-func (s *HttpServer) loadBaseSymbolByID(ctx context.Context, id int64) (*model.Symbol, error) {
+func (s *Server) loadBaseSymbolByID(ctx context.Context, id int64) (*model.Symbol, error) {
 	detail, err := s.selectSymbolDetail(ctx, id)
 	if err != nil {
 		return nil, err
@@ -345,7 +366,7 @@ func (s *HttpServer) loadBaseSymbolByID(ctx context.Context, id int64) (*model.S
 	return &detail.Symbol, nil
 }
 
-func resolveCreateGroupSymbolPath(c *fiber.Ctx, s *HttpServer, body CrtGroupSymbol) (string, error) {
+func resolveCreateGroupSymbolPath(c *fiber.Ctx, s *Server, body CrtGroupSymbol) (string, error) {
 	path := normalizeSymbolPath(strings.TrimSpace(body.Path))
 	if path != "" {
 		return path, nil
@@ -387,7 +408,7 @@ func resolveCreateGroupSymbolPath(c *fiber.Ctx, s *HttpServer, body CrtGroupSymb
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/symbols [post]
-func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
+func (s *Server) CreateGroupSymbol(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -457,7 +478,7 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 		    $53,$54,$55,$56,$57,$58,$59,$60,$61,
 		    $62,$63,$64,$65,$66
 		 ) RETURNING `+groupSymbolColumns,
-		groupID, now, path, ptrOr(body.ConfigIndex, int32(0)),
+		groupID, now, path, v1.PtrOr(body.ConfigIndex, int32(0)),
 		o.TradeMode, o.ExecMode, o.FillFlags, o.ExpirFlags,
 		o.SpreadDiff, o.SpreadDiffBalance, o.StopsLevel, o.FreezeLevel,
 		o.VolumeMin, o.VolumeMinExt, o.VolumeMax, o.VolumeMaxExt,
@@ -490,6 +511,11 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol created",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", v.SymbolID, "path", v.Path)
 
+	GroupPath := s.GroupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupSymbol(GroupPath), model.EventGroupSymbolCreated, v)
+	s.NotifySystem(model.SubjectSystemGroupSymbolCreated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolCreatedMsg(snap.Login, GroupPath), v)
+
 	return s.App.HttpResponseCreated(c, v)
 }
 
@@ -508,7 +534,7 @@ func (s *HttpServer) CreateGroupSymbol(c *fiber.Ctx) error {
 //	@Failure	500			{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/symbols/{symbolId} [patch]
-func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
+func (s *Server) UpdateGroupSymbol(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -600,19 +626,19 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 		  WHERE group_id = $1 AND symbol_id = $2
 		  RETURNING `+groupSymbolColumns,
 		groupID, symbolID, body.Path, body.ConfigIndex,
-		ptrOr(body.UseDefaultCommon, false),
+		v1.PtrOr(body.UseDefaultCommon, false),
 		o.PermissionsFlags, o.PermissionsBookDepth,
 		o.SpreadDiff, o.SpreadDiffBalance,
 		o.VolumeMin, o.VolumeMinExt, o.VolumeMax, o.VolumeMaxExt,
 		o.VolumeStep, o.VolumeStepExt, o.VolumeLimit, o.VolumeLimitExt,
-		ptrOr(body.UseDefaultTrade, false),
+		v1.PtrOr(body.UseDefaultTrade, false),
 		o.TradeMode, o.FillFlags, o.ExpirFlags, o.OrderFlags, o.StopsLevel, o.FreezeLevel,
-		ptrOr(body.UseDefaultExecution, false),
+		v1.PtrOr(body.UseDefaultExecution, false),
 		o.ExecMode, o.RETimeout, o.REFlags, o.IECheckMode, o.IETimeout,
 		o.IESlipProfit, o.IESlipLosing, o.IEVolumeMax, o.IEVolumeMaxExt, o.IEFlags,
-		ptrOr(body.UseDefaultMargin, false),
+		v1.PtrOr(body.UseDefaultMargin, false),
 		o.MarginFlags, o.MarginInitial, o.MarginMaintenance, o.MarginHedged,
-		ptrOr(body.UseDefaultMarginRate, false),
+		v1.PtrOr(body.UseDefaultMarginRate, false),
 		o.MarginLiquidity, o.MarginCurrency,
 		o.MarginMaintenanceBuy, o.MarginMaintenanceSell,
 		o.MarginInitialBuy, o.MarginInitialSell,
@@ -622,7 +648,7 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 		o.MarginMaintenanceBuyLimit, o.MarginMaintenanceSellLimit,
 		o.MarginMaintenanceBuyStop, o.MarginMaintenanceSellStop,
 		o.MarginMaintenanceBuyStopLimit, o.MarginMaintenanceSellStopLimit,
-		ptrOr(body.UseDefaultSwaps, false),
+		v1.PtrOr(body.UseDefaultSwaps, false),
 		o.SwapMode, o.SwapLong, o.SwapShort, o.SwapYearDay, o.SwapFlags,
 		o.SwapRateSunday, o.SwapRateMonday, o.SwapRateTuesday, o.SwapRateWednesday,
 		o.SwapRateThursday, o.SwapRateFriday, o.SwapRateSaturday,
@@ -638,6 +664,11 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol updated",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
+
+	path := s.GroupPath(c, groupID)
+	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolUpdated, v)
+	s.NotifySystem(model.SubjectSystemGroupSymbolUpdated, v)
+	s.JournalEntry(c, logger.CodeOK, journal.GroupSymbolUpdatedMsg(snap.Login, path), v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -655,7 +686,7 @@ func (s *HttpServer) UpdateGroupSymbol(c *fiber.Ctx) error {
 //	@Failure	500			{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/groups/{id}/symbols/{symbolId} [delete]
-func (s *HttpServer) DeleteGroupSymbol(c *fiber.Ctx) error {
+func (s *Server) DeleteGroupSymbol(c *fiber.Ctx) error {
 	groupID, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -678,6 +709,12 @@ func (s *HttpServer) DeleteGroupSymbol(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group symbol deleted",
 		"actor", snap.Login, "group_id", groupID, "symbol_id", symbolID)
+
+	path := s.GroupPath(c, groupID)
+	ref := v1.ViewGroupSymbolRef{GroupID: groupID, SymbolID: symbolID}
+	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolDeleted, ref)
+	s.NotifySystem(model.SubjectSystemGroupSymbolDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.GroupSymbolDeletedMsg(snap.Login, path), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

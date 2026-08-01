@@ -54,10 +54,14 @@ check: swagger fmt vet
 	$(GOBIN)/gosec -quiet ./...
 	$(GOBIN)/govulncheck ./...
 
-# regenerates swagger/ from handler annotations (gitignored; run before build/check)
+# regenerates swagger/ from handler annotations (gitignored; run before build/check).
+# one spec per panel, so neither audience is shown the other's API
 swagger:
 	@$(GOBIN)/swag fmt -g cmd/main.go
-	@$(GOBIN)/swag init -g cmd/main.go -o swagger --parseDependency --parseInternal
+	@$(GOBIN)/swag init -g cmd/main.go -o swagger/admin --instanceName admin \
+		--packageName swaggeradmin --tags '!Trader' --parseDependency --parseInternal
+	@$(GOBIN)/swag init -g cmd/main.go -o swagger/trader --instanceName trader \
+		--packageName swaggertrader --tags 'Trader' --parseDependency --parseInternal
 
 # prints an ed25519 key pair; the seed goes into AUTH_JWT_PRIVATE_KEY
 gen-keys:

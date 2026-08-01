@@ -1,12 +1,13 @@
-package v1
+package admin
 
 import (
 	"errors"
-	"sync"
+	v1 "hstserver/internal/server/v1"
 	"time"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -27,7 +28,6 @@ type CrtUser struct {
 	Country          string `json:"country" validate:"max=64"`
 	City             string `json:"city" validate:"max=64"`
 	Comment          string `json:"comment" validate:"max=4096"`
-	Leverage         int32  `json:"leverage" validate:"gte=1,lte=10000"`
 	PasswordMain     string `json:"password_main" validate:"required,min=8,max=128"`
 	PasswordInvestor string `json:"password_investor" validate:"required,min=8,max=128"`
 	PasswordApi      string `json:"password_api" validate:"omitempty,min=8,max=128"`
@@ -89,9 +89,7 @@ const userJoin = ` FROM hst.users u LEFT JOIN hst.managers m ON m.login = u.logi
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users [post]
-func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
-	ctx := c.UserContext()
-
+func (s *Server) CreateUser(c *fiber.Ctx) error {
 	var body CrtUser
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -100,51 +98,17 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	// hash before opening the transaction.
-	hashes, err := s.hashPasswords(body.PasswordMain, body.PasswordInvestor, body.PasswordApi)
+	// the request and the core carry the same fields, so the body is the argument
+	login, status, err := s.OpenLogin(c.UserContext(), v1.NewLogin(body))
 	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
-	tx, err := s.DB.DB.Begin(ctx)
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	defer func() { _ = tx.Rollback(ctx) }()
-
-	now := time.Now().UnixNano()
-
-	var login int64
-	if err := tx.QueryRow(ctx,
-		`INSERT INTO hst.users
-		   (client_id, "group", rights, name, first_name, last_name, email, phone,
-		    country, city, comment, leverage,
-		    password_main, password_investor, password_api,
-		    registration, last_pass_change, updated_at)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16,$16)
-		 RETURNING login`,
-		body.ClientId, body.Group, body.Rights, body.Name, body.FirstName, body.LastName,
-		body.Email, body.Phone, body.Country, body.City, body.Comment, body.Leverage,
-		hashes[0], hashes[1], hashes[2], now).Scan(&login); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
-	// the account row is not optional: a login without one has no money state
-	if _, err := tx.Exec(ctx,
-		`INSERT INTO hst.accounts (login, currency_digits, margin_leverage, updated_at)
-		 VALUES ($1, 2, $2, $3)`, login, body.Leverage, now); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
-	if err := tx.Commit(ctx); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		return s.App.HttpResponseStatus(c, status, err)
 	}
 
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user created",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, login, s.App.HttpResponseCreated)
+	return s.getUserByLogin(c, login, s.NotifyUser(model.EventUserCreated))
 }
 
 // ListUsers returns a page of logins.
@@ -163,17 +127,27 @@ func (s *HttpServer) CreateUser(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users [get]
-func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
+func (s *Server) ListUsers(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, usersSortable, "login")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
 
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	// only the logins inside this manager's groups, the same masks the websocket routes by
+	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `u."group"`, 4)
+	args = append([]any{q.Search, q.Limit, q.Offset}, args...)
+
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+userColumns+userJoin+`
 		  WHERE ($1 = '' OR u.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%')
+		    AND `+access+`
 		  ORDER BY u.`+q.SortBy+`
-		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset)
+		  LIMIT $2 OFFSET $3`, args...)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -207,7 +181,7 @@ func (s *HttpServer) ListUsers(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [get]
-func (s *HttpServer) GetUser(c *fiber.Ctx) error {
+func (s *Server) GetUser(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -230,7 +204,7 @@ func (s *HttpServer) GetUser(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [patch]
-func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
+func (s *Server) UpdateUser(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	login, err := c.ParamsInt("login")
@@ -244,6 +218,24 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	}
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	// the previous group is needed before the write, the losers have to be told
+	var oldGroup string
+	if body.Group != nil {
+		// a move lands the login in a real group or nowhere at all
+		if err := s.GroupExists(ctx, *body.Group); err != nil {
+			return s.App.HttpResponseBadRequest(c, err)
+		}
+
+		if err := s.DB.DB.QueryRow(ctx,
+			`SELECT "group" FROM hst.users WHERE login = $1`, login).Scan(&oldGroup); err != nil &&
+			!errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		if oldGroup == *body.Group {
+			oldGroup = ""
+		}
 	}
 
 	tag, err := s.DB.DB.Exec(ctx,
@@ -278,7 +270,14 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user updated",
 		"actor", snap.Login, "target", login)
 
-	return s.getUserByLogin(c, int64(login), s.App.HttpResponseOK)
+	// a group change has two audiences: those who lost the record and those who gained it
+	if oldGroup != "" {
+		s.NotifyWS(model.SubjectUser(oldGroup), model.EventUserMoved,
+			v1.ViewUserRef{Login: int64(login), Group: oldGroup})
+		s.JournalEntry(c, logger.CodeOK, journal.UserMovedMsg(snap.Login, int64(login)), oldGroup)
+	}
+
+	return s.getUserByLogin(c, int64(login), s.NotifyUser(model.EventUserUpdated))
 }
 
 // DeleteUser removes a login.
@@ -292,7 +291,7 @@ func (s *HttpServer) UpdateUser(c *fiber.Ctx) error {
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/users/{login} [delete]
-func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
+func (s *Server) DeleteUser(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	login, err := c.ParamsInt("login")
@@ -300,12 +299,15 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.users WHERE login = $1`, login)
+	// returning the group saves a read: it is needed to announce the delete and it does not exist afterwards
+	var gone string
+	err = s.DB.DB.QueryRow(ctx,
+		`DELETE FROM hst.users WHERE login = $1 RETURNING "group"`, login).Scan(&gone)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	if tag.RowsAffected() == 0 {
-		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
@@ -317,11 +319,34 @@ func (s *HttpServer) DeleteUser(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "user deleted",
 		"actor", snap.Login, "target", login)
 
+	ref := v1.ViewUserRef{Login: int64(login), Group: gone}
+	s.NotifyWS(model.SubjectUser(gone), model.EventUserDeleted, ref)
+	s.NotifyWS(model.SubjectTraderProfile(int64(login)), model.EventUserDeleted, ref)
+	s.NotifySystem(model.SubjectSystemUserDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.UserDeletedMsg(snap.Login, int64(login)), ref)
+
 	return s.App.HttpResponseNoContent(c)
 }
 
+// returning the group saves a read: it is needed to announce the delete
+func (s *Server) NotifyUser(event string) func(*fiber.Ctx, interface{}) error {
+	return func(c *fiber.Ctx, v interface{}) error {
+		if u, ok := v.(*ViewUser); ok {
+			s.NotifyWS(model.SubjectUser(u.Group), event, u)
+			// the account itself is told about its own record, on the root only it can hear
+			s.NotifyWS(model.SubjectTraderProfile(u.Login), event, u)
+			s.NotifySystem(SystemUserSubject(event), u)
+			s.JournalEntry(c, logger.CodeOK, UserMsg(c, event, u), u)
+		}
+		if event == model.EventUserCreated {
+			return s.App.HttpResponseCreated(c, v)
+		}
+		return s.App.HttpResponseOK(c, v)
+	}
+}
+
 // getUserByLogin reads one row and answers with the given responder.
-func (s *HttpServer) getUserByLogin(c *fiber.Ctx, login int64,
+func (s *Server) getUserByLogin(c *fiber.Ctx, login int64,
 	respond func(*fiber.Ctx, interface{}) error) error {
 
 	v := &ViewUser{}
@@ -341,29 +366,25 @@ func (s *HttpServer) getUserByLogin(c *fiber.Ctx, login int64,
 	return respond(c, v)
 }
 
-// hashPasswords hashes the three slots concurrently.
-func (s *HttpServer) hashPasswords(passwords ...string) ([]string, error) {
-	out := make([]string, len(passwords))
-	errs := make([]error, len(passwords))
-
-	var wg sync.WaitGroup
-	for i, p := range passwords {
-		if p == "" {
-			continue
-		}
-		wg.Add(1)
-		go func(i int, p string) {
-			defer wg.Done()
-			out[i], errs[i] = s.OAuth2.Hasher.HashPassword(p)
-		}(i, p)
+// SystemUserSubject is the service side of a user event.
+func SystemUserSubject(event string) string {
+	if event == model.EventUserCreated {
+		return model.SubjectSystemUserCreated
 	}
-	wg.Wait()
+	return model.SubjectSystemUserUpdated
+}
 
-	for _, err := range errs {
-		if err != nil {
-			return nil, err
-		}
+// UserMsg is the journal line for a user event.
+func UserMsg(c *fiber.Ctx, event string, u *ViewUser) string {
+	snap, _ := utils.GetClient(c)
+
+	var actor int64
+	if snap != nil {
+		actor = snap.Login
 	}
 
-	return out, nil
+	if event == model.EventUserCreated {
+		return journal.UserCreatedMsg(actor, u.Login)
+	}
+	return journal.UserUpdatedMsg(actor, u.Login)
 }

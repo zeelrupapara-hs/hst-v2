@@ -22,7 +22,8 @@ import (
 
 // LoginRequest carries the terminal type.
 type LoginRequest struct {
-	ConnectionType int32 `json:"connection_type" validate:"required"`
+	// zero is a real terminal type, the trader one, so the value is checked against the enum instead
+	ConnectionType int32 `json:"connection_type"`
 }
 
 // ViewToken is what a successful login or refresh returns.
@@ -69,21 +70,11 @@ type ViewMe struct {
 	Rights         map[string]bool `json:"manager_rights,omitempty"`
 }
 
-// Login authenticates a manager and opens a session.
+// LoginAs authenticates and opens a session for one panel.
 //
-//	@Id				Login
-//	@Description	Login with a manager account using basic auth
-//	@Tags			Auth
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body		LoginRequest	true	"terminal type: 32 admin, 33 manager"
-//	@Success		200		{object}	Response{data=ViewToken}
-//	@Failure		401		{object}	Response
-//	@Failure		403		{object}	Response
-//	@Failure		500		{object}	Response
-//	@Security		BasicAuth
-//	@Router			/auth/v1/oauth2/login [post]
-func (s *HttpServer) Login(c *fiber.Ctx) error {
+// The panel is the caller's route, not a field in the body: a request that reached the manager
+// login may only open a staff session, whatever terminal type it claims.
+func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 	ctx := c.UserContext()
 	ip := utils.GetRealIP(c)
 
@@ -100,19 +91,33 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 		return s.loginFailed(c, err)
 	}
 
+	// staff and traders are admitted by different rules, and a terminal says which is asking
+	connType := model.UsersConnectionTypes(body.ConnectionType)
+	if _, ok := model.UsersConnectionTypes_name[body.ConnectionType]; !ok {
+		return s.App.HttpResponseBadRequest(c, errs.ErrInvalidConnectionType)
+	}
+
+	if connType.IsStaff() != staffOnly {
+		return s.loginFailed(c, denied(http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel))
+	}
+
 	// stop credential stuffing before it ever reaches argon2
 	if s.OAuth2.IPThrottled(ctx, ip) {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
 	}
 
 	// is this really them
-	user, err := s.checkPassword(ctx, login, password, ip)
+	user, scope, err := s.checkPassword(ctx, login, password, ip, connType)
 	if err != nil {
 		return s.loginFailed(c, err)
 	}
 
-	// do they have a manager row, and may it use this panel
-	manager, err := s.checkManagerAccess(ctx, login, model.UsersConnectionTypes(body.ConnectionType), ip)
+	var manager *model.Manager
+	if connType.IsStaff() {
+		manager, err = s.checkManagerAccess(ctx, login, connType, ip)
+	} else {
+		err = s.checkTraderAccess(ctx, user)
+	}
 	if err != nil {
 		return s.loginFailed(c, err)
 	}
@@ -121,7 +126,7 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	view, err := s.openSession(ctx, user, manager, &oauth2.Config{
 		Login:          login,
 		ClientId:       user.ClientId,
-		Scope:          int32(model.UsersPasswords_main),
+		Scope:          int32(scope),
 		ConnectionType: body.ConnectionType,
 		IpAddress:      ip,
 		UserAgent:      utils.GetUserAgent(c),
@@ -140,47 +145,89 @@ func (s *HttpServer) Login(c *fiber.Ctx) error {
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
 
-// checkPassword loads the login and verifies the master password.
-func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, ip string) (*model.User, error) {
+// checkPassword loads the login, verifies the password, and reports which slot answered.
+//
+// Staff authenticate with the master slot only. A trading terminal may also present the investor
+// password, which opens a session that sees everything and trades nothing.
+func (s *HttpServer) checkPassword(ctx context.Context, login int64, password, ip string,
+	connType model.UsersConnectionTypes) (*model.User, model.UsersPasswords, error) {
 	user := &model.User{}
 
 	err := s.DB.DB.QueryRow(ctx,
-		`SELECT login, COALESCE(client_id, 0), "group", rights, password_main, locked_until
+		`SELECT login, COALESCE(client_id, 0), "group", rights, password_main, password_investor, locked_until
 		   FROM hst.users WHERE login = $1`, login).
 		Scan(&user.Login, &user.ClientId, &user.Group, &user.Rights,
-			&user.PasswordMain, &user.LockedUntil)
+			&user.PasswordMain, &user.PasswordInvestor, &user.LockedUntil)
 
 	if errors.Is(err, pgx.ErrNoRows) {
 		// burn the same work as a real verify.
 		s.OAuth2.Hasher.VerifyDummy(password)
-		return nil, denied(http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
+		return nil, 0, denied(http.StatusUnauthorized, http.RetAuthAccountUnknown, errs.ErrInvalidCredentials)
 	}
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if user.LockedUntil > time.Now().UnixNano() {
-		return nil, denied(http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
+		return nil, 0, denied(http.StatusForbidden, http.RetAccountLocked, errs.ErrAccountLocked)
 	}
 
-	// staff authenticate with the master slot only.
-	ok, needsRehash, err := s.OAuth2.Hasher.VerifyPassword(user.PasswordMain, password)
-	if errors.Is(err, crypto.ErrHasherBusy) {
-		return nil, denied(http.StatusServiceUnavailable, http.RetAuthServerBusy, errs.ErrServiceUnavailable)
-	}
-	if err != nil || !ok {
-		return nil, s.recordFailedLogin(ctx, login, ip)
-	}
-
-	if !user.Rights.CanConnect() {
-		return nil, denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+	slots := []struct {
+		scope model.UsersPasswords
+		hash  string
+	}{{model.UsersPasswords_main, user.PasswordMain}}
+	if !connType.IsStaff() && user.PasswordInvestor != "" {
+		slots = append(slots, struct {
+			scope model.UsersPasswords
+			hash  string
+		}{model.UsersPasswords_investor, user.PasswordInvestor})
 	}
 
-	if needsRehash {
-		s.upgradePasswordHash(ctx, login, password)
+	for _, slot := range slots {
+		ok, needsRehash, err := s.OAuth2.Hasher.VerifyPassword(slot.hash, password)
+		if errors.Is(err, crypto.ErrHasherBusy) {
+			return nil, 0, denied(http.StatusServiceUnavailable, http.RetAuthServerBusy, errs.ErrServiceUnavailable)
+		}
+		if err != nil || !ok {
+			continue
+		}
+
+		if !user.Rights.CanConnect() {
+			return nil, 0, denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+		}
+
+		// only the master slot is rehashed in place, because that is the one the user is asked to change
+		if needsRehash && slot.scope == model.UsersPasswords_main {
+			s.upgradePasswordHash(ctx, login, password)
+		}
+
+		return user, slot.scope, nil
 	}
 
-	return user, nil
+	return nil, 0, s.recordFailedLogin(ctx, login, ip)
+}
+
+// checkTraderAccess decides whether this login may use the trader panel.
+//
+// A trader needs no manager row; what it needs is an account that may connect and that somebody
+// has approved. A preliminary account exists but has not been approved, so it may not trade yet.
+func (s *HttpServer) checkTraderAccess(ctx context.Context, u *model.User) error {
+	// a member of staff is not a trading account, whichever door it knocks on
+	if _, err := s.SelectManager(ctx, u.Login); err == nil {
+		return denied(http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel)
+	} else if !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+
+	if !u.Rights.CanConnect() {
+		return denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
+	}
+
+	if IsPreliminaryGroup(u.Group) {
+		return denied(http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountPending)
+	}
+
+	return nil
 }
 
 // checkManagerAccess decides whether this login may use the admin or manager panel.
@@ -191,7 +238,7 @@ func (s *HttpServer) checkManagerAccess(ctx context.Context, login int64,
 		return nil, denied(http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
 	}
 
-	manager, err := s.selectManager(ctx, login)
+	manager, err := s.SelectManager(ctx, login)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, denied(http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
 	}
@@ -267,18 +314,8 @@ func (s *HttpServer) loginFailed(c *fiber.Ctx, err error) error {
 	return s.App.HttpResponseInternalServerErrorRequest(c, err)
 }
 
-// RefreshToken rotates the refresh token and issues a new access token.
-//
-//	@Id			RefreshToken
-//	@Tags		Auth
-//	@Accept		json
-//	@Produce	json
-//	@Param		body	body		RefreshRequest	true	"the refresh token from login"
-//	@Success	200		{object}	Response{data=ViewToken}
-//	@Failure	401		{object}	Response
-//	@Failure	500		{object}	Response
-//	@Router		/auth/v1/oauth2/refresh [post]
-func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
+// RefreshSession exchanges a refresh token for a new pair, on the panel that issued it.
+func (s *HttpServer) RefreshSession(c *fiber.Ctx, staffOnly bool) error {
 	ctx := c.UserContext()
 
 	var body RefreshRequest
@@ -315,6 +352,17 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
 	}
 
+	old, err := s.selectSession(ctx, rec.SessionId)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	// a session refreshes on the panel that issued it, and being on the wrong one is a plain
+	// refusal: the token is not locked yet, so a misaddressed client does not lose its session
+	if model.UsersConnectionTypes(old.ConnectionType).IsStaff() != staffOnly {
+		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel)
+	}
+
 	// lock now, so two parallel refreshes cannot both rotate
 	locked, err := s.OAuth2.LockRefresh(ctx, body.RefreshToken)
 	if err != nil {
@@ -342,17 +390,16 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthAccountDisabled, errs.ErrAccountDisabled)
 	}
 
-	old, err := s.selectSession(ctx, rec.SessionId)
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-
-	mgr, err := s.selectManager(ctx, rec.Login)
-	if errors.Is(err, pgx.ErrNoRows) {
-		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
-	}
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	// only a staff session carries a manager row, so a trader is not asked for one
+	var mgr *model.Manager
+	if staffOnly {
+		mgr, err = s.SelectManager(ctx, rec.Login)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerNoConfig, errs.ErrNotAManager)
+		}
+		if err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
 	}
 
 	cfg := &oauth2.Config{
@@ -393,17 +440,8 @@ func (s *HttpServer) RefreshToken(c *fiber.Ctx) error {
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
 
-// Logout closes the current session.
-//
-//	@Id			Logout
-//	@Tags		Auth
-//	@Produce	json
-//	@Success	204	{object}	Response
-//	@Failure	401	{object}	Response
-//	@Failure	500	{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/v1/auth/logout [post]
-func (s *HttpServer) Logout(c *fiber.Ctx) error {
+// LogoutSession closes the calling session.
+func (s *HttpServer) LogoutSession(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -418,17 +456,8 @@ func (s *HttpServer) Logout(c *fiber.Ctx) error {
 	return s.App.HttpResponseNoContent(c)
 }
 
-// Me returns the caller's own profile and decoded rights.
-//
-//	@Id			Me
-//	@Tags		Auth
-//	@Produce	json
-//	@Success	200	{object}	Response{data=ViewMe}
-//	@Failure	401	{object}	Response
-//	@Failure	500	{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/v1/auth/me [get]
-func (s *HttpServer) Me(c *fiber.Ctx) error {
+// CurrentSession describes the caller to itself.
+func (s *HttpServer) CurrentSession(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -449,20 +478,8 @@ func (s *HttpServer) Me(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, view)
 }
 
-// ChangePassword sets a new main password and closes every other session.
-//
-//	@Id			ChangePassword
-//	@Tags		Auth
-//	@Accept		json
-//	@Produce	json
-//	@Param		body	body		ChangePasswordRequest	true	"old and new password"
-//	@Success	204		{object}	Response
-//	@Failure	400		{object}	Response
-//	@Failure	401		{object}	Response
-//	@Failure	500		{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/v1/auth/oauth2/change-password [post]
-func (s *HttpServer) ChangePassword(c *fiber.Ctx) error {
+// SetPassword changes the caller's own password.
+func (s *HttpServer) SetPassword(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	snap, ok := utils.GetClient(c)
@@ -620,4 +637,124 @@ func (s *HttpServer) selectSession(ctx context.Context, sid string) (*model.Sess
 			&sess.ExpiresAt, &sess.RevokedAt, &sess.RevokedReason, &sess.FamilyId)
 
 	return sess, err
+}
+
+// SelectManager reads the whole right set in one round trip.
+func (s *HttpServer) SelectManager(ctx context.Context, login int64) (*model.Manager, error) {
+	m := &model.Manager{}
+
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT login, name, mailbox, server, request_limit_logs,
+		        request_limit_reports, groups, access,
+		        right_admin, right_manager, right_cfg_time, right_cfg_holidays,
+		        right_cfg_groups, right_cfg_managers, right_cfg_requests,
+		        right_cfg_gateways, right_cfg_datafeeds, right_cfg_reports,
+		        right_cfg_symbols, right_cfg_web_services, right_cfg_messengers,
+		        right_cfg_kyc, right_cfg_automations, right_cfg_allocations,
+		        right_cfg_corporate, right_cfg_payments, right_cfg_mails,
+		        right_cfg_streaming, right_srv_journals, right_srv_reports,
+		        right_charts, right_email, right_news, right_export,
+		        right_techsupport, right_market, right_accountant, right_acc_read,
+		        right_acc_details_name, right_acc_details_location,
+		        right_acc_details_address, right_acc_details_id,
+		        right_acc_details_email, right_acc_details_phone,
+		        right_acc_details_general, right_acc_technical,
+		        right_acc_tech_modify, right_acc_manager, right_acc_delete,
+		        right_acc_online, right_confirm_actions, right_notifications,
+		        right_trades_read, right_trades_manager, right_trades_delete,
+		        right_trades_dealer, right_trades_supervisor, right_quotes_raw,
+		        right_quotes, right_symbol_details, right_risk_manager,
+		        right_group_margin, right_group_commission, right_reports,
+		        right_clients_access, right_clients_create, right_clients_edit,
+		        right_clients_delete, right_clients_kyc,
+		        right_clients_details_name, right_clients_details_location,
+		        right_clients_details_address, right_clients_details_id,
+		        right_clients_details_email, right_clients_details_phone,
+		        right_clients_details_general, right_documents_access,
+		        right_documents_create, right_documents_edit,
+		        right_documents_delete, right_documents_files_add,
+		        right_documents_files_delete, right_comments_access,
+		        right_comments_create, right_comments_delete
+		   FROM hst.managers WHERE login = $1`, login).
+		Scan(&m.Login, &m.Name, &m.Mailbox, &m.Server, &m.RequestLimitLogs,
+			&m.RequestLimitReports, &m.Groups, &m.Access,
+			&m.RightAdmin,
+			&m.RightManager,
+			&m.RightCfgTime,
+			&m.RightCfgHolidays,
+			&m.RightCfgGroups,
+			&m.RightCfgManagers,
+			&m.RightCfgRequests,
+			&m.RightCfgGateways,
+			&m.RightCfgDatafeeds,
+			&m.RightCfgReports,
+			&m.RightCfgSymbols,
+			&m.RightCfgWebServices,
+			&m.RightCfgMessengers,
+			&m.RightCfgKyc,
+			&m.RightCfgAutomations,
+			&m.RightCfgAllocations,
+			&m.RightCfgCorporate,
+			&m.RightCfgPayments,
+			&m.RightCfgMails,
+			&m.RightCfgStreaming,
+			&m.RightSrvJournals,
+			&m.RightSrvReports,
+			&m.RightCharts,
+			&m.RightEmail,
+			&m.RightNews,
+			&m.RightExport,
+			&m.RightTechsupport,
+			&m.RightMarket,
+			&m.RightAccountant,
+			&m.RightAccRead,
+			&m.RightAccDetailsName,
+			&m.RightAccDetailsLocation,
+			&m.RightAccDetailsAddress,
+			&m.RightAccDetailsId,
+			&m.RightAccDetailsEmail,
+			&m.RightAccDetailsPhone,
+			&m.RightAccDetailsGeneral,
+			&m.RightAccTechnical,
+			&m.RightAccTechModify,
+			&m.RightAccManager,
+			&m.RightAccDelete,
+			&m.RightAccOnline,
+			&m.RightConfirmActions,
+			&m.RightNotifications,
+			&m.RightTradesRead,
+			&m.RightTradesManager,
+			&m.RightTradesDelete,
+			&m.RightTradesDealer,
+			&m.RightTradesSupervisor,
+			&m.RightQuotesRaw,
+			&m.RightQuotes,
+			&m.RightSymbolDetails,
+			&m.RightRiskManager,
+			&m.RightGroupMargin,
+			&m.RightGroupCommission,
+			&m.RightReports,
+			&m.RightClientsAccess,
+			&m.RightClientsCreate,
+			&m.RightClientsEdit,
+			&m.RightClientsDelete,
+			&m.RightClientsKyc,
+			&m.RightClientsDetailsName,
+			&m.RightClientsDetailsLocation,
+			&m.RightClientsDetailsAddress,
+			&m.RightClientsDetailsId,
+			&m.RightClientsDetailsEmail,
+			&m.RightClientsDetailsPhone,
+			&m.RightClientsDetailsGeneral,
+			&m.RightDocumentsAccess,
+			&m.RightDocumentsCreate,
+			&m.RightDocumentsEdit,
+			&m.RightDocumentsDelete,
+			&m.RightDocumentsFilesAdd,
+			&m.RightDocumentsFilesDelete,
+			&m.RightCommentsAccess,
+			&m.RightCommentsCreate,
+			&m.RightCommentsDelete)
+
+	return m, err
 }

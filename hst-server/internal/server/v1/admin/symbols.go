@@ -1,4 +1,4 @@
-package v1
+package admin
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	v1 "hstserver/internal/server/v1"
 	"math"
 	"reflect"
 	"slices"
@@ -16,6 +17,7 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -189,21 +191,6 @@ type UptSymbol struct {
 	FilterGapTicks                 *int32                   `json:"filter_gap_ticks"`
 	TickChartMode                  *model.ChartMode         `json:"tick_chart_mode"`
 	Sessions                       *[]CrtSymbolSession      `json:"sessions"`
-}
-
-// ViewSymbol is the list/create summary.
-type ViewSymbol struct {
-	SymbolId     int64   `json:"symbol_id"`
-	Symbol       string  `json:"symbol"`
-	Path         string  `json:"path"`
-	Description  string  `json:"description"`
-	Digits       int32   `json:"digits"`
-	TradeMode    int16   `json:"trade_mode"`
-	CalcMode     int16   `json:"calc_mode"`
-	ExecMode     int16   `json:"exec_mode"`
-	Spread       int32   `json:"spread"`
-	ContractSize float64 `json:"contract_size"`
-	DateModified int64   `json:"date_modified"`
 }
 
 // ViewSymbolDetail is the full instrument plus sessions.
@@ -515,14 +502,14 @@ func validateSessions(sessions []CrtSymbolSession) error {
 //	@Accept		json
 //	@Produce	json
 //	@Param		body	body		CrtSymbol	true	"the symbol to create"
-//	@Success	201		{object}	Response{data=ViewSymbol}
+//	@Success	201		{object}	Response{data=v1.ViewSymbol}
 //	@Failure	400		{object}	Response
 //	@Failure	403		{object}	Response
 //	@Failure	409		{object}	Response
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/symbols [post]
-func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
+func (s *Server) CreateSymbol(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	var body CrtSymbol
@@ -584,7 +571,7 @@ func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	view := &ViewSymbol{}
+	view := &v1.ViewSymbol{}
 	err = tx.QueryRow(ctx,
 		`INSERT INTO hst.symbols
 		   (symbol, path, description, isin, international, category, exchange, source,
@@ -629,6 +616,10 @@ func (s *HttpServer) CreateSymbol(c *fiber.Ctx) error {
 		"actor", snap.Login, "symbol_id", view.SymbolId,
 		"symbol", view.Symbol, "path", view.Path)
 
+	s.NotifyWS(model.SubjectSymbol, model.EventSymbolCreated, view)
+	s.NotifySystem(model.SubjectSystemSymbolCreated, view)
+	s.JournalEntry(c, logger.CodeOK, journal.SymbolCreatedMsg(snap.Login, view.Symbol), view)
+
 	return s.App.HttpResponseCreated(c, view)
 }
 
@@ -658,13 +649,13 @@ func insertSessions(ctx context.Context, db sessionInserter, symbolID int64, ses
 //	@Param		search	query		string	false	"matches symbol, path or description"
 //	@Param		sort_by	query		string	false	"symbol_id, symbol, path, digits, trade_mode, calc_mode, exec_mode, spread, date_created, date_modified"	Enums(symbol_id, symbol, path, digits, trade_mode, calc_mode, exec_mode, spread, date_created, date_modified)
 //	@Param		order	query		string	false	"asc or desc"																								Enums(asc, desc)
-//	@Success	200		{object}	Response{data=[]ViewSymbol}
+//	@Success	200		{object}	Response{data=[]v1.ViewSymbol}
 //	@Failure	400		{object}	Response
 //	@Failure	403		{object}	Response
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/symbols [get]
-func (s *HttpServer) ListSymbols(c *fiber.Ctx) error {
+func (s *Server) ListSymbols(c *fiber.Ctx) error {
 	q, err := utils.QueryFilter(c, symbolsSortable, "symbol")
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
@@ -682,9 +673,9 @@ func (s *HttpServer) ListSymbols(c *fiber.Ctx) error {
 	}
 	defer rows.Close()
 
-	out := []ViewSymbol{}
+	out := []v1.ViewSymbol{}
 	for rows.Next() {
-		var v ViewSymbol
+		var v v1.ViewSymbol
 		if err := rows.Scan(&v.SymbolId, &v.Symbol, &v.Path, &v.Description, &v.Digits,
 			&v.TradeMode, &v.CalcMode, &v.ExecMode, &v.Spread, &v.ContractSize,
 			&v.DateModified); err != nil {
@@ -710,7 +701,7 @@ func (s *HttpServer) ListSymbols(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/symbols/{id} [get]
-func (s *HttpServer) GetSymbol(c *fiber.Ctx) error {
+func (s *Server) GetSymbol(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -725,7 +716,7 @@ func (s *HttpServer) GetSymbol(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, detail)
 }
 
-func (s *HttpServer) selectSymbolDetail(ctx context.Context, id int64) (*ViewSymbolDetail, error) {
+func (s *Server) selectSymbolDetail(ctx context.Context, id int64) (*ViewSymbolDetail, error) {
 	sym := model.Symbol{}
 	err := s.DB.DB.QueryRow(ctx,
 		`SELECT `+symbolAllColumns+` FROM hst.symbols WHERE symbol_id = $1`, id).
@@ -896,7 +887,7 @@ func (s *HttpServer) selectSymbolDetail(ctx context.Context, id int64) (*ViewSym
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/symbols/{id} [patch]
-func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
+func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
 	id, err := c.ParamsInt("id")
@@ -1264,8 +1255,11 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 		"symbol", detail.Symbol.Symbol, "changes", changes)
 
 	if body.Sessions != nil {
-		s.notifyDatafeedsForSymbolID(c.UserContext(), int64(id))
+		s.NotifyDatafeedsForSymbolID(c.UserContext(), int64(id))
 	}
+	s.NotifyWS(model.SubjectSymbol, model.EventSymbolUpdated, detail)
+	s.NotifySystem(model.SubjectSystemSymbolUpdated, detail)
+	s.JournalEntry(c, logger.CodeOK, journal.SymbolUpdatedMsg(snap.Login, detail.Symbol.Symbol), detail)
 
 	return s.App.HttpResponseOK(c, detail)
 }
@@ -1282,7 +1276,7 @@ func (s *HttpServer) UpdateSymbol(c *fiber.Ctx) error {
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/symbols/{id} [delete]
-func (s *HttpServer) DeleteSymbol(c *fiber.Ctx) error {
+func (s *Server) DeleteSymbol(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
@@ -1302,6 +1296,11 @@ func (s *HttpServer) DeleteSymbol(c *fiber.Ctx) error {
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "symbol deleted",
 		"actor", snap.Login, "symbol_id", id,
 		"symbol", symbol, "path", path)
+
+	ref := v1.ViewSymbolRef{SymbolId: id, Symbol: symbol, Path: path}
+	s.NotifyWS(model.SubjectSymbol, model.EventSymbolDeleted, ref)
+	s.NotifySystem(model.SubjectSystemSymbolDeleted, ref)
+	s.JournalEntry(c, logger.CodeWarn, journal.SymbolDeletedMsg(snap.Login, symbol), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

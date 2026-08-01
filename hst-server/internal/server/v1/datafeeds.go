@@ -21,6 +21,13 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+func ptrOr[T comparable](p *T, def T) T {
+	if p != nil {
+		return *p
+	}
+	return def
+}
+
 var (
 	datafeedsSortable = utils.NewSortable("datafeed_id", "name", "enable", "updated_at", "module")
 	datafeedNameBad   = regexp.MustCompile(`[?*<>]`)

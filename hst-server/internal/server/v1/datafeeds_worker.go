@@ -406,7 +406,7 @@ func (s *HttpServer) publishWorkerConfigSnapshot(ctx context.Context, datafeedID
 	}
 }
 
-func (s *HttpServer) notifyDatafeedsForSymbolID(ctx context.Context, symbolID int64) {
+func (s *HttpServer) NotifyDatafeedsForSymbolID(ctx context.Context, symbolID int64) {
 	catalog, err := loadCatalogSymbolRefs(ctx, s)
 	if err != nil {
 		s.Log.Log(logger.TypeNet, logger.CodeWarn, "catalog load failed for session notify",
