@@ -15,11 +15,14 @@ var startingGroups = []struct {
 	// Deposit and Leverage are what an account in the tree opens with.
 	Deposit  *float64
 	Leverage *int32
+	// Call and StopOut are the margin levels, as a percentage of the margin in use.
+	Call    float64
+	StopOut float64
 }{
-	{Group: `demo`, Currency: "USD", Company: "HS Trading", Deposit: ptr(100000.0), Leverage: ptr(int32(100))},
-	{Group: `preliminary`, Currency: "USD", Company: "HS Trading"},
-	{Group: `real`, Currency: "USD", Company: "HS Trading"},
-	{Group: `managers\admin`, Currency: "USD", Company: "HS Trading"},
+	{Group: `demo`, Currency: "USD", Company: "HS Trading", Deposit: ptr(100000.0), Leverage: ptr(int32(100)), Call: 100, StopOut: 50},
+	{Group: `preliminary`, Currency: "USD", Company: "HS Trading", Call: 100, StopOut: 50},
+	{Group: `real`, Currency: "USD", Company: "HS Trading", Call: 100, StopOut: 50},
+	{Group: `managers\admin`, Currency: "USD", Company: "HS Trading", Call: 100, StopOut: 50},
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -30,10 +33,11 @@ func (s *Seeder) SeedGroups(ctx context.Context) error {
 
 	for _, g := range startingGroups {
 		tag, err := s.DB.DB.Exec(ctx,
-			`INSERT INTO hst.groups ("group", currency, company, demo_deposit, demo_leverage, updated_at)
-			 VALUES ($1, $2, $3, $4, $5, $6)
+			`INSERT INTO hst.groups ("group", currency, company, demo_deposit, demo_leverage,
+			                         margin_call, margin_stop_out, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 			 ON CONFLICT ("group") DO NOTHING`,
-			g.Group, g.Currency, g.Company, g.Deposit, g.Leverage, now)
+			g.Group, g.Currency, g.Company, g.Deposit, g.Leverage, g.Call, g.StopOut, now)
 		if err != nil {
 			return err
 		}
