@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"hstcore/internal/settings"
@@ -97,4 +100,48 @@ func (h *Handler) RateMargin(r *settings.Rules, a *model.Account, buy bool) floa
 		return 1
 	}
 	return rate
+}
+
+// AccountSummary is where an account stands, as one line.
+//
+//	summary,login,balance,credit,equity,margin,free,level%,pl[,positionId,profit]...
+//
+// The trailing pairs are the positions on the instrument that just moved; every other position's
+// result is already counted in pl.
+func AccountSummary(a *model.Account, positions map[int64]float64) string {
+	d := int(a.CurrencyDigits)
+	if d < 0 {
+		d = 2
+	}
+
+	var b strings.Builder
+
+	b.WriteString("summary,")
+	b.WriteString(strconv.FormatInt(a.Login, 10))
+
+	for _, v := range []float64{a.Balance, a.Credit, a.Equity, a.Margin, a.MarginFree} {
+		b.WriteByte(',')
+		b.WriteString(strconv.FormatFloat(v, 'f', d, 64))
+	}
+
+	b.WriteByte(',')
+	b.WriteString(strconv.FormatFloat(a.MarginLevel, 'f', 2, 64))
+	b.WriteString("%,")
+	b.WriteString(strconv.FormatFloat(a.Profit, 'f', d, 64))
+
+	// sorted, so the same account state is always the same line
+	ids := make([]int64, 0, len(positions))
+	for id := range positions {
+		ids = append(ids, id)
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+
+	for _, id := range ids {
+		b.WriteByte(',')
+		b.WriteString(strconv.FormatInt(id, 10))
+		b.WriteByte(',')
+		b.WriteString(strconv.FormatFloat(positions[id], 'f', d, 64))
+	}
+
+	return b.String()
 }

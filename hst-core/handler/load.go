@@ -544,7 +544,7 @@ func (h *Handler) RefreshAccount(ctx context.Context, e *book.Entry) error {
 		return err
 	}
 
-	h.PublishWS(model.SubjectAccountSummary(login), "account", &account)
+	h.PublishAccount(&account, nil)
 
 	h.Log.Log(logger.TypeCfg, logger.CodeOK, "account refreshed",
 		"login", login, "group", account.Group, "leverage", account.Leverage)

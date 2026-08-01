@@ -156,7 +156,7 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
 		h.SavePositionAndPublishAsync(p)
 	}
 
-	h.PublishWS(model.SubjectAccountSummary(account.Login), "account", &account)
+	h.PublishAccount(&account, nil)
 
 	return true
 }
@@ -194,7 +194,7 @@ func (h *Handler) ReleaseAccumulatedProfit(ctx context.Context) {
 				"login", account.Login, "error", err.Error())
 		}
 
-		h.PublishWS(model.SubjectAccountSummary(account.Login), "account", &account)
+		h.PublishAccount(&account, nil)
 	})
 
 	if released > 0 {

@@ -40,6 +40,24 @@ func (h *Handler) PublishWS(subject, event string, payload any) {
 	}
 }
 
+// PublishText sends a payload that is already formatted, for the messages that go out often
+// enough that an envelope around them would cost more than they do.
+func (h *Handler) PublishText(subject, event, payload string) {
+	msg := &natscore.Msg{
+		Subject: subject,
+		Data:    []byte(payload),
+		Header: natscore.Header{
+			headerFormat: []string{"text"},
+			headerEvent:  []string{event},
+		},
+	}
+
+	if err := h.Nats.NC.PublishMsg(msg); err != nil {
+		h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not publish an event",
+			"subject", subject, "error", err.Error())
+	}
+}
+
 func (h *Handler) PublishResult(res *model.TradeResult) {
 	if res.Login == 0 {
 		return
@@ -66,12 +84,17 @@ func (h *Handler) PublishTrade(e *book.Entry, o *model.Order, f *Fill, a *model.
 		h.PublishWS(model.SubjectAccountPositions(o.Login), "position_closed", p)
 	}
 
-	h.PublishWS(model.SubjectAccountSummary(o.Login), "account", a)
+	h.PublishAccount(a, nil)
 }
 
-// PublishAccount announces a new money state on its own, for the tick path where nothing traded.
-func (h *Handler) PublishAccount(a *model.Account) {
-	h.PublishWS(model.SubjectAccountSummary(a.Login), "account", a)
+// PublishAccount sends where the account stands, and what each position on the instrument that
+// moved is worth.
+//
+// This one goes out on every tick that touches the account, so it is written as one line rather
+// than an object: a few hundred bytes of json per tick per account is the single largest thing
+// this engine would put on the wire.
+func (h *Handler) PublishAccount(a *model.Account, positions map[int64]float64) {
+	h.PublishText(model.SubjectAccountSummary(a.Login), "summary", AccountSummary(a, positions))
 }
 
 // PublishDealing offers one request to one dealer's queue.

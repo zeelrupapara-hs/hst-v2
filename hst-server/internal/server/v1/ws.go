@@ -59,6 +59,9 @@ func (s *HttpServer) ServeWS(c *websocket.Conn) {
 
 	// the socket is closed as soon as this returns, so park here until the connection is torn down
 	client.Wait()
+
+	// a terminal that has gone away is not watching prices any more
+	dropMarketWatcher(client.SessionId)
 }
 
 // subscribe opens every nats subscription this socket is entitled to.

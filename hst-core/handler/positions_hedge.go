@@ -242,5 +242,5 @@ func (h *Handler) SettleAndPublish(ctx context.Context, e *book.Entry) {
 			"login", account.Login, "error", err.Error())
 	}
 
-	h.PublishWS(model.SubjectAccountSummary(account.Login), "account", &account)
+	h.PublishAccount(&account, nil)
 }

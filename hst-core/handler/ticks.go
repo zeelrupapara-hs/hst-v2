@@ -22,13 +22,13 @@ func (h *Handler) NotifyAll(t model.Tick) {
 	for _, e := range watching {
 		entry := e
 		h.Workers.Submit(func(ctx context.Context) {
-			h.Notify(ctx, entry, t)
+			h.CalculateAccountProfits(ctx, entry, t)
 		})
 	}
 }
 
-// Notify brings one account up to date with a new price.
-func (h *Handler) Notify(ctx context.Context, e *book.Entry, t model.Tick) {
+// CalculateAccountProfits brings one account up to date with a new price.
+func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t model.Tick) {
 	e.Lock()
 
 	group := e.Account.Group
@@ -48,13 +48,21 @@ func (h *Handler) Notify(ctx context.Context, e *book.Entry, t model.Tick) {
 	level := money.MarginLevel
 	margin := money.Margin
 
+	// what each position on the instrument that moved is now worth, for the client to paint
+	profits := make(map[int64]float64, 4)
+	for _, p := range e.Positions {
+		if p.Symbol == t.Symbol {
+			profits[p.PositionId] = p.Profit
+		}
+	}
+
 	// what the price crossed, gathered while the account is locked and acted on after
 	hits := h.CookPosition(e, t)
 	pendings := h.pendingHits(e, t)
 
 	e.Unlock()
 
-	h.PublishAccount(&account)
+	h.PublishAccount(&account, profits)
 
 	// expiry before anything else.
 	h.ExpireOrders(ctx, e, t.Symbol)

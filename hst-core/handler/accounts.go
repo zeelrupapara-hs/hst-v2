@@ -139,7 +139,7 @@ func (h *Handler) SaveBalanceAndPublish(ctx context.Context, e *book.Entry, d *m
 	}
 
 	h.PublishWS(model.SubjectAccountDeals(d.Login), model.BalanceActionName(d.Action), d)
-	h.PublishWS(model.SubjectAccountSummary(a.Login), "account", a)
+	h.PublishAccount(a, nil)
 
 	return nil
 }

@@ -125,7 +125,7 @@ func (h *Handler) ResettleAccounts(ctx context.Context) {
 				"login", account.Login, "error", err.Error())
 		}
 
-		h.PublishWS(model.SubjectAccountSummary(account.Login), "account", &account)
+		h.PublishAccount(&account, nil)
 	})
 
 	if changed > 0 {

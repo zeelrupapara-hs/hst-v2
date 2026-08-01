@@ -92,6 +92,12 @@ const (
 	// EventSessionRevoked tells a socket its session is gone; the server closes the connection right after sending it.
 	EventSessionRevoked = "session.revoked"
 
+	// EventStartMarketFeed and EventStopMarketFeed put a terminal on and off the price stream.
+	EventStartMarketFeed = "start_market_feed"
+	EventStopMarketFeed  = "stop_market_feed"
+	// EventMarketFeed is one quote, as a line rather than an object.
+	EventMarketFeed = "market_feed"
+
 	EventOrderCreate       = "order_create"
 	EventBalanceCreate     = "balance_create"
 	EventOrderDealerCreate = "order_dealer_create"

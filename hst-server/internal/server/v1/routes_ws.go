@@ -7,6 +7,10 @@ import (
 
 // RegisterWSV1 binds every inbound socket event to its handler.
 func (s *HttpServer) RegisterWSV1() {
+	// the price stream is asked for, not given
+	s.Hub.RegisterRoute(model.EventStartMarketFeed, s.StartMyMarketFeed)
+	s.Hub.RegisterRoute(model.EventStopMarketFeed, s.StopMyMarketFeed)
+
 	s.Hub.RegisterRoute(model.EventOrderCreate, s.CreateMyOrderWS)
 	s.Hub.RegisterRoute(model.EventOrderDealerCreate, s.CreateOrderWS)
 	s.Hub.RegisterRoute(model.EventOrderUpdate, s.UpdateMyOrderWS)
@@ -29,6 +33,17 @@ func (s *HttpServer) RegisterWSV1() {
 	s.Hub.RegisterRoute(model.EventDealerCancel, s.CancelRequestWS)
 
 	s.Hub.SetErrorHandler(s.WSErrorHandler)
+
+	// one subscription to the price stream for the whole process, fanned out from memory; one
+	// per socket would carry the same bytes several hundred times
+	if _, err := s.Nats.NC.Subscribe(model.SubjectTickAll, s.MarketFeedHandler); err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeErr, "could not watch the price stream",
+			"error", err.Error())
+		return
+	}
+
+	s.Log.Log(logger.TypeNet, logger.CodeOK, "watching the price stream",
+		"subject", model.SubjectTickAll)
 
 	s.Log.Log(logger.TypeNet, logger.CodeOK, "websocket routes registered",
 		"routes", len(s.Hub.RouterMap))
