@@ -1190,7 +1190,8 @@ func (s *HttpServer) DeleteDatafeedParam(c *fiber.Ctx) error {
 var errParamPriorityOutOfRange = errors.New("priority out of range")
 
 func validateDatafeedParamPriority(target int32, count int) error {
-	if target < 0 || target >= int32(count) {
+	// compare as int64 so a count larger than an int32 cannot wrap into a passing value
+	if target < 0 || int64(target) >= int64(count) {
 		return errParamPriorityOutOfRange
 	}
 	return nil

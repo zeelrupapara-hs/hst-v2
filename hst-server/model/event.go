@@ -93,6 +93,7 @@ const (
 	EventSessionRevoked = "session.revoked"
 
 	EventOrderCreate       = "order_create"
+	EventBalanceCreate     = "balance_create"
 	EventOrderDealerCreate = "order_dealer_create"
 	EventOrderUpdate       = "order_update"
 	EventOrderDealerUpdate = "order_dealer_update"

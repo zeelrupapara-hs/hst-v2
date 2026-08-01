@@ -43,6 +43,8 @@ const (
 	GroupNotFound                = "no such group"
 	RegistrationClosed           = "registration is not open for this account type"
 	InvalidConnectionType        = "this connection type does not exist"
+	InvalidBalanceAction         = "this is not a money operation"
+	InvalidAmount                = "the amount must not be zero"
 	EngineUnavailable            = "the trading engine did not answer"
 	ReadOnlySession              = "this session may not trade"
 	WrongPanel                   = "this login belongs to the other panel"
@@ -102,6 +104,8 @@ var (
 	ErrGroupNotFound                = errors.New(GroupNotFound)
 	ErrRegistrationClosed           = errors.New(RegistrationClosed)
 	ErrInvalidConnectionType        = errors.New(InvalidConnectionType)
+	ErrInvalidBalanceAction         = errors.New(InvalidBalanceAction)
+	ErrInvalidAmount                = errors.New(InvalidAmount)
 	ErrEngineUnavailable            = errors.New(EngineUnavailable)
 	ErrReadOnlySession              = errors.New(ReadOnlySession)
 	ErrWrongPanel                   = errors.New(WrongPanel)

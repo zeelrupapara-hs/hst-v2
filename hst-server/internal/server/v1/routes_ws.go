@@ -20,6 +20,8 @@ func (s *HttpServer) RegisterWSV1() {
 	s.Hub.RegisterRoute(model.EventPositionDealerClose, s.ClosePositionWS)
 	s.Hub.RegisterRoute(model.EventPositionCloseBy, s.CloseByMyPositionWS)
 
+	s.Hub.RegisterRoute(model.EventBalanceCreate, s.CreateBalanceWS)
+
 	s.Hub.RegisterRoute(model.EventDealerConfirm, s.ConfirmRequestWS)
 	s.Hub.RegisterRoute(model.EventDealerRequote, s.RequoteRequestWS)
 	s.Hub.RegisterRoute(model.EventDealerReject, s.RejectRequestWS)

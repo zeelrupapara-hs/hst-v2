@@ -61,3 +61,7 @@ var (
 	LeverageRuleDeletedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rule deleted", login, id) }
 	LeverageReorderedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rules reordered", login, id) }
 )
+
+var BalanceMsg = func(actor, login int64, action string, amount float64) string {
+	return fmt.Sprintf("%d: %s %.2f on %d", actor, action, amount, login)
+}

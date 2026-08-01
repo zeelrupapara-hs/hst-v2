@@ -142,6 +142,14 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	dealing.Post("/:request_id/reject", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RejectRequest)
 	dealing.Post("/:request_id/cancel", s.Middleware.Authorization(model.MgrRightTradesDealer), s.CancelRequest)
 
+	// balance operations, for the accountant only
+	balance := v1.Group("/balance", s.Middleware.Protect, s.Middleware.RequireManager)
+	balance.Post("/", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateBalance)
+	balance.Post("/deposit", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateDeposit)
+	balance.Post("/withdrawal", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateWithdrawal)
+	balance.Post("/credit", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateCredit)
+	balance.Post("/correction", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateCorrection)
+
 	// server journal
 	journal := v1.Group("/journal", s.Middleware.Protect, s.Middleware.RequireManager)
 	journal.Get("/", s.Middleware.Authorization(model.MgrRightSrvJournals), s.MyJournal)

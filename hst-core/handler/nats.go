@@ -45,7 +45,7 @@ func (h *Handler) subscribe() error {
 	return nil
 }
 
-// subscribeShard opens the three subjects one owned shard carries.
+// subscribeShard opens the subjects one owned shard carries.
 func (h *Handler) subscribeShard(shard uint32) error {
 	if err := h.subscribeQuiet(model.SubjectShardOrders(shard), h.OrderSystemEventHandler); err != nil {
 		return err
@@ -54,7 +54,11 @@ func (h *Handler) subscribeShard(shard uint32) error {
 		return err
 	}
 
-	return h.subscribeQuiet(model.SubjectShardDealing(shard), h.DealingSystemEventHandler)
+	if err := h.subscribeQuiet(model.SubjectShardDealing(shard), h.DealingSystemEventHandler); err != nil {
+		return err
+	}
+
+	return h.subscribeQuiet(model.SubjectShardBalance(shard), h.BalanceSystemEventHandler)
 }
 
 // ConfigSystemEventHandler reads the configuration again.
