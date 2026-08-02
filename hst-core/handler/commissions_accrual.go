@@ -221,7 +221,7 @@ func (h *Handler) applyPeriodCharge(ctx context.Context, e *book.Entry, action i
 
 	e.Account.Balance += amount
 
-	h.SettleAccount(e).Apply(e.Account)
+	h.CalculateAccountMargins(e).Apply(e.Account)
 
 	deal := &model.Deal{
 		Login:          e.Account.Login,

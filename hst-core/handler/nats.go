@@ -108,7 +108,7 @@ func (h *Handler) ResettleAccounts(ctx context.Context) {
 
 		before := *e.Account
 
-		h.SettleAccount(e).Apply(e.Account)
+		h.CalculateAccountMargins(e).Apply(e.Account)
 
 		account := *e.Account
 		e.Unlock()

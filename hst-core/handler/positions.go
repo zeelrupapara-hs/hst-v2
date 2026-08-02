@@ -222,7 +222,7 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 	volume := o.VolumeCurrent
 	fill := h.Execute(e, o, r, price, Now())
 
-	h.settle(e, o, fill, r)
+	h.bookFill(e, o, fill, r)
 
 	account := *e.Account
 	e.Unlock()
@@ -336,7 +336,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 	// the ticket goes on after the fill, so Execute is not asked to close it a second time
 	o.PositionId = p.PositionId
 
-	h.settle(e, o, f, r)
+	h.bookFill(e, o, f, r)
 
 	account := *e.Account
 	e.Unlock()
@@ -400,7 +400,7 @@ func (h *Handler) CloseAtMarket(ctx context.Context, e *book.Entry, p *model.Pos
 	price := NormalisePrice(t.ClosePrice(p.Buy()), r.Digits)
 	fill := h.Execute(e, o, r, price, Now())
 
-	h.settle(e, o, fill, r)
+	h.bookFill(e, o, fill, r)
 
 	account := *e.Account
 	e.Unlock()

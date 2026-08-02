@@ -97,7 +97,7 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 
 	fill := h.Execute(e, order, r, price, Now())
 
-	h.settle(e, order, fill, r)
+	h.bookFill(e, order, fill, r)
 
 	account := *e.Account
 	e.Unlock()
@@ -367,7 +367,7 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 	o.TimeDone = Now()
 	o.PriceCurrent = price
 
-	h.settle(e, &fillOrder, fill, r)
+	h.bookFill(e, &fillOrder, fill, r)
 
 	account := *e.Account
 	e.Unlock()
@@ -427,7 +427,7 @@ func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *boo
 	h.PublishWS(model.SubjectAccountOrders(o.Login), "order", o)
 
 	// a working order can reserve margin of its own, so the account changed even with no deal
-	h.SettleAndPublish(ctx, e)
+	h.CalculateAccountMarginsAndProfits(ctx, e)
 
 	res.RetCode = int32(model.RetOK)
 	res.Message = model.RetOK.String()
@@ -457,8 +457,8 @@ func (h *Handler) writeOrder(ctx context.Context, o *model.Order) error {
 	return tx.Commit(ctx)
 }
 
-// settle puts the fill onto the account and recomputes the money.
-func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rules) {
+// bookFill puts the fill onto the account and recomputes the money.
+func (h *Handler) bookFill(e *book.Entry, o *model.Order, f *Fill, r *settings.Rules) {
 	// commission comes off as the deal is booked, so the client sees the true cost of the trade
 	for _, d := range f.Deals {
 		d.Commission = -h.CommissionFor(d, r)
@@ -483,7 +483,7 @@ func (h *Handler) settle(e *book.Entry, o *model.Order, f *Fill, r *settings.Rul
 	o.TimeDone = Now()
 	o.PriceCurrent = f.Price
 
-	h.SettleAccount(e).Apply(e.Account)
+	h.CalculateAccountMargins(e).Apply(e.Account)
 }
 
 // orderFrom builds the order record a request is asking for.

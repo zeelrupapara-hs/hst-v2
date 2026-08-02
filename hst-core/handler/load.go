@@ -535,7 +535,7 @@ func (h *Handler) RefreshAccount(ctx context.Context, e *book.Entry) error {
 		return err
 	}
 
-	h.SettleAccount(e).Apply(e.Account)
+	h.CalculateAccountMargins(e).Apply(e.Account)
 
 	account := *e.Account
 	e.Unlock()

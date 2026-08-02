@@ -147,7 +147,7 @@ func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
 		return false
 	}
 
-	h.SettleAccount(e).Apply(e.Account)
+	h.CalculateAccountMargins(e).Apply(e.Account)
 
 	account := *e.Account
 	e.Unlock()
@@ -182,7 +182,7 @@ func (h *Handler) ReleaseAccumulatedProfit(ctx context.Context) {
 
 		e.Account.Balance += held
 		e.Account.BlockedProfit = 0
-		h.SettleAccount(e).Apply(e.Account)
+		h.CalculateAccountMargins(e).Apply(e.Account)
 
 		account := *e.Account
 		e.Unlock()

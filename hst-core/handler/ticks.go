@@ -41,7 +41,7 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 
 	h.CalcPosition(e, t.Symbol, t)
 
-	money := h.SettleAccount(e)
+	money := h.CalculateAccountMargins(e)
 	money.Apply(e.Account)
 
 	account := *e.Account

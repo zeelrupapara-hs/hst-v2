@@ -22,8 +22,8 @@ const (
 	podRefresh = 5 * time.Second
 )
 
-// runMembership keeps this pod registered and reacts to the others.
-func (h *Handler) runMembership(ctx context.Context) {
+// RunMembership keeps this pod registered and reacts to the others.
+func (h *Handler) RunMembership(ctx context.Context) {
 	// register before the first look, so this pod is in its own first map
 	h.register(ctx)
 	h.rebalance(ctx)

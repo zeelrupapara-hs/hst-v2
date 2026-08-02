@@ -189,10 +189,10 @@ func maintenanceRate(r *settings.Rules) float64 {
 	return r.MarginMaintenance / r.MarginInitial
 }
 
-// SettleAccount brings the margin up to date and then adds the account up. Every path that
+// CalculateAccountMargins brings the margin up to date and then adds the account up. Every path that
 // needs the money state goes through here, so no caller can settle against stale margin or
 // against the wrong free margin rule.
-func (h *Handler) SettleAccount(e *book.Entry) Money {
+func (h *Handler) CalculateAccountMargins(e *book.Entry) Money {
 	reserved := h.RemargeAccount(e)
 
 	free := model.FreeMarginUsePL
@@ -224,12 +224,12 @@ func (h *Handler) excluded(group, symbol string) bool {
 	return ok && r.MarginFlags&model.MarginFlagExcludePL != 0
 }
 
-// SettleAndPublish works the account out again and tells the terminal, for the paths that change
+// CalculateAccountMarginsAndProfits works the account out again and tells the terminal, for the paths that change
 // what is reserved without writing a deal: a working order placed, cancelled or expired.
-func (h *Handler) SettleAndPublish(ctx context.Context, e *book.Entry) {
+func (h *Handler) CalculateAccountMarginsAndProfits(ctx context.Context, e *book.Entry) {
 	e.Lock()
 	before := e.Account.Margin
-	h.SettleAccount(e).Apply(e.Account)
+	h.CalculateAccountMargins(e).Apply(e.Account)
 	account := *e.Account
 	e.Unlock()
 

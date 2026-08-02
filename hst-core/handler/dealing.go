@@ -210,7 +210,7 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 
 	fill := h.Execute(e, o, r, price, Now())
 
-	h.settle(e, o, fill, r)
+	h.bookFill(e, o, fill, r)
 
 	account := *e.Account
 	e.Unlock()
@@ -475,9 +475,9 @@ func (h *Handler) nextHolder(p *Pending) int {
 	return -1
 }
 
-// runDealingSweep gives up on unanswered requests, on a tick short enough that the shortest
+// RunDealingSweep gives up on unanswered requests, on a tick short enough that the shortest
 // instrument timeout is still roughly honoured.
-func (h *Handler) runDealingSweep(ctx context.Context) {
+func (h *Handler) RunDealingSweep(ctx context.Context) {
 	t := time.NewTicker(dealingSweepEvery)
 	defer t.Stop()
 

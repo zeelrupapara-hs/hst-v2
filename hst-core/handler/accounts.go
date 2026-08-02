@@ -69,7 +69,7 @@ func (h *Handler) NewBalance(ctx context.Context, req *model.BalanceRequest) *mo
 
 	deal := h.balanceDeal(e, req)
 
-	h.SettleAccount(e).Apply(e.Account)
+	h.CalculateAccountMargins(e).Apply(e.Account)
 
 	account := *e.Account
 	e.Unlock()

@@ -15,7 +15,7 @@ import (
 func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Group, t model.Tick) {
 	e.Lock()
 
-	money := h.SettleAccount(e)
+	money := h.CalculateAccountMargins(e)
 
 	// nothing reserved means nothing at risk, unless the group asks us to look at a fully
 	// covered book: there the margin is zero while the equity can still go under
@@ -72,7 +72,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 		// stop as soon as the account is back above the line
 		e.Lock()
-		after := h.SettleAccount(e)
+		after := h.CalculateAccountMargins(e)
 		e.Unlock()
 
 		if after.Margin <= 0 || after.MarginLevel > stop {
