@@ -10,16 +10,23 @@ import (
 	"hstserver/pkg/http"
 )
 
-// Authorization gates a route on one manager right.
-func (m *Middleware) Authorization(right uint) fiber.Handler {
+// Authorization gates a route: every right named must be held, because the platform makes some depend on others: reading an
+// order needs account access as well as trade access.
+func (m *Middleware) Authorization(rights ...uint) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		snap, ok := utils.GetClient(c)
 		if !ok {
 			return m.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 		}
 
-		if !snap.IsManager || !snap.ManagerRights.Has(right) {
+		if !snap.IsManager {
 			return m.App.HttpResponseForbidden(c, errs.ErrUnauthorizedToAccessResource)
+		}
+
+		for _, right := range rights {
+			if !snap.ManagerRights.Has(right) {
+				return m.App.HttpResponseForbidden(c, errs.ErrUnauthorizedToAccessResource)
+			}
 		}
 
 		return c.Next()

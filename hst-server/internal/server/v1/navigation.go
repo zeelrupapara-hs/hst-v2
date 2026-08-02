@@ -60,8 +60,8 @@ type navNode struct {
 	children []navNode
 }
 
-// Every entry below is a section this platform actually serves, gated on the same right the
-// route behind it enforces, so the navigator can never offer what the api would refuse.
+// Every entry is a section this platform serves, gated on the same rights the route behind it
+// enforces, so the navigator can never offer what the api would refuse.
 
 // managerTree is the running of the platform: the accounts, their trades, and the desk.
 var managerTree = []navNode{
@@ -72,15 +72,15 @@ var managerTree = []navNode{
 			{key: "clients", label: "Clients", icon: "briefcase", route: "/clients", section: "trading",
 				needs: []uint{model.MgrRightClientsAccess}, counter: "clients"},
 			{key: "positions", label: "Positions", icon: "layers", route: "/positions", section: "trading",
-				needs: []uint{model.MgrRightTradesRead}, counter: "positions"},
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "positions"},
 			{key: "orders", label: "Orders", icon: "list", route: "/orders", section: "trading",
-				needs: []uint{model.MgrRightTradesRead}, counter: "orders"},
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "orders"},
 			{key: "deals", label: "Deals", icon: "receipt", route: "/deals", section: "trading",
-				needs: []uint{model.MgrRightTradesRead}},
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}},
 		}},
 
 	{key: "dealing", label: "Dealing", icon: "gavel", route: "/dealing", section: "dealing",
-		needs: []uint{model.MgrRightTradesDealer}},
+		needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer}},
 
 	{key: "balance", label: "Balance Operations", icon: "wallet", route: "/balance", section: "accounting",
 		needs: []uint{model.MgrRightAccountant}},
@@ -105,14 +105,14 @@ var adminTree = []navNode{
 		}},
 
 	{key: "orders_deals", label: "Orders & Deals", icon: "list", route: "", section: "trading",
-		needs: []uint{model.MgrRightTradesRead},
+		needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead},
 		children: []navNode{
 			{key: "positions", label: "Positions", icon: "layers", route: "/positions", section: "trading",
-				needs: []uint{model.MgrRightTradesRead}, counter: "positions"},
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "positions"},
 			{key: "orders", label: "Orders", icon: "list", route: "/orders", section: "trading",
-				needs: []uint{model.MgrRightTradesRead}, counter: "orders"},
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "orders"},
 			{key: "deals", label: "Deals", icon: "receipt", route: "/deals", section: "trading",
-				needs: []uint{model.MgrRightTradesRead}},
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}},
 		}},
 
 	{key: "groups", label: "Groups", icon: "folder-tree", route: "/groups", section: "config",

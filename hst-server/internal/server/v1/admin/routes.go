@@ -38,7 +38,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	users.Post("/", s.Middleware.Authorization(model.MgrRightAccManager), s.CreateUser)
 	users.Get("/:login", s.Middleware.Authorization(model.MgrRightAccRead), s.GetUser)
 	users.Patch("/:login", s.Middleware.Authorization(model.MgrRightAccManager), s.UpdateUser)
-	users.Delete("/:login", s.Middleware.Authorization(model.MgrRightAccDelete), s.DeleteUser)
+	users.Delete("/:login", s.Middleware.Authorization(model.MgrRightAccManager, model.MgrRightAccDelete), s.DeleteUser)
 
 	// managers
 	managers := v1.Group("/managers", s.Middleware.Protect, s.Middleware.RequireManager)
@@ -121,27 +121,27 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 
 	// orders
 	orders := v1.Group("/orders", s.Middleware.Protect, s.Middleware.RequireManager)
-	orders.Get("/", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAllOrders)
-	orders.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAccountOrders)
-	orders.Get("/:order_id", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetOrder)
-	orders.Post("/", s.Middleware.Authorization(model.MgrRightTradesManager), s.CreateOrder)
-	orders.Put("/:order_id", s.Middleware.Authorization(model.MgrRightTradesManager), s.UpdateOrder)
-	orders.Post("/:order_id/cancel", s.Middleware.Authorization(model.MgrRightTradesManager), s.CancelOrder)
+	orders.Get("/", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAllOrders)
+	orders.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAccountOrders)
+	orders.Get("/:order_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetOrder)
+	orders.Post("/", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.CreateOrder)
+	orders.Put("/:order_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.UpdateOrder)
+	orders.Post("/:order_id/cancel", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.CancelOrder)
 
 	// positions
 	positions := v1.Group("/positions", s.Middleware.Protect, s.Middleware.RequireManager)
-	positions.Get("/", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAllPositions)
-	positions.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAccountPositions)
-	positions.Get("/:position_id", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetPosition)
-	positions.Put("/:position_id", s.Middleware.Authorization(model.MgrRightTradesManager), s.UpdatePosition)
-	positions.Post("/:position_id/close", s.Middleware.Authorization(model.MgrRightTradesManager), s.ClosePosition)
-	positions.Post("/:position_id/close-by", s.Middleware.Authorization(model.MgrRightTradesManager), s.CloseByPosition)
+	positions.Get("/", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAllPositions)
+	positions.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAccountPositions)
+	positions.Get("/:position_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetPosition)
+	positions.Put("/:position_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.UpdatePosition)
+	positions.Post("/:position_id/close", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.ClosePosition)
+	positions.Post("/:position_id/close-by", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.CloseByPosition)
 
 	// deals
 	deals := v1.Group("/deals", s.Middleware.Protect, s.Middleware.RequireManager)
-	deals.Get("/", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAllDeals)
-	deals.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetAccountDeals)
-	deals.Get("/:deal_id", s.Middleware.Authorization(model.MgrRightTradesRead), s.GetDeal)
+	deals.Get("/", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAllDeals)
+	deals.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAccountDeals)
+	deals.Get("/:deal_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetDeal)
 
 	// the daily rollover: when it runs, and running it by hand
 	eod := v1.Group("/system/end-of-day", s.Middleware.Protect, s.Middleware.RequireManager)
@@ -155,18 +155,18 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 
 	// the dealing desk
 	dealing := v1.Group("/dealing", s.Middleware.Protect, s.Middleware.RequireManager)
-	dealing.Get("/", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ListDealingRequests)
+	dealing.Get("/", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.ListDealingRequests)
 	// connecting as a dealer is what makes routing rules hand this manager work
-	dealing.Get("/state", s.Middleware.Authorization(model.MgrRightTradesDealer), s.GetDealerState)
-	dealing.Post("/connect", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ConnectDealer)
-	dealing.Post("/heartbeat", s.Middleware.Authorization(model.MgrRightTradesDealer), s.HeartbeatDealer)
-	dealing.Post("/disconnect", s.Middleware.Authorization(model.MgrRightTradesDealer), s.DisconnectDealer)
-	dealing.Post("/:request_id/confirm", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ConfirmRequest)
-	dealing.Post("/:request_id/requote", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RequoteRequest)
-	dealing.Post("/:request_id/reject", s.Middleware.Authorization(model.MgrRightTradesDealer), s.RejectRequest)
-	dealing.Post("/:request_id/accept", s.Middleware.Authorization(model.MgrRightTradesDealer), s.AcceptRequote)
-	dealing.Post("/:request_id/return", s.Middleware.Authorization(model.MgrRightTradesDealer), s.ReturnRequest)
-	dealing.Post("/:request_id/cancel", s.Middleware.Authorization(model.MgrRightTradesDealer), s.CancelRequest)
+	dealing.Get("/state", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.GetDealerState)
+	dealing.Post("/connect", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.ConnectDealer)
+	dealing.Post("/heartbeat", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.HeartbeatDealer)
+	dealing.Post("/disconnect", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.DisconnectDealer)
+	dealing.Post("/:request_id/confirm", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.ConfirmRequest)
+	dealing.Post("/:request_id/requote", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.RequoteRequest)
+	dealing.Post("/:request_id/reject", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.RejectRequest)
+	dealing.Post("/:request_id/accept", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.AcceptRequote)
+	dealing.Post("/:request_id/return", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.ReturnRequest)
+	dealing.Post("/:request_id/cancel", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer), s.CancelRequest)
 
 	// balance operations, for the accountant only
 	balance := v1.Group("/balance", s.Middleware.Protect, s.Middleware.RequireManager)
