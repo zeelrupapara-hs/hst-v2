@@ -20,12 +20,24 @@ func activeClause(c *fiber.Ctx) string {
 	return doneStates
 }
 
+// orderPage leaves the working set whole and pages the history, which only grows.
+func orderPage(c *fiber.Ctx) pageOpts {
+	if c.QueryBool("active", true) {
+		return readPage(c, 0)
+	}
+	return readPage(c, 100)
+}
+
 // GetAllOrders lists every order the manager's group masks reach.
 //
 //	@Id			GetAllOrders
 //	@Tags		Orders
 //	@Produce	json
 //	@Param		active	query		bool	false	"working orders only, true by default"
+//	@Param		limit	query		int		false	"how many, newest first, history only"
+//	@Param		page	query		int		false	"which page, zero based"
+//	@Param		from	query		int		false	"unix seconds, inclusive"
+//	@Param		to		query		int		false	"unix seconds, exclusive"
 //	@Success	200		{object}	Response{data=[]ViewOrder}
 //	@Failure	403		{object}	Response
 //	@Security	BearerAuth
@@ -38,7 +50,7 @@ func (s *HttpServer) GetAllOrders(c *fiber.Ctx) error {
 
 	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 1)
 
-	out, err := s.readOrders(c.UserContext(), where+" AND "+activeClause(c), args)
+	out, err := s.readOrders(c.UserContext(), where+" AND "+activeClause(c), args, orderPage(c))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -52,6 +64,10 @@ func (s *HttpServer) GetAllOrders(c *fiber.Ctx) error {
 //	@Tags		Trader
 //	@Produce	json
 //	@Param		active	query		bool	false	"working orders only, true by default"
+//	@Param		limit	query		int		false	"how many, newest first, history only"
+//	@Param		page	query		int		false	"which page, zero based"
+//	@Param		from	query		int		false	"unix seconds, inclusive"
+//	@Param		to		query		int		false	"unix seconds, exclusive"
 //	@Success	200		{object}	Response{data=[]ViewOrder}
 //	@Failure	403		{object}	Response
 //	@Security	BearerAuth
@@ -62,7 +78,7 @@ func (s *HttpServer) GetMyOrders(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	out, err := s.readOrders(c.UserContext(), "o.login = $1 AND "+activeClause(c), []any{snap.Login})
+	out, err := s.readOrders(c.UserContext(), "o.login = $1 AND "+activeClause(c), []any{snap.Login}, orderPage(c))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -77,6 +93,10 @@ func (s *HttpServer) GetMyOrders(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		login	path		int		true	"the account"
 //	@Param		active	query		bool	false	"working orders only, true by default"
+//	@Param		limit	query		int		false	"how many, newest first, history only"
+//	@Param		page	query		int		false	"which page, zero based"
+//	@Param		from	query		int		false	"unix seconds, inclusive"
+//	@Param		to		query		int		false	"unix seconds, exclusive"
 //	@Success	200		{object}	Response{data=[]ViewOrder}
 //	@Failure	403		{object}	Response
 //	@Security	BearerAuth
@@ -96,7 +116,7 @@ func (s *HttpServer) GetAccountOrders(c *fiber.Ctx) error {
 
 	out, err := s.readOrders(c.UserContext(),
 		"o.login = $1 AND "+where+" AND "+activeClause(c),
-		append([]any{int64(login)}, args...))
+		append([]any{int64(login)}, args...), orderPage(c))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -128,7 +148,7 @@ func (s *HttpServer) GetOrder(c *fiber.Ctx) error {
 	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 2)
 
 	out, err := s.readOrders(c.UserContext(), "o.order_id = $1 AND "+where,
-		append([]any{int64(orderId)}, args...))
+		append([]any{int64(orderId)}, args...), pageOpts{limit: 1})
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

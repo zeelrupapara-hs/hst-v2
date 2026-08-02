@@ -281,9 +281,11 @@ func (s *HttpServer) orderState(ctx context.Context, orderId, login int64) (typ,
 }
 
 // readOrders is the one query behind every order read handler.
-func (s *HttpServer) readOrders(ctx context.Context, where string, args []any) ([]ViewOrder, error) {
+func (s *HttpServer) readOrders(ctx context.Context, where string, args []any, p pageOpts) ([]ViewOrder, error) {
+	where, args = p.bound("o.time_setup", where, args)
+
 	rows, err := s.DB.DB.Query(ctx,
-		`SELECT `+orderColumns+orderFrom+where+` ORDER BY o.order_id DESC`, args...)
+		`SELECT `+orderColumns+orderFrom+where+p.tail("o.order_id"), args...)
 	if err != nil {
 		return nil, err
 	}

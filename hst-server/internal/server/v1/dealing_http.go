@@ -180,7 +180,7 @@ func (s *HttpServer) ListDealingRequests(c *fiber.Ctx) error {
 		return s.App.HttpResponseOK(c, []ViewOrder{})
 	}
 
-	out, err := s.readOrders(c.UserContext(), where, args)
+	out, err := s.readOrders(c.UserContext(), where, args, pageOpts{})
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

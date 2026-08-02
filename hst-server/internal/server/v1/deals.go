@@ -2,7 +2,6 @@ package v1
 
 import (
 	"context"
-	"strconv"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
@@ -39,9 +38,11 @@ const dealColumns = `d.deal_id, d.login, d.order_id, d.position_id, d.symbol, d.
 const dealFrom = ` FROM hst.deals d JOIN hst.users u ON u.login = d.login WHERE `
 
 // readDeals is the one query behind every deal read handler.
-func (s *HttpServer) readDeals(ctx context.Context, where string, args []any, limit int) ([]ViewDeal, error) {
+func (s *HttpServer) readDeals(ctx context.Context, where string, args []any, p pageOpts) ([]ViewDeal, error) {
+	where, args = p.bound("d.time", where, args)
+
 	rows, err := s.DB.DB.Query(ctx,
-		`SELECT `+dealColumns+dealFrom+where+` ORDER BY d.deal_id DESC LIMIT `+strconv.Itoa(limit), args...)
+		`SELECT `+dealColumns+dealFrom+where+p.tail("d.deal_id"), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -62,21 +63,15 @@ func (s *HttpServer) readDeals(ctx context.Context, where string, args []any, li
 	return out, rows.Err()
 }
 
-// dealLimit is how many lines a read returns, newest first.
-func dealLimit(c *fiber.Ctx) int {
-	limit := c.QueryInt("limit", 100)
-	if limit < 1 || limit > 500 {
-		limit = 100
-	}
-	return limit
-}
-
 // GetAllDeals lists every deal the manager's group masks reach.
 //
 //	@Id			GetAllDeals
 //	@Tags		Deals
 //	@Produce	json
 //	@Param		limit	query		int	false	"how many, newest first"
+//	@Param		page	query		int	false	"which page, zero based"
+//	@Param		from	query		int	false	"unix seconds, inclusive"
+//	@Param		to		query		int	false	"unix seconds, exclusive"
 //	@Success	200		{object}	Response{data=[]ViewDeal}
 //	@Failure	403		{object}	Response
 //	@Security	BearerAuth
@@ -89,7 +84,7 @@ func (s *HttpServer) GetAllDeals(c *fiber.Ctx) error {
 
 	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 1)
 
-	out, err := s.readDeals(c.UserContext(), where, args, dealLimit(c))
+	out, err := s.readDeals(c.UserContext(), where, args, readPage(c, 100))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -103,6 +98,9 @@ func (s *HttpServer) GetAllDeals(c *fiber.Ctx) error {
 //	@Tags		Trader
 //	@Produce	json
 //	@Param		limit	query		int	false	"how many, newest first"
+//	@Param		page	query		int	false	"which page, zero based"
+//	@Param		from	query		int	false	"unix seconds, inclusive"
+//	@Param		to		query		int	false	"unix seconds, exclusive"
 //	@Success	200		{object}	Response{data=[]ViewDeal}
 //	@Failure	403		{object}	Response
 //	@Security	BearerAuth
@@ -113,7 +111,7 @@ func (s *HttpServer) GetMyDeals(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	out, err := s.readDeals(c.UserContext(), "d.login = $1", []any{snap.Login}, dealLimit(c))
+	out, err := s.readDeals(c.UserContext(), "d.login = $1", []any{snap.Login}, readPage(c, 100))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -128,6 +126,9 @@ func (s *HttpServer) GetMyDeals(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		login	path		int	true	"the account"
 //	@Param		limit	query		int	false	"how many, newest first"
+//	@Param		page	query		int	false	"which page, zero based"
+//	@Param		from	query		int	false	"unix seconds, inclusive"
+//	@Param		to		query		int	false	"unix seconds, exclusive"
 //	@Success	200		{object}	Response{data=[]ViewDeal}
 //	@Failure	403		{object}	Response
 //	@Security	BearerAuth
@@ -146,7 +147,7 @@ func (s *HttpServer) GetAccountDeals(c *fiber.Ctx) error {
 	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 2)
 
 	out, err := s.readDeals(c.UserContext(), "d.login = $1 AND "+where,
-		append([]any{int64(login)}, args...), dealLimit(c))
+		append([]any{int64(login)}, args...), readPage(c, 100))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -178,7 +179,7 @@ func (s *HttpServer) GetDeal(c *fiber.Ctx) error {
 	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 2)
 
 	out, err := s.readDeals(c.UserContext(), "d.deal_id = $1 AND "+where,
-		append([]any{int64(dealId)}, args...), 1)
+		append([]any{int64(dealId)}, args...), pageOpts{limit: 1})
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

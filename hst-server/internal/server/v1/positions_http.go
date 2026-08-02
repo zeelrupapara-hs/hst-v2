@@ -1,11 +1,20 @@
 package v1
 
 import (
+	"errors"
+
 	errs "hstserver/pkg/errors"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
 )
+
+// errClosedPositions says where history actually lives.
+//
+// A position table holds open positions and nothing else, as MT5 does: closing one writes a deal
+// and removes the row. A caller asking for active=false wants the History tab, and would otherwise
+// be handed the open book and believe it.
+var errClosedPositions = errors.New("closed positions are not kept, read /deals or /orders?active=false for history")
 
 // GetAllPositions lists every open position the manager's group masks reach.
 //
@@ -17,6 +26,10 @@ import (
 //	@Security	BearerAuth
 //	@Router		/api/v1/positions [get]
 func (s *HttpServer) GetAllPositions(c *fiber.Ctx) error {
+	if !c.QueryBool("active", true) {
+		return s.App.HttpResponseBadRequest(c, errClosedPositions)
+	}
+
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -42,6 +55,10 @@ func (s *HttpServer) GetAllPositions(c *fiber.Ctx) error {
 //	@Security	BearerAuth
 //	@Router		/api/trader/v1/positions [get]
 func (s *HttpServer) GetMyPositions(c *fiber.Ctx) error {
+	if !c.QueryBool("active", true) {
+		return s.App.HttpResponseBadRequest(c, errClosedPositions)
+	}
+
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
@@ -68,6 +85,10 @@ func (s *HttpServer) GetMyPositions(c *fiber.Ctx) error {
 //	@Security	BearerAuth
 //	@Router		/api/v1/positions/accounts/{login} [get]
 func (s *HttpServer) GetAccountPositions(c *fiber.Ctx) error {
+	if !c.QueryBool("active", true) {
+		return s.App.HttpResponseBadRequest(c, errClosedPositions)
+	}
+
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
