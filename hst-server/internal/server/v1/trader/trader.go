@@ -155,12 +155,18 @@ func (s *Server) MyProfile(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, v)
 }
 
-// MySymbols returns the symbols the caller's group may trade.
+// MySymbols returns the symbols the caller's group may trade, with the group's own limits and
+// the price each is quoted at.
+//
+// The engine answers where it can: it folds the group override onto the instrument and holds the
+// quote book, so the limits here are the ones an order will actually be judged against. If it
+// cannot be reached the database still gives the list, without limits or prices, so a terminal
+// can draw its Market Watch and its charts while trading is down.
 //
 //	@Id			MySymbols
 //	@Tags		Trader
 //	@Produce	json
-//	@Success	200	{object}	Response{data=[]v1.ViewSymbol}
+//	@Success	200	{object}	Response{data=[]model.SymbolInfo}
 //	@Failure	403	{object}	Response
 //	@Failure	500	{object}	Response
 //	@Security	BearerAuth
@@ -171,9 +177,13 @@ func (s *Server) MySymbols(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
+	if live := s.AskEngineSymbols(c.UserContext(), snap.Login); len(live) > 0 {
+		return s.App.HttpResponseOK(c, live)
+	}
+
 	// the group's overrides decide what this trader may see, so a symbol nobody granted it never appears
 	rows, err := s.DB.DB.Query(c.UserContext(),
-		`SELECT s.symbol_id, s.symbol, s.path, s.description, s.digits, s.trade_mode,
+		`SELECT s.symbol, s.path, s.description, s.digits, s.trade_mode,
 		        s.calc_mode, s.exec_mode, s.spread, s.contract_size, s.date_modified
 		   FROM hst.symbols s
 		  WHERE EXISTS (
@@ -190,12 +200,14 @@ func (s *Server) MySymbols(c *fiber.Ctx) error {
 	}
 	defer rows.Close()
 
-	out := []v1.ViewSymbol{}
+	out := []model.SymbolInfo{}
 	for rows.Next() {
-		var v v1.ViewSymbol
-		if err := rows.Scan(&v.SymbolId, &v.Symbol, &v.Path, &v.Description, &v.Digits,
-			&v.TradeMode, &v.CalcMode, &v.ExecMode, &v.Spread, &v.ContractSize,
-			&v.DateModified); err != nil {
+		var v model.SymbolInfo
+		var spread int32
+		var modified int64
+		if err := rows.Scan(&v.Symbol, &v.Path, &v.Description, &v.Digits,
+			&v.TradeMode, &v.CalcMode, &v.ExecMode, &spread, &v.ContractSize,
+			&modified); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
 		out = append(out, v)

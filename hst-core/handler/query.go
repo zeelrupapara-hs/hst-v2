@@ -2,7 +2,9 @@ package handler
 
 import (
 	"encoding/json"
+	"sort"
 
+	"hstcore/internal/settings"
 	"hstcore/model"
 	"hstcore/pkg/logger"
 
@@ -36,6 +38,8 @@ func (h *Handler) QuerySystemEventHandler(msg *natscore.Msg) {
 		res.Positions, res.Found = h.GetAllPositions(q.Login)
 	case model.QueryOrders:
 		res.Orders, res.Found = h.GetAllOrders(q.Login)
+	case model.QuerySymbols:
+		res.Symbols, res.Found = h.GetAllSymbols(q.Login)
 	case model.QueryState:
 		res.Account, res.Found = h.GetAccount(q.Login)
 		res.Positions, _ = h.GetAllPositions(q.Login)
@@ -99,4 +103,85 @@ func (h *Handler) GetAllOrders(login int64) ([]model.Order, bool) {
 	}
 
 	return out, true
+}
+
+// GetAllSymbols is every instrument the account's group may trade, resolved and priced.
+//
+// The engine answers rather than the database because the group override is folded onto the
+// instrument here, and the ticket has to be shown the same limits the engine will judge the
+// order against. Settings.For reports whether the group reaches the symbol at all.
+func (h *Handler) GetAllSymbols(login int64) ([]model.SymbolInfo, bool) {
+	e, ok := h.Accounts.Get(login)
+	if !ok {
+		return nil, false
+	}
+
+	e.Lock()
+	group := e.Account.Group
+	e.Unlock()
+
+	names := h.Settings.SymbolNames()
+	out := make([]model.SymbolInfo, 0, len(names))
+
+	for _, name := range names {
+		r, ok := h.Settings.For(group, name)
+		if !ok {
+			continue
+		}
+
+		out = append(out, h.symbolInfo(r))
+	}
+
+	sort.Slice(out, func(i, j int) bool { return out[i].Symbol < out[j].Symbol })
+
+	return out, true
+}
+
+// symbolInfo flattens one resolved rule set, in the units a terminal reads.
+func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
+	v := model.SymbolInfo{
+		Symbol:      r.Symbol.Symbol,
+		Path:        r.Symbol.Path,
+		Description: r.Symbol.Description,
+
+		Digits:       r.Digits,
+		Point:        r.Point,
+		ContractSize: r.ContractSize,
+		TickValue:    r.TickValue,
+		TickSize:     r.TickSize,
+		CalcMode:     int32(r.CalcMode),
+		TradeMode:    int32(r.TradeMode),
+		ExecMode:     int32(r.ExecMode),
+		FillFlags:    r.FillFlags,
+		ExpirFlags:   r.ExpirFlags,
+		OrderFlags:   r.OrderFlags,
+
+		VolumeMin:   model.Lots(r.VolumeMin),
+		VolumeMax:   model.Lots(r.VolumeMax),
+		VolumeStep:  model.Lots(r.VolumeStep),
+		VolumeLimit: model.Lots(r.VolumeLimit),
+
+		StopsLevel:  r.StopsLevel,
+		FreezeLevel: r.FreezeLevel,
+		SpreadDiff:  r.SpreadDiff,
+
+		CurrencyBase:   r.CurrencyBase,
+		CurrencyProfit: r.CurrencyProfit,
+		CurrencyMargin: r.CurrencyMargin,
+
+		MarginInitial:     r.MarginInitial,
+		MarginMaintenance: r.MarginMaintenance,
+		MarginHedged:      r.MarginHedged,
+
+		SwapMode:  r.SwapMode,
+		SwapLong:  r.SwapLong,
+		SwapShort: r.SwapShort,
+	}
+
+	if t, ok := h.Quotes.Get(r.Symbol.Symbol); ok {
+		v.Bid, v.Ask, v.Last, v.Time = t.Bid, t.Ask, t.Last, t.Time
+		v.Gap, v.HasQuote = t.Gap, true
+	}
+
+	return v
 }

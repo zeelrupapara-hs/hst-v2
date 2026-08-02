@@ -102,7 +102,7 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 	symbols := make(map[string]*model.Symbol, 4096)
 
 	rows, err = h.DB.DB.Query(ctx,
-		`SELECT symbol_id, symbol, path, digits, point, calc_mode, trade_mode, exec_mode,
+		`SELECT symbol_id, symbol, path, description, digits, point, calc_mode, trade_mode, exec_mode,
 		        fill_flags, expir_flags, contract_size, tick_value, tick_size,
 		        spread, spread_diff, stops_level, freeze_level,
 		        currency_base, currency_profit, currency_margin,
@@ -128,7 +128,7 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 
 	for rows.Next() {
 		s := &model.Symbol{}
-		if err := rows.Scan(&s.SymbolId, &s.Symbol, &s.Path, &s.Digits, &s.Point,
+		if err := rows.Scan(&s.SymbolId, &s.Symbol, &s.Path, &s.Description, &s.Digits, &s.Point,
 			&s.CalcMode, &s.TradeMode, &s.ExecMode, &s.FillFlags, &s.ExpirFlags,
 			&s.ContractSize, &s.TickValue, &s.TickSize,
 			&s.Spread, &s.SpreadDiff, &s.StopsLevel, &s.FreezeLevel,

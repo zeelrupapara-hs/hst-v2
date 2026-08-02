@@ -5,6 +5,7 @@ type Symbol struct {
 	SymbolId     int64
 	Symbol       string
 	Path         string
+	Description  string
 	Digits       int32
 	Point        float64
 	CalcMode     int32

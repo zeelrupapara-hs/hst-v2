@@ -55,6 +55,16 @@ func (s *HttpServer) AskEnginePositions(ctx context.Context, login int64) []mode
 	return res.Positions
 }
 
+// AskEngineSymbols is what the caller's group may trade, resolved and priced, or nil if the
+// engine did not answer.
+func (s *HttpServer) AskEngineSymbols(ctx context.Context, login int64) []model.SymbolInfo {
+	res := s.askEngine(ctx, login, model.QuerySymbols)
+	if res == nil {
+		return nil
+	}
+	return res.Symbols
+}
+
 // overlayLive replaces the values that only the engine knows: what a position is worth right
 // now. Silently leaves the database values alone if the engine cannot be reached.
 func (s *HttpServer) overlayLive(ctx context.Context, login int64, out []ViewPosition) {
