@@ -1,9 +1,12 @@
 package admin
 
 import (
+	"strings"
+
 	"context"
 	"errors"
 	v1 "hstserver/internal/server/v1"
+	"hstserver/pkg/cache"
 	"time"
 
 	"hstserver/model"
@@ -247,7 +250,7 @@ func (s *Server) ListClients(c *fiber.Ctx) error {
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+clientColumns+`
 		   FROM hst.clients
-		  WHERE ($1 = '' OR person_name ILIKE '%'||$1||'%' OR contact_email ILIKE '%'||$1||'%')
+		  WHERE `+clientSearchable(snap.ManagerRights)+`
 		    AND `+visible+`
 		  ORDER BY `+q.SortBy+`
 		  LIMIT $2 OFFSET $3`, args...)
@@ -265,6 +268,7 @@ func (s *Server) ListClients(c *fiber.Ctx) error {
 			&v.DateCreated, &v.DateModified); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
+		maskClientView(snap.ManagerRights, &v)
 		out = append(out, v)
 	}
 	if rows.Err() != nil {
@@ -291,6 +295,14 @@ func (s *Server) GetClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
+	reach, err := s.clientReach(c, int64(id))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
 	client, err := s.selectClient(c.UserContext(), int64(id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
@@ -299,7 +311,127 @@ func (s *Server) GetClient(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	return s.App.HttpResponseOK(c, client)
+	return s.respondClient(c, client)
+}
+
+// clientInReach reports whether the caller's group masks cover the client they named.
+//
+// A client has no group of its own, it is reached through the logins it owns, which is the same
+// rule the list uses. Without this a manager could read by id what the list would never show.
+func (s *Server) clientInReach(ctx context.Context, snap *cache.Snapshot, id int64) (bool, error) {
+	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `u."group"`, 2)
+	if access == "TRUE" {
+		return true, nil
+	}
+
+	var ok bool
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM hst.users u WHERE u.client_id = $1 AND `+access+`)`,
+		append([]any{id}, args...)...).Scan(&ok)
+
+	return ok, err
+}
+
+// clientReach reports whether the caller may touch this client at all.
+func (s *Server) clientReach(c *fiber.Ctx, id int64) (bool, error) {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return false, errs.ErrCouldNotParseClientCfg
+	}
+
+	return s.clientInReach(c.UserContext(), snap, id)
+}
+
+// clientSearchable is the free text predicate, over the columns this caller may read.
+func clientSearchable(r model.ManagerRights) string {
+	cols := []string{}
+	if r.Has(model.MgrRightClientsDetailsName) {
+		cols = append(cols, `person_name ILIKE '%'||$1||'%'`)
+	}
+	if r.Has(model.MgrRightClientsDetailsEmail) {
+		cols = append(cols, `contact_email ILIKE '%'||$1||'%'`)
+	}
+
+	if len(cols) == 0 {
+		return `($1 = '' OR client_id::text = $1)`
+	}
+
+	return `($1 = '' OR client_id::text = $1 OR ` + strings.Join(cols, " OR ") + `)`
+}
+
+// maskClientView blanks the personal fields of a list row the caller was not granted.
+func maskClientView(r model.ManagerRights, v *ViewClient) {
+	if !r.Has(model.MgrRightClientsDetailsName) {
+		v.PersonName, v.PersonLastName, v.CompanyName = "", "", ""
+	}
+	if !r.Has(model.MgrRightClientsDetailsLocation) {
+		v.AddressCountry, v.AddressCity = "", ""
+	}
+	if !r.Has(model.MgrRightClientsDetailsEmail) {
+		v.ContactEmail = ""
+	}
+	if !r.Has(model.MgrRightClientsDetailsPhone) {
+		v.ContactPhone = ""
+	}
+	if !r.Has(model.MgrRightClientsDetailsGeneral) {
+		v.Comment = ""
+	}
+}
+
+// maskClient blanks the personal fields of a whole record the caller was not granted.
+//
+// The platform splits a client card into name, location, address, document, email, phone and the
+// general remainder, so a manager may be trusted with a book without being trusted with an
+// identity. Money and suitability answers ride with the general grant, having no bucket of their own.
+func maskClient(r model.ManagerRights, v *model.Client) {
+	if !r.Has(model.MgrRightClientsDetailsName) {
+		v.PersonTitle, v.PersonName, v.PersonMiddleName, v.PersonLastName = "", "", "", ""
+		v.CompanyName = ""
+	}
+
+	if !r.Has(model.MgrRightClientsDetailsLocation) {
+		v.AddressCountry, v.AddressCity, v.AddressState, v.AddressPostcode = "", "", "", ""
+		v.PersonCitizenship, v.CompanyCountry = "", ""
+	}
+
+	if !r.Has(model.MgrRightClientsDetailsAddress) {
+		v.AddressStreet, v.CompanyAddress = "", ""
+	}
+
+	if !r.Has(model.MgrRightClientsDetailsId) {
+		v.PersonBirthDate, v.PersonDocumentDate = 0, 0
+		v.PersonTaxId, v.PersonDocumentType, v.PersonDocumentNumber, v.PersonDocumentExtra = "", "", "", ""
+		v.CompanyRegNumber, v.CompanyRegDate, v.CompanyRegAuthority = "", "", ""
+		v.CompanyVat, v.CompanyLei = "", ""
+		v.CompanyLicenseNumber, v.CompanyLicenseAuthority = "", ""
+	}
+
+	if !r.Has(model.MgrRightClientsDetailsEmail) {
+		v.ContactEmail = ""
+	}
+
+	if !r.Has(model.MgrRightClientsDetailsPhone) {
+		v.ContactPhone, v.ContactMessengers, v.ContactSocialNetworks = "", "", ""
+	}
+
+	if !r.Has(model.MgrRightClientsDetailsGeneral) {
+		v.Comment, v.LeadCampaign, v.LeadSource = "", "", ""
+		v.ContactLanguage, v.CompanyWebsite = "", ""
+		v.PersonAnnualIncome, v.PersonNetWorth, v.PersonAnnualDeposit = 0, 0, 0
+	}
+}
+
+// respondClient writes one client to the caller, masked to what they may read.
+func (s *Server) respondClient(c *fiber.Ctx, v *model.Client) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	masked := *v
+	maskClient(snap.ManagerRights, &masked)
+
+	return s.App.HttpResponseOK(c, &masked)
 }
 
 // selectClient reads every column into the model.
@@ -348,6 +480,14 @@ func (s *Server) UpdateClient(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	reach, err := s.clientReach(c, int64(id))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	var body UptClient
@@ -453,7 +593,7 @@ func (s *Server) UpdateClient(c *fiber.Ctx) error {
 	s.NotifySystem(model.SubjectSystemClientUpdated, client)
 	s.JournalEntry(c, logger.CodeOK, journal.ClientUpdatedMsg(snap.Login, int64(id)), client)
 
-	return s.App.HttpResponseOK(c, client)
+	return s.respondClient(c, client)
 }
 
 // DeleteClient removes a client.
@@ -475,6 +615,14 @@ func (s *Server) DeleteClient(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	reach, err := s.clientReach(c, int64(id))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	// a client owns N users, each with one account.
