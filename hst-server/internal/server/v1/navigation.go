@@ -60,139 +60,83 @@ type navNode struct {
 	children []navNode
 }
 
-// managerTree mirrors the MetaTrader 5 Manager navigator and its Window menu.
-var managerTree = []navNode{
-	{key: "reports", label: "Reports", icon: "file-chart", route: "/reports", section: "reports",
-		needs: []uint{model.MgrRightReports}},
+// Every entry below is a section this platform actually serves, gated on the same right the
+// route behind it enforces, so the navigator can never offer what the api would refuse.
 
+// managerTree is the running of the platform: the accounts, their trades, and the desk.
+var managerTree = []navNode{
 	{key: "clients_orders", label: "Clients & Orders", icon: "users", route: "", section: "trading",
-		needs: []uint{model.MgrRightAccRead},
 		children: []navNode{
-			{key: "online_users", label: "Online Users", icon: "user-check", route: "/online", section: "trading",
-				needs: []uint{model.MgrRightAccRead, model.MgrRightAccOnline}, counter: "online"},
-			{key: "accounts", label: "Trading Accounts", icon: "user", route: "/accounts", section: "trading",
+			{key: "accounts", label: "Trading Accounts", icon: "user", route: "/users", section: "trading",
 				needs: []uint{model.MgrRightAccRead}, counter: "accounts"},
+			{key: "clients", label: "Clients", icon: "briefcase", route: "/clients", section: "trading",
+				needs: []uint{model.MgrRightClientsAccess}, counter: "clients"},
 			{key: "positions", label: "Positions", icon: "layers", route: "/positions", section: "trading",
-				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "positions"},
+				needs: []uint{model.MgrRightTradesRead}, counter: "positions"},
 			{key: "orders", label: "Orders", icon: "list", route: "/orders", section: "trading",
-				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "orders"},
+				needs: []uint{model.MgrRightTradesRead}, counter: "orders"},
 			{key: "deals", label: "Deals", icon: "receipt", route: "/deals", section: "trading",
-				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}},
+				needs: []uint{model.MgrRightTradesRead}},
 		}},
 
 	{key: "dealing", label: "Dealing", icon: "gavel", route: "/dealing", section: "dealing",
-		needs: []uint{model.MgrRightTradesDealer}, counter: "dealing"},
+		needs: []uint{model.MgrRightTradesDealer}},
 
-	{key: "exposure", label: "Exposure", icon: "scale", route: "/exposure", section: "dealing",
-		needs: []uint{model.MgrRightRiskManager}},
-
-	{key: "clients", label: "Clients", icon: "briefcase", route: "/clients", section: "backoffice",
-		needs: []uint{model.MgrRightClientsAccess}},
-
-	{key: "payments", label: "Payments", icon: "credit-card", route: "", section: "payments",
-		needs: []uint{model.MgrRightCfgPayments},
-		children: []navNode{
-			{key: "payments_processing", label: "Processing Payments", icon: "hourglass",
-				route: "/payments/processing", section: "payments", needs: []uint{model.MgrRightCfgPayments}},
-			{key: "payments_active", label: "Active Payments", icon: "activity",
-				route: "/payments/active", section: "payments", needs: []uint{model.MgrRightCfgPayments}},
-			{key: "payments_history", label: "History of Payments", icon: "archive",
-				route: "/payments/history", section: "payments", needs: []uint{model.MgrRightCfgPayments}},
-		}},
+	{key: "balance", label: "Balance Operations", icon: "wallet", route: "/balance", section: "accounting",
+		needs: []uint{model.MgrRightAccountant}},
 
 	{key: "groups", label: "Groups", icon: "folder-tree", route: "/groups", section: "config",
 		needs: []uint{model.MgrRightCfgGroups}, counter: "groups"},
-
-	{key: "mailbox", label: "Mailbox", icon: "mail", route: "/mailbox", section: "support",
-		needs: []uint{model.MgrRightEmail}},
-
-	{key: "news", label: "News", icon: "newspaper", route: "/news", section: "support",
-		needs: []uint{model.MgrRightNews}},
 
 	{key: "journal", label: "Journal", icon: "scroll", route: "/journal", section: "support",
 		needs: []uint{model.MgrRightSrvJournals}},
 }
 
-// adminTree mirrors the MetaTrader 5 Administrator navigator, which is arranged around the server
-// being configured rather than around the clients being served.
+// adminTree is the setting up of the platform: instruments, groups, feeds and who may run it.
 var adminTree = []navNode{
-	{key: "start", label: "Start Page", icon: "home", route: "/admin", section: "server"},
-
-	{key: "network", label: "Network Cluster", icon: "network", route: "/admin/network", section: "server",
-		needs: []uint{model.MgrRightAdmin}},
-
-	{key: "integrations", label: "Integrations", icon: "plug", route: "", section: "server",
-		children: []navNode{
-			{key: "web_services", label: "Web Services", icon: "globe", route: "/admin/web-services",
-				section: "server", needs: []uint{model.MgrRightCfgWebServices}},
-			{key: "messengers", label: "Messengers", icon: "message-circle", route: "/admin/messengers",
-				section: "server", needs: []uint{model.MgrRightCfgMessengers}},
-			{key: "kyc", label: "KYC", icon: "badge-check", route: "/admin/kyc", section: "server",
-				needs: []uint{model.MgrRightCfgKyc}},
-			{key: "payments_cfg", label: "Payment Systems", icon: "credit-card", route: "/admin/payments",
-				section: "server", needs: []uint{model.MgrRightCfgPayments}},
-		}},
-
-	{key: "automations", label: "Automations", icon: "zap", route: "/admin/automations", section: "server",
-		needs: []uint{model.MgrRightCfgAutomations}},
-
-	{key: "security", label: "Security", icon: "lock", route: "/admin/security", section: "server",
-		needs: []uint{model.MgrRightAdmin}},
-
-	{key: "time", label: "Time", icon: "clock", route: "/admin/time", section: "server",
-		needs: []uint{model.MgrRightCfgTime}},
-
-	{key: "holidays", label: "Holidays", icon: "calendar", route: "/admin/holidays", section: "server",
-		needs: []uint{model.MgrRightCfgHolidays}},
-
-	{key: "groups", label: "Groups", icon: "folder-tree", route: "/admin/groups", section: "config",
-		needs: []uint{model.MgrRightCfgGroups}, counter: "groups"},
-
 	{key: "clients_accounts", label: "Clients & Accounts", icon: "users", route: "", section: "accounts",
 		children: []navNode{
-			{key: "allocations", label: "Allocations", icon: "shuffle", route: "/admin/allocations",
-				section: "accounts", needs: []uint{model.MgrRightCfgAllocations}},
-			{key: "clients", label: "Clients", icon: "briefcase", route: "/admin/clients", section: "accounts",
-				needs: []uint{model.MgrRightClientsAccess}},
-			{key: "managers", label: "Managers", icon: "shield", route: "/admin/managers", section: "accounts",
+			{key: "accounts", label: "Trading Accounts", icon: "user", route: "/users", section: "accounts",
+				needs: []uint{model.MgrRightAccRead}, counter: "accounts"},
+			{key: "clients", label: "Clients", icon: "briefcase", route: "/clients", section: "accounts",
+				needs: []uint{model.MgrRightClientsAccess}, counter: "clients"},
+			{key: "managers", label: "Managers", icon: "shield", route: "/managers", section: "accounts",
 				needs: []uint{model.MgrRightCfgManagers}, counter: "managers"},
-			{key: "accounts", label: "Trading Accounts", icon: "user", route: "/admin/accounts",
-				section: "accounts", needs: []uint{model.MgrRightAccRead}, counter: "accounts"},
 		}},
 
 	{key: "orders_deals", label: "Orders & Deals", icon: "list", route: "", section: "trading",
-		needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead},
+		needs: []uint{model.MgrRightTradesRead},
 		children: []navNode{
-			{key: "positions", label: "Positions", icon: "layers", route: "/admin/positions", section: "trading",
-				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "positions"},
-			{key: "orders", label: "Orders", icon: "list", route: "/admin/orders", section: "trading",
-				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "orders"},
-			{key: "deals", label: "Deals", icon: "receipt", route: "/admin/deals", section: "trading",
-				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}},
+			{key: "positions", label: "Positions", icon: "layers", route: "/positions", section: "trading",
+				needs: []uint{model.MgrRightTradesRead}, counter: "positions"},
+			{key: "orders", label: "Orders", icon: "list", route: "/orders", section: "trading",
+				needs: []uint{model.MgrRightTradesRead}, counter: "orders"},
+			{key: "deals", label: "Deals", icon: "receipt", route: "/deals", section: "trading",
+				needs: []uint{model.MgrRightTradesRead}},
 		}},
 
-	{key: "gateways", label: "Gateways", icon: "plug", route: "/admin/gateways", section: "feeds",
-		needs: []uint{model.MgrRightCfgGateways}},
+	{key: "groups", label: "Groups", icon: "folder-tree", route: "/groups", section: "config",
+		needs: []uint{model.MgrRightCfgGroups}, counter: "groups"},
 
-	{key: "datafeeds", label: "Data Feeds", icon: "rss", route: "/admin/datafeeds", section: "feeds",
-		needs: []uint{model.MgrRightCfgDatafeeds}},
-
-	{key: "routing", label: "Routing", icon: "git-branch", route: "/admin/routing", section: "feeds",
-		needs: []uint{model.MgrRightCfgRequests}, counter: "routing"},
-
-	{key: "reports_cfg", label: "Reports", icon: "file-chart", route: "/admin/reports", section: "config",
-		needs: []uint{model.MgrRightCfgReports}},
-
-	{key: "symbols", label: "Symbols", icon: "tag", route: "/admin/symbols", section: "config",
+	{key: "symbols", label: "Symbols", icon: "tag", route: "/symbols", section: "config",
 		needs: []uint{model.MgrRightCfgSymbols}, counter: "symbols"},
 
-	{key: "charts_ticks", label: "Charts & Ticks", icon: "candlestick", route: "/admin/charts", section: "config",
-		needs: []uint{model.MgrRightCfgSymbols, model.MgrRightCharts}},
+	{key: "leverages", label: "Leverage Profiles", icon: "percent", route: "/leverage-profiles",
+		section: "config", needs: []uint{model.MgrRightCfgGroups}, counter: "leverages"},
 
-	{key: "mailbox", label: "Mailbox", icon: "mail", route: "/admin/mailbox", section: "support",
-		needs: []uint{model.MgrRightEmail}},
+	{key: "routing", label: "Request Routing", icon: "git-branch", route: "/routing", section: "config",
+		needs: []uint{model.MgrRightCfgRequests}, counter: "routing"},
 
-	{key: "journal", label: "Journal", icon: "scroll", route: "/admin/journal", section: "support",
+	{key: "datafeeds", label: "Data Feeds", icon: "rss", route: "/datafeeds", section: "feeds",
+		needs: []uint{model.MgrRightCfgDatafeeds}, counter: "datafeeds"},
+
+	{key: "holidays", label: "Holidays", icon: "calendar", route: "/holidays", section: "config",
+		needs: []uint{model.MgrRightCfgHolidays}, counter: "holidays"},
+
+	{key: "end_of_day", label: "End of Day", icon: "clock", route: "/system/end-of-day", section: "config",
+		needs: []uint{model.MgrRightCfgTime}},
+
+	{key: "journal", label: "Journal", icon: "scroll", route: "/journal", section: "support",
 		needs: []uint{model.MgrRightSrvJournals}},
 }
 
@@ -337,11 +281,21 @@ func (s *HttpServer) navCounts(ctx context.Context, isManager bool, masks []stri
 		}
 	}
 
+	if r.Has(model.MgrRightClientsAccess) {
+		out["clients"] = s.countOf(ctx, `SELECT count(*) FROM hst.clients`, nil)
+	}
 	if r.Has(model.MgrRightCfgManagers) {
 		out["managers"] = s.countOf(ctx, `SELECT count(*) FROM hst.managers`, nil)
 	}
+	if r.Has(model.MgrRightCfgDatafeeds) {
+		out["datafeeds"] = s.countOf(ctx, `SELECT count(*) FROM hst.datafeeds`, nil)
+	}
+	if r.Has(model.MgrRightCfgHolidays) {
+		out["holidays"] = s.countOf(ctx, `SELECT count(*) FROM hst.holidays`, nil)
+	}
 	if r.Has(model.MgrRightCfgGroups) {
 		out["groups"] = s.countOf(ctx, `SELECT count(*) FROM hst.groups`, nil)
+		out["leverages"] = s.countOf(ctx, `SELECT count(*) FROM hst.leverages`, nil)
 	}
 	if r.Has(model.MgrRightCfgSymbols) {
 		out["symbols"] = s.countOf(ctx, `SELECT count(*) FROM hst.symbols`, nil)
