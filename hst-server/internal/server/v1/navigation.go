@@ -11,7 +11,20 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// ViewNavNode is one entry of the back office navigator.
+// The back office navigator.
+//
+// Two panels read this: the administrator sets the platform up, the manager runs it day to day.
+// They are different trees, not one tree with things hidden, which is how the platform itself
+// draws them. What a caller may see inside either is settled by their rights and by the group
+// masks bounding what they may reach, so the server builds the tree rather than the panel.
+
+// Terminal names the panel a session belongs to.
+const (
+	TerminalAdmin   = "administrator"
+	TerminalManager = "manager"
+)
+
+// ViewNavNode is one entry of the navigator.
 type ViewNavNode struct {
 	Key      string        `json:"key"`
 	Label    string        `json:"label"`
@@ -24,25 +37,31 @@ type ViewNavNode struct {
 
 // ViewNavigation is the navigator plus what the caller may do once inside it.
 type ViewNavigation struct {
-	Login    int64               `json:"login"`
-	Terminal string              `json:"terminal"`
-	Groups   []string            `json:"groups"`
-	Nodes    []ViewNavNode       `json:"nodes"`
-	Can      map[string]bool     `json:"can"`
-	Rights   model.ManagerRights `json:"rights"`
+	Login    int64  `json:"login"`
+	Terminal string `json:"terminal"`
+	// Groups are the masks bounding every count and every list this caller sees.
+	Groups []string            `json:"groups"`
+	Nodes  []ViewNavNode       `json:"nodes"`
+	Can    map[string]bool     `json:"can"`
+	Rights model.ManagerRights `json:"rights"`
+	// Visible and Total say how much of this terminal's navigator the caller was given.
+	Visible int `json:"visible"`
+	Total   int `json:"total"`
+	Hidden  int `json:"hidden"`
 }
 
 // navNode is a navigator entry before the caller's rights are applied.
 type navNode struct {
 	key, label, icon, route, section string
-	// needs is every right the entry requires; MT5 states these dependencies, a missing one hides it
+	// needs is every right the entry requires; the platform states these dependencies and a
+	// missing one hides the entry, so orders need account access as well as trade access
 	needs    []uint
 	counter  string
 	children []navNode
 }
 
-// navTree mirrors the MetaTrader 5 manager Navigator and Window menu.
-var navTree = []navNode{
+// managerTree mirrors the MetaTrader 5 Manager navigator and its Window menu.
+var managerTree = []navNode{
 	{key: "reports", label: "Reports", icon: "file-chart", route: "/reports", section: "reports",
 		needs: []uint{model.MgrRightReports}},
 
@@ -53,7 +72,6 @@ var navTree = []navNode{
 				needs: []uint{model.MgrRightAccRead, model.MgrRightAccOnline}, counter: "online"},
 			{key: "accounts", label: "Trading Accounts", icon: "user", route: "/accounts", section: "trading",
 				needs: []uint{model.MgrRightAccRead}, counter: "accounts"},
-			// orders and positions need account access too, the platform checks both
 			{key: "positions", label: "Positions", icon: "layers", route: "/positions", section: "trading",
 				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "positions"},
 			{key: "orders", label: "Orders", icon: "list", route: "/orders", section: "trading",
@@ -85,32 +103,6 @@ var navTree = []navNode{
 	{key: "groups", label: "Groups", icon: "folder-tree", route: "/groups", section: "config",
 		needs: []uint{model.MgrRightCfgGroups}, counter: "groups"},
 
-	{key: "config", label: "Configuration", icon: "settings", route: "", section: "config",
-		children: []navNode{
-			{key: "symbols", label: "Symbols", icon: "tag", route: "/symbols", section: "config",
-				needs: []uint{model.MgrRightCfgSymbols}, counter: "symbols"},
-			{key: "routing", label: "Request Routing", icon: "git-branch", route: "/routing", section: "config",
-				needs: []uint{model.MgrRightCfgRequests}, counter: "routing"},
-			{key: "datafeeds", label: "Datafeeds", icon: "rss", route: "/datafeeds", section: "config",
-				needs: []uint{model.MgrRightCfgDatafeeds}},
-			{key: "gateways", label: "Gateways", icon: "plug", route: "/gateways", section: "config",
-				needs: []uint{model.MgrRightCfgGateways}},
-			{key: "managers", label: "Managers", icon: "shield", route: "/managers", section: "config",
-				needs: []uint{model.MgrRightCfgManagers}},
-			{key: "holidays", label: "Holidays", icon: "calendar", route: "/holidays", section: "config",
-				needs: []uint{model.MgrRightCfgHolidays}},
-			{key: "server_time", label: "Server Time", icon: "clock", route: "/server-time", section: "config",
-				needs: []uint{model.MgrRightCfgTime}},
-			{key: "leverages", label: "Leverages", icon: "percent", route: "/leverages", section: "config",
-				needs: []uint{model.MgrRightCfgGroups}},
-			{key: "allocations", label: "Allocations", icon: "shuffle", route: "/allocations", section: "config",
-				needs: []uint{model.MgrRightCfgAllocations}},
-			{key: "automations", label: "Automations", icon: "zap", route: "/automations", section: "config",
-				needs: []uint{model.MgrRightCfgAutomations}},
-			{key: "reports_cfg", label: "Report Settings", icon: "sliders", route: "/config/reports", section: "config",
-				needs: []uint{model.MgrRightCfgReports}},
-		}},
-
 	{key: "mailbox", label: "Mailbox", icon: "mail", route: "/mailbox", section: "support",
 		needs: []uint{model.MgrRightEmail}},
 
@@ -121,33 +113,126 @@ var navTree = []navNode{
 		needs: []uint{model.MgrRightSrvJournals}},
 }
 
-// GetNavigation is the back office navigator for the calling manager.
+// adminTree mirrors the MetaTrader 5 Administrator navigator, which is arranged around the server
+// being configured rather than around the clients being served.
+var adminTree = []navNode{
+	{key: "start", label: "Start Page", icon: "home", route: "/admin", section: "server"},
+
+	{key: "network", label: "Network Cluster", icon: "network", route: "/admin/network", section: "server",
+		needs: []uint{model.MgrRightAdmin}},
+
+	{key: "integrations", label: "Integrations", icon: "plug", route: "", section: "server",
+		children: []navNode{
+			{key: "web_services", label: "Web Services", icon: "globe", route: "/admin/web-services",
+				section: "server", needs: []uint{model.MgrRightCfgWebServices}},
+			{key: "messengers", label: "Messengers", icon: "message-circle", route: "/admin/messengers",
+				section: "server", needs: []uint{model.MgrRightCfgMessengers}},
+			{key: "kyc", label: "KYC", icon: "badge-check", route: "/admin/kyc", section: "server",
+				needs: []uint{model.MgrRightCfgKyc}},
+			{key: "payments_cfg", label: "Payment Systems", icon: "credit-card", route: "/admin/payments",
+				section: "server", needs: []uint{model.MgrRightCfgPayments}},
+		}},
+
+	{key: "automations", label: "Automations", icon: "zap", route: "/admin/automations", section: "server",
+		needs: []uint{model.MgrRightCfgAutomations}},
+
+	{key: "security", label: "Security", icon: "lock", route: "/admin/security", section: "server",
+		needs: []uint{model.MgrRightAdmin}},
+
+	{key: "time", label: "Time", icon: "clock", route: "/admin/time", section: "server",
+		needs: []uint{model.MgrRightCfgTime}},
+
+	{key: "holidays", label: "Holidays", icon: "calendar", route: "/admin/holidays", section: "server",
+		needs: []uint{model.MgrRightCfgHolidays}},
+
+	{key: "groups", label: "Groups", icon: "folder-tree", route: "/admin/groups", section: "config",
+		needs: []uint{model.MgrRightCfgGroups}, counter: "groups"},
+
+	{key: "clients_accounts", label: "Clients & Accounts", icon: "users", route: "", section: "accounts",
+		children: []navNode{
+			{key: "allocations", label: "Allocations", icon: "shuffle", route: "/admin/allocations",
+				section: "accounts", needs: []uint{model.MgrRightCfgAllocations}},
+			{key: "clients", label: "Clients", icon: "briefcase", route: "/admin/clients", section: "accounts",
+				needs: []uint{model.MgrRightClientsAccess}},
+			{key: "managers", label: "Managers", icon: "shield", route: "/admin/managers", section: "accounts",
+				needs: []uint{model.MgrRightCfgManagers}, counter: "managers"},
+			{key: "accounts", label: "Trading Accounts", icon: "user", route: "/admin/accounts",
+				section: "accounts", needs: []uint{model.MgrRightAccRead}, counter: "accounts"},
+		}},
+
+	{key: "orders_deals", label: "Orders & Deals", icon: "list", route: "", section: "trading",
+		needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead},
+		children: []navNode{
+			{key: "positions", label: "Positions", icon: "layers", route: "/admin/positions", section: "trading",
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "positions"},
+			{key: "orders", label: "Orders", icon: "list", route: "/admin/orders", section: "trading",
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}, counter: "orders"},
+			{key: "deals", label: "Deals", icon: "receipt", route: "/admin/deals", section: "trading",
+				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}},
+		}},
+
+	{key: "gateways", label: "Gateways", icon: "plug", route: "/admin/gateways", section: "feeds",
+		needs: []uint{model.MgrRightCfgGateways}},
+
+	{key: "datafeeds", label: "Data Feeds", icon: "rss", route: "/admin/datafeeds", section: "feeds",
+		needs: []uint{model.MgrRightCfgDatafeeds}},
+
+	{key: "routing", label: "Routing", icon: "git-branch", route: "/admin/routing", section: "feeds",
+		needs: []uint{model.MgrRightCfgRequests}, counter: "routing"},
+
+	{key: "reports_cfg", label: "Reports", icon: "file-chart", route: "/admin/reports", section: "config",
+		needs: []uint{model.MgrRightCfgReports}},
+
+	{key: "symbols", label: "Symbols", icon: "tag", route: "/admin/symbols", section: "config",
+		needs: []uint{model.MgrRightCfgSymbols}, counter: "symbols"},
+
+	{key: "charts_ticks", label: "Charts & Ticks", icon: "candlestick", route: "/admin/charts", section: "config",
+		needs: []uint{model.MgrRightCfgSymbols, model.MgrRightCharts}},
+
+	{key: "mailbox", label: "Mailbox", icon: "mail", route: "/admin/mailbox", section: "support",
+		needs: []uint{model.MgrRightEmail}},
+
+	{key: "journal", label: "Journal", icon: "scroll", route: "/admin/journal", section: "support",
+		needs: []uint{model.MgrRightSrvJournals}},
+}
+
+// NavigationTree is the navigator for whichever panel the caller signed in to.
 //
-//	@Id			GetNavigation
+//	@Id			NavigationTree
 //	@Tags		Navigation
 //	@Produce	json
 //	@Success	200	{object}	Response{data=ViewNavigation}
 //	@Failure	403	{object}	Response
 //	@Security	BearerAuth
 //	@Router		/api/v1/navigation [get]
-func (s *HttpServer) GetNavigation(c *fiber.Ctx) error {
+func (s *HttpServer) NavigationTree(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
 	rights := snap.ManagerRights
+	terminal := terminalOf(snap.ConnectionType)
+
+	tree := managerTree
+	if terminal == TerminalAdmin {
+		tree = adminTree
+	}
 
 	counts := s.navCounts(c.UserContext(), snap.IsManager, snap.ManagerGroups, rights)
+	nodes := permitted(tree, rights, counts)
 
 	out := &ViewNavigation{
 		Login:    snap.Login,
-		Terminal: terminalOf(snap.ConnectionType),
+		Terminal: terminal,
 		Groups:   snap.ManagerGroups,
-		Nodes:    permitted(navTree, rights, counts),
+		Nodes:    nodes,
 		Can:      rights.Flags(),
 		Rights:   rights,
+		Visible:  countNodes(nodes),
+		Total:    countDefined(tree),
 	}
+	out.Hidden = out.Total - out.Visible
 
 	// the groups the masks reach hang under the Groups node, as the platform's navigator does
 	if node := findNode(out.Nodes, "groups"); node != nil {
@@ -199,6 +284,26 @@ func allows(r model.ManagerRights, needs []uint) bool {
 	return true
 }
 
+// countNodes is how many entries the caller was actually given.
+func countNodes(nodes []ViewNavNode) int {
+	n := len(nodes)
+	for i := range nodes {
+		n += countNodes(nodes[i].Children)
+	}
+
+	return n
+}
+
+// countDefined is how many entries this terminal's navigator has in total.
+func countDefined(nodes []navNode) int {
+	n := len(nodes)
+	for i := range nodes {
+		n += countDefined(nodes[i].children)
+	}
+
+	return n
+}
+
 // findNode walks the built tree for one key.
 func findNode(nodes []ViewNavNode, key string) *ViewNavNode {
 	for i := range nodes {
@@ -221,8 +326,7 @@ func (s *HttpServer) navCounts(ctx context.Context, isManager bool, masks []stri
 	where, args := utils.GroupAccessFor(isManager, masks, `u."group"`, 1)
 
 	if r.Has(model.MgrRightAccRead) {
-		out["accounts"] = s.countOf(ctx,
-			`SELECT count(*) FROM hst.users u WHERE `+where, args)
+		out["accounts"] = s.countOf(ctx, `SELECT count(*) FROM hst.users u WHERE `+where, args)
 
 		if r.Has(model.MgrRightTradesRead) {
 			out["positions"] = s.countOf(ctx,
@@ -233,6 +337,9 @@ func (s *HttpServer) navCounts(ctx context.Context, isManager bool, masks []stri
 		}
 	}
 
+	if r.Has(model.MgrRightCfgManagers) {
+		out["managers"] = s.countOf(ctx, `SELECT count(*) FROM hst.managers`, nil)
+	}
 	if r.Has(model.MgrRightCfgGroups) {
 		out["groups"] = s.countOf(ctx, `SELECT count(*) FROM hst.groups`, nil)
 	}
@@ -246,7 +353,7 @@ func (s *HttpServer) navCounts(ctx context.Context, isManager bool, masks []stri
 	return out
 }
 
-// countOf answers zero rather than failing the navigator on one bad count.
+// countOf answers zero rather than failing the whole navigator on one bad count.
 func (s *HttpServer) countOf(ctx context.Context, query string, args []any) int64 {
 	var n int64
 	if err := s.DB.DB.QueryRow(ctx, query, args...).Scan(&n); err != nil {
@@ -304,14 +411,12 @@ func leafOf(group string) string {
 	return group
 }
 
-// terminalOf names the panel a connection type belongs to.
+// terminalOf names the panel a connection type signed in to.
 func terminalOf(t int32) string {
-	if model.UsersConnectionTypes(t) >= 32 && model.UsersConnectionTypes(t) <= 33 {
-		if model.UsersConnectionTypes(t) == 32 {
-			return "administrator"
-		}
-		return "manager"
+	switch model.UsersConnectionTypes(t) {
+	case model.UsersConnectionTypes_admin, model.UsersConnectionTypes_admin_api:
+		return TerminalAdmin
+	default:
+		return TerminalManager
 	}
-
-	return "manager"
 }
