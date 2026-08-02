@@ -47,6 +47,7 @@ const (
 
 	// auth
 	// #nosec G101 -- env var name, not a credential
+	AUTH_LOG_RESET_CODES   = "AUTH_LOG_RESET_CODES"
 	AUTH_JWT_PRIVATE_KEY   = "AUTH_JWT_PRIVATE_KEY"
 	AUTH_ACCESS_TTL        = "AUTH_ACCESS_TTL"
 	AUTH_REFRESH_TTL       = "AUTH_REFRESH_TTL"
@@ -140,6 +141,9 @@ type Auth struct {
 	RefreshTTL time.Duration
 	// RefreshAbsoluteTTL caps a whole rotation family however often it rotates.
 	RefreshAbsoluteTTL time.Duration
+
+	// LogResetCodes prints recovery codes to the log, for development only.
+	LogResetCodes bool
 
 	// Pepper is mixed into every password hash so a database dump alone is not crackable.
 	Pepper            string
@@ -346,6 +350,7 @@ func NewConfig() (*Config, error) {
 	// Auth
 	c.Auth.JwtPrivateKey = getEnv(AUTH_JWT_PRIVATE_KEY, "")
 	c.Auth.JwtIssuer = "hstserver"
+	c.Auth.LogResetCodes = getEnvAsBool(AUTH_LOG_RESET_CODES, false)
 	c.Auth.AccessTTL = time.Duration(getEnvAsInt(AUTH_ACCESS_TTL, 7200)) * time.Second
 	c.Auth.RefreshTTL = time.Duration(getEnvAsInt(AUTH_REFRESH_TTL, 604800)) * time.Second
 	c.Auth.RefreshAbsoluteTTL = 30 * 24 * time.Hour

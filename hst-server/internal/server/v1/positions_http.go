@@ -9,11 +9,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// errClosedPositions says where history actually lives.
-//
-// A position table holds open positions and nothing else, as MT5 does: closing one writes a deal
-// and removes the row. A caller asking for active=false wants the History tab, and would otherwise
-// be handed the open book and believe it.
+// closing a position writes a deal and removes the row, so active=false has no table to read
 var errClosedPositions = errors.New("closed positions are not kept, read /deals or /orders?active=false for history")
 
 // GetAllPositions lists every open position the manager's group masks reach.

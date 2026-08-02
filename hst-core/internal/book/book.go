@@ -15,8 +15,7 @@ type Entry struct {
 	Orders    map[int64]*model.Order
 	Positions map[int64]*model.Position
 
-	// sent is the last summary this account was told about each instrument, so a tick that
-	// changes nothing it can see costs nothing to the wire. Guarded by mu.
+	// sent is the last summary per instrument, so an uninteresting tick costs nothing; guarded by mu
 	sent map[string]Sent
 }
 

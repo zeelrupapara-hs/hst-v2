@@ -24,11 +24,7 @@ type QueryResult struct {
 	Symbols   []SymbolInfo `json:"symbols,omitempty"`
 }
 
-// SymbolInfo is one instrument as a terminal needs it: the group's resolved rules, not the
-// instrument's own, plus the price it is quoted at right now.
-//
-// The order ticket cannot validate a volume without the limits, nor an SL without the stops
-// level, and both are settled by the group override rather than the symbol row.
+// SymbolInfo is one instrument under the group's resolved rules, not the instrument's own, plus its live price.
 type SymbolInfo struct {
 	Symbol      string `json:"symbol"`
 	Path        string `json:"path"`
@@ -76,4 +72,12 @@ type SymbolInfo struct {
 	Time     int64   `json:"time"`
 	Gap      bool    `json:"gap"`
 	HasQuote bool    `json:"has_quote"`
+
+	// the session bar and the move off its close, zero when the feed carries no daily close
+	Open          float64 `json:"open"`
+	High          float64 `json:"high"`
+	Low           float64 `json:"low"`
+	Close         float64 `json:"close"`
+	Change        float64 `json:"change"`
+	ChangePercent float64 `json:"change_percent"`
 }

@@ -14,14 +14,7 @@ import (
 	natscore "github.com/nats-io/nats.go"
 )
 
-// The price stream.
-//
-// Every tick the feed publishes lands here once, on one subscription for the whole process, and
-// is fanned out from memory to the terminals watching. One subscription per client would mean
-// several hundred of them carrying identical bytes.
-//
-// A terminal asks for the feed rather than being given it, because a client that is not looking
-// at prices should not be sent thirty thousand of them a minute.
+// One process-wide subscription fans ticks out from memory, and only to terminals that asked.
 
 // marketFeed is who is watching prices, and which instruments each may see.
 type marketFeed struct {
@@ -32,8 +25,7 @@ type marketFeed struct {
 // marketWatcher is one terminal on the feed.
 type marketWatcher struct {
 	client *ws.Client
-	// symbols is what this login's group grants it, by name. Nil means a member of staff,
-	// who is not scoped to one group's list.
+	// symbols is what this login's group grants it; nil means staff, scoped to no group list
 	symbols map[string]bool
 }
 
@@ -80,6 +72,8 @@ func (s *HttpServer) MarketFeedHandler(msg *natscore.Msg) {
 		return
 	}
 
+	s.AlertsOnTick(&t)
+
 	line := TickLine(&t)
 
 	feed.mu.RLock()
@@ -95,9 +89,7 @@ func (s *HttpServer) MarketFeedHandler(msg *natscore.Msg) {
 	}
 }
 
-// TickLine is one quote as the terminal reads it.
-//
-//	symbol,bid,ask,last,volume,ts
+// TickLine is one quote as the terminal reads it: symbol,bid,ask,last,volume,ts,open,high,low,close,change,change_percent
 func TickLine(t *model.Tick) string {
 	var b strings.Builder
 
@@ -117,6 +109,17 @@ func TickLine(t *model.Tick) string {
 	b.WriteString(strconv.FormatInt(t.Volume, 10))
 	b.WriteByte(',')
 	b.WriteString(strconv.FormatInt(t.Time/1e9, 10))
+
+	var change, changePct float64
+	if t.Close != 0 {
+		change = t.Last - t.Close
+		changePct = change / t.Close * 100
+	}
+
+	for _, v := range []float64{t.Open, t.High, t.Low, t.Close, change, changePct} {
+		b.WriteByte(',')
+		b.WriteString(strconv.FormatFloat(v, 'f', d, 64))
+	}
 
 	return b.String()
 }

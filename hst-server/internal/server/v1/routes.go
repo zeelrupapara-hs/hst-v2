@@ -24,6 +24,7 @@ func (s *HttpServer) RegisterV1() (root, api fiber.Router) {
 	}))
 
 	s.RegisterWSV1()
+	s.StartAlerts()
 
 	api = root.Group("/api")
 	v1 := api.Group("/v1")

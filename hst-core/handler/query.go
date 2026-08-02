@@ -11,12 +11,7 @@ import (
 	natscore "github.com/nats-io/nats.go"
 )
 
-// Reading live state out of the engine.
-//
-// Orders, positions and balances are written down, but what a position is worth right now is
-// not: it is worked out from the price on every tick and kept in memory. A reader going to the
-// database therefore sees the account as it was when it last traded, not as it stands. These
-// answer with what the engine actually holds.
+// Live value is only in memory, so a database reader sees the account as it was when it last traded.
 
 func (h *Handler) QuerySystemEventHandler(msg *natscore.Msg) {
 	var q model.QueryRequest
@@ -105,11 +100,7 @@ func (h *Handler) GetAllOrders(login int64) ([]model.Order, bool) {
 	return out, true
 }
 
-// GetAllSymbols is every instrument the account's group may trade, resolved and priced.
-//
-// The engine answers rather than the database because the group override is folded onto the
-// instrument here, and the ticket has to be shown the same limits the engine will judge the
-// order against. Settings.For reports whether the group reaches the symbol at all.
+// GetAllSymbols answers from the engine so the ticket sees the same folded limits an order is judged against.
 func (h *Handler) GetAllSymbols(login int64) ([]model.SymbolInfo, bool) {
 	e, ok := h.Accounts.Get(login)
 	if !ok {
@@ -181,6 +172,12 @@ func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
 	if t, ok := h.Quotes.Get(r.Symbol.Symbol); ok {
 		v.Bid, v.Ask, v.Last, v.Time = t.Bid, t.Ask, t.Last, t.Time
 		v.Gap, v.HasQuote = t.Gap, true
+		v.Open, v.High, v.Low, v.Close = t.Open, t.High, t.Low, t.Close
+
+		if t.Close != 0 {
+			v.Change = t.Last - t.Close
+			v.ChangePercent = v.Change / t.Close * 100
+		}
 	}
 
 	return v

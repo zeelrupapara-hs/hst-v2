@@ -63,13 +63,9 @@ type Setting struct {
 
 // Engine is how the trading engine itself behaves.
 type Engine struct {
-	// PriceMaxAge is how old a price may be and still be worth starting from. Beyond it the
-	// instrument starts with no price at all, which refuses a trade rather than filling one at
-	// a mark the market has long left behind.
+	// PriceMaxAge bounds a stale start price; beyond it the instrument starts unpriced and refuses trades
 	PriceMaxAge time.Duration
-	// SummaryInterval is the shortest gap between two account summaries for the same account on
-	// the same instrument. A terminal cannot show more than a few updates a second, so a busy
-	// instrument would otherwise spend the wire on frames nobody reads. Zero sends every tick.
+	// SummaryInterval is the shortest gap between two summaries for one account on one instrument; zero sends every tick
 	SummaryInterval time.Duration
 }
 

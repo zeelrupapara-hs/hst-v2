@@ -12,12 +12,25 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	signin.Post("/refresh", s.RefreshToken)
 	// public signup, rate limited by ip like the login beside it
 	signin.Post("/register", s.Register)
+	signin.Post("/forgot-password", s.ForgotPassword)
+	signin.Post("/verify-code", s.VerifyCode)
+	signin.Post("/reset-password", s.ResetPassword)
+
+	// branding for the login screen, before a session exists
+	root.Get("/public/broker", s.PublicBroker)
 
 	trader := api.Group("/trader/v1", s.Middleware.Protect, s.Middleware.RequireTrader)
 	trader.Get("/account", s.MyAccount)
 	trader.Get("/profile", s.MyProfile)
 	trader.Get("/symbols", s.MySymbols)
+	// the literal paths must be registered before the :symbol wildcard below
+	trader.Get("/symbols/tree", s.MySymbolsTree)
+	trader.Get("/symbols/by_name", s.MySymbolByName)
+	trader.Get("/symbols/:symbol/sessions", s.MySymbolSessions)
 	trader.Get("/history", s.GetMyHistory)
+	trader.Get("/history/positions", s.GetMyClosedPositions)
+	trader.Get("/accounts/me/policies/ui", s.MyUIPolicies)
+	trader.Get("/journal", s.GetMyJournal)
 
 	// trading
 	trader.Get("/orders", s.GetMyOrders)
@@ -25,11 +38,37 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Put("/orders/:order_id", s.UpdateMyOrder)
 	trader.Post("/orders/:order_id/cancel", s.CancelMyOrder)
 	trader.Get("/positions", s.GetMyPositions)
+	trader.Get("/positions/net", s.GetMyNetPositions)
 	trader.Put("/positions/:position_id", s.UpdateMyPosition)
 	trader.Post("/positions/:position_id/close", s.CloseMyPosition)
 	trader.Post("/positions/:position_id/close-by", s.CloseByMyPosition)
 	trader.Post("/requotes/:request_id/accept", s.AcceptMyRequote)
 	trader.Get("/deals", s.GetMyDeals)
+
+	trader.Get("/alerts", s.GetMyAlerts)
+	trader.Post("/alerts", s.CreateMyAlert)
+	trader.Get("/alerts/:alert_id", s.GetMyAlert)
+	trader.Put("/alerts/:alert_id", s.UpdateMyAlert)
+	trader.Delete("/alerts/:alert_id", s.DeleteMyAlert)
+
+	trader.Get("/watchlists", s.GetMyWatchlists)
+	trader.Post("/watchlists", s.CreateMyWatchlist)
+	trader.Put("/watchlists/:watchlist_id", s.UpdateMyWatchlist)
+	trader.Delete("/watchlists/:watchlist_id", s.DeleteMyWatchlist)
+	trader.Put("/watchlists/:watchlist_id/symbols", s.SetMyWatchlistSymbols)
+
+	// the named folders must be registered before the :tracking_id wildcard
+	trader.Get("/mails/inbox", s.GetMyInbox)
+	trader.Get("/mails/outbox", s.GetMyOutbox)
+	trader.Get("/mails/draft", s.GetMyDrafts)
+	trader.Get("/mails/bin", s.GetMyBin)
+	trader.Get("/mails/:tracking_id", s.GetMyMail)
+	trader.Post("/mails", s.SendMyMail)
+	trader.Put("/mails/:tracking_id", s.UpdateMyDraft)
+	trader.Delete("/mails/:tracking_id", s.DeleteMyMail)
+
+	trader.Get("/news", s.GetMyNews)
+	trader.Get("/news/:news_id", s.GetMyNewsItem)
 
 	auth := trader.Group("/auth")
 	auth.Get("/me", s.Me)

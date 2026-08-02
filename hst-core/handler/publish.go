@@ -41,8 +41,7 @@ func (h *Handler) PublishWS(subject, event string, payload any) {
 	}
 }
 
-// PublishText sends a payload that is already formatted, for the messages that go out often
-// enough that an envelope around them would cost more than they do.
+// PublishText sends an already formatted payload, for messages too frequent to afford an envelope.
 func (h *Handler) PublishText(subject, event, payload string) {
 	msg := &natscore.Msg{
 		Subject: subject,
@@ -88,27 +87,12 @@ func (h *Handler) PublishTrade(e *book.Entry, o *model.Order, f *Fill, a *model.
 	h.PublishAccount(a, nil)
 }
 
-// PublishAccount sends where the account stands, and what each position on the instrument that
-// moved is worth.
-//
-// This one goes out on every tick that touches the account, so it is written as one line rather
-// than an object: a few hundred bytes of json per tick per account is the single largest thing
-// this engine would put on the wire.
+// PublishAccount goes out on every tick touching the account, so it is one line rather than json.
 func (h *Handler) PublishAccount(a *model.Account, positions map[int64]float64) {
 	h.PublishText(model.SubjectAccountSummary(a.Login), "summary", AccountSummary(a, positions))
 }
 
-// SummaryFor decides what to tell an account after a tick, and returns "" when the answer is
-// nothing. The caller must hold the entry's lock.
-//
-// Two gates, in the order that costs least. The interval bounds how often one account hears
-// about one instrument, because a terminal repaints a few times a second and a liquid symbol
-// prints far faster than that. Then the line itself is compared: a tick that moves a price the
-// account has nothing open on, or moves it by less than the currency's smallest unit, produces
-// the same line as last time and is not worth a frame.
-//
-// The gate is per instrument, not per account. A shared one would let a busy symbol crowd out a
-// quiet one, and the quiet one's positions carry their own profit in the line.
+// SummaryFor returns "" when a tick is not worth a frame; gated per instrument so a busy symbol cannot crowd out a quiet one. Caller holds the entry's lock.
 func (h *Handler) SummaryFor(e *book.Entry, symbol string, now int64, positions map[int64]float64) string {
 	last, ok := e.LastSent(symbol)
 	if ok && now-last.At < int64(h.summaryInterval()) {

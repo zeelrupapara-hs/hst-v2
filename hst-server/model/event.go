@@ -98,6 +98,9 @@ const (
 	// EventMarketFeed is one quote, as a line rather than an object.
 	EventMarketFeed = "market_feed"
 
+	EventAlertTriggered = "alert_triggered"
+	EventMailReceived   = "mail_received"
+
 	EventOrderCreate       = "order_create"
 	EventBalanceCreate     = "balance_create"
 	EventOrderDealerCreate = "order_dealer_create"

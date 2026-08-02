@@ -6,12 +6,6 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-// How a history read is bounded.
-//
-// MT5 keeps no closed positions, so a terminal's History tab is built from orders and deals.
-// Those two tables only grow, and an account traded for a year is not a single response, so
-// every history read takes a date range and a page.
-
 // pageOpts is one caller's slice of a history table. A zero limit means the whole set.
 type pageOpts struct {
 	limit, offset int

@@ -1,0 +1,396 @@
+package v1
+
+import (
+	"context"
+	"errors"
+	"strings"
+	"time"
+
+	errs "hstserver/pkg/errors"
+	"hstserver/utils"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+)
+
+// Mail folders.
+const (
+	MailFolderInbox  = 1
+	MailFolderOutbox = 2
+	MailFolderDraft  = 3
+	MailFolderBin    = 4
+)
+
+// errNoSupportAccount is returned rather than guessing a recipient, as v1 did by hardcoding one.
+var (
+	errNoSupportAccount = errors.New("no support account is configured, grant a manager the techsupport right")
+	errNotADraft        = errors.New("only a draft can be edited")
+	errEmptyMail        = errors.New("a mail needs a subject or a body")
+)
+
+// ViewMail is one message as its owner sees it.
+type ViewMail struct {
+	MailId         int64  `json:"mail_id"`
+	TrackingId     string `json:"tracking_id"`
+	SenderLogin    int64  `json:"sender_login"`
+	RecipientLogin int64  `json:"recipient_login"`
+	Subject        string `json:"subject"`
+	Body           string `json:"body"`
+	Folder         int32  `json:"folder"`
+	ReadAt         int64  `json:"read_at"`
+	CreatedAt      int64  `json:"created_at"`
+	UpdatedAt      int64  `json:"updated_at"`
+}
+
+// BodyMail is a mail a trader sends or saves.
+type BodyMail struct {
+	Subject string `json:"subject"`
+	Body    string `json:"body"`
+	Draft   bool   `json:"draft"`
+}
+
+const mailColumns = `m.mail_id, m.tracking_id, m.sender_login, m.recipient_login, m.subject,
+	m.body, m.folder, m.read_at, m.created_at, m.updated_at`
+
+// readMails is the one query behind every mail read handler.
+func (s *HttpServer) readMails(ctx context.Context, where string, args []any, p pageOpts) ([]ViewMail, error) {
+	where, args = p.bound("m.created_at", where, args)
+
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT `+mailColumns+` FROM hst.mails m WHERE `+where+p.tail("m.mail_id"), args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []ViewMail{}
+	for rows.Next() {
+		var v ViewMail
+		if err := rows.Scan(&v.MailId, &v.TrackingId, &v.SenderLogin, &v.RecipientLogin,
+			&v.Subject, &v.Body, &v.Folder, &v.ReadAt, &v.CreatedAt, &v.UpdatedAt); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+
+	return out, rows.Err()
+}
+
+// supportLogin is the account a trader's mail is addressed to.
+func (s *HttpServer) supportLogin(ctx context.Context) (int64, error) {
+	var login int64
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT login FROM hst.managers WHERE right_techsupport = 1 ORDER BY login LIMIT 1`).Scan(&login)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return 0, errNoSupportAccount
+	}
+
+	return login, err
+}
+
+// GetMyInbox lists the mail addressed to the caller.
+//
+//	@Id			GetMyInbox
+//	@Tags		Trader
+//	@Produce	json
+//	@Param		limit	query		int	false	"how many, newest first"
+//	@Param		page	query		int	false	"which page, zero based"
+//	@Param		from	query		int	false	"unix seconds, inclusive"
+//	@Param		to		query		int	false	"unix seconds, exclusive"
+//	@Success	200		{object}	Response{data=[]ViewMail}
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mails/inbox [get]
+func (s *HttpServer) GetMyInbox(c *fiber.Ctx) error {
+	return s.listMails(c, "m.recipient_login = $1 AND m.folder = 1")
+}
+
+// GetMyOutbox lists the mail the caller sent.
+//
+//	@Id			GetMyOutbox
+//	@Tags		Trader
+//	@Produce	json
+//	@Param		limit	query		int	false	"how many, newest first"
+//	@Param		page	query		int	false	"which page, zero based"
+//	@Param		from	query		int	false	"unix seconds, inclusive"
+//	@Param		to		query		int	false	"unix seconds, exclusive"
+//	@Success	200		{object}	Response{data=[]ViewMail}
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mails/outbox [get]
+func (s *HttpServer) GetMyOutbox(c *fiber.Ctx) error {
+	return s.listMails(c, "m.sender_login = $1 AND m.folder = 2")
+}
+
+// GetMyDrafts lists the caller's unsent mail.
+//
+//	@Id			GetMyDrafts
+//	@Tags		Trader
+//	@Produce	json
+//	@Param		limit	query		int	false	"how many, newest first"
+//	@Param		page	query		int	false	"which page, zero based"
+//	@Param		from	query		int	false	"unix seconds, inclusive"
+//	@Param		to		query		int	false	"unix seconds, exclusive"
+//	@Success	200		{object}	Response{data=[]ViewMail}
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mails/draft [get]
+func (s *HttpServer) GetMyDrafts(c *fiber.Ctx) error {
+	return s.listMails(c, "m.sender_login = $1 AND m.folder = 3")
+}
+
+// GetMyBin lists the caller's deleted mail, still recoverable.
+//
+//	@Id			GetMyBin
+//	@Tags		Trader
+//	@Produce	json
+//	@Param		limit	query		int	false	"how many, newest first"
+//	@Param		page	query		int	false	"which page, zero based"
+//	@Param		from	query		int	false	"unix seconds, inclusive"
+//	@Param		to		query		int	false	"unix seconds, exclusive"
+//	@Success	200		{object}	Response{data=[]ViewMail}
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mails/bin [get]
+func (s *HttpServer) GetMyBin(c *fiber.Ctx) error {
+	return s.listMails(c, "m.folder = 4 AND (m.sender_login = $1 OR m.recipient_login = $1)")
+}
+
+// listMails is every folder handler, differing only in which rows belong to the caller.
+func (s *HttpServer) listMails(c *fiber.Ctx, where string) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	out, err := s.readMails(c.UserContext(), where, []any{snap.Login}, readPage(c, 100))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return s.App.HttpResponseOK(c, out)
+}
+
+// GetMyMail reads one message, and marks it read when the caller is the one it was addressed to.
+//
+//	@Id			GetMyMail
+//	@Tags		Trader
+//	@Produce	json
+//	@Param		tracking_id	path		string	true	"the mail"
+//	@Success	200			{object}	Response{data=ViewMail}
+//	@Failure	404			{object}	Response
+//	@Failure	500			{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mails/{tracking_id} [get]
+func (s *HttpServer) GetMyMail(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	out, err := s.readMails(c.UserContext(),
+		"m.tracking_id = $1 AND (m.sender_login = $2 OR m.recipient_login = $2)",
+		[]any{c.Params("tracking_id"), snap.Login}, pageOpts{limit: 1})
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if len(out) == 0 {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
+	v := out[0]
+	if v.RecipientLogin == snap.Login && v.ReadAt == 0 {
+		v.ReadAt = time.Now().UnixNano()
+		if _, err := s.DB.DB.Exec(c.UserContext(),
+			`UPDATE hst.mails SET read_at = $1, updated_at = $1 WHERE mail_id = $2`,
+			v.ReadAt, v.MailId); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		v.UpdatedAt = v.ReadAt
+	}
+
+	return s.App.HttpResponseOK(c, v)
+}
+
+// SendMyMail sends a message to support, or saves it as a draft.
+//
+//	@Id			SendMyMail
+//	@Tags		Trader
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		BodyMail	true	"the message"
+//	@Success	200		{object}	Response{data=ViewMail}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mails [post]
+func (s *HttpServer) SendMyMail(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	var in BodyMail
+	if err := c.BodyParser(&in); err != nil {
+		return s.App.HttpResponseBadRequest(c, errs.ErrBadRequest)
+	}
+	if strings.TrimSpace(in.Subject) == "" && strings.TrimSpace(in.Body) == "" {
+		return s.App.HttpResponseBadRequest(c, errEmptyMail)
+	}
+
+	// the recipient is looked up, never assumed: v1 hardcoded an admin id and broke on every other install
+	recipient, err := s.supportLogin(c.UserContext())
+	if err != nil {
+		if errors.Is(err, errNoSupportAccount) {
+			return s.App.HttpResponseBadRequest(c, err)
+		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	now := time.Now().UnixNano()
+	folder := MailFolderOutbox
+	if in.Draft {
+		folder = MailFolderDraft
+	}
+
+	v := ViewMail{
+		TrackingId:     uuid.NewString(),
+		SenderLogin:    snap.Login,
+		RecipientLogin: recipient,
+		Subject:        in.Subject,
+		Body:           in.Body,
+		Folder:         int32(folder),
+		CreatedAt:      now,
+		UpdatedAt:      now,
+	}
+
+	tx, err := s.DB.DB.Begin(c.UserContext())
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	defer func() { _ = tx.Rollback(c.UserContext()) }()
+
+	if err := tx.QueryRow(c.UserContext(),
+		`INSERT INTO hst.mails (tracking_id, sender_login, recipient_login, subject, body,
+		        folder, created_at, updated_at)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING mail_id`,
+		v.TrackingId, v.SenderLogin, v.RecipientLogin, v.Subject, v.Body, v.Folder, now).
+		Scan(&v.MailId); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	// a sent mail is two rows, so each side bins its own copy without touching the other's
+	if !in.Draft {
+		if _, err := tx.Exec(c.UserContext(),
+			`INSERT INTO hst.mails (tracking_id, sender_login, recipient_login, subject, body,
+			        folder, created_at, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+			uuid.NewString(), v.SenderLogin, v.RecipientLogin, v.Subject, v.Body,
+			MailFolderInbox, now); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
+	if err := tx.Commit(c.UserContext()); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return s.App.HttpResponseOK(c, v)
+}
+
+// UpdateMyDraft edits an unsent message.
+//
+//	@Id			UpdateMyDraft
+//	@Tags		Trader
+//	@Accept		json
+//	@Produce	json
+//	@Param		tracking_id	path		string		true	"the draft"
+//	@Param		body		body		BodyMail	true	"the message"
+//	@Success	200			{object}	Response{data=ViewMail}
+//	@Failure	400			{object}	Response
+//	@Failure	404			{object}	Response
+//	@Failure	500			{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mails/{tracking_id} [put]
+func (s *HttpServer) UpdateMyDraft(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	var in BodyMail
+	if err := c.BodyParser(&in); err != nil {
+		return s.App.HttpResponseBadRequest(c, errs.ErrBadRequest)
+	}
+
+	out, err := s.readMails(c.UserContext(), "m.tracking_id = $1 AND m.sender_login = $2",
+		[]any{c.Params("tracking_id"), snap.Login}, pageOpts{limit: 1})
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if len(out) == 0 {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+	if out[0].Folder != MailFolderDraft {
+		return s.App.HttpResponseBadRequest(c, errNotADraft)
+	}
+
+	v := out[0]
+	v.Subject, v.Body, v.UpdatedAt = in.Subject, in.Body, time.Now().UnixNano()
+
+	if _, err := s.DB.DB.Exec(c.UserContext(),
+		`UPDATE hst.mails SET subject = $1, body = $2, updated_at = $3 WHERE mail_id = $4`,
+		v.Subject, v.Body, v.UpdatedAt, v.MailId); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return s.App.HttpResponseOK(c, v)
+}
+
+// DeleteMyMail moves a message to the bin, and purges it when it is already there.
+//
+//	@Id			DeleteMyMail
+//	@Tags		Trader
+//	@Produce	json
+//	@Param		tracking_id	path		string	true	"the mail"
+//	@Success	200			{object}	Response
+//	@Failure	404			{object}	Response
+//	@Failure	500			{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mails/{tracking_id} [delete]
+func (s *HttpServer) DeleteMyMail(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	out, err := s.readMails(c.UserContext(),
+		"m.tracking_id = $1 AND (m.sender_login = $2 OR m.recipient_login = $2)",
+		[]any{c.Params("tracking_id"), snap.Login}, pageOpts{limit: 1})
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if len(out) == 0 {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
+	v := out[0]
+	if v.Folder == MailFolderBin {
+		_, err = s.DB.DB.Exec(c.UserContext(), `DELETE FROM hst.mails WHERE mail_id = $1`, v.MailId)
+	} else {
+		_, err = s.DB.DB.Exec(c.UserContext(),
+			`UPDATE hst.mails SET folder = $1, deleted_at = $2, updated_at = $2 WHERE mail_id = $3`,
+			MailFolderBin, time.Now().UnixNano(), v.MailId)
+	}
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return s.App.HttpResponseOK(c, nil)
+}

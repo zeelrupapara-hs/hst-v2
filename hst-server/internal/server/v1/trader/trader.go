@@ -155,13 +155,7 @@ func (s *Server) MyProfile(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, v)
 }
 
-// MySymbols returns the symbols the caller's group may trade, with the group's own limits and
-// the price each is quoted at.
-//
-// The engine answers where it can: it folds the group override onto the instrument and holds the
-// quote book, so the limits here are the ones an order will actually be judged against. If it
-// cannot be reached the database still gives the list, without limits or prices, so a terminal
-// can draw its Market Watch and its charts while trading is down.
+// MySymbols falls back to the database, without limits or prices, when the engine cannot be reached.
 //
 //	@Id			MySymbols
 //	@Tags		Trader
@@ -177,43 +171,9 @@ func (s *Server) MySymbols(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	if live := s.AskEngineSymbols(c.UserContext(), snap.Login); len(live) > 0 {
-		return s.App.HttpResponseOK(c, live)
-	}
-
-	// the group's overrides decide what this trader may see, so a symbol nobody granted it never appears
-	rows, err := s.DB.DB.Query(c.UserContext(),
-		`SELECT s.symbol, s.path, s.description, s.digits, s.trade_mode,
-		        s.calc_mode, s.exec_mode, s.spread, s.contract_size, s.date_modified
-		   FROM hst.symbols s
-		  WHERE EXISTS (
-		        SELECT 1
-		          FROM hst.groups_symbols gs
-		          JOIN hst.groups g ON g.group_id = gs.group_id
-		          JOIN hst.users u ON u."group" = g."group"
-		         WHERE u.login = $1
-		           AND (gs.path = '*' OR s.path = gs.path OR starts_with(s.path, rtrim(gs.path, '*')))
-		  )
-		  ORDER BY s.symbol`, snap.Login)
+	out, err := s.resolveMySymbols(c.UserContext(), snap.Login)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
-	}
-	defer rows.Close()
-
-	out := []model.SymbolInfo{}
-	for rows.Next() {
-		var v model.SymbolInfo
-		var spread int32
-		var modified int64
-		if err := rows.Scan(&v.Symbol, &v.Path, &v.Description, &v.Digits,
-			&v.TradeMode, &v.CalcMode, &v.ExecMode, &spread, &v.ContractSize,
-			&modified); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
-		}
-		out = append(out, v)
-	}
-	if rows.Err() != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
 	}
 
 	return s.App.HttpResponseOK(c, out)
