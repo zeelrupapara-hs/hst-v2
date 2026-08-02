@@ -3,6 +3,7 @@ package admin
 import (
 	"errors"
 	v1 "hstserver/internal/server/v1"
+	"strings"
 	"time"
 
 	"hstserver/model"
@@ -144,7 +145,7 @@ func (s *Server) ListUsers(c *fiber.Ctx) error {
 
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+userColumns+userJoin+`
-		  WHERE ($1 = '' OR u.name ILIKE '%'||$1||'%' OR u.email ILIKE '%'||$1||'%')
+		  WHERE `+searchable(snap.ManagerRights)+`
 		    AND `+access+`
 		  ORDER BY u.`+q.SortBy+`
 		  LIMIT $2 OFFSET $3`, args...)
@@ -161,6 +162,7 @@ func (s *Server) ListUsers(c *fiber.Ctx) error {
 			&v.Credit, &v.IsManager, &v.LastAccess, &v.UpdatedAt); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
+		maskDetails(c, &v)
 		out = append(out, v)
 	}
 	if rows.Err() != nil {
@@ -187,7 +189,7 @@ func (s *Server) GetUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
-	return s.getUserByLogin(c, int64(login), s.App.HttpResponseOK)
+	return s.getUserByLogin(c, int64(login), s.respondUser)
 }
 
 // UpdateUser patches a login.
@@ -338,10 +340,64 @@ func (s *Server) NotifyUser(event string) func(*fiber.Ctx, interface{}) error {
 			s.NotifySystem(SystemUserSubject(event), u)
 			s.JournalEntry(c, logger.CodeOK, UserMsg(c, event, u), u)
 		}
-		if event == model.EventUserCreated {
-			return s.App.HttpResponseCreated(c, v)
+		body := v
+		if u, ok := v.(*ViewUser); ok {
+			masked := *u
+			maskDetails(c, &masked)
+			body = &masked
 		}
-		return s.App.HttpResponseOK(c, v)
+
+		if event == model.EventUserCreated {
+			return s.App.HttpResponseCreated(c, body)
+		}
+		return s.App.HttpResponseOK(c, body)
+	}
+}
+
+// searchable is the free text predicate, over the columns this caller may read.
+//
+// Searching a column that is masked in the answer would still confirm what it holds, one guess
+// at a time, so a caller who may not see an email may not search by one either.
+func searchable(r model.ManagerRights) string {
+	cols := []string{}
+	if r.Has(model.MgrRightAccDetailsName) {
+		cols = append(cols, `u.name ILIKE '%'||$1||'%'`)
+	}
+	if r.Has(model.MgrRightAccDetailsEmail) {
+		cols = append(cols, `u.email ILIKE '%'||$1||'%'`)
+	}
+
+	if len(cols) == 0 {
+		return `($1 = '' OR u.login::text = $1)`
+	}
+
+	return `($1 = '' OR u.login::text = $1 OR ` + strings.Join(cols, " OR ") + `)`
+}
+
+// maskDetails blanks the personal fields the caller was not granted.
+//
+// The platform grants sight of a client's name, location, address, document, email and phone
+// separately, so a dealer who must see the book need not see who is behind it.
+func maskDetails(c *fiber.Ctx, v *ViewUser) {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		*v = ViewUser{Login: v.Login}
+		return
+	}
+
+	r := snap.ManagerRights
+
+	if !r.Has(model.MgrRightAccDetailsName) {
+		v.Name = ""
+	}
+	if !r.Has(model.MgrRightAccDetailsLocation) {
+		v.Country, v.City = "", ""
+	}
+	if !r.Has(model.MgrRightAccDetailsEmail) {
+		v.Email = ""
+	}
+	if !r.Has(model.MgrRightAccDetailsPhone) {
+		v.Phone = ""
 	}
 }
 
@@ -364,6 +420,17 @@ func (s *Server) getUserByLogin(c *fiber.Ctx, login int64,
 	}
 
 	return respond(c, v)
+}
+
+// respondUser writes one user to the caller, masked to what they may read.
+func (s *Server) respondUser(c *fiber.Ctx, v interface{}) error {
+	if u, ok := v.(*ViewUser); ok {
+		masked := *u
+		maskDetails(c, &masked)
+		return s.App.HttpResponseOK(c, &masked)
+	}
+
+	return s.App.HttpResponseOK(c, v)
 }
 
 // SystemUserSubject is the service side of a user event.
