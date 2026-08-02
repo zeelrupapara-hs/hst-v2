@@ -56,13 +56,18 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 		}
 	}
 
+	// built while the account is still held, so the line cannot describe a state that never existed
+	summary := h.SummaryFor(e, t.Symbol, Now(), profits)
+
 	// what the price crossed, gathered while the account is locked and acted on after
 	hits := h.CookPosition(e, t)
 	pendings := h.pendingHits(e, t)
 
 	e.Unlock()
 
-	h.PublishAccount(&account, profits)
+	if summary != "" {
+		h.PublishText(model.SubjectAccountSummary(account.Login), "summary", summary)
+	}
 
 	// expiry before anything else.
 	h.ExpireOrders(ctx, e, t.Symbol)

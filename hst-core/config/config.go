@@ -41,6 +41,7 @@ const (
 	REDIS_DB       = "REDIS_DB"
 
 	ENGINE_PRICE_MAX_AGE_HOURS = "ENGINE_PRICE_MAX_AGE_HOURS"
+	ENGINE_SUMMARY_INTERVAL_MS = "ENGINE_SUMMARY_INTERVAL_MS"
 	REDIS_POOL_SIZE            = "REDIS_POOL_SIZE"
 	REDIS_TLS                  = "REDIS_TLS"
 )
@@ -66,6 +67,10 @@ type Engine struct {
 	// instrument starts with no price at all, which refuses a trade rather than filling one at
 	// a mark the market has long left behind.
 	PriceMaxAge time.Duration
+	// SummaryInterval is the shortest gap between two account summaries for the same account on
+	// the same instrument. A terminal cannot show more than a few updates a second, so a busy
+	// instrument would otherwise spend the wire on frames nobody reads. Zero sends every tick.
+	SummaryInterval time.Duration
 }
 
 // Logger config
@@ -178,6 +183,8 @@ func NewConfig() (*Config, error) {
 
 	// three days covers a weekend, which is the longest a price is normally left standing
 	c.Engine.PriceMaxAge = time.Duration(getEnvAsInt(ENGINE_PRICE_MAX_AGE_HOURS, 72)) * time.Hour
+	// twice a second is faster than a person reads and slower than a busy instrument prints
+	c.Engine.SummaryInterval = time.Duration(getEnvAsInt(ENGINE_SUMMARY_INTERVAL_MS, 500)) * time.Millisecond
 	c.Redis.DialTimeout = 5 * time.Second
 	c.Redis.ReadTimeout = 3 * time.Second
 	c.Redis.WriteTimeout = 3 * time.Second

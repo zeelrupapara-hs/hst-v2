@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"time"
 
 	"hstcore/internal/book"
 	"hstcore/model"
@@ -95,6 +96,42 @@ func (h *Handler) PublishTrade(e *book.Entry, o *model.Order, f *Fill, a *model.
 // this engine would put on the wire.
 func (h *Handler) PublishAccount(a *model.Account, positions map[int64]float64) {
 	h.PublishText(model.SubjectAccountSummary(a.Login), "summary", AccountSummary(a, positions))
+}
+
+// SummaryFor decides what to tell an account after a tick, and returns "" when the answer is
+// nothing. The caller must hold the entry's lock.
+//
+// Two gates, in the order that costs least. The interval bounds how often one account hears
+// about one instrument, because a terminal repaints a few times a second and a liquid symbol
+// prints far faster than that. Then the line itself is compared: a tick that moves a price the
+// account has nothing open on, or moves it by less than the currency's smallest unit, produces
+// the same line as last time and is not worth a frame.
+//
+// The gate is per instrument, not per account. A shared one would let a busy symbol crowd out a
+// quiet one, and the quiet one's positions carry their own profit in the line.
+func (h *Handler) SummaryFor(e *book.Entry, symbol string, now int64, positions map[int64]float64) string {
+	last, ok := e.LastSent(symbol)
+	if ok && now-last.At < int64(h.summaryInterval()) {
+		return ""
+	}
+
+	line := AccountSummary(e.Account, positions)
+	if ok && line == last.Line {
+		return ""
+	}
+
+	e.MarkSent(symbol, now, line)
+
+	return line
+}
+
+// summaryInterval is the shortest gap between two summaries for one account on one instrument.
+func (h *Handler) summaryInterval() time.Duration {
+	if h.Cfg.Engine.SummaryInterval > 0 {
+		return h.Cfg.Engine.SummaryInterval
+	}
+
+	return 500 * time.Millisecond
 }
 
 // PublishDealing offers one request to one dealer's queue.

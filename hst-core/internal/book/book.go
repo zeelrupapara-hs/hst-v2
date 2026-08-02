@@ -14,6 +14,30 @@ type Entry struct {
 	Account   *model.Account
 	Orders    map[int64]*model.Order
 	Positions map[int64]*model.Position
+
+	// sent is the last summary this account was told about each instrument, so a tick that
+	// changes nothing it can see costs nothing to the wire. Guarded by mu.
+	sent map[string]Sent
+}
+
+// Sent is one instrument's last published summary for an account.
+type Sent struct {
+	At   int64
+	Line string
+}
+
+// LastSent is what this account was last told about the instrument.
+func (e *Entry) LastSent(symbol string) (Sent, bool) {
+	s, ok := e.sent[symbol]
+	return s, ok
+}
+
+// MarkSent records a summary as delivered.
+func (e *Entry) MarkSent(symbol string, at int64, line string) {
+	if e.sent == nil {
+		e.sent = make(map[string]Sent, 4)
+	}
+	e.sent[symbol] = Sent{At: at, Line: line}
 }
 
 // Lock takes the account for writing.
