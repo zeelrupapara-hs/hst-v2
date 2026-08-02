@@ -15,6 +15,9 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	oauth.Post("/login", s.Middleware.BasicAuthParser, s.Login)
 	oauth.Post("/refresh", s.RefreshToken)
 
+	// the navigator, filtered by the caller's own rights and group masks
+	v1.Get("/navigation", s.Middleware.Protect, s.Middleware.RequireManager, s.GetNavigation)
+
 	auth := v1.Group("/auth", s.Middleware.Protect, s.Middleware.RequireManager)
 	auth.Get("/me", s.Me)
 	auth.Post("/logout", s.Logout)
