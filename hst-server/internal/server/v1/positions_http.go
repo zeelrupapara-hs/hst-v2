@@ -149,7 +149,7 @@ func (s *HttpServer) GetPosition(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		position_id	path		int			true	"the position"
 //	@Param		body		body		UptPosition	true	"the new levels"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -173,7 +173,7 @@ func (s *HttpServer) UpdatePosition(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.updatePosition(c.UserContext(), &body, snap.Login)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // UpdateMyPosition changes the levels of the calling account's position.
@@ -184,7 +184,7 @@ func (s *HttpServer) UpdatePosition(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		position_id	path		int				true	"the position"
 //	@Param		body		body		UptMyPosition	true	"the new levels"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -207,7 +207,7 @@ func (s *HttpServer) UpdateMyPosition(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.updatePosition(c.UserContext(), uptPositionFromMy(&body, snap.Login), 0)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // ClosePosition closes a named login's position.
@@ -218,7 +218,7 @@ func (s *HttpServer) UpdateMyPosition(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		position_id	path		int				true	"the position"
 //	@Param		body		body		ClosePosition	true	"how much to close"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -242,7 +242,7 @@ func (s *HttpServer) ClosePosition(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.closePosition(c.UserContext(), &body, snap.Login)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // CloseMyPosition closes the calling account's position.
@@ -253,7 +253,7 @@ func (s *HttpServer) ClosePosition(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		position_id	path		int				true	"the position"
 //	@Param		body		body		CloseMyPosition	true	"how much to close"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -274,7 +274,7 @@ func (s *HttpServer) CloseMyPosition(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.closePosition(c.UserContext(), closeFromMy(&body, snap.Login), 0)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // CloseByPosition settles a named login's pair of opposite positions.
@@ -285,7 +285,7 @@ func (s *HttpServer) CloseMyPosition(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		position_id	path		int				true	"the position"
 //	@Param		body		body		CloseByPosition	true	"the opposite position"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -309,7 +309,7 @@ func (s *HttpServer) CloseByPosition(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.closeByPosition(c.UserContext(), &body, snap.Login)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // CloseByMyPosition settles the calling account's own pair.
@@ -320,7 +320,7 @@ func (s *HttpServer) CloseByPosition(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		position_id	path		int					true	"the position"
 //	@Param		body		body		CloseByMyPosition	true	"the opposite position"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -343,5 +343,5 @@ func (s *HttpServer) CloseByMyPosition(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.closeByPosition(c.UserContext(), closeByFromMy(&body, snap.Login), 0)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }

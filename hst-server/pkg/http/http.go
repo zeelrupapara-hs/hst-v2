@@ -37,6 +37,7 @@ const (
 	StatusServiceUnavailable  = fiber.StatusServiceUnavailable
 	StatusOK                  = fiber.StatusOK
 	StatusCreated             = fiber.StatusCreated
+	StatusAccepted            = fiber.StatusAccepted
 	StatusNoContent           = fiber.StatusNoContent
 )
 

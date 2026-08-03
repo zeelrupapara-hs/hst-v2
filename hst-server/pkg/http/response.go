@@ -32,6 +32,15 @@ func (a *App) HttpResponseOK(c *fiber.Ctx, data interface{}) error {
 }
 
 // http 201 created
+// HttpResponseAccepted says the request was handed to the engine, not that it succeeded.
+func (a *App) HttpResponseAccepted(c *fiber.Ctx, data interface{}) error {
+	return c.Status(StatusAccepted).JSON(&HttpResponse{
+		Success: true,
+		Code:    RetOK,
+		Data:    data,
+	})
+}
+
 func (a *App) HttpResponseCreated(c *fiber.Ctx, data interface{}) error {
 	return c.Status(StatusCreated).JSON(&HttpResponse{
 		Success: true,

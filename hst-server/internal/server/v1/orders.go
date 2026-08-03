@@ -151,7 +151,7 @@ func expiryOf(at *int64) int64 {
 }
 
 // makeOrder validates a new order and hands it to the engine.
-func (s *HttpServer) makeOrder(ctx context.Context, payload *CrtOrder, dealer int64) (*model.TradeResult, int, error) {
+func (s *HttpServer) makeOrder(ctx context.Context, payload *CrtOrder, dealer int64) (*Accepted, int, error) {
 	if err := s.Validate.Struct(payload); err != nil {
 		return nil, nethttp.StatusBadRequest, err
 	}
@@ -188,11 +188,11 @@ func (s *HttpServer) makeOrder(ctx context.Context, payload *CrtOrder, dealer in
 		Dealer:       dealer,
 	}
 
-	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEvent_new_order, Data: req})
+	return s.sendOrder(&model.OrderEvent{EventType: model.OrderEvent_new_order, Data: req})
 }
 
 // updateOrder moves a working pending order's price, levels and expiry.
-func (s *HttpServer) updateOrder(ctx context.Context, payload *UptOrder, dealer int64) (*model.TradeResult, int, error) {
+func (s *HttpServer) updateOrder(ctx context.Context, payload *UptOrder, dealer int64) (*Accepted, int, error) {
 	if err := s.Validate.Struct(payload); err != nil {
 		return nil, nethttp.StatusBadRequest, err
 	}
@@ -237,11 +237,11 @@ func (s *HttpServer) updateOrder(ctx context.Context, payload *UptOrder, dealer 
 		Dealer:       dealer,
 	}
 
-	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEvent_update_order, Data: req})
+	return s.sendOrder(&model.OrderEvent{EventType: model.OrderEvent_update_order, Data: req})
 }
 
 // cancelOrder removes a working pending order.
-func (s *HttpServer) cancelOrder(ctx context.Context, payload *CancelOrder, dealer int64) (*model.TradeResult, int, error) {
+func (s *HttpServer) cancelOrder(ctx context.Context, payload *CancelOrder, dealer int64) (*Accepted, int, error) {
 	if err := s.Validate.Struct(payload); err != nil {
 		return nil, nethttp.StatusBadRequest, err
 	}
@@ -269,12 +269,58 @@ func (s *HttpServer) cancelOrder(ctx context.Context, payload *CancelOrder, deal
 		Dealer:    dealer,
 	}
 
-	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEvent_cancel_order, Data: req})
+	return s.sendOrder(&model.OrderEvent{EventType: model.OrderEvent_cancel_order, Data: req})
 }
 
-// sendOrder hands the envelope to the pod holding this account and waits for the answer.
-func (s *HttpServer) sendOrder(ctx context.Context, login int64, e *model.OrderEvent) (*model.TradeResult, int, error) {
-	return s.request(ctx, model.SubjectSystemOrders, e)
+// sendOrder hands the envelope to the engine. The outcome arrives on the account's socket.
+func (s *HttpServer) sendOrder(e *model.OrderEvent) (*Accepted, int, error) {
+	status, err := s.publish(model.SubjectSystemOrders, e)
+	if err != nil {
+		return nil, status, err
+	}
+
+	return acceptedOrder(e.Data), status, nil
+}
+
+// Accepted is what a caller gets back when the engine has been handed a request.
+type Accepted struct {
+	RequestId string `json:"request_id"`
+	Login     int64  `json:"login"`
+	Message   string `json:"message"`
+}
+
+// acceptedOrder says what was asked for, in the words the journal uses.
+func acceptedOrder(req *model.TradeRequest) *Accepted {
+	return &Accepted{
+		RequestId: req.RequestId,
+		Login:     req.Login,
+		Message: fmt.Sprintf("order requested, type %s volume %.2f symbol %s",
+			model.OrderType_name[int32(req.Type)], model.ExtToLots(req.Volume), req.Symbol),
+	}
+}
+
+// publish hands a command to the engine without waiting for it.
+//
+// A trade is not a question with an answer, it is a request that the engine will accept or refuse
+// in its own time, and the outcome arrives on the socket as order_create or order_rejected. The
+// api only reports whether it managed to hand the request over.
+func (s *HttpServer) publish(subject string, e any) (int, error) {
+	payload, err := json.Marshal(e)
+	if err != nil {
+		return nethttp.StatusInternalServerError, err
+	}
+
+	if err := s.Nats.NC.Publish(subject, payload); err != nil {
+		// nothing took the request, so the client must not be told it went through
+		return nethttp.StatusServiceUnavailable, errs.ErrEngineUnavailable
+	}
+
+	// a publish only reaches the connection buffer, and an order lost there is a silent loss
+	if err := s.Nats.NC.Flush(); err != nil {
+		return nethttp.StatusServiceUnavailable, errs.ErrEngineUnavailable
+	}
+
+	return nethttp.StatusAccepted, nil
 }
 
 // request is the one call into the engine: marshal, ask, decode, map the retcode to a status.
@@ -377,6 +423,42 @@ func uptFromMy(p *UptMyOrder, login int64) *UptOrder {
 		ExpiryAt:     p.ExpiryAt,
 		Comment:      p.Comment,
 	}
+}
+
+// accepted writes the acknowledgement, and journals what was asked for.
+//
+// The engine has the request; whether it fills is told on the socket, so there is no retcode here
+// and a caller that needs the outcome must listen for it.
+func (s *HttpServer) accepted(c *fiber.Ctx, res *Accepted, status int, err error) error {
+	s.journalAsked(c, res, err)
+
+	if err != nil {
+		if status == nethttp.StatusServiceUnavailable {
+			return s.App.HttpResponseServiceUnavailable(c, err)
+		}
+
+		return s.App.HttpResponseStatus(c, status, err)
+	}
+
+	return s.App.HttpResponseAccepted(c, res)
+}
+
+// journalAsked records the request, since the outcome is journalled by the engine's own events.
+func (s *HttpServer) journalAsked(c *fiber.Ctx, res *Accepted, err error) {
+	code, outcome := logger.CodeOK, ""
+	if res != nil {
+		outcome = res.Message
+	}
+	if err != nil {
+		code, outcome = logger.CodeErr, err.Error()
+	}
+
+	login := int64(0)
+	if res != nil {
+		login = res.Login
+	}
+
+	s.JournalEntry(c, code, fmt.Sprintf("%s %s for #%d: %s", c.Method(), c.Path(), login, outcome), res)
 }
 
 // answer writes the engine's reply, carrying the result even when it is a refusal.

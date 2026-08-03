@@ -166,7 +166,7 @@ func (s *HttpServer) GetOrder(c *fiber.Ctx) error {
 //	@Accept		json
 //	@Produce	json
 //	@Param		body	body		CrtOrder	true	"the order"
-//	@Success	200		{object}	Response{data=TradeResult}
+//	@Success	202		{object}	Response{data=Accepted}
 //	@Failure	400		{object}	Response
 //	@Failure	503		{object}	Response
 //	@Security	BearerAuth
@@ -187,7 +187,7 @@ func (s *HttpServer) CreateOrder(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.makeOrder(c.UserContext(), &body, snap.Login)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // CreateMyOrder places an order for the calling account.
@@ -197,7 +197,7 @@ func (s *HttpServer) CreateOrder(c *fiber.Ctx) error {
 //	@Accept		json
 //	@Produce	json
 //	@Param		body	body		CrtMyOrder	true	"the order"
-//	@Success	200		{object}	Response{data=TradeResult}
+//	@Success	202		{object}	Response{data=Accepted}
 //	@Failure	400		{object}	Response
 //	@Failure	503		{object}	Response
 //	@Security	BearerAuth
@@ -217,7 +217,7 @@ func (s *HttpServer) CreateMyOrder(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.makeOrder(c.UserContext(), crtFromMy(&body, snap.Login), 0)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // UpdateOrder modifies a pending order on behalf of a named login.
@@ -228,7 +228,7 @@ func (s *HttpServer) CreateMyOrder(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		order_id	path		int			true	"the ticket"
 //	@Param		body		body		UptOrder	true	"the new prices"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -252,7 +252,7 @@ func (s *HttpServer) UpdateOrder(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.updateOrder(c.UserContext(), &body, snap.Login)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // UpdateMyOrder modifies the calling account's pending order.
@@ -263,7 +263,7 @@ func (s *HttpServer) UpdateOrder(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		order_id	path		int			true	"the ticket"
 //	@Param		body		body		UptMyOrder	true	"the new prices"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -286,7 +286,7 @@ func (s *HttpServer) UpdateMyOrder(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.updateOrder(c.UserContext(), uptFromMy(&body, snap.Login), 0)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // CancelOrder removes a pending order on behalf of a named login.
@@ -297,7 +297,7 @@ func (s *HttpServer) UpdateMyOrder(c *fiber.Ctx) error {
 //	@Produce	json
 //	@Param		order_id	path		int			true	"the ticket"
 //	@Param		body		body		CancelOrder	true	"the account"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -321,7 +321,7 @@ func (s *HttpServer) CancelOrder(c *fiber.Ctx) error {
 	}
 
 	res, status, err := s.cancelOrder(c.UserContext(), &body, snap.Login)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }
 
 // CancelMyOrder removes the calling account's pending order.
@@ -331,7 +331,7 @@ func (s *HttpServer) CancelOrder(c *fiber.Ctx) error {
 //	@Accept		json
 //	@Produce	json
 //	@Param		order_id	path		int	true	"the ticket"
-//	@Success	200			{object}	Response{data=TradeResult}
+//	@Success	202			{object}	Response{data=Accepted}
 //	@Failure	400			{object}	Response
 //	@Failure	404			{object}	Response
 //	@Security	BearerAuth
@@ -353,5 +353,5 @@ func (s *HttpServer) CancelMyOrder(c *fiber.Ctx) error {
 
 	res, status, err := s.cancelOrder(c.UserContext(),
 		&CancelOrder{Login: snap.Login, OrderId: body.OrderId, Comment: body.Comment}, 0)
-	return s.answer(c, res, status, err)
+	return s.accepted(c, res, status, err)
 }

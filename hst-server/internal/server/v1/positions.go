@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
@@ -90,7 +91,7 @@ const positionColumns = `p.position_id, p.login, p.symbol, p.action, p.reason, p
 const positionFrom = ` FROM hst.positions p JOIN hst.users u ON u.login = p.login WHERE `
 
 // updatePosition changes the levels of one open position.
-func (s *HttpServer) updatePosition(ctx context.Context, payload *UptPosition, dealer int64) (*model.TradeResult, int, error) {
+func (s *HttpServer) updatePosition(ctx context.Context, payload *UptPosition, dealer int64) (*Accepted, int, error) {
 	if err := s.Validate.Struct(payload); err != nil {
 		return nil, nethttp.StatusBadRequest, err
 	}
@@ -115,12 +116,12 @@ func (s *HttpServer) updatePosition(ctx context.Context, payload *UptPosition, d
 		Dealer:     dealer,
 	}
 
-	return s.sendPosition(ctx, payload.Login,
+	return s.sendPosition(
 		&model.PositionEvent{EventType: model.PositionEvent_update, Data: req})
 }
 
 // closePosition closes one position, whole or by volume.
-func (s *HttpServer) closePosition(ctx context.Context, payload *ClosePosition, dealer int64) (*model.TradeResult, int, error) {
+func (s *HttpServer) closePosition(ctx context.Context, payload *ClosePosition, dealer int64) (*Accepted, int, error) {
 	if err := s.Validate.Struct(payload); err != nil {
 		return nil, nethttp.StatusBadRequest, err
 	}
@@ -152,12 +153,12 @@ func (s *HttpServer) closePosition(ctx context.Context, payload *ClosePosition, 
 		Dealer:     dealer,
 	}
 
-	return s.sendPosition(ctx, payload.Login,
+	return s.sendPosition(
 		&model.PositionEvent{EventType: model.PositionEvent_close, Data: req})
 }
 
 // closeByPosition settles a position against an opposite one on the same instrument.
-func (s *HttpServer) closeByPosition(ctx context.Context, payload *CloseByPosition, dealer int64) (*model.TradeResult, int, error) {
+func (s *HttpServer) closeByPosition(ctx context.Context, payload *CloseByPosition, dealer int64) (*Accepted, int, error) {
 	if err := s.Validate.Struct(payload); err != nil {
 		return nil, nethttp.StatusBadRequest, err
 	}
@@ -185,13 +186,28 @@ func (s *HttpServer) closeByPosition(ctx context.Context, payload *CloseByPositi
 		Dealer:       dealer,
 	}
 
-	return s.sendPosition(ctx, payload.Login,
+	return s.sendPosition(
 		&model.PositionEvent{EventType: model.PositionEvent_close_by, Data: req})
 }
 
 // sendPosition hands the envelope to the pod holding this account and waits for the answer.
-func (s *HttpServer) sendPosition(ctx context.Context, login int64, e *model.PositionEvent) (*model.TradeResult, int, error) {
-	return s.request(ctx, model.SubjectSystemPositions, e)
+func (s *HttpServer) sendPosition(e *model.PositionEvent) (*Accepted, int, error) {
+	status, err := s.publish(model.SubjectSystemPositions, e)
+	if err != nil {
+		return nil, status, err
+	}
+
+	return acceptedPosition(e), status, nil
+}
+
+// acceptedPosition says what was asked of a position.
+func acceptedPosition(e *model.PositionEvent) *Accepted {
+	return &Accepted{
+		RequestId: e.Data.RequestId,
+		Login:     e.Data.Login,
+		Message: fmt.Sprintf("position %s requested, #%d",
+			model.PositionEvent_name[int32(e.EventType)], e.Data.PositionId),
+	}
 }
 
 // positionState is what the write paths need before they may ask.
