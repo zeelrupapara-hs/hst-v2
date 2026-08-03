@@ -5,16 +5,33 @@ import (
 	"fmt"
 	"slices"
 	"sort"
-
-	wire "hstmodel"
 )
 
 // Count is how many shards exist. Fixed forever: changing it would move every account.
-const Count = wire.ShardCount
+const Count = 1024
 
-// ShardOf maps a login to its shard, from the shared contract so the api and the engine cannot
-// disagree about which pod holds an account.
-var ShardOf = wire.ShardOf
+// ShardOf maps a login to its shard. Hashed, not divided: logins are handed out in order.
+//
+// The api computes the same hash in ShardOf. If either changes, an account routes to two
+// different pods, so the two must be changed together.
+func ShardOf(login int64) uint32 {
+	const (
+		offset64 = uint64(14695981039346656037)
+		prime64  = uint64(1099511628211)
+	)
+
+	// the same bits read as unsigned, so the hash can walk them byte by byte
+	// #nosec G115 -- reinterpreting the bits, not narrowing a value
+	u := uint64(login)
+
+	h := offset64
+	for i := 0; i < 8; i++ {
+		h ^= (u >> (8 * i)) & 0xff
+		h *= prime64
+	}
+
+	return uint32(h % uint64(Count))
+}
 
 // Map says which shards belong to this pod, given every pod that is alive.
 type Map struct {

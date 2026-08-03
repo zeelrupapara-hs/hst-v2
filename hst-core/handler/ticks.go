@@ -1,8 +1,6 @@
 package handler
 
 import (
-	wire "hstmodel"
-
 	"context"
 
 	"hstcore/internal/book"
@@ -71,7 +69,7 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 	e.Unlock()
 
 	if summary != "" {
-		h.PublishText(model.SubjectAccountSummary(account.Login), wire.EventAccountSummary, summary)
+		h.PublishText(model.SubjectAccountSummary(account.Login), model.EventAccountSummary, summary)
 	}
 
 	// expiry before anything else.

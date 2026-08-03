@@ -2,8 +2,6 @@ package model
 
 import (
 	"fmt"
-
-	wire "hstmodel"
 )
 
 // Every subject this feed uses. The tick stream is named by the shared contract so the engine and
@@ -14,13 +12,13 @@ const (
 	SubjectDatafeedDeleted = "system.datafeeds.deleted"
 	SubjectDatafeedConfig  = "system.datafeeds.config.>"
 
-	SubjectSnapshot = wire.SubjectQuoteSnapshot
+	SubjectSnapshot = "hstquote.snapshot"
 
 	GroupDatafeedConfig = "hstquote-datafeed"
 )
 
 // SubjectTick is one instrument's price stream.
-func SubjectTick(symbol string) string { return wire.SubjectQuoteTick(symbol) }
+func SubjectTick(symbol string) string { return fmt.Sprintf("hstquote.tick.%s", symbol) }
 
 // SubjectStatus is one datafeed's runtime telemetry.
 func SubjectStatus(datafeedId int64) string {

@@ -173,7 +173,7 @@ func eventFromMsg(msg *natscore.Msg) *model.Event {
 
 	// a record change names what happened in a header, since the subject only says who may see it
 	if event := msg.Header.Get(model.HeaderEvent); event != "" {
-		typ = event
+		typ = model.EventType(event)
 	}
 
 	e := &model.Event{

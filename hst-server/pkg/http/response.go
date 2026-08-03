@@ -162,32 +162,32 @@ func (a *App) HttpResponseDenied(c *fiber.Ctx, status int, code RetCode, message
 }
 
 // WS 200, the answer to an inbound frame.
-func (a *App) WSResponseOK(event string, data any) *model.Event {
+func (a *App) WSResponseOK(event model.EventType, data any) *model.Event {
 	return &model.Event{Type: event, Payload: encode(data)}
 }
 
 // WS 400
-func (a *App) WSResponseBadRequest(event string, err error) *model.Event {
+func (a *App) WSResponseBadRequest(event model.EventType, err error) *model.Event {
 	return a.wsFail(model.EventBadRequest, event, err)
 }
 
 // WS 404
-func (a *App) WSResponseNotFound(event string, err error) *model.Event {
+func (a *App) WSResponseNotFound(event model.EventType, err error) *model.Event {
 	return a.wsFail(model.EventNotFound, event, err)
 }
 
 // WS 403
-func (a *App) WSResponseForbidden(event string, err error) *model.Event {
+func (a *App) WSResponseForbidden(event model.EventType, err error) *model.Event {
 	return a.wsFail(model.EventForbidden, event, err)
 }
 
 // WS 500
-func (a *App) WSResponseInternalServerErrorRequest(event string, err error) *model.Event {
+func (a *App) WSResponseInternalServerErrorRequest(event model.EventType, err error) *model.Event {
 	return a.wsFail(model.EventInternalServerError, event, err)
 }
 
 // wsFail builds one refusal, naming the event that caused it.
-func (a *App) wsFail(typ, event string, err error) *model.Event {
+func (a *App) wsFail(typ, event model.EventType, err error) *model.Event {
 	message := ""
 	if err != nil {
 		message = err.Error()
@@ -197,7 +197,7 @@ func (a *App) wsFail(typ, event string, err error) *model.Event {
 
 	return &model.Event{
 		Type:    typ,
-		Payload: encode(model.ErrorPayload{Message: message, Reason: event}),
+		Payload: encode(model.ErrorPayload{Message: message, Reason: string(event)}),
 	}
 }
 

@@ -14,13 +14,13 @@ var ErrConnectionLost = errors.New("connection is lost")
 // Ctx is one inbound frame, ready for a handler.
 type Ctx struct {
 	Client *Client
-	Type   string
+	Type   model.EventType
 	Data   []byte
 	Event  *model.Event
 }
 
 // NewCtx wraps one inbound frame.
-func NewCtx(c *Client, typ string, data []byte) *Ctx {
+func NewCtx(c *Client, typ model.EventType, data []byte) *Ctx {
 	return &Ctx{
 		Client: c,
 		Type:   typ,

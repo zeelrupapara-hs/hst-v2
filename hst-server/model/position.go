@@ -41,3 +41,19 @@ func (p *Position) IsBuy() bool { return PositionAction(p.Action) == PositionAct
 
 // VolumeLots is the position volume as a decimal number of lots.
 func (p *Position) VolumeLots() float64 { return VolumeToLots(p.Volume) }
+
+// PositionAction is the side a position holds. A position is only ever buy or sell.
+type PositionAction int32
+
+const (
+	PositionAction_buy  PositionAction = 0
+	PositionAction_sell PositionAction = 1
+)
+
+var (
+	PositionAction_name  = map[int32]string{0: "buy", 1: "sell"}
+	PositionAction_value = valuesOf(PositionAction_name)
+)
+
+// IsBuy reports which way the position leans.
+func (a PositionAction) IsBuy() bool { return a == PositionAction_buy }

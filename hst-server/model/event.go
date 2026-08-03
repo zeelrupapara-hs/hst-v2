@@ -1,8 +1,6 @@
 package model
 
 import (
-	wire "hstmodel"
-
 	"strings"
 )
 
@@ -20,7 +18,7 @@ const (
 
 // Event is what crosses nats and what a websocket client receives.
 type Event struct {
-	Type string `json:"type"`
+	Type EventType `json:"type"`
 	// Payload is whatever the publisher put in, verbatim.
 	Payload []byte `json:"-"`
 	// Group is the group path the record belongs to, for a group scoped event.
@@ -84,50 +82,6 @@ func SniffFormat(payload []byte) Format {
 }
 
 // Event types.
-const (
-	EventPing    = "ping"
-	EventPong    = "pong"
-	EventError   = "error"
-	EventWelcome = "welcome"
-
-	// EventSessionRevoked tells a socket its session is gone; the server closes the connection right after sending it.
-	EventSessionRevoked = "session.revoked"
-
-	// EventStartMarketFeed and EventStopMarketFeed put a terminal on and off the price stream.
-	EventStartMarketFeed = "start_market_feed"
-	EventStopMarketFeed  = "stop_market_feed"
-	// EventMarketFeed is one quote, as a line rather than an object.
-	EventMarketFeed = "market_feed"
-
-	EventAlertTriggered = "alert_triggered"
-	EventMailReceived   = "mail_received"
-
-	EventOrderCreate       = "order_create"
-	EventBalanceCreate     = "balance_create"
-	EventOrderDealerCreate = "order_dealer_create"
-	EventOrderUpdate       = "order_update"
-	EventOrderDealerUpdate = "order_dealer_update"
-	EventOrderCancel       = "order_cancel"
-	EventOrderDealerCancel = "order_dealer_cancel"
-
-	EventPositionUpdate        = "position_update"
-	EventPositionDealerUpdate  = "position_dealer_update"
-	EventPositionClose         = "position_close"
-	EventPositionDealerClose   = "position_dealer_close"
-	EventPositionCloseBy       = "position_close_by"
-	EventPositionDealerCloseBy = "position_dealer_close_by"
-
-	EventDealerConfirm = "dealer_confirm"
-	EventDealerRequote = "dealer_requote"
-	EventDealerReject  = "dealer_reject"
-	EventDealerCancel  = "dealer_cancel"
-
-	EventBadRequest          = "bad_request"
-	EventNotFound            = "not_found"
-	EventForbidden           = "forbidden"
-	EventUnauthorized        = "unauthorized"
-	EventInternalServerError = "internal_server_error"
-)
 
 // ErrorPayload is what a refused socket request carries back.
 type ErrorPayload struct {
@@ -140,18 +94,18 @@ type ErrorPayload struct {
 const SubjectBroadcastRoot = "websocket.broadcast"
 
 // SubjectSession is everything one connection hears, as opposed to one account.
-func SubjectSession(sid string) string { return wire.SubjectClientAll(sid) }
+func SubjectSession(sid string) string { return SubjectClientAll(sid) }
 
 // SubjectBroadcast reaches every connected socket.
 func SubjectBroadcast() string { return SubjectBroadcastRoot + ".>" }
 
 // ParseSubject splits a subject into the event type and, for a group scoped subject, the group path it happened in.
-func ParseSubject(subject string) (eventType, groupPath string) {
+func ParseSubject(subject string) (eventType EventType, groupPath string) {
 	parts := strings.Split(subject, ".")
 
 	// ws.g.<family>.<path...>: everything after the family is the group path, and the event type is not in the subject at all.
 	if len(parts) >= 4 && parts[0]+"."+parts[1] == SubjectGroupRoot {
-		return parts[2], strings.Join(parts[3:], GroupSep)
+		return EventType(parts[2]), strings.Join(parts[3:], GroupSep)
 	}
 
 	// ws.broadcast.<event...> carries no identifier, the others do
@@ -162,5 +116,5 @@ func ParseSubject(subject string) (eventType, groupPath string) {
 	if len(parts) <= skip {
 		return "", ""
 	}
-	return strings.Join(parts[skip:], "."), ""
+	return EventType(strings.Join(parts[skip:], ".")), ""
 }

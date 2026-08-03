@@ -1,8 +1,7 @@
 package model
 
 import (
-	wire "hstmodel"
-
+	"fmt"
 	"strings"
 )
 
@@ -11,7 +10,7 @@ const GroupSep = `\`
 
 // SubjectGroupRoot prefixes every group scoped subject, under the websocket root so the delivery
 // rule holds: anything beginning websocket reaches a client.
-const SubjectGroupRoot = wire.RootGroupScoped
+const SubjectGroupRoot = RootGroupScoped
 
 // family is the kind of record an event is about: a group, a user, a client, an account or a group symbol.
 type family string
@@ -64,40 +63,27 @@ var (
 	SubjectGroupCommission = func(path string) string { return subject(familyGroupCommissions, path) }
 
 	// SubjectTrader is everything one trading account hears: its own and nothing else.
-	SubjectTrader = wire.SubjectAccountAll
+	SubjectTrader = SubjectAccountAll
 	// SubjectTraderProfile carries a change to one account's own record.
-	SubjectTraderProfile = wire.SubjectAccountProfile
+	SubjectTraderProfile = SubjectAccountProfile
 
 	// SubjectJournal is a manager's own journal lines, on the operations topic of their account.
-	SubjectJournal = wire.SubjectAccountOperations
+	SubjectJournal = SubjectAccountOperations
 )
 
 // server -> core. One subject per command; a queue group picks the pod, and that pod forwards to
 // the owner if it is not holding the account itself.
-const (
-	SubjectSystemOrders    = wire.SubjectSystemOrders
-	SubjectSystemPositions = wire.SubjectSystemPositions
-	SubjectSystemDealing   = wire.SubjectSystemDealing
-	SubjectSystemBalance   = wire.SubjectSystemBalance
-	SubjectSystemQuery     = wire.SubjectSystemQuery
-)
 
 // core -> one trading account, under the tree the socket already holds
 var (
-	SubjectAccountOrders     = wire.SubjectAccountOrders
-	SubjectAccountPositions  = wire.SubjectAccountPositions
-	SubjectAccountDeals      = wire.SubjectAccountDeals
-	SubjectAccountSummary    = wire.SubjectAccountSummary
-	SubjectAccountMarginCall = wire.SubjectAccountMarginCall
-	SubjectAccountOperations = wire.SubjectAccountOperations
 
 	// core -> one dealer's request queue
-	SubjectDealerRequests = wire.SubjectBrokerRequests
+	SubjectDealerRequests = SubjectBrokerRequests
 )
 
 const (
 	// ticks, produced outside both modules
-	SubjectSystemMarketFeedAll = wire.SubjectQuoteTickAll
+	SubjectSystemMarketFeedAll = SubjectQuoteTickAll
 
 	// config reload, broadcast to every pod
 	SubjectSystemRoutingCreated = "system.routing.created"
@@ -115,9 +101,6 @@ const (
 
 // From the api to the other services.
 const (
-	SubjectSystemEndOfDay     = "system.core.endofday"
-	SubjectSystemEndOfDayTime = "system.core.endofday.time"
-
 	SubjectSystemGroupCreated = "system.groups.created"
 	SubjectSystemGroupUpdated = "system.groups.updated"
 	SubjectSystemGroupDeleted = "system.groups.deleted"
@@ -214,7 +197,7 @@ func subject(f family, groupPath string) string {
 		token = "root"
 	}
 
-	return wire.SubjectGroupScoped(string(f), token)
+	return SubjectGroupScoped(string(f), token)
 }
 
 // maskSubject turns one of a manager's group masks into the subscription that covers it.
@@ -360,3 +343,99 @@ func segments(mask string) []string {
 	}
 	return out
 }
+
+// Whether an event reaches a client is decided by its subject and nothing else.
+//
+// websocket.accounts.<login>.<topic>   the account holding that login is subscribed to the
+//                                      wildcard below it, so any topic named here is delivered
+// websocket.clients.<session>.<topic>  one browser tab rather than one account
+// websocket.broker.<topic>             staff, and the dealing desk
+// system.<noun>                        service to service, never delivered to anyone
+//
+// Adding a client-visible event means naming a topic under websocket. and publishing to it. No
+// registration, no subscription list to edit.
+
+const (
+	RootWebsocket = "websocket"
+	RootSystem    = "system"
+	RootQuote     = "hstquote"
+)
+
+// What a trading account is subscribed to.
+var (
+	SubjectAccountAll         = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.>", login) }
+	SubjectAccountOrders      = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.orders", login) }
+	SubjectAccountPositions   = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.positions", login) }
+	SubjectAccountDeals       = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.deals", login) }
+	SubjectAccountSummary     = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.summary", login) }
+	SubjectAccountMoneyChange = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.money_change", login) }
+	SubjectAccountMarginCall  = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.margin_call", login) }
+	SubjectAccountOperations  = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.operations", login) }
+	SubjectAccountSymbols     = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.symbols", login) }
+	SubjectAccountProfile     = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.profile", login) }
+	SubjectAccountAlerts      = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.alerts", login) }
+	SubjectAccountMarketFeed  = func(login int64) string { return fmt.Sprintf("websocket.accounts.%d.market_feed", login) }
+)
+
+// What one connection is subscribed to, as opposed to one account.
+var (
+	SubjectClientAll    = func(session string) string { return fmt.Sprintf("websocket.clients.%s.>", session) }
+	SubjectClientLogout = func(session string) string { return fmt.Sprintf("websocket.clients.%s.session_logout", session) }
+)
+
+// What a manager is subscribed to, scoped to the group tree their masks cover.
+//
+// The tree is what makes this different from vfx, which sends every manager everything: a group
+// path becomes subject tokens, so demo\\forex is websocket.groups.users.demo.forex and a mask
+// subscribes to the subtree under it.
+var (
+	SubjectGroupScoped = func(family, token string) string {
+		return fmt.Sprintf("%s.%s.%s", RootGroupScoped, family, token)
+	}
+)
+
+// RootGroupScoped prefixes every group scoped subject.
+const RootGroupScoped = "websocket.groups"
+
+// What staff and the dealing desk are subscribed to.
+var (
+	SubjectBrokerAll        = "websocket.broker.>"
+	SubjectBrokerOperations = "websocket.broker.operations"
+	SubjectBrokerRequests   = func(dealer int64) string { return fmt.Sprintf("websocket.broker.%d.orders.approval", dealer) }
+	SubjectBrokerUpdate     = func(topic string) string { return fmt.Sprintf("websocket.broker.%s_update", topic) }
+)
+
+// Service to service. Nothing here is ever delivered to a client.
+const (
+	SubjectSystemOrders    = "system.orders"
+	SubjectSystemPositions = "system.positions"
+	SubjectSystemDealing   = "system.dealing"
+	SubjectSystemBalance   = "system.balance"
+	SubjectSystemQuery     = "system.query"
+
+	SubjectSystemAccounts     = "system.accounts.>"
+	SubjectSystemGroups       = "system.groups.>"
+	SubjectSystemGroupSymbols = "system.group_symbols.>"
+	SubjectSystemSymbols      = "system.symbols.>"
+	SubjectSystemCommissions  = "system.commissions.>"
+	SubjectSystemRouting      = "system.routing.>"
+	SubjectSystemHolidays     = "system.holidays.>"
+	SubjectSystemLeverages    = "system.leverages.>"
+	SubjectSystemManagers     = "system.managers.>"
+	SubjectSystemClients      = "system.clients.>"
+
+	SubjectSystemEndOfDay     = "system.core.endofday"
+	SubjectSystemEndOfDayTime = "system.core.endofday.time"
+
+	SubjectQuoteTickAll  = "hstquote.tick.*"
+	SubjectQuoteSnapshot = "hstquote.snapshot"
+)
+
+// The queue group that makes one command reach exactly one engine pod.
+const (
+	QueueOrders    = "engine_orders"
+	QueuePositions = "engine_positions"
+	QueueDealing   = "engine_dealing"
+	QueueBalance   = "engine_balance"
+	QueueQuery     = "engine_query"
+)

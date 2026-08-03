@@ -71,3 +71,39 @@ type SymbolInfo struct {
 	Change        float64 `json:"change"`
 	ChangePercent float64 `json:"change_percent"`
 }
+
+type QueryWhat int32
+
+const (
+	QueryWhat_account   QueryWhat = 1
+	QueryWhat_positions QueryWhat = 2
+	QueryWhat_orders    QueryWhat = 3
+	QueryWhat_state     QueryWhat = 4
+	QueryWhat_symbols   QueryWhat = 5
+)
+
+func (m TradeMode) AllowsBuy() bool { return m == TradeMode_full || m == TradeMode_long_only }
+
+func (m TradeMode) AllowsSell() bool { return m == TradeMode_full || m == TradeMode_short_only }
+
+func (m TradeMode) CloseOnly() bool { return m == TradeMode_close_only }
+
+func (m MarginMode) Hedging() bool { return m == MarginMode_retail_hedging }
+
+// A delay or a cleared level lets the request carry on; everything else settles it.
+func (a RouteAction) Terminal() bool {
+	switch a {
+	case RouteAction_delay_time, RouteAction_delay_tick, RouteAction_clear_tp, RouteAction_clear_sl, RouteAction_clear_sltp:
+		return false
+	}
+	return true
+}
+
+// ToDealer reports whether the action hands the request to the dealing desk.
+func (a RouteAction) ToDealer() bool {
+	return a == RouteAction_dealer || a == RouteAction_dealer_online
+}
+
+func (a RouteAction) Executes() bool {
+	return a == RouteAction_confirm_client || a == RouteAction_confirm_market
+}

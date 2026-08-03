@@ -1,8 +1,6 @@
 package handler
 
 import (
-	wire "hstmodel"
-
 	"encoding/json"
 	"time"
 
@@ -20,7 +18,7 @@ const (
 )
 
 // PublishWS never fails the caller: a trade already written must not be undone because a socket message could not go out.
-func (h *Handler) PublishWS(subject string, event wire.EventType, payload any) {
+func (h *Handler) PublishWS(subject string, event model.EventType, payload any) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not encode an event",
@@ -44,7 +42,7 @@ func (h *Handler) PublishWS(subject string, event wire.EventType, payload any) {
 }
 
 // PublishText sends an already formatted payload, for messages too frequent to afford an envelope.
-func (h *Handler) PublishText(subject string, event wire.EventType, payload string) {
+func (h *Handler) PublishText(subject string, event model.EventType, payload string) {
 	msg := &natscore.Msg{
 		Subject: subject,
 		Data:    []byte(payload),
@@ -67,7 +65,7 @@ func (h *Handler) PublishRejected(res *model.TradeResult) {
 		return
 	}
 
-	h.PublishWS(model.SubjectAccountOrders(res.Login), wire.EventOrderRejected, res)
+	h.PublishWS(model.SubjectAccountOrders(res.Login), model.EventOrderRejected, res)
 }
 
 // PublishTrade announces a fill in the order the trade actually happened.
@@ -76,27 +74,27 @@ func (h *Handler) PublishRejected(res *model.TradeResult) {
 // filled before the position exists has nothing to show against it.
 func (h *Handler) PublishTrade(e *book.Entry, o *model.Order, f *Fill, a *model.Account) {
 	if f.Opened != nil {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), wire.EventPositionCreate, f.Opened)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionCreate, f.Opened)
 	}
 	for _, p := range f.Changed {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), wire.EventPositionUpdate, p)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionUpdate, p)
 	}
 	for _, p := range f.Closed {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), wire.EventPositionClose, p)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionClose, p)
 	}
 
 	for _, d := range f.Deals {
-		h.PublishWS(model.SubjectAccountDeals(d.Login), wire.EventDealCreate, d)
+		h.PublishWS(model.SubjectAccountDeals(d.Login), model.EventDealCreate, d)
 	}
 
-	h.PublishWS(model.SubjectAccountOrders(o.Login), wire.EventOrderCreate, o)
+	h.PublishWS(model.SubjectAccountOrders(o.Login), model.EventOrderCreate, o)
 
 	h.PublishAccount(a, nil)
 }
 
 // PublishAccount goes out on every tick touching the account, so it is one line rather than json.
 func (h *Handler) PublishAccount(a *model.Account, positions map[int64]float64) {
-	h.PublishText(model.SubjectAccountSummary(a.Login), wire.EventAccountSummary, AccountSummary(a, positions))
+	h.PublishText(model.SubjectAccountSummary(a.Login), model.EventAccountSummary, AccountSummary(a, positions))
 }
 
 // SummaryFor returns "" when a tick is not worth a frame; gated per instrument so a busy symbol cannot crowd out a quiet one. Caller holds the entry's lock.
@@ -127,9 +125,9 @@ func (h *Handler) summaryInterval() time.Duration {
 
 // PublishDealing offers one request to one dealer's queue.
 func (h *Handler) PublishDealing(dealer int64, e *model.DealingEvent) {
-	event := wire.EventDealerRequest
+	event := model.EventDealerRequest
 	if e.EventType != model.DealingEvent_offer {
-		event = wire.EventDealerRequestDone
+		event = model.EventDealerRequestDone
 	}
 
 	h.PublishWS(model.SubjectDealerRequests(dealer), event, e)

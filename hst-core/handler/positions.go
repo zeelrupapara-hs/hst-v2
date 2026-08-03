@@ -1,8 +1,6 @@
 package handler
 
 import (
-	wire "hstmodel"
-
 	"context"
 	"time"
 
@@ -636,7 +634,7 @@ func (h *Handler) SavePositionAndPublish(ctx context.Context, p *model.Position)
 		return err
 	}
 
-	h.PublishWS(model.SubjectAccountPositions(p.Login), wire.EventPositionUpdate, p)
+	h.PublishWS(model.SubjectAccountPositions(p.Login), model.EventPositionUpdate, p)
 
 	return nil
 }

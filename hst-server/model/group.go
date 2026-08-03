@@ -521,3 +521,38 @@ func PermissionFlagsFromStatus(status string) PermissionsFlags {
 		return PermissionsFlags_cert_confirm
 	}
 }
+
+// Netting keeps one position per symbol; hedging lets many sit side by side.
+type MarginMode int32
+
+const (
+	MarginMode_retail_netting MarginMode = 0
+	MarginMode_exchange       MarginMode = 1
+	MarginMode_retail_hedging MarginMode = 2
+)
+
+// How the stop out level is read.
+type StopOutMode int32
+
+const (
+	StopOutMode_percent StopOutMode = 0
+	StopOutMode_money   StopOutMode = 1
+)
+
+// How much of the floating result counts toward free margin, from hst.groups.margin_free_mode.
+type FreeMarginMode int32
+
+const (
+	FreeMarginMode_not_use_pl FreeMarginMode = 0
+	FreeMarginMode_use_pl     FreeMarginMode = 1
+	FreeMarginMode_profit     FreeMarginMode = 2
+	FreeMarginMode_loss       FreeMarginMode = 3
+)
+
+// How a day's realised profit is treated, from hst.groups.margin_free_profit_mode.
+type FreeMarginProfitMode int32
+
+const (
+	FreeMarginProfitMode_day_profit_and_loss FreeMarginProfitMode = 0
+	FreeMarginProfitMode_day_profit_loss     FreeMarginProfitMode = 1
+)

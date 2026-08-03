@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	wire "hstmodel"
 	"hstserver/pkg/logger"
 	"time"
 
@@ -128,13 +127,13 @@ const orderFrom = ` FROM hst.orders o JOIN hst.users u ON u.login = o.login WHER
 
 // checkOrderEnums refuses a value that is not a member of its enum, which a numeric bound cannot do.
 func checkOrderEnums(t model.OrderType, f model.OrderFilling, tt model.OrderTime) (int, error) {
-	if !wire.Valid(t, model.OrderType_name) {
+	if !model.Valid(t, model.OrderType_name) {
 		return nethttp.StatusBadRequest, errs.ErrInvalidOrderType
 	}
-	if !wire.Valid(f, model.OrderFilling_name) {
+	if !model.Valid(f, model.OrderFilling_name) {
 		return nethttp.StatusBadRequest, errs.ErrInvalidOrderFilling
 	}
-	if !wire.Valid(tt, model.OrderTime_name) {
+	if !model.Valid(tt, model.OrderTime_name) {
 		return nethttp.StatusBadRequest, errs.ErrInvalidOrderTime
 	}
 

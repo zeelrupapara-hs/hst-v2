@@ -1,8 +1,6 @@
 package handler
 
 import (
-	wire "hstmodel"
-
 	"context"
 	"time"
 
@@ -220,7 +218,7 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetError, "")
 	}
 
-	h.PublishWS(model.SubjectAccountOrders(saved.Login), wire.EventOrderCreate, &saved)
+	h.PublishWS(model.SubjectAccountOrders(saved.Login), model.EventOrderCreate, &saved)
 
 	res.RetCode = int32(model.RetOK)
 	res.Message = model.RetOK.String()
@@ -426,7 +424,7 @@ func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *boo
 	e.Unlock()
 
 	h.Accounts.Watch(o.Symbol, e)
-	h.PublishWS(model.SubjectAccountOrders(o.Login), wire.EventOrderCreate, o)
+	h.PublishWS(model.SubjectAccountOrders(o.Login), model.EventOrderCreate, o)
 
 	// a working order can reserve margin of its own, so the account changed even with no deal
 	h.CalculateAccountMarginsAndProfits(ctx, e)

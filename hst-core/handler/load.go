@@ -411,7 +411,7 @@ func (h *Handler) readAccounts(ctx context.Context, shards map[uint32]bool, and 
 		}
 
 		// a rebalance asks for the shards just gained, so the rest are already resident
-		if shards != nil && !shards[model.ShardOf(a.Login)] {
+		if shards != nil && !shards[shardmap.ShardOf(a.Login)] {
 			continue
 		}
 

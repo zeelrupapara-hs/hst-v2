@@ -521,3 +521,43 @@ type SymbolSession struct {
 }
 
 func (SymbolSession) TableName() string { return "hst.symbols_sessions" }
+
+// How the margin for an instrument is worked out.
+type CalcMode int32
+
+const (
+	CalcMode_forex               CalcMode = 0
+	CalcMode_futures             CalcMode = 1
+	CalcMode_cfd                 CalcMode = 2
+	CalcMode_cfd_index           CalcMode = 3
+	CalcMode_cfd_leverage        CalcMode = 4
+	CalcMode_forex_no_leverage   CalcMode = 5
+	CalcMode_exch_stocks         CalcMode = 32
+	CalcMode_exch_futures        CalcMode = 33
+	CalcMode_exch_forts          CalcMode = 34
+	CalcMode_exch_options        CalcMode = 35
+	CalcMode_exch_options_margin CalcMode = 36
+	CalcMode_exch_bonds          CalcMode = 37
+	CalcMode_serv_collateral     CalcMode = 64
+)
+
+// How a request is turned into a fill.
+type ExecMode int32
+
+const (
+	ExecMode_request  ExecMode = 0
+	ExecMode_instant  ExecMode = 1
+	ExecMode_market   ExecMode = 2
+	ExecMode_exchange ExecMode = 3
+)
+
+// What a group may do with an instrument.
+type TradeMode int32
+
+const (
+	TradeMode_disabled   TradeMode = 0
+	TradeMode_long_only  TradeMode = 1
+	TradeMode_short_only TradeMode = 2
+	TradeMode_close_only TradeMode = 3
+	TradeMode_full       TradeMode = 4
+)

@@ -45,7 +45,7 @@ type Hub struct {
 	total   int
 
 	// RouterMap binds an inbound event type to its handler, written once at startup.
-	RouterMap map[string]Handler
+	RouterMap map[model.EventType]Handler
 	onError   ErrorHandler
 
 	log *logger.Logger
@@ -55,14 +55,14 @@ type Hub struct {
 func NewHub(log *logger.Logger) *Hub {
 	return &Hub{
 		clients:   make(map[string][]*Client),
-		RouterMap: make(map[string]Handler),
+		RouterMap: make(map[model.EventType]Handler),
 		onError:   defaultErrorHandler,
 		log:       log,
 	}
 }
 
 // RegisterRoute binds an inbound event type to a handler.
-func (h *Hub) RegisterRoute(event string, handler Handler) { h.RouterMap[event] = handler }
+func (h *Hub) RegisterRoute(event model.EventType, handler Handler) { h.RouterMap[event] = handler }
 
 // SetErrorHandler decides what a handler's error turns into on the wire.
 func (h *Hub) SetErrorHandler(cb ErrorHandler) { h.onError = cb }
@@ -70,7 +70,7 @@ func (h *Hub) SetErrorHandler(cb ErrorHandler) { h.onError = cb }
 // Dispatch parses a frame and calls the bound handler.
 func (h *Hub) Dispatch(c *Client, data []byte) {
 	var in struct {
-		Type    string          `json:"type"`
+		Type    model.EventType `json:"type"`
 		Payload json.RawMessage `json:"payload"`
 	}
 	if err := json.Unmarshal(data, &in); err != nil {

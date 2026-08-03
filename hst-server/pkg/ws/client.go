@@ -226,7 +226,7 @@ func encodeJSON(e *model.Event) []byte {
 	buf := make([]byte, 0, len(e.Payload)+len(e.Type)+48)
 
 	buf = append(buf, `{"type":`...)
-	buf = appendQuoted(buf, e.Type)
+	buf = appendQuoted(buf, string(e.Type))
 
 	if e.Group != "" {
 		buf = append(buf, `,"group":`...)

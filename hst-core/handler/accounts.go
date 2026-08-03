@@ -1,8 +1,6 @@
 package handler
 
 import (
-	wire "hstmodel"
-
 	"context"
 	"encoding/json"
 
@@ -144,7 +142,7 @@ func (h *Handler) SaveBalanceAndPublish(ctx context.Context, e *book.Entry, d *m
 		return err
 	}
 
-	h.PublishWS(model.SubjectAccountMoneyChange(d.Login), wire.EventMoneyChange, d)
+	h.PublishWS(model.SubjectAccountMoneyChange(d.Login), model.EventMoneyChange, d)
 	h.PublishAccount(a, nil)
 
 	return nil

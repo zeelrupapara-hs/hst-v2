@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"hstcore/internal/shardmap"
 
 	"context"
 
@@ -104,7 +105,7 @@ func (h *Handler) forwarded(msg *natscore.Msg, topic string, login int64) bool {
 		return false
 	}
 
-	owner := model.SubjectOwner(model.ShardOf(login), topic)
+	owner := model.SubjectOwner(shardmap.ShardOf(login), topic)
 	if err := h.Nats.NC.PublishRequest(owner, msg.Reply, msg.Data); err != nil {
 		h.Log.Log(logger.TypeNet, logger.CodeErr, "could not forward to the owning pod",
 			"login", login, "topic", topic, "error", err.Error())

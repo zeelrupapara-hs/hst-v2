@@ -5,15 +5,13 @@ WORKDIR /app
 
 RUN apk --update --no-cache add ca-certificates git
 
-# the build context is the repo root, because the wire contract is a sibling module
-COPY hst-model/go.mod ./hst-model/
-COPY hst-news/go.mod hst-news/go.sum ./hst-news/
-RUN go mod download -C hst-news
+# the module files alone, so the dependency layer survives a source change
+COPY go.mod go.sum ./
+RUN go mod download
 
-COPY hst-model ./hst-model
-COPY hst-news ./hst-news
+COPY . .
 
-RUN go build -C hst-news -trimpath -ldflags="-s -w" -o /out/hstnews ./cmd
+RUN go build -trimpath -ldflags="-s -w" -o /out/hstnews ./cmd
 
 FROM alpine:latest
 
