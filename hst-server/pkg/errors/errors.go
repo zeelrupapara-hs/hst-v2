@@ -17,6 +17,8 @@ const (
 	MissingAuthorizationHeader   = "missing Authorization header"
 	BasicAuth                    = "please provide valid basic credentials in the Authorization header"
 	BearerToken                  = "please provide a valid bearer token in the Authorization header"
+	InvalidSmtpServer            = "the mail server address must be host:port"
+	InvalidSmtpPort              = "the mail server port is out of range"
 	InvalidToken                 = "expired or invalid token"
 	InvalidSession               = "expired or invalid session"
 	InvalidCredentials           = "incorrect login or password"
@@ -77,6 +79,8 @@ const (
 )
 
 var (
+	ErrInvalidSmtpServer            = errors.New(InvalidSmtpServer)
+	ErrInvalidSmtpPort              = errors.New(InvalidSmtpPort)
 	ErrBadRequest                   = errors.New(BadRequest)
 	ErrInternalServerError          = errors.New(InternalServerError)
 	ErrServiceUnavailable           = errors.New(ServiceUnavailable)

@@ -63,6 +63,14 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	leverages.Put("/:id/rules/:ruleId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.UpdateLeverageRule)
 	leverages.Delete("/:id/rules/:ruleId", s.Middleware.Authorization(model.MgrRightCfgGroups), s.DeleteLeverageRule)
 
+	// mail servers, the SMTP accounts the platform sends from
+	mailServers := v1.Group("/mail-servers", s.Middleware.Protect, s.Middleware.RequireManager)
+	mailServers.Get("/", s.Middleware.Authorization(model.MgrRightCfgMails), s.ListMailServers)
+	mailServers.Post("/", s.Middleware.Authorization(model.MgrRightCfgMails), s.CreateMailServer)
+	mailServers.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgMails), s.GetMailServer)
+	mailServers.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgMails), s.UpdateMailServer)
+	mailServers.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgMails), s.DeleteMailServer)
+
 	// trading holidays
 	holidays := v1.Group("/holidays", s.Middleware.Protect, s.Middleware.RequireManager)
 	holidays.Get("/", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.ListHolidays)

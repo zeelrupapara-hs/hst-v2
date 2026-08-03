@@ -130,6 +130,9 @@ var adminTree = []navNode{
 	{key: "datafeeds", label: "Data Feeds", icon: "rss", route: "/datafeeds", section: "feeds",
 		needs: []uint{model.MgrRightCfgDatafeeds}, counter: "datafeeds"},
 
+	{key: "mail_servers", label: "Mail Servers", icon: "mail", route: "/mail-servers", section: "feeds",
+		needs: []uint{model.MgrRightCfgMails}, counter: "mail_servers"},
+
 	{key: "holidays", label: "Holidays", icon: "calendar", route: "/holidays", section: "config",
 		needs: []uint{model.MgrRightCfgHolidays}, counter: "holidays"},
 
@@ -290,6 +293,10 @@ func (s *HttpServer) navCounts(ctx context.Context, isManager bool, masks []stri
 	if r.Has(model.MgrRightCfgDatafeeds) {
 		out["datafeeds"] = s.countOf(ctx, `SELECT count(*) FROM hst.datafeeds`, nil)
 	}
+	if r.Has(model.MgrRightCfgMails) {
+		out["mail_servers"] = s.countOf(ctx, `SELECT count(*) FROM hst.mail_servers`, nil)
+	}
+
 	if r.Has(model.MgrRightCfgHolidays) {
 		out["holidays"] = s.countOf(ctx, `SELECT count(*) FROM hst.holidays`, nil)
 	}

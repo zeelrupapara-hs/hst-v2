@@ -93,10 +93,11 @@ const (
 
 // Records with no group of their own. Access to them is a right, not a path, so the subject carries no group.
 const (
-	SubjectSymbol   = "websocket.broker.symbols_update"
-	SubjectHoliday  = "websocket.broker.holidays_update"
-	SubjectLeverage = "websocket.broker.leverages_update"
-	SubjectManager  = "websocket.broker.managers_update"
+	SubjectSymbol     = "websocket.broker.symbols_update"
+	SubjectHoliday    = "websocket.broker.holidays_update"
+	SubjectLeverage   = "websocket.broker.leverages_update"
+	SubjectManager    = "websocket.broker.managers_update"
+	SubjectMailServer = "websocket.broker.mail_servers_update"
 )
 
 // From the api to the other services.
@@ -124,6 +125,10 @@ const (
 	SubjectSystemSymbolCreated = "system.symbols.created"
 	SubjectSystemSymbolUpdated = "system.symbols.updated"
 	SubjectSystemSymbolDeleted = "system.symbols.deleted"
+
+	SubjectSystemMailServerCreated = "system.mail_servers.created"
+	SubjectSystemMailServerUpdated = "system.mail_servers.updated"
+	SubjectSystemMailServerDeleted = "system.mail_servers.deleted"
 
 	SubjectSystemHolidayCreated   = "system.holidays.created"
 	SubjectSystemHolidayUpdated   = "system.holidays.updated"
@@ -168,6 +173,10 @@ const (
 	EventSymbolCreated = "symbol_created"
 	EventSymbolUpdated = "symbol_updated"
 	EventSymbolDeleted = "symbol_deleted"
+
+	EventMailServerCreated = "mail_server_created"
+	EventMailServerUpdated = "mail_server_updated"
+	EventMailServerDeleted = "mail_server_deleted"
 
 	EventHolidayCreated   = "holiday_created"
 	EventHolidayUpdated   = "holiday_updated"

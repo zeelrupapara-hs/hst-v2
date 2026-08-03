@@ -31,7 +31,7 @@ func (m *Middleware) SecurityHeaders(c *fiber.Ctx) error {
 func (m *Middleware) CORS(origins []string) fiber.Handler {
 	return cors.New(cors.Config{
 		AllowOrigins:     strings.Join(origins, ","),
-		AllowMethods:     strings.Join([]string{fiber.MethodGet, fiber.MethodPost, fiber.MethodPatch, fiber.MethodDelete, fiber.MethodOptions}, ","),
+		AllowMethods:     strings.Join([]string{fiber.MethodGet, fiber.MethodPost, fiber.MethodPut, fiber.MethodPatch, fiber.MethodDelete, fiber.MethodOptions}, ","),
 		AllowHeaders:     strings.Join([]string{fiber.HeaderAuthorization, fiber.HeaderContentType}, ","),
 		AllowCredentials: true,
 	})

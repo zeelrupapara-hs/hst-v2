@@ -47,7 +47,9 @@ const (
 
 	// auth
 	// #nosec G101 -- env var name, not a credential
-	AUTH_LOG_RESET_CODES   = "AUTH_LOG_RESET_CODES"
+	AUTH_LOG_RESET_CODES = "AUTH_LOG_RESET_CODES"
+	// #nosec G101 -- env var name, not a credential
+	AUTH_LOG_CREDENTIALS   = "AUTH_LOG_CREDENTIALS"
 	AUTH_JWT_PRIVATE_KEY   = "AUTH_JWT_PRIVATE_KEY"
 	AUTH_ACCESS_TTL        = "AUTH_ACCESS_TTL"
 	AUTH_REFRESH_TTL       = "AUTH_REFRESH_TTL"
@@ -76,6 +78,8 @@ const (
 	TRUSTED_PROXIES = "TRUSTED_PROXIES"
 
 	// registration
+	MAIL_TEMPLATES_DIR         = "MAIL_TEMPLATES_DIR"
+	MAIL_DRAIN_INTERVAL        = "MAIL_DRAIN_INTERVAL"
 	REGISTER_DEMO_GROUP        = "REGISTER_DEMO_GROUP"
 	REGISTER_PRELIMINARY_GROUP = "REGISTER_PRELIMINARY_GROUP"
 
@@ -104,6 +108,16 @@ type Config struct {
 	Internal Internal
 	Register Register
 	Influx   Influx
+	Mail     Mail
+}
+
+// Mail is how outgoing email is rendered and drained. The servers themselves are configured
+// in the panel, not here, because MT5 keeps them as records a manager can edit.
+type Mail struct {
+	// TemplatesDir holds greeting/, verify_email/ and the rest, in MT5's layout.
+	TemplatesDir string
+	// DrainInterval is how often the outbox is swept.
+	DrainInterval time.Duration
 }
 
 // Influx is the tick store the charts read their history out of.
@@ -142,6 +156,9 @@ type Auth struct {
 	// RefreshAbsoluteTTL caps a whole rotation family however often it rotates.
 	RefreshAbsoluteTTL time.Duration
 
+	// LogCredentials logs a generated account password. Development only: it is the only way
+	// to see one when no mail server is configured.
+	LogCredentials bool
 	// LogResetCodes prints recovery codes to the log, for development only.
 	LogResetCodes bool
 
@@ -351,6 +368,7 @@ func NewConfig() (*Config, error) {
 	c.Auth.JwtPrivateKey = getEnv(AUTH_JWT_PRIVATE_KEY, "")
 	c.Auth.JwtIssuer = "hstserver"
 	c.Auth.LogResetCodes = getEnvAsBool(AUTH_LOG_RESET_CODES, false)
+	c.Auth.LogCredentials = getEnvAsBool(AUTH_LOG_CREDENTIALS, false)
 	c.Auth.AccessTTL = time.Duration(getEnvAsInt(AUTH_ACCESS_TTL, 7200)) * time.Second
 	c.Auth.RefreshTTL = time.Duration(getEnvAsInt(AUTH_REFRESH_TTL, 604800)) * time.Second
 	c.Auth.RefreshAbsoluteTTL = 30 * 24 * time.Hour
@@ -366,6 +384,9 @@ func NewConfig() (*Config, error) {
 	c.Auth.FirstManagerPassword = getEnv(FIRST_MANAGER_PASSWORD, "")
 
 	// Register
+	c.Mail.TemplatesDir = getEnv(MAIL_TEMPLATES_DIR, "templates")
+	c.Mail.DrainInterval = time.Duration(getEnvAsInt(MAIL_DRAIN_INTERVAL, 15)) * time.Second
+
 	c.Register.DemoGroup = getEnv(REGISTER_DEMO_GROUP, "demo")
 	c.Register.PreliminaryGroup = getEnv(REGISTER_PRELIMINARY_GROUP, "preliminary")
 

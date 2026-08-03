@@ -49,6 +49,10 @@ var (
 	SymbolUpdatedMsg = func(login int64, symbol string) string { return fmt.Sprintf("%d: %s symbol updated", login, symbol) }
 	SymbolDeletedMsg = func(login int64, symbol string) string { return fmt.Sprintf("%d: %s symbol deleted", login, symbol) }
 
+	MailServerCreatedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d mail server created", login, id) }
+	MailServerUpdatedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d mail server updated", login, id) }
+	MailServerDeletedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d mail server deleted", login, id) }
+
 	HolidayCreatedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d holiday created", login, id) }
 	HolidayUpdatedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d holiday updated", login, id) }
 	HolidayDeletedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d holiday deleted", login, id) }

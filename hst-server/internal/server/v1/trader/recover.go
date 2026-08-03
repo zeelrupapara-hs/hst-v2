@@ -5,12 +5,14 @@ import (
 	"crypto/rand"
 	"errors"
 	"math/big"
+	"strconv"
 	"time"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
 	nethttp "hstserver/pkg/http"
 	"hstserver/pkg/logger"
+	"hstserver/pkg/mailer"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -106,7 +108,8 @@ func (s *Server) ForgotPassword(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	// delivery by email or sms is wired separately
+	s.SendResetCode(ctx, login, code)
+
 	s.Log.Log(logger.TypeUser, logger.CodeOK, "password reset code issued", "login", login, "ip", ip)
 
 	// a recovery code is a credential, so it reaches the log only when a developer asks for it
@@ -340,4 +343,34 @@ func newResetCode() (string, error) {
 		byte('0' + n.Int64()/10%10),
 		byte('0' + n.Int64()%10),
 	}), nil
+}
+
+// SendResetCode mails the recovery code to the address on the account. The code is never
+// returned by the API, so this is how a trader who has lost their password gets back in.
+func (s *Server) SendResetCode(ctx context.Context, login int64, code string) {
+	var name, email, group string
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT name, email, "group" FROM hst.users WHERE login = $1`, login).
+		Scan(&name, &email, &group); err != nil || email == "" {
+		return
+	}
+
+	company, catalog := s.CompanyOf(ctx, group)
+
+	body, err := s.Mailer.Render(mailer.KindVerifyEmail, catalog, map[string]string{
+		mailer.MacroName:             name,
+		mailer.MacroConfirmationCode: code,
+		mailer.MacroLogin:            strconv.FormatInt(login, 10),
+		mailer.MacroCompany:          company,
+	})
+	if err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeErr, "reset code mail not rendered",
+			"login", login, "error", err.Error())
+		return
+	}
+
+	if err := s.Mailer.Queue(ctx, email, "Your confirmation code", body); err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeErr, "reset code mail not queued",
+			"login", login, "error", err.Error())
+	}
 }

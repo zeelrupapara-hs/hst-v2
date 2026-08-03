@@ -9,6 +9,7 @@ import (
 	"hstserver/pkg/influxdb"
 	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
+	"hstserver/pkg/mailer"
 	"hstserver/pkg/nats"
 	"hstserver/pkg/oauth2"
 	"hstserver/pkg/redis"
@@ -48,6 +49,8 @@ type HttpServer struct {
 	Journal *journal.Journal
 	// History reads the tick store back as chart bars
 	History *influxdb.Reader
+	// Mailer queues and sends outgoing email through the configured mail server
+	Mailer *mailer.Mailer
 }
 
 func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *nats.Nats, rds *redis.Redis, middleware *middleware.Middleware, oauth *oauth2.OAuth2, cfg *config.Config, validate *validator.Validate) *HttpServer {
@@ -56,6 +59,7 @@ func NewHTTP(app *http.App, database *db.PostgresDB, log *logger.Logger, nats *n
 		Middleware: middleware,
 		Hub:        ws.NewHub(log),
 		Journal:    journal.New(database, nats, log),
+		Mailer:     mailer.New(database, log, cfg.Mail.TemplatesDir, cfg.Mail.DrainInterval),
 		App:        app,
 		DB:         database,
 		Log:        log,

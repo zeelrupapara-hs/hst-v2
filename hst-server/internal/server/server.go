@@ -89,6 +89,9 @@ func (s *Server) Run() error {
 	if err := s.WorkerStatus.Start(s.Nats); err != nil {
 		return err
 	}
+
+	s.Web.Mailer.Start()
+
 	// register all routes
 	s.RegisterRoutes()
 
@@ -111,6 +114,7 @@ func (s *Server) Shutdown() error {
 	if s.WorkerStatus != nil {
 		s.WorkerStatus.Stop()
 	}
+	s.Web.Mailer.Stop()
 	// websockets never end on their own, so fiber would otherwise wait out the whole timeout
 	s.Web.Hub.Shutdown()
 	s.Web.History.Close()

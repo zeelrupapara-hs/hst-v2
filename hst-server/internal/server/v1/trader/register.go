@@ -1,11 +1,15 @@
 package trader
 
 import (
+	"context"
+	"strconv"
+
 	v1 "hstserver/internal/server/v1"
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
 	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
+	"hstserver/pkg/mailer"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -18,17 +22,20 @@ const (
 	AccountTypeReal = "real"
 )
 
-// CrtRegister is a public signup.
+// CrtRegister is a public signup. It carries no password: MT5 generates both and mails them,
+// so a signup cannot choose a weak one and no plaintext ever crosses the wire inbound.
 type CrtRegister struct {
-	Type             string `json:"type" validate:"required,oneof=demo real"`
-	Name             string `json:"name" validate:"required,max=128"`
-	Email            string `json:"email" validate:"required,email,max=255"`
-	Phone            string `json:"phone" validate:"max=64"`
-	Country          string `json:"country" validate:"max=64"`
-	City             string `json:"city" validate:"max=64"`
-	PasswordMain     string `json:"password_main" validate:"required,min=8,max=128"`
-	PasswordInvestor string `json:"password_investor" validate:"required,min=8,max=128"`
+	Type    string `json:"type" validate:"required,oneof=demo real"`
+	Name    string `json:"name" validate:"required,max=128"`
+	Email   string `json:"email" validate:"required,email,max=255"`
+	Phone   string `json:"phone" validate:"max=64"`
+	Country string `json:"country" validate:"max=64"`
+	City    string `json:"city" validate:"max=64"`
 }
+
+// generatedPasswordLength is what a welcome mail carries; long enough that it is worth mailing
+// rather than remembering.
+const generatedPasswordLength = 12
 
 // ViewRegister is what a signup gets back: the login it may now authenticate with.
 type ViewRegister struct {
@@ -74,6 +81,16 @@ func (s *Server) Register(c *fiber.Ctx) error {
 	// a signup is enabled and owns its password, and nothing else: rights are not the caller's to choose
 	rights := int64(model.UsersRights_enabled | model.UsersRights_password)
 
+	passwordMain, err := utils.NewPassword(generatedPasswordLength)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	passwordInvestor, err := utils.NewPassword(generatedPasswordLength)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
 	login, status, err := s.OpenLogin(ctx, v1.NewLogin{
 		Group:            group,
 		Rights:           rights,
@@ -82,8 +99,8 @@ func (s *Server) Register(c *fiber.Ctx) error {
 		Phone:            body.Phone,
 		Country:          body.Country,
 		City:             body.City,
-		PasswordMain:     body.PasswordMain,
-		PasswordInvestor: body.PasswordInvestor,
+		PasswordMain:     passwordMain,
+		PasswordInvestor: passwordInvestor,
 	})
 	if err != nil {
 		return s.App.HttpResponseStatus(c, status, err)
@@ -91,6 +108,8 @@ func (s *Server) Register(c *fiber.Ctx) error {
 
 	s.Log.Log(logger.TypeUser, logger.CodeOK, "account registered",
 		"login", login, "group", group, "type", body.Type, "ip", ip)
+
+	s.SendWelcome(ctx, login, group, body.Name, body.Email, passwordMain, passwordInvestor)
 
 	view := ViewRegister{Login: login, Group: group, Type: body.Type}
 
@@ -121,4 +140,49 @@ func (s *Server) RegistrationGroup(accountType string) (string, error) {
 	}
 
 	return group, nil
+}
+
+// SendWelcome queues the mail carrying the generated credentials. MT5 sends it however the
+// account was opened, and it is the only place those passwords exist in plaintext.
+func (s *Server) SendWelcome(ctx context.Context, login int64, group, name, email, main, investor string) {
+	// development only, and the sole way to read a password when no mail server is configured
+	if s.Cfg.Auth.LogCredentials {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "generated account credentials",
+			"login", login, "password_main", main, "password_investor", investor)
+	}
+
+	if email == "" {
+		return
+	}
+
+	company, catalog := s.CompanyOf(ctx, group)
+
+	body, err := s.Mailer.Render(mailer.KindGreeting, catalog, map[string]string{
+		mailer.MacroName:             name,
+		mailer.MacroLogin:            strconv.FormatInt(login, 10),
+		mailer.MacroPasswordMain:     main,
+		mailer.MacroPasswordInvestor: investor,
+		mailer.MacroGroup:            group,
+		mailer.MacroCompany:          company,
+	})
+	if err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeErr, "welcome mail not rendered",
+			"login", login, "error", err.Error())
+		return
+	}
+
+	if err := s.Mailer.Queue(ctx, email, "Your trading account", body); err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeErr, "welcome mail not queued",
+			"login", login, "error", err.Error())
+	}
+}
+
+// CompanyOf reads the group's company name and its template folder. Both are blank for a
+// group that never set them, which lands the caller on the default templates.
+func (s *Server) CompanyOf(ctx context.Context, group string) (company, catalog string) {
+	_ = s.DB.DB.QueryRow(ctx,
+		`SELECT company, company_catalog FROM hst.groups WHERE "group" = $1`, group).
+		Scan(&company, &catalog)
+
+	return company, catalog
 }
