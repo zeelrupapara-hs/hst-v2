@@ -148,7 +148,7 @@ func (h *Handler) CompensateNegativeBalance(ctx context.Context, e *book.Entry, 
 	if g.TradeFlags&model.TradeFlagSOCompensationCredit != 0 && credit != 0 {
 		h.NewBalance(ctx, &model.BalanceRequest{
 			Login:         login,
-			Action:        model.DealAction_so_compensation_cr,
+			Action:        model.DealAction_so_compensation_credit,
 			Amount:        -credit,
 			AllowNegative: true,
 			Comment:       "so credit compensation",

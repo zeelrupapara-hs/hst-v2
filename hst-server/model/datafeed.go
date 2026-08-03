@@ -50,12 +50,28 @@ const (
 
 var (
 	FeederParamType_name = map[int16]string{
-		0: "string", 1: "int", 2: "float", 3: "time", 4: "date",
-		5: "datetime", 6: "groups", 7: "symbols", 8: "bool", 9: "color",
+		0: "string",
+		1: "int",
+		2: "float",
+		3: "time",
+		4: "date",
+		5: "datetime",
+		6: "groups",
+		7: "symbols",
+		8: "bool",
+		9: "color",
 	}
 	FeederParamType_value = map[string]int16{
-		"string": 0, "int": 1, "float": 2, "time": 3, "date": 4,
-		"datetime": 5, "groups": 6, "symbols": 7, "bool": 8, "color": 9,
+		"string":   0,
+		"int":      1,
+		"float":    2,
+		"time":     3,
+		"date":     4,
+		"datetime": 5,
+		"groups":   6,
+		"symbols":  7,
+		"bool":     8,
+		"color":    9,
 	}
 )
 

@@ -29,14 +29,14 @@ func BalanceActionName(action DealAction) string { return DealActionName(action)
 // AffectsCredit reports whether the action moves credit rather than balance.
 func AffectsCredit(action DealAction) bool {
 	return action == DealAction_credit || action == DealAction_bonus ||
-		action == DealAction_so_compensation_cr
+		action == DealAction_so_compensation_credit
 }
 
 // IsBalanceAction reports whether an action is a money operation rather than a trade.
 func IsBalanceAction(action DealAction) bool {
 	switch DealAction(action) {
 	case DealAction_balance, DealAction_credit, DealAction_charge, DealAction_correction, DealAction_bonus,
-		DealAction_commission, DealAction_interest, DealAction_so_compensation, DealAction_so_compensation_cr:
+		DealAction_commission, DealAction_interest, DealAction_so_compensation, DealAction_so_compensation_credit:
 		return true
 	}
 	return false

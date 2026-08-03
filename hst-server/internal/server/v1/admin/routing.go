@@ -785,7 +785,7 @@ func validateConditionRulePair(condition int32, rule int16) error {
 
 	switch model.RouteCondition(condition) {
 	case model.RouteCondition_symbol, model.RouteCondition_group,
-		model.RouteCondition_comment, model.RouteCondition_comment2,
+		model.RouteCondition_comment, model.RouteCondition_comment_client,
 		model.RouteCondition_country, model.RouteCondition_city:
 		if rule != int16(model.ConditionRule_equal) && rule != int16(model.ConditionRule_not_equal) {
 			return fmt.Errorf("condition %d only supports = and != comparisons", condition)

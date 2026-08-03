@@ -137,17 +137,17 @@ const (
 	RouteCondition_value            RouteCondition = 15
 	RouteCondition_current_spread   RouteCondition = 16
 
-	RouteCondition_login     RouteCondition = 1000
-	RouteCondition_group     RouteCondition = 1001
-	RouteCondition_country   RouteCondition = 1002
-	RouteCondition_city      RouteCondition = 1003
-	RouteCondition_color     RouteCondition = 1004
-	RouteCondition_leverage  RouteCondition = 1005
-	RouteCondition_comment2  RouteCondition = 1006
-	RouteCondition_zip       RouteCondition = 1007
-	RouteCondition_status    RouteCondition = 1008
-	RouteCondition_client_id RouteCondition = 1009
-	RouteCondition_party_id  RouteCondition = 1010
+	RouteCondition_login          RouteCondition = 1000
+	RouteCondition_group          RouteCondition = 1001
+	RouteCondition_country        RouteCondition = 1002
+	RouteCondition_city           RouteCondition = 1003
+	RouteCondition_color          RouteCondition = 1004
+	RouteCondition_leverage       RouteCondition = 1005
+	RouteCondition_comment_client RouteCondition = 1006
+	RouteCondition_zip            RouteCondition = 1007
+	RouteCondition_status         RouteCondition = 1008
+	RouteCondition_client_id      RouteCondition = 1009
+	RouteCondition_party_id       RouteCondition = 1010
 
 	RouteCondition_margin       RouteCondition = 2000
 	RouteCondition_margin_level RouteCondition = 2001

@@ -90,8 +90,15 @@ const (
 
 var (
 	OrderType_name = map[int32]string{
-		0: "buy", 1: "sell", 2: "buy_limit", 3: "sell_limit", 4: "buy_stop",
-		5: "sell_stop", 6: "buy_stop_limit", 7: "sell_stop_limit", 8: "close_by",
+		0: "buy",
+		1: "sell",
+		2: "buy_limit",
+		3: "sell_limit",
+		4: "buy_stop",
+		5: "sell_stop",
+		6: "buy_stop_limit",
+		7: "sell_stop_limit",
+		8: "close_by",
 	}
 	OrderType_value = valuesOf(OrderType_name)
 )
@@ -134,8 +141,16 @@ const (
 
 var (
 	OrderState_name = map[int32]string{
-		0: "started", 1: "placed", 2: "canceled", 3: "partial", 4: "filled",
-		5: "rejected", 6: "expired", 7: "request_add", 8: "request_modify", 9: "request_cancel",
+		0: "started",
+		1: "placed",
+		2: "canceled",
+		3: "partial",
+		4: "filled",
+		5: "rejected",
+		6: "expired",
+		7: "request_add",
+		8: "request_modify",
+		9: "request_cancel",
 	}
 	OrderState_value = valuesOf(OrderState_name)
 )
@@ -173,7 +188,12 @@ const (
 )
 
 var (
-	OrderFilling_name  = map[int32]string{0: "fok", 1: "ioc", 2: "return", 3: "boc"}
+	OrderFilling_name = map[int32]string{
+		0: "fok",
+		1: "ioc",
+		2: "return",
+		3: "boc",
+	}
 	OrderFilling_value = valuesOf(OrderFilling_name)
 )
 
@@ -188,7 +208,12 @@ const (
 )
 
 var (
-	OrderTime_name  = map[int32]string{0: "gtc", 1: "day", 2: "specified", 3: "specified_day"}
+	OrderTime_name = map[int32]string{
+		0: "gtc",
+		1: "day",
+		2: "specified",
+		3: "specified_day",
+	}
 	OrderTime_value = valuesOf(OrderTime_name)
 )
 
@@ -227,10 +252,28 @@ const (
 
 var (
 	OrderReason_name = map[int32]string{
-		0: "client", 1: "expert", 2: "dealer", 3: "sl", 4: "tp", 5: "so", 6: "rollover",
-		7: "external_client", 8: "vmargin", 9: "gateway", 10: "signal", 11: "settlement",
-		12: "transfer", 13: "sync", 14: "external_service", 15: "migration", 16: "mobile",
-		17: "web", 18: "split", 19: "corporate_action", 20: "ultency", 21: "coverage",
+		0:  "client",
+		1:  "expert",
+		2:  "dealer",
+		3:  "sl",
+		4:  "tp",
+		5:  "so",
+		6:  "rollover",
+		7:  "external_client",
+		8:  "vmargin",
+		9:  "gateway",
+		10: "signal",
+		11: "settlement",
+		12: "transfer",
+		13: "sync",
+		14: "external_service",
+		15: "migration",
+		16: "mobile",
+		17: "web",
+		18: "split",
+		19: "corporate_action",
+		20: "ultency",
+		21: "coverage",
 	}
 	OrderReason_value = valuesOf(OrderReason_name)
 )
@@ -249,7 +292,12 @@ const (
 
 var (
 	OrderActivation_name = map[int32]string{
-		0: "none", 1: "pending", 2: "stoplimit", 3: "sl", 4: "tp", 5: "stopout",
+		0: "none",
+		1: "pending",
+		2: "stoplimit",
+		3: "sl",
+		4: "tp",
+		5: "stopout",
 	}
 	OrderActivation_value = valuesOf(OrderActivation_name)
 )

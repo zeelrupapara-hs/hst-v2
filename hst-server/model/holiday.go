@@ -15,8 +15,14 @@ const (
 
 // Enum value maps for HolidayMode.
 var (
-	HolidayMode_name  = map[int32]string{0: "disabled", 1: "enabled"}
-	HolidayMode_value = map[string]int32{"disabled": 0, "enabled": 1}
+	HolidayMode_name = map[int32]string{
+		0: "disabled",
+		1: "enabled",
+	}
+	HolidayMode_value = map[string]int32{
+		"disabled": 0,
+		"enabled":  1,
+	}
 )
 
 // Holiday narrows the server work time for a set of symbol masks on one date.

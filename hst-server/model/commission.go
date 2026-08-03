@@ -147,28 +147,28 @@ const (
 
 var (
 	CommissionReasonFlags_name = map[int32]string{
-		0x00000000: "none",
-		0x00000001: "client",
-		0x00000002: "expert",
-		0x00000004: "dealer",
-		0x00000008: "external",
-		0x00000010: "mobile",
-		0x00000020: "web",
-		0x00000040: "signal",
-		0x00000080: "gateway",
-		0x00000100: "ultency",
+		0:   "none",
+		1:   "client",
+		2:   "expert",
+		4:   "dealer",
+		8:   "external",
+		16:  "mobile",
+		32:  "web",
+		64:  "signal",
+		128: "gateway",
+		256: "ultency",
 	}
 	CommissionReasonFlags_value = map[string]int32{
-		"none":     0x00000000,
-		"client":   0x00000001,
-		"expert":   0x00000002,
-		"dealer":   0x00000004,
-		"external": 0x00000008,
-		"mobile":   0x00000010,
-		"web":      0x00000020,
-		"signal":   0x00000040,
-		"gateway":  0x00000080,
-		"ultency":  0x00000100,
+		"none":     0,
+		"client":   1,
+		"expert":   2,
+		"dealer":   4,
+		"external": 8,
+		"mobile":   16,
+		"web":      32,
+		"signal":   64,
+		"gateway":  128,
+		"ultency":  256,
 	}
 )
 

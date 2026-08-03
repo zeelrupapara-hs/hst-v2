@@ -19,28 +19,28 @@ const (
 // Enum value maps for PermissionsFlags.
 var (
 	PermissionsFlags_name = map[int32]string{
-		0x00000000: "none",
-		0x00000001: "cert_confirm",
-		0x00000002: "enable_connection",
-		0x00000004: "reset_password",
-		0x00000008: "forced_otp_usage",
-		0x00000010: "risk_warning",
-		0x00000020: "regulation_protect",
-		0x00000040: "notify_deals",
-		0x00000080: "notify_orders",
-		0x00000100: "notify_balances",
+		0:   "none",
+		1:   "cert_confirm",
+		2:   "enable_connection",
+		4:   "reset_password",
+		8:   "forced_otp_usage",
+		16:  "risk_warning",
+		32:  "regulation_protect",
+		64:  "notify_deals",
+		128: "notify_orders",
+		256: "notify_balances",
 	}
 	PermissionsFlags_value = map[string]int32{
-		"none":               0x00000000,
-		"cert_confirm":       0x00000001,
-		"enable_connection":  0x00000002,
-		"reset_password":     0x00000004,
-		"forced_otp_usage":   0x00000008,
-		"risk_warning":       0x00000010,
-		"regulation_protect": 0x00000020,
-		"notify_deals":       0x00000040,
-		"notify_orders":      0x00000080,
-		"notify_balances":    0x00000100,
+		"none":               0,
+		"cert_confirm":       1,
+		"enable_connection":  2,
+		"reset_password":     4,
+		"forced_otp_usage":   8,
+		"risk_warning":       16,
+		"regulation_protect": 32,
+		"notify_deals":       64,
+		"notify_orders":      128,
+		"notify_balances":    256,
 	}
 )
 
@@ -188,34 +188,34 @@ const (
 // Enum value maps for GroupTradeFlags.
 var (
 	GroupTradeFlags_name = map[int32]string{
-		0x00000000: "none",
-		0x00000001: "swaps",
-		0x00000002: "trailing",
-		0x00000004: "experts",
-		0x00000008: "expiration",
-		0x00000010: "signals_all",
-		0x00000020: "signals_own",
-		0x00000040: "so_compensation",
-		0x00000080: "so_fully_hedged",
-		0x00000100: "fifo_close",
-		0x00000200: "hedge_prohibit",
-		0x00000400: "deal_cost",
-		0x00000800: "so_compensation_credit",
+		0:    "none",
+		1:    "swaps",
+		2:    "trailing",
+		4:    "experts",
+		8:    "expiration",
+		16:   "signals_all",
+		32:   "signals_own",
+		64:   "so_compensation",
+		128:  "so_fully_hedged",
+		256:  "fifo_close",
+		512:  "hedge_prohibit",
+		1024: "deal_cost",
+		2048: "so_compensation_credit",
 	}
 	GroupTradeFlags_value = map[string]int32{
-		"none":                   0x00000000,
-		"swaps":                  0x00000001,
-		"trailing":               0x00000002,
-		"experts":                0x00000004,
-		"expiration":             0x00000008,
-		"signals_all":            0x00000010,
-		"signals_own":            0x00000020,
-		"so_compensation":        0x00000040,
-		"so_fully_hedged":        0x00000080,
-		"fifo_close":             0x00000100,
-		"hedge_prohibit":         0x00000200,
-		"deal_cost":              0x00000400,
-		"so_compensation_credit": 0x00000800,
+		"none":                   0,
+		"swaps":                  1,
+		"trailing":               2,
+		"experts":                4,
+		"expiration":             8,
+		"signals_all":            16,
+		"signals_own":            32,
+		"so_compensation":        64,
+		"so_fully_hedged":        128,
+		"fifo_close":             256,
+		"hedge_prohibit":         512,
+		"deal_cost":              1024,
+		"so_compensation_credit": 2048,
 	}
 )
 
@@ -299,14 +299,14 @@ var (
 // Enum value maps for MarginMode.
 var (
 	MarginMode_name = map[int32]string{
-		0: "retail",
-		1: "exchange_discount",
-		2: "retail_hedged",
+		0: "retail_netting",
+		1: "exchange",
+		2: "retail_hedging",
 	}
 	MarginMode_value = map[string]int32{
-		"retail":            0,
-		"exchange_discount": 1,
-		"retail_hedged":     2,
+		"retail_netting": 0,
+		"exchange":       1,
+		"retail_hedging": 2,
 	}
 )
 

@@ -4,32 +4,66 @@ package model
 
 var (
 	CalcMode_name = map[int32]string{
-		0: "forex", 1: "futures", 2: "cfd", 3: "cfdindex", 4: "cfdleverage",
-		5: "forex_no_leverage", 32: "exch_stocks", 33: "exch_futures", 34: "exch_forts",
-		35: "exch_options", 36: "exch_options_margin", 37: "exch_bonds", 64: "serv_collateral",
+		0:  "forex",
+		1:  "futures",
+		2:  "cfd",
+		3:  "cfd_index",
+		4:  "cfd_leverage",
+		5:  "forex_no_leverage",
+		32: "exch_stocks",
+		33: "exch_futures",
+		34: "exch_forts",
+		35: "exch_options",
+		36: "exch_options_margin",
+		37: "exch_bonds",
+		64: "serv_collateral",
 	}
 	CalcMode_value = map[string]int32{
-		"forex": 0, "futures": 1, "cfd": 2, "cfdindex": 3, "cfdleverage": 4,
-		"forex_no_leverage": 5, "exch_stocks": 32, "exch_futures": 33, "exch_forts": 34,
-		"exch_options": 35, "exch_options_margin": 36, "exch_bonds": 37, "serv_collateral": 64,
+		"forex":               0,
+		"futures":             1,
+		"cfd":                 2,
+		"cfd_index":           3,
+		"cfd_leverage":        4,
+		"forex_no_leverage":   5,
+		"exch_stocks":         32,
+		"exch_futures":        33,
+		"exch_forts":          34,
+		"exch_options":        35,
+		"exch_options_margin": 36,
+		"exch_bonds":          37,
+		"serv_collateral":     64,
 	}
 )
 
 var (
 	TradeMode_name = map[int32]string{
-		0: "disabled", 1: "longonly", 2: "shortonly", 3: "closeonly", 4: "full",
+		0: "disabled",
+		1: "long_only",
+		2: "short_only",
+		3: "close_only",
+		4: "full",
 	}
 	TradeMode_value = map[string]int32{
-		"disabled": 0, "longonly": 1, "shortonly": 2, "closeonly": 3, "full": 4,
+		"disabled":   0,
+		"long_only":  1,
+		"short_only": 2,
+		"close_only": 3,
+		"full":       4,
 	}
 )
 
 var (
 	ExecMode_name = map[int32]string{
-		0: "request", 1: "instant", 2: "market", 3: "exchange",
+		0: "request",
+		1: "instant",
+		2: "market",
+		3: "exchange",
 	}
 	ExecMode_value = map[string]int32{
-		"request": 0, "instant": 1, "market": 2, "exchange": 3,
+		"request":  0,
+		"instant":  1,
+		"market":   2,
+		"exchange": 3,
 	}
 )
 
@@ -43,10 +77,14 @@ const (
 
 var (
 	GTCMode_name = map[int32]string{
-		0: "gtc", 1: "daily", 2: "daily_no_stops",
+		0: "gtc",
+		1: "daily",
+		2: "daily_no_stops",
 	}
 	GTCMode_value = map[string]int32{
-		"gtc": 0, "daily": 1, "daily_no_stops": 2,
+		"gtc":            0,
+		"daily":          1,
+		"daily_no_stops": 2,
 	}
 )
 
@@ -60,10 +98,14 @@ const (
 
 var (
 	FillingFlags_name = map[int32]string{
-		0: "none", 1: "fok", 2: "ioc",
+		0: "none",
+		1: "fok",
+		2: "ioc",
 	}
 	FillingFlags_value = map[string]int32{
-		"none": 0, "fok": 1, "ioc": 2,
+		"none": 0,
+		"fok":  1,
+		"ioc":  2,
 	}
 )
 
@@ -79,10 +121,18 @@ const (
 
 var (
 	ExpirationFlags_name = map[int32]string{
-		0: "none", 1: "gtc", 2: "day", 4: "specified", 8: "specified_day",
+		0: "none",
+		1: "gtc",
+		2: "day",
+		4: "specified",
+		8: "specified_day",
 	}
 	ExpirationFlags_value = map[string]int32{
-		"none": 0, "gtc": 1, "day": 2, "specified": 4, "specified_day": 8,
+		"none":          0,
+		"gtc":           1,
+		"day":           2,
+		"specified":     4,
+		"specified_day": 8,
 	}
 )
 
@@ -103,12 +153,26 @@ const (
 
 var (
 	OrderFlags_name = map[int32]string{
-		0: "none", 1: "market", 2: "limit", 4: "stop", 8: "stop_limit",
-		16: "sl", 32: "tp", 64: "closeby",
+		0:   "none",
+		1:   "market",
+		2:   "limit",
+		4:   "stop",
+		8:   "stop_limit",
+		16:  "sl",
+		32:  "tp",
+		64:  "closeby",
+		127: "all",
 	}
 	OrderFlags_value = map[string]int32{
-		"none": 0, "market": 1, "limit": 2, "stop": 4, "stop_limit": 8,
-		"sl": 16, "tp": 32, "closeby": 64,
+		"none":       0,
+		"market":     1,
+		"limit":      2,
+		"stop":       4,
+		"stop_limit": 8,
+		"sl":         16,
+		"tp":         32,
+		"closeby":    64,
+		"all":        127,
 	}
 )
 
@@ -129,14 +193,28 @@ const (
 
 var (
 	SwapMode_name = map[int32]string{
-		0: "disabled", 1: "by_points", 2: "by_symbol_currency", 3: "by_margin_currency",
-		4: "by_group_currency", 5: "by_interest_current", 6: "by_interest_open",
-		7: "reopen_by_close_price", 8: "reopen_by_bid", 9: "by_profit_currency",
+		0: "disabled",
+		1: "by_points",
+		2: "by_symbol_currency",
+		3: "by_margin_currency",
+		4: "by_group_currency",
+		5: "by_interest_current",
+		6: "by_interest_open",
+		7: "reopen_by_close_price",
+		8: "reopen_by_bid",
+		9: "by_profit_currency",
 	}
 	SwapMode_value = map[string]int32{
-		"disabled": 0, "by_points": 1, "by_symbol_currency": 2, "by_margin_currency": 3,
-		"by_group_currency": 4, "by_interest_current": 5, "by_interest_open": 6,
-		"reopen_by_close_price": 7, "reopen_by_bid": 8, "by_profit_currency": 9,
+		"disabled":              0,
+		"by_points":             1,
+		"by_symbol_currency":    2,
+		"by_margin_currency":    3,
+		"by_group_currency":     4,
+		"by_interest_current":   5,
+		"by_interest_open":      6,
+		"reopen_by_close_price": 7,
+		"reopen_by_bid":         8,
+		"by_profit_currency":    9,
 	}
 )
 
@@ -155,12 +233,24 @@ const (
 
 var (
 	SwapDays_name = map[int32]string{
-		0: "sunday", 1: "monday", 2: "tuesday", 3: "wednesday",
-		4: "thursday", 5: "friday", 6: "saturday", 7: "disabled",
+		0: "sunday",
+		1: "monday",
+		2: "tuesday",
+		3: "wednesday",
+		4: "thursday",
+		5: "friday",
+		6: "saturday",
+		7: "disabled",
 	}
 	SwapDays_value = map[string]int32{
-		"sunday": 0, "monday": 1, "tuesday": 2, "wednesday": 3,
-		"thursday": 4, "friday": 5, "saturday": 6, "disabled": 7,
+		"sunday":    0,
+		"monday":    1,
+		"tuesday":   2,
+		"wednesday": 3,
+		"thursday":  4,
+		"friday":    5,
+		"saturday":  6,
+		"disabled":  7,
 	}
 )
 
@@ -172,8 +262,14 @@ const (
 )
 
 var (
-	SwapFlags_name  = map[int32]string{0: "none", 1: "consider_holidays"}
-	SwapFlags_value = map[string]int32{"none": 0, "consider_holidays": 1}
+	SwapFlags_name = map[int32]string{
+		0: "none",
+		1: "consider_holidays",
+	}
+	SwapFlags_value = map[string]int32{
+		"none":              0,
+		"consider_holidays": 1,
+	}
 )
 
 // SymbolMarginFlags is the symbol-level EnMarginFlags (not group-level).
@@ -192,12 +288,22 @@ const (
 
 var (
 	SymbolMarginFlags_name = map[int32]string{
-		0: "none", 1: "check_process", 2: "check_sltp", 4: "hedge_large_leg",
-		8: "exclude_pl", 16: "recalc_rates",
+		0:  "none",
+		1:  "check_process",
+		2:  "check_sltp",
+		4:  "hedge_large_leg",
+		8:  "exclude_pl",
+		16: "recalc_rates",
+		31: "all",
 	}
 	SymbolMarginFlags_value = map[string]int32{
-		"none": 0, "check_process": 1, "check_sltp": 2, "hedge_large_leg": 4,
-		"exclude_pl": 8, "recalc_rates": 16,
+		"none":            0,
+		"check_process":   1,
+		"check_sltp":      2,
+		"hedge_large_leg": 4,
+		"exclude_pl":      8,
+		"recalc_rates":    16,
+		"all":             31,
 	}
 )
 
@@ -212,10 +318,16 @@ const (
 
 var (
 	TickFlags_name = map[int32]string{
-		0: "none", 1: "realtime", 2: "collectraw", 4: "feed_stats",
+		0: "none",
+		1: "realtime",
+		2: "collectraw",
+		4: "feed_stats",
 	}
 	TickFlags_value = map[string]int32{
-		"none": 0, "realtime": 1, "collectraw": 2, "feed_stats": 4,
+		"none":       0,
+		"realtime":   1,
+		"collectraw": 2,
+		"feed_stats": 4,
 	}
 )
 
@@ -228,8 +340,16 @@ const (
 )
 
 var (
-	ChartMode_name  = map[int32]string{0: "bid_price", 1: "last_price", 255: "old"}
-	ChartMode_value = map[string]int32{"bid_price": 0, "last_price": 1, "old": 255}
+	ChartMode_name = map[int32]string{
+		0:   "bid_price",
+		1:   "last_price",
+		255: "old",
+	}
+	ChartMode_value = map[string]int32{
+		"bid_price":  0,
+		"last_price": 1,
+		"old":        255,
+	}
 )
 
 type OptionMode int32
@@ -243,10 +363,16 @@ const (
 
 var (
 	OptionMode_name = map[int32]string{
-		0: "european_call", 1: "european_put", 2: "american_call", 3: "american_put",
+		0: "european_call",
+		1: "european_put",
+		2: "american_call",
+		3: "american_put",
 	}
 	OptionMode_value = map[string]int32{
-		"european_call": 0, "european_put": 1, "american_call": 2, "american_put": 3,
+		"european_call": 0,
+		"european_put":  1,
+		"american_call": 2,
+		"american_put":  3,
 	}
 )
 
@@ -259,8 +385,16 @@ const (
 )
 
 var (
-	SpliceType_name  = map[int32]string{0: "none", 1: "unadjusted", 2: "adjusted"}
-	SpliceType_value = map[string]int32{"none": 0, "unadjusted": 1, "adjusted": 2}
+	SpliceType_name = map[int32]string{
+		0: "none",
+		1: "unadjusted",
+		2: "adjusted",
+	}
+	SpliceType_value = map[string]int32{
+		"none":       0,
+		"unadjusted": 1,
+		"adjusted":   2,
+	}
 )
 
 type SpliceTimeType int32
@@ -270,8 +404,12 @@ const (
 )
 
 var (
-	SpliceTimeType_name  = map[int32]string{0: "expiration"}
-	SpliceTimeType_value = map[string]int32{"expiration": 0}
+	SpliceTimeType_name = map[int32]string{
+		0: "expiration",
+	}
+	SpliceTimeType_value = map[string]int32{
+		"expiration": 0,
+	}
 )
 
 type InstantMode int32
@@ -281,8 +419,12 @@ const (
 )
 
 var (
-	InstantMode_name  = map[int32]string{0: "check_normal"}
-	InstantMode_value = map[string]int32{"check_normal": 0}
+	InstantMode_name = map[int32]string{
+		0: "check_normal",
+	}
+	InstantMode_value = map[string]int32{
+		"check_normal": 0,
+	}
 )
 
 // InstantFlags is EnInstantFlags: what the instant execution mode may do.
@@ -294,8 +436,14 @@ const (
 )
 
 var (
-	InstantFlags_name  = map[int32]string{0: "none", 1: "fast_confirmation"}
-	InstantFlags_value = map[string]int32{"none": 0, "fast_confirmation": 1}
+	InstantFlags_name = map[int32]string{
+		0: "none",
+		1: "fast_confirmation",
+	}
+	InstantFlags_value = map[string]int32{
+		"none":              0,
+		"fast_confirmation": 1,
+	}
 )
 
 type RequestFlags int32
@@ -306,8 +454,14 @@ const (
 )
 
 var (
-	RequestFlags_name  = map[int32]string{0: "none", 1: "order"}
-	RequestFlags_value = map[string]int32{"none": 0, "order": 1}
+	RequestFlags_name = map[int32]string{
+		0: "none",
+		1: "order",
+	}
+	RequestFlags_value = map[string]int32{
+		"none":  0,
+		"order": 1,
+	}
 )
 
 // SymbolTradeFlags is the symbol-level EnTradeFlags (not group-level).
@@ -321,10 +475,14 @@ const (
 
 var (
 	SymbolTradeFlags_name = map[int32]string{
-		0: "none", 1: "profit_by_market", 2: "allow_signals",
+		0: "none",
+		1: "profit_by_market",
+		2: "allow_signals",
 	}
 	SymbolTradeFlags_value = map[string]int32{
-		"none": 0, "profit_by_market": 1, "allow_signals": 2,
+		"none":             0,
+		"profit_by_market": 1,
+		"allow_signals":    2,
 	}
 )
 
@@ -351,16 +509,40 @@ const (
 
 var (
 	SymbolSector_name = map[int32]string{
-		0: "undefined", 1: "basic_materials", 2: "communication_services",
-		3: "consumer_cyclical", 4: "consumer_defensive", 5: "energy", 6: "financial",
-		7: "healthcare", 8: "industrials", 9: "real_estate", 10: "technology",
-		11: "utilities", 12: "currency", 13: "currency_crypto", 14: "indexes", 15: "commodities",
+		0:  "undefined",
+		1:  "basic_materials",
+		2:  "communication_services",
+		3:  "consumer_cyclical",
+		4:  "consumer_defensive",
+		5:  "energy",
+		6:  "financial",
+		7:  "healthcare",
+		8:  "industrials",
+		9:  "real_estate",
+		10: "technology",
+		11: "utilities",
+		12: "currency",
+		13: "currency_crypto",
+		14: "indexes",
+		15: "commodities",
 	}
 	SymbolSector_value = map[string]int32{
-		"undefined": 0, "basic_materials": 1, "communication_services": 2,
-		"consumer_cyclical": 3, "consumer_defensive": 4, "energy": 5, "financial": 6,
-		"healthcare": 7, "industrials": 8, "real_estate": 9, "technology": 10,
-		"utilities": 11, "currency": 12, "currency_crypto": 13, "indexes": 14, "commodities": 15,
+		"undefined":              0,
+		"basic_materials":        1,
+		"communication_services": 2,
+		"consumer_cyclical":      3,
+		"consumer_defensive":     4,
+		"energy":                 5,
+		"financial":              6,
+		"healthcare":             7,
+		"industrials":            8,
+		"real_estate":            9,
+		"technology":             10,
+		"utilities":              11,
+		"currency":               12,
+		"currency_crypto":        13,
+		"indexes":                14,
+		"commodities":            15,
 	}
 )
 
@@ -379,8 +561,14 @@ const (
 )
 
 var (
-	SymbolSessionType_name  = map[int32]string{0: "quote", 1: "trade"}
-	SymbolSessionType_value = map[string]int32{"quote": 0, "trade": 1}
+	SymbolSessionType_name = map[int32]string{
+		0: "quote",
+		1: "trade",
+	}
+	SymbolSessionType_value = map[string]int32{
+		"quote": 0,
+		"trade": 1,
+	}
 )
 
 // Symbol is the server-wide instrument master.

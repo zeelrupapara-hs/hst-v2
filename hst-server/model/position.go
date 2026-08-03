@@ -51,7 +51,10 @@ const (
 )
 
 var (
-	PositionAction_name  = map[int32]string{0: "buy", 1: "sell"}
+	PositionAction_name = map[int32]string{
+		0: "buy",
+		1: "sell",
+	}
 	PositionAction_value = valuesOf(PositionAction_name)
 )
 
