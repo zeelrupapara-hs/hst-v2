@@ -215,11 +215,11 @@ func (h *Handler) OrderSystemEventHandler(msg *natscore.Msg) {
 	res := &model.TradeResult{RequestId: e.Data.RequestId, Login: e.Data.Login}
 
 	switch e.EventType {
-	case model.OrderEventNew:
+	case model.OrderEvent_new_order:
 		res = h.NewOrder(ctx, e.Data)
-	case model.OrderEventUpdate:
+	case model.OrderEvent_update_order:
 		res = h.UpdateOrder(ctx, e.Data)
-	case model.OrderEventCancel:
+	case model.OrderEvent_cancel_order:
 		res = h.CancelOrder(ctx, e.Data)
 	default:
 		res = h.refuse(res, model.RetInvalidData, "unknown order event")
@@ -240,11 +240,11 @@ func (h *Handler) PositionSystemEventHandler(msg *natscore.Msg) {
 	res := &model.TradeResult{RequestId: e.Data.RequestId, Login: e.Data.Login}
 
 	switch e.EventType {
-	case model.PositionEventUpdate:
+	case model.PositionEvent_update:
 		res = h.UpdatePosition(ctx, e.Data)
-	case model.PositionEventClose:
+	case model.PositionEvent_close:
 		res = h.ClosePosition(ctx, e.Data)
-	case model.PositionEventCloseBy:
+	case model.PositionEvent_close_by:
 		res = h.CloseByPosition(ctx, e.Data)
 	default:
 		res = h.refuse(res, model.RetInvalidData, "unknown position event")

@@ -121,7 +121,7 @@ func (h *Handler) summaryInterval() time.Duration {
 // PublishDealing offers one request to one dealer's queue.
 func (h *Handler) PublishDealing(dealer int64, e *model.DealingEvent) {
 	event := "dealer_request"
-	if e.EventType != model.DealingEventOffer {
+	if e.EventType != model.DealingEvent_offer {
 		event = "dealer_request_done"
 	}
 

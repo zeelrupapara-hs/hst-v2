@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
+	wire "hstmodel"
 	"time"
 
 	"hstserver/model"
@@ -24,62 +25,62 @@ const engineTimeout = 10 * time.Second
 
 // CrtOrder is a manager placing an order on behalf of a named login. Volume is in lots.
 type CrtOrder struct {
-	Login        int64   `json:"login" validate:"required,gt=0"`
-	Symbol       string  `json:"symbol" validate:"required,max=32"`
-	Type         int32   `json:"type" validate:"gte=0,lte=7"`
-	Volume       float64 `json:"volume" validate:"required,gt=0"`
-	Price        float64 `json:"price" validate:"gte=0"`
-	PriceTrigger float64 `json:"price_trigger" validate:"gte=0"`
-	PriceSL      float64 `json:"price_sl" validate:"gte=0"`
-	PriceTP      float64 `json:"price_tp" validate:"gte=0"`
-	TypeFill     int32   `json:"type_fill" validate:"gte=0,lte=3"`
-	TypeTime     int32   `json:"type_time" validate:"gte=0,lte=3"`
-	Expiry       int64   `json:"expiry"`
-	Deviation    int64   `json:"deviation" validate:"gte=0"`
-	Comment      string  `json:"comment" validate:"max=64"`
-	ExpertId     int64   `json:"expert_id"`
+	Login        int64              `json:"login" validate:"required,gt=0"`
+	Symbol       string             `json:"symbol" validate:"required,max=32"`
+	Type         model.OrderType    `json:"type"`
+	Volume       float64            `json:"volume" validate:"required,gt=0"`
+	Price        float64            `json:"price" validate:"gte=0"`
+	PriceTrigger float64            `json:"price_trigger" validate:"gte=0"`
+	PriceSL      float64            `json:"price_sl" validate:"gte=0"`
+	PriceTP      float64            `json:"price_tp" validate:"gte=0"`
+	TypeFill     model.OrderFilling `json:"type_fill"`
+	TypeTime     model.OrderTime    `json:"type_time"`
+	ExpiryAt     *int64             `json:"expiry_at"`
+	Deviation    int64              `json:"deviation" validate:"gte=0"`
+	Comment      string             `json:"comment" validate:"max=64"`
+	ExpertId     int64              `json:"expert_id"`
 }
 
 // CrtMyOrder is the same order placed by the account itself.
 type CrtMyOrder struct {
-	Symbol       string  `json:"symbol" validate:"required,max=32"`
-	Type         int32   `json:"type" validate:"gte=0,lte=7"`
-	Volume       float64 `json:"volume" validate:"required,gt=0"`
-	Price        float64 `json:"price" validate:"gte=0"`
-	PriceTrigger float64 `json:"price_trigger" validate:"gte=0"`
-	PriceSL      float64 `json:"price_sl" validate:"gte=0"`
-	PriceTP      float64 `json:"price_tp" validate:"gte=0"`
-	TypeFill     int32   `json:"type_fill" validate:"gte=0,lte=3"`
-	TypeTime     int32   `json:"type_time" validate:"gte=0,lte=3"`
-	Expiry       int64   `json:"expiry"`
-	Deviation    int64   `json:"deviation" validate:"gte=0"`
-	Comment      string  `json:"comment" validate:"max=64"`
-	ExpertId     int64   `json:"expert_id"`
+	Symbol       string             `json:"symbol" validate:"required,max=32"`
+	Type         model.OrderType    `json:"type"`
+	Volume       float64            `json:"volume" validate:"required,gt=0"`
+	Price        float64            `json:"price" validate:"gte=0"`
+	PriceTrigger float64            `json:"price_trigger" validate:"gte=0"`
+	PriceSL      float64            `json:"price_sl" validate:"gte=0"`
+	PriceTP      float64            `json:"price_tp" validate:"gte=0"`
+	TypeFill     model.OrderFilling `json:"type_fill"`
+	TypeTime     model.OrderTime    `json:"type_time"`
+	ExpiryAt     *int64             `json:"expiry_at"`
+	Deviation    int64              `json:"deviation" validate:"gte=0"`
+	Comment      string             `json:"comment" validate:"max=64"`
+	ExpertId     int64              `json:"expert_id"`
 }
 
 // UptOrder modifies one working pending order.
 type UptOrder struct {
-	Login        int64   `json:"login" validate:"required,gt=0"`
-	OrderId      int64   `json:"order_id" validate:"required,gt=0"`
-	Price        float64 `json:"price" validate:"gte=0"`
-	PriceTrigger float64 `json:"price_trigger" validate:"gte=0"`
-	PriceSL      float64 `json:"price_sl" validate:"gte=0"`
-	PriceTP      float64 `json:"price_tp" validate:"gte=0"`
-	TypeTime     int32   `json:"type_time" validate:"gte=0,lte=3"`
-	Expiry       int64   `json:"expiry"`
-	Comment      string  `json:"comment" validate:"max=64"`
+	Login        int64           `json:"login" validate:"required,gt=0"`
+	OrderId      int64           `json:"order_id" validate:"required,gt=0"`
+	Price        float64         `json:"price" validate:"gte=0"`
+	PriceTrigger float64         `json:"price_trigger" validate:"gte=0"`
+	PriceSL      float64         `json:"price_sl" validate:"gte=0"`
+	PriceTP      float64         `json:"price_tp" validate:"gte=0"`
+	TypeTime     model.OrderTime `json:"type_time"`
+	ExpiryAt     *int64          `json:"expiry_at"`
+	Comment      string          `json:"comment" validate:"max=64"`
 }
 
 // UptMyOrder is the account's own modification.
 type UptMyOrder struct {
-	OrderId      int64   `json:"order_id" validate:"required,gt=0"`
-	Price        float64 `json:"price" validate:"gte=0"`
-	PriceTrigger float64 `json:"price_trigger" validate:"gte=0"`
-	PriceSL      float64 `json:"price_sl" validate:"gte=0"`
-	PriceTP      float64 `json:"price_tp" validate:"gte=0"`
-	TypeTime     int32   `json:"type_time" validate:"gte=0,lte=3"`
-	Expiry       int64   `json:"expiry"`
-	Comment      string  `json:"comment" validate:"max=64"`
+	OrderId      int64           `json:"order_id" validate:"required,gt=0"`
+	Price        float64         `json:"price" validate:"gte=0"`
+	PriceTrigger float64         `json:"price_trigger" validate:"gte=0"`
+	PriceSL      float64         `json:"price_sl" validate:"gte=0"`
+	PriceTP      float64         `json:"price_tp" validate:"gte=0"`
+	TypeTime     model.OrderTime `json:"type_time"`
+	ExpiryAt     *int64          `json:"expiry_at"`
+	Comment      string          `json:"comment" validate:"max=64"`
 }
 
 // CancelOrder removes one working pending order.
@@ -123,22 +124,45 @@ const orderColumns = `o.order_id, o.login, o.symbol, o.type, o.state, o.reason,
 
 const orderFrom = ` FROM hst.orders o JOIN hst.users u ON u.login = o.login WHERE `
 
+// checkOrderEnums refuses a value that is not a member of its enum, which a numeric bound cannot do.
+func checkOrderEnums(t model.OrderType, f model.OrderFilling, tt model.OrderTime) (int, error) {
+	if !wire.Valid(t, model.OrderType_name) {
+		return nethttp.StatusBadRequest, errs.ErrInvalidOrderType
+	}
+	if !wire.Valid(f, model.OrderFilling_name) {
+		return nethttp.StatusBadRequest, errs.ErrInvalidOrderFilling
+	}
+	if !wire.Valid(tt, model.OrderTime_name) {
+		return nethttp.StatusBadRequest, errs.ErrInvalidOrderTime
+	}
+
+	return 0, nil
+}
+
+// expiryOf reads an optional moment; absent means the order does not expire on its own.
+func expiryOf(at *int64) int64 {
+	if at == nil {
+		return 0
+	}
+
+	return *at
+}
+
 // makeOrder validates a new order and hands it to the engine.
 func (s *HttpServer) makeOrder(ctx context.Context, payload *CrtOrder, dealer int64) (*model.TradeResult, int, error) {
 	if err := s.Validate.Struct(payload); err != nil {
 		return nil, nethttp.StatusBadRequest, err
 	}
 
-	if _, ok := model.OrderType_name[payload.Type]; !ok {
-		return nil, nethttp.StatusBadRequest, errs.ErrInvalidOrderType
+	if code, err := checkOrderEnums(payload.Type, payload.TypeFill, payload.TypeTime); err != nil {
+		return nil, code, err
 	}
 
-	if model.OrderType(payload.Type).IsPending() && payload.Price <= 0 {
+	if payload.Type.IsPending() && payload.Price <= 0 {
 		return nil, nethttp.StatusBadRequest, errs.ErrPendingNeedsPrice
 	}
 
-	if model.OrderTime(payload.TypeTime) != model.OrderTime_gtc &&
-		model.OrderTime(payload.TypeTime) != model.OrderTime_day && payload.Expiry <= 0 {
+	if payload.TypeTime.NeedsExpiry() && payload.ExpiryAt == nil {
 		return nil, nethttp.StatusBadRequest, errs.ErrExpiryRequired
 	}
 
@@ -154,7 +178,7 @@ func (s *HttpServer) makeOrder(ctx context.Context, payload *CrtOrder, dealer in
 		PriceTP:      payload.PriceTP,
 		TypeFill:     payload.TypeFill,
 		TypeTime:     payload.TypeTime,
-		Expiry:       payload.Expiry,
+		ExpiryAt:     expiryOf(payload.ExpiryAt),
 		Deviation:    payload.Deviation,
 		Comment:      payload.Comment,
 		ExpertId:     payload.ExpertId,
@@ -162,7 +186,7 @@ func (s *HttpServer) makeOrder(ctx context.Context, payload *CrtOrder, dealer in
 		Dealer:       dealer,
 	}
 
-	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEventNew, Data: req})
+	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEvent_new_order, Data: req})
 }
 
 // updateOrder moves a working pending order's price, levels and expiry.
@@ -179,10 +203,18 @@ func (s *HttpServer) updateOrder(ctx context.Context, payload *UptOrder, dealer 
 		return nil, nethttp.StatusInternalServerError, err
 	}
 
-	if !model.OrderType(typ).IsPending() {
+	if code, err := checkOrderEnums(typ, model.OrderFilling_fok, payload.TypeTime); err != nil {
+		return nil, code, err
+	}
+
+	if payload.TypeTime.NeedsExpiry() && payload.ExpiryAt == nil {
+		return nil, nethttp.StatusBadRequest, errs.ErrExpiryRequired
+	}
+
+	if !typ.IsPending() {
 		return nil, nethttp.StatusBadRequest, errs.ErrMarketOrderNotModifiable
 	}
-	if !model.OrderState(state).IsLive() {
+	if !state.IsLive() {
 		return nil, nethttp.StatusBadRequest, errs.ErrOrderNotWorking
 	}
 
@@ -197,13 +229,13 @@ func (s *HttpServer) updateOrder(ctx context.Context, payload *UptOrder, dealer 
 		PriceSL:      payload.PriceSL,
 		PriceTP:      payload.PriceTP,
 		TypeTime:     payload.TypeTime,
-		Expiry:       payload.Expiry,
+		ExpiryAt:     expiryOf(payload.ExpiryAt),
 		Comment:      payload.Comment,
 		Reason:       reasonFor(dealer),
 		Dealer:       dealer,
 	}
 
-	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEventUpdate, Data: req})
+	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEvent_update_order, Data: req})
 }
 
 // cancelOrder removes a working pending order.
@@ -220,7 +252,7 @@ func (s *HttpServer) cancelOrder(ctx context.Context, payload *CancelOrder, deal
 		return nil, nethttp.StatusInternalServerError, err
 	}
 
-	if !model.OrderState(state).IsLive() {
+	if !state.IsLive() {
 		return nil, nethttp.StatusBadRequest, errs.ErrOrderNotWorking
 	}
 
@@ -235,7 +267,7 @@ func (s *HttpServer) cancelOrder(ctx context.Context, payload *CancelOrder, deal
 		Dealer:    dealer,
 	}
 
-	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEventCancel, Data: req})
+	return s.sendOrder(ctx, payload.Login, &model.OrderEvent{EventType: model.OrderEvent_cancel_order, Data: req})
 }
 
 // sendOrder hands the envelope to the pod holding this account and waits for the answer.
@@ -273,7 +305,7 @@ func (s *HttpServer) request(ctx context.Context, subject string, e any) (*model
 }
 
 // orderState is what the modify and cancel paths need before they may ask.
-func (s *HttpServer) orderState(ctx context.Context, orderId, login int64) (typ, state int32, symbol string, err error) {
+func (s *HttpServer) orderState(ctx context.Context, orderId, login int64) (typ model.OrderType, state model.OrderState, symbol string, err error) {
 	err = s.DB.DB.QueryRow(ctx,
 		`SELECT type, state, symbol FROM hst.orders WHERE order_id = $1 AND login = $2`,
 		orderId, login).Scan(&typ, &state, &symbol)
@@ -324,7 +356,7 @@ func crtFromMy(p *CrtMyOrder, login int64) *CrtOrder {
 		PriceTP:      p.PriceTP,
 		TypeFill:     p.TypeFill,
 		TypeTime:     p.TypeTime,
-		Expiry:       p.Expiry,
+		ExpiryAt:     p.ExpiryAt,
 		Deviation:    p.Deviation,
 		Comment:      p.Comment,
 		ExpertId:     p.ExpertId,
@@ -340,7 +372,7 @@ func uptFromMy(p *UptMyOrder, login int64) *UptOrder {
 		PriceSL:      p.PriceSL,
 		PriceTP:      p.PriceTP,
 		TypeTime:     p.TypeTime,
-		Expiry:       p.Expiry,
+		ExpiryAt:     p.ExpiryAt,
 		Comment:      p.Comment,
 	}
 }
@@ -422,9 +454,10 @@ func writable(snap *cache.Snapshot) error {
 }
 
 // reasonFor records how the request arrived, which the routing rules can key on.
-func reasonFor(dealer int64) int32 {
+func reasonFor(dealer int64) model.OrderReason {
 	if dealer != 0 {
-		return int32(model.OrderReason_dealer)
+		return model.OrderReason_dealer
 	}
-	return int32(model.OrderReason_client)
+
+	return model.OrderReason_client
 }

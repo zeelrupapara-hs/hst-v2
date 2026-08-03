@@ -63,17 +63,17 @@ func (h *Handler) DealingSystemEventHandler(msg *natscore.Msg) {
 	res := &model.TradeResult{RequestId: e.RequestId, Login: e.Login}
 
 	switch e.EventType {
-	case model.DealingEventAccept:
+	case model.DealingEvent_accept:
 		res = h.AcceptRequote(ctx, &e)
-	case model.DealingEventConfirm:
+	case model.DealingEvent_confirm:
 		res = h.ConfirmRequest(ctx, &e)
-	case model.DealingEventRequote:
+	case model.DealingEvent_requote:
 		res = h.RequoteRequest(ctx, &e)
-	case model.DealingEventReject:
+	case model.DealingEvent_reject:
 		res = h.RejectRequest(ctx, &e)
-	case model.DealingEventCancel:
+	case model.DealingEvent_cancel:
 		res = h.CancelRequest(ctx, &e)
-	case model.DealingEventReturn, model.DealingEventOffer:
+	case model.DealingEvent_return, model.DealingEvent_offer:
 		res = h.ReturnRequest(&e)
 	default:
 		res = h.refuse(res, model.RetInvalidData, "unknown dealing event")
@@ -91,9 +91,9 @@ func (h *Handler) SendDealing(req *model.TradeRequest, o *model.Order,
 		return h.refuse(res, model.RetTradeNotProcessed, "no dealer is assigned to this request")
 	}
 
-	o.State = int32(model.StateRequestAdd)
+	o.State = model.OrderState_request_add
 	if o.OrderId > 0 {
-		o.State = int32(model.StateRequestModify)
+		o.State = model.OrderState_request_modify
 	}
 
 	// the rule is written down so the desk can show each dealer only their own queue
@@ -118,7 +118,7 @@ func (h *Handler) SendDealing(req *model.TradeRequest, o *model.Order,
 	h.dealing[req.RequestId] = p
 	h.dealingMu.Unlock()
 
-	h.offer(p, model.DealingEventOffer, 0)
+	h.offer(p, model.DealingEvent_offer, 0)
 
 	res.RetCode = int32(model.RetTradeDealerQueued)
 	res.Message = model.RetTradeDealerQueued.String()
@@ -159,7 +159,7 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 	}
 
 	// a queued cancel is settled by taking the order off, not by filling it
-	if model.OrderState(o.State) == model.StateRequestCancel {
+	if o.State == model.OrderState_request_cancel {
 		e.Lock()
 		h.removeOrder(ctx, e, o, "deleted [by dealer]")
 
@@ -173,7 +173,7 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 	}
 
 	// a pending order the dealer let through goes on the book rather than filling
-	if o.Kind().Pending() {
+	if o.Kind().IsPending() {
 		out := h.placeOrder(ctx, res, e, o, "dealer")
 		h.done(p, ev.Dealer)
 
@@ -186,11 +186,11 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 		price = o.PriceOrder
 	}
 	if price <= 0 {
-		price = tick.OpenPrice(o.Kind().Buy())
+		price = tick.OpenPrice(o.Kind().IsBuy())
 	}
 	price = NormalisePrice(price, r.Digits)
 
-	o.State = int32(model.StateStarted)
+	o.State = model.OrderState_started
 
 	e.Lock()
 
@@ -271,7 +271,7 @@ func (h *Handler) RequoteRequest(ctx context.Context, ev *model.DealingEvent) *m
 
 	// the dealer's own price replaces the side the client was asking to trade
 	if ev.Price > 0 {
-		if p.Order.Kind().Buy() {
+		if p.Order.Kind().IsBuy() {
 			res.Ask = ev.Price
 		} else {
 			res.Bid = ev.Price
@@ -317,7 +317,7 @@ func (h *Handler) AcceptRequote(ctx context.Context, ev *model.DealingEvent) *mo
 
 		// the price the client took is the one the dealer is being asked to stand behind
 		p.Order.PriceOrder = p.Requoted
-		h.offer(p, model.DealingEventOffer, 0)
+		h.offer(p, model.DealingEvent_offer, 0)
 
 		h.Log.Log(logger.TypeTrade, logger.CodeOK, "requote accepted, back to the dealer",
 			"login", res.Login, "request", res.RequestId, "price", p.Requoted)
@@ -329,7 +329,7 @@ func (h *Handler) AcceptRequote(ctx context.Context, ev *model.DealingEvent) *mo
 		"login", res.Login, "request", res.RequestId, "price", p.Requoted)
 
 	return h.ConfirmRequest(ctx, &model.DealingEvent{
-		EventType: model.DealingEventConfirm,
+		EventType: model.DealingEvent_confirm,
 		RequestId: ev.RequestId,
 		Login:     p.Request.Login,
 		Dealer:    p.Order.Dealer,
@@ -434,7 +434,7 @@ func (h *Handler) ReturnRequest(ev *model.DealingEvent) *model.TradeResult {
 		p.At = Now()
 		h.dealingMu.Unlock()
 
-		h.offer(p, model.DealingEventOffer, 0)
+		h.offer(p, model.DealingEvent_offer, 0)
 
 		h.Log.Log(logger.TypeTrade, logger.CodeOK, "request passed to the next dealer",
 			"login", p.Request.Login, "request", ev.RequestId,
@@ -553,7 +553,7 @@ func (h *Handler) offer(p *Pending, kind model.DealingEventType, dealer int64) {
 // done tells everyone who has seen the request that it is settled, so it leaves their queues.
 func (h *Handler) announceDone(p *Pending, dealer int64) {
 	ev := &model.DealingEvent{
-		EventType: model.DealingEventConfirm,
+		EventType: model.DealingEvent_confirm,
 		RequestId: p.Request.RequestId,
 		Login:     p.Request.Login,
 		Dealer:    dealer,
@@ -639,7 +639,7 @@ func (h *Handler) RecoverDealingRequests() {
 		e.Lock()
 		waiting := make([]*model.Order, 0, 2)
 		for _, o := range e.Orders {
-			if model.OrderState(o.State).AwaitingDealer() {
+			if o.State.IsAwaitingDealer() {
 				waiting = append(waiting, o)
 			}
 		}
@@ -668,7 +668,7 @@ func (h *Handler) RecoverDealingRequests() {
 					PriceTP:   o.PriceTP,
 					TypeFill:  o.TypeFill,
 					TypeTime:  o.TypeTime,
-					Expiry:    o.TimeExpiration,
+					ExpiryAt:  o.TimeExpiration,
 					Comment:   o.Comment,
 					ExpertId:  o.ExpertId,
 					Reason:    o.Reason,
@@ -683,7 +683,7 @@ func (h *Handler) RecoverDealingRequests() {
 			h.dealing[p.Request.RequestId] = p
 			h.dealingMu.Unlock()
 
-			h.offer(p, model.DealingEventOffer, 0)
+			h.offer(p, model.DealingEvent_offer, 0)
 			back++
 		}
 	})

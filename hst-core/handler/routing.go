@@ -451,7 +451,7 @@ func volumeOnSymbol(r *Request) int64 {
 		if p.Symbol != symbol {
 			continue
 		}
-		if p.Buy() {
+		if p.IsBuy() {
 			v += p.Volume
 			continue
 		}

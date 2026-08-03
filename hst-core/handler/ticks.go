@@ -74,7 +74,7 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 
 	for _, hit := range hits {
 		kind := model.RouteSL
-		if hit.reason == model.ReasonTP {
+		if hit.reason == model.OrderReason_tp {
 			kind = model.RouteTP
 		}
 

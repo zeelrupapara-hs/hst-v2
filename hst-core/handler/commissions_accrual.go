@@ -22,7 +22,7 @@ type turnover struct {
 func (h *Handler) ChargeDailyCommissions(ctx context.Context, at time.Time) {
 	from := time.Date(at.Year(), at.Month(), at.Day(), 0, 0, 0, 0, at.Location())
 
-	h.chargePeriod(ctx, chargeDaily, int32(model.DealCommissionDaily),
+	h.chargePeriod(ctx, chargeDaily, model.DealAction_commission_daily,
 		from.UnixNano(), at.UnixNano(), "daily commission")
 }
 
@@ -34,13 +34,13 @@ func (h *Handler) ChargeMonthlyCommissions(ctx context.Context, at time.Time) {
 
 	from := time.Date(at.Year(), at.Month(), 1, 0, 0, 0, 0, at.Location())
 
-	h.chargePeriod(ctx, chargeMonthly, int32(model.DealCommissionMonthly),
+	h.chargePeriod(ctx, chargeMonthly, model.DealAction_commission_monthly,
 		from.UnixNano(), at.UnixNano(), "monthly commission")
 }
 
 func isMonthEnd(at time.Time) bool { return at.AddDate(0, 0, 1).Month() != at.Month() }
 
-func (h *Handler) chargePeriod(ctx context.Context, mode int32, action int32,
+func (h *Handler) chargePeriod(ctx context.Context, mode int32, action model.DealAction,
 	from, to int64, what string) {
 	traded, err := h.turnoverBetween(ctx, from, to)
 	if err != nil {
@@ -167,7 +167,7 @@ func (h *Handler) turnoverBetween(ctx context.Context, from, to int64) (map[int6
 		   FROM hst.deals
 		  WHERE time >= $1 AND time < $2 AND action IN ($3, $4) AND symbol <> ''
 		  GROUP BY login, symbol`,
-		from, to, int32(model.DealBuy), int32(model.DealSell))
+		from, to, model.DealAction_buy, model.DealAction_sell)
 	if err != nil {
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (h *Handler) turnoverBetween(ctx context.Context, from, to int64) (map[int6
 }
 
 // chargedBetween reports whether this period was already settled for the account.
-func (h *Handler) chargedBetween(ctx context.Context, login int64, action int32,
+func (h *Handler) chargedBetween(ctx context.Context, login int64, action model.DealAction,
 	from, to int64) (bool, error) {
 	var n int
 
@@ -215,7 +215,7 @@ func (h *Handler) chargedBetween(ctx context.Context, login int64, action int32,
 }
 
 // applyPeriodCharge takes the money and writes the deal that explains it.
-func (h *Handler) applyPeriodCharge(ctx context.Context, e *book.Entry, action int32,
+func (h *Handler) applyPeriodCharge(ctx context.Context, e *book.Entry, action model.DealAction,
 	amount float64, comment string) bool {
 	e.Lock()
 
@@ -226,7 +226,7 @@ func (h *Handler) applyPeriodCharge(ctx context.Context, e *book.Entry, action i
 	deal := &model.Deal{
 		Login:          e.Account.Login,
 		Action:         action,
-		Entry:          int32(model.EntryIn),
+		Entry:          model.DealEntry_in,
 		DigitsCurrency: e.Account.CurrencyDigits,
 		Time:           Now(),
 		Profit:         amount,
@@ -235,7 +235,7 @@ func (h *Handler) applyPeriodCharge(ctx context.Context, e *book.Entry, action i
 		RateProfit:     1,
 		RateMargin:     1,
 		Comment:        comment,
-		Reason:         int32(model.ReasonDealer),
+		Reason:         model.OrderReason_dealer,
 	}
 
 	account := *e.Account

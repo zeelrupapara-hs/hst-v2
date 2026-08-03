@@ -105,22 +105,22 @@ func (c *Commission) covers(d *model.Deal, r *settings.Rules) bool {
 
 	switch c.EntryMode {
 	case entryIn:
-		if model.DealEntry(d.Entry) != model.EntryIn {
+		if model.DealEntry(d.Entry) != model.DealEntry_in {
 			return false
 		}
 	case entryOut:
-		if model.DealEntry(d.Entry) != model.EntryOut {
+		if model.DealEntry(d.Entry) != model.DealEntry_out {
 			return false
 		}
 	}
 
 	switch c.ActionMode {
 	case actionBuy:
-		if model.DealAction(d.Action) != model.DealBuy {
+		if model.DealAction(d.Action) != model.DealAction_buy {
 			return false
 		}
 	case actionSell:
-		if model.DealAction(d.Action) != model.DealSell {
+		if model.DealAction(d.Action) != model.DealAction_sell {
 			return false
 		}
 	}
@@ -137,7 +137,7 @@ func (c *Commission) covers(d *model.Deal, r *settings.Rules) bool {
 	}
 
 	// a reason mask of zero covers every reason
-	if c.ReasonFlags != 0 && c.ReasonFlags&reasonFlagFor(model.Reason(d.Reason)) == 0 {
+	if c.ReasonFlags != 0 && c.ReasonFlags&reasonFlagFor(model.OrderReason(d.Reason)) == 0 {
 		return false
 	}
 
@@ -204,17 +204,17 @@ func pathCovers(path string, r *settings.Rules) bool {
 }
 
 // reasonFlagFor maps an order reason onto the commission's reason mask.
-func reasonFlagFor(reason model.Reason) int32 {
+func reasonFlagFor(reason model.OrderReason) int32 {
 	switch reason {
-	case model.ReasonClient:
+	case model.OrderReason_client:
 		return 0x0001
-	case model.ReasonExpert:
+	case model.OrderReason_expert:
 		return 0x0002
-	case model.ReasonDealer:
+	case model.OrderReason_dealer:
 		return 0x0004
-	case model.ReasonMobile:
+	case model.OrderReason_mobile:
 		return 0x0010
-	case model.ReasonWeb:
+	case model.OrderReason_web:
 		return 0x0020
 	}
 	return 0x0001

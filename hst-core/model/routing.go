@@ -43,21 +43,21 @@ const (
 
 func TypeFlagFor(t OrderType) TypeFlags {
 	switch t {
-	case OrderBuy:
+	case OrderType_buy:
 		return TypeBuy
-	case OrderSell:
+	case OrderType_sell:
 		return TypeSell
-	case OrderBuyLimit:
+	case OrderType_buy_limit:
 		return TypeBuyLimit
-	case OrderSellLimit:
+	case OrderType_sell_limit:
 		return TypeSellLimit
-	case OrderBuyStop:
+	case OrderType_buy_stop:
 		return TypeBuyStop
-	case OrderSellStop:
+	case OrderType_sell_stop:
 		return TypeSellStop
-	case OrderBuyStopLimit:
+	case OrderType_buy_stop_limit:
 		return TypeBuyStopLimit
-	case OrderSellStopLimit:
+	case OrderType_sell_stop_limit:
 		return TypeSellStopLimit
 	}
 	return TypeNone

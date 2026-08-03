@@ -74,13 +74,13 @@ func (h *Handler) ValidatePosition(e *book.Entry, p *model.Position, req *model.
 	level := &model.Order{
 		Symbol:     p.Symbol,
 		PositionId: p.PositionId,
-		Type:       int32(model.OrderBuy),
+		Type:       model.OrderType_buy,
 		PriceSL:    req.PriceSL,
 		PriceTP:    req.PriceTP,
 		RateMargin: p.RateMargin,
 	}
-	if !p.Buy() {
-		level.Type = int32(model.OrderSell)
+	if !p.IsBuy() {
+		level.Type = model.OrderType_sell
 	}
 
 	if code := h.checkOrderFlags(level, r); !code.OK() {
@@ -122,7 +122,7 @@ func (h *Handler) checkHedging(e *book.Entry, o *model.Order, r *settings.Rules)
 	}
 
 	for _, p := range e.Positions {
-		if p.Symbol == o.Symbol && p.Buy() != o.Kind().Buy() {
+		if p.Symbol == o.Symbol && p.IsBuy() != o.Kind().IsBuy() {
 			return model.RetTradeHedgeProhibited
 		}
 	}
@@ -138,7 +138,7 @@ func (h *Handler) checkFreeze(o *model.Order, r *settings.Rules, t model.Tick) m
 	}
 
 	frozen := float64(r.FreezeLevel) * r.Point
-	buy := o.Kind().Buy()
+	buy := o.Kind().IsBuy()
 	market := t.ClosePrice(buy)
 
 	for _, level := range []float64{o.PriceSL, o.PriceTP} {
@@ -147,7 +147,7 @@ func (h *Handler) checkFreeze(o *model.Order, r *settings.Rules, t model.Tick) m
 		}
 	}
 
-	if o.Kind().Pending() && o.PriceOrder > 0 &&
+	if o.Kind().IsPending() && o.PriceOrder > 0 &&
 		math.Abs(t.OpenPrice(buy)-o.PriceOrder) < frozen {
 		return model.RetTradeFrozen
 	}
@@ -228,9 +228,9 @@ func (h *Handler) checkSymbol(o *model.Order, r *settings.Rules) model.RetCode {
 		return model.RetTradeDisabled
 	case r.TradeMode.CloseOnly():
 		return model.RetTradeCloseOnly
-	case o.Kind().Buy() && !r.TradeMode.AllowsBuy():
+	case o.Kind().IsBuy() && !r.TradeMode.AllowsBuy():
 		return model.RetTradeDisabled
-	case !o.Kind().Buy() && !r.TradeMode.AllowsSell():
+	case !o.Kind().IsBuy() && !r.TradeMode.AllowsSell():
 		return model.RetTradeDisabled
 	}
 
@@ -302,12 +302,12 @@ func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) 
 
 	var sameSide, total int64
 	symbols := make(map[string]bool, len(e.Positions))
-	buying := o.Kind().Buy()
+	buying := o.Kind().IsBuy()
 
 	for _, p := range e.Positions {
 		total += p.Volume
 		symbols[p.Symbol] = true
-		if p.Symbol == o.Symbol && p.Buy() == buying {
+		if p.Symbol == o.Symbol && p.IsBuy() == buying {
 			sameSide += p.Volume
 		}
 	}
@@ -317,10 +317,10 @@ func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) 
 		if w.Symbol != o.Symbol || w.OrderId == o.OrderId {
 			continue
 		}
-		if !w.Kind().Pending() || !model.OrderState(w.State).Live() {
+		if !w.Kind().IsPending() || !w.State.IsLive() {
 			continue
 		}
-		if w.Kind().Buy() == buying {
+		if w.Kind().IsBuy() == buying {
 			sameSide += w.VolumeCurrent
 		}
 	}
@@ -347,7 +347,7 @@ func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) 
 // checkFilling refuses a filling policy the instrument does not offer.
 func (h *Handler) checkFilling(o *model.Order, r *settings.Rules) model.RetCode {
 	// book or cancel only ever sits in the book, so an order that would fill on entry is refused
-	if model.Filling(o.TypeFill) == model.FillBOC && o.Kind().Market() {
+	if o.TypeFill == model.OrderFilling_boc && o.Kind().IsMarket() {
 		return model.RetTradeFillPolicy
 	}
 
@@ -357,14 +357,14 @@ func (h *Handler) checkFilling(o *model.Order, r *settings.Rules) model.RetCode 
 
 	var want int32
 
-	switch model.Filling(o.TypeFill) {
-	case model.FillFOK:
+	switch o.TypeFill {
+	case model.OrderFilling_fok:
 		want = model.FillFlagFOK
-	case model.FillIOC:
+	case model.OrderFilling_ioc:
 		want = model.FillFlagIOC
-	case model.FillReturn:
+	case model.OrderFilling_return:
 		want = model.FillFlagReturn
-	case model.FillBOC:
+	case model.OrderFilling_boc:
 		want = model.FillFlagBOC
 	}
 
@@ -379,21 +379,21 @@ func (h *Handler) checkFilling(o *model.Order, r *settings.Rules) model.RetCode 
 func (h *Handler) checkExpiry(o *model.Order, r *settings.Rules) model.RetCode {
 	// a group that does not allow expiry at all leaves good-till-cancelled as the only choice
 	if r.Group.TradeFlags&model.TradeFlagExpiration == 0 &&
-		model.Expiry(o.TypeTime) != model.ExpiryGTC {
+		o.TypeTime != model.OrderTime_gtc {
 		return model.RetTradeExpiration
 	}
 
 	if r.ExpirFlags != 0 {
 		var want int32
 
-		switch model.Expiry(o.TypeTime) {
-		case model.ExpiryGTC:
+		switch o.TypeTime {
+		case model.OrderTime_gtc:
 			want = model.ExpirFlagGTC
-		case model.ExpiryDay:
+		case model.OrderTime_day:
 			want = model.ExpirFlagDay
-		case model.ExpirySpecified:
+		case model.OrderTime_specified:
 			want = model.ExpirFlagSpecified
-		case model.ExpirySpecifiedDay:
+		case model.OrderTime_specified_day:
 			want = model.ExpirFlagSpecifiedDay
 		}
 
@@ -402,8 +402,8 @@ func (h *Handler) checkExpiry(o *model.Order, r *settings.Rules) model.RetCode {
 		}
 	}
 
-	specified := model.Expiry(o.TypeTime) == model.ExpirySpecified ||
-		model.Expiry(o.TypeTime) == model.ExpirySpecifiedDay
+	specified := o.TypeTime == model.OrderTime_specified ||
+		o.TypeTime == model.OrderTime_specified_day
 
 	if specified {
 		if o.TimeExpiration == 0 || o.TimeExpiration <= time.Now().UnixNano() {
@@ -421,7 +421,7 @@ func (h *Handler) checkStops(o *model.Order, r *settings.Rules, t model.Tick) mo
 	}
 
 	minDistance := float64(r.StopsLevel) * r.Point
-	buy := o.Kind().Buy()
+	buy := o.Kind().IsBuy()
 
 	// the price the levels are measured against: where this side would close
 	market := t.ClosePrice(buy)
@@ -445,7 +445,7 @@ func (h *Handler) checkStops(o *model.Order, r *settings.Rules, t model.Tick) mo
 	}
 
 	// a pending order must also sit away from the current price, or it would fill at once
-	if o.Kind().Pending() && o.PriceOrder > 0 {
+	if o.Kind().IsPending() && o.PriceOrder > 0 {
 		if math.Abs(t.OpenPrice(buy)-o.PriceOrder) < minDistance {
 			return model.RetTradeInvalidStops
 		}
@@ -462,7 +462,7 @@ func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t
 
 	price := o.PriceOrder
 	if price <= 0 {
-		price = t.OpenPrice(o.Kind().Buy())
+		price = t.OpenPrice(o.Kind().IsBuy())
 	}
 
 	// the order's own type decides the multiplier, and a pending type rated zero costs nothing
@@ -483,7 +483,7 @@ func (h *Handler) closesPosition(e *book.Entry, o *model.Order, r *settings.Rule
 	}
 
 	for _, p := range e.Positions {
-		if p.Symbol == o.Symbol && p.Buy() != o.Kind().Buy() {
+		if p.Symbol == o.Symbol && p.IsBuy() != o.Kind().IsBuy() {
 			return true
 		}
 	}

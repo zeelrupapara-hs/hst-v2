@@ -116,7 +116,7 @@ func (s *HttpServer) updatePosition(ctx context.Context, payload *UptPosition, d
 	}
 
 	return s.sendPosition(ctx, payload.Login,
-		&model.PositionEvent{EventType: model.PositionEventUpdate, Data: req})
+		&model.PositionEvent{EventType: model.PositionEvent_update, Data: req})
 }
 
 // closePosition closes one position, whole or by volume.
@@ -153,7 +153,7 @@ func (s *HttpServer) closePosition(ctx context.Context, payload *ClosePosition, 
 	}
 
 	return s.sendPosition(ctx, payload.Login,
-		&model.PositionEvent{EventType: model.PositionEventClose, Data: req})
+		&model.PositionEvent{EventType: model.PositionEvent_close, Data: req})
 }
 
 // closeByPosition settles a position against an opposite one on the same instrument.
@@ -177,7 +177,7 @@ func (s *HttpServer) closeByPosition(ctx context.Context, payload *CloseByPositi
 		RequestId:    s.newRequestId(),
 		Login:        payload.Login,
 		Symbol:       symbol,
-		Type:         int32(model.OrderType_close_by),
+		Type:         model.OrderType_close_by,
 		PositionId:   payload.PositionId,
 		PositionById: payload.PositionById,
 		Comment:      payload.Comment,
@@ -186,7 +186,7 @@ func (s *HttpServer) closeByPosition(ctx context.Context, payload *CloseByPositi
 	}
 
 	return s.sendPosition(ctx, payload.Login,
-		&model.PositionEvent{EventType: model.PositionEventCloseBy, Data: req})
+		&model.PositionEvent{EventType: model.PositionEvent_close_by, Data: req})
 }
 
 // sendPosition hands the envelope to the pod holding this account and waits for the answer.

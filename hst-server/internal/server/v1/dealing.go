@@ -60,7 +60,7 @@ func (s *HttpServer) confirmRequest(ctx context.Context, payload *ConfirmRequest
 	}
 
 	return s.sendDealing(ctx, &model.DealingEvent{
-		EventType: model.DealingEventConfirm,
+		EventType: model.DealingEvent_confirm,
 		RequestId: payload.RequestId,
 		Login:     payload.Login,
 		Dealer:    dealer,
@@ -74,7 +74,7 @@ func (s *HttpServer) requoteRequest(ctx context.Context, payload *RequoteRequest
 	}
 
 	return s.sendDealing(ctx, &model.DealingEvent{
-		EventType: model.DealingEventRequote,
+		EventType: model.DealingEvent_requote,
 		RequestId: payload.RequestId,
 		Login:     payload.Login,
 		Dealer:    dealer,
@@ -88,7 +88,7 @@ func (s *HttpServer) rejectRequest(ctx context.Context, payload *RejectRequest, 
 	}
 
 	return s.sendDealing(ctx, &model.DealingEvent{
-		EventType: model.DealingEventReject,
+		EventType: model.DealingEvent_reject,
 		RequestId: payload.RequestId,
 		Login:     payload.Login,
 		Dealer:    dealer,
@@ -102,7 +102,7 @@ func (s *HttpServer) cancelRequest(ctx context.Context, payload *CancelRequest, 
 	}
 
 	return s.sendDealing(ctx, &model.DealingEvent{
-		EventType: model.DealingEventCancel,
+		EventType: model.DealingEvent_cancel,
 		RequestId: payload.RequestId,
 		Login:     payload.Login,
 		Dealer:    dealer,
@@ -116,7 +116,7 @@ func (s *HttpServer) acceptRequote(ctx context.Context, payload *AcceptRequote) 
 	}
 
 	return s.sendDealing(ctx, &model.DealingEvent{
-		EventType: model.DealingEventAccept,
+		EventType: model.DealingEvent_accept,
 		RequestId: payload.RequestId,
 		Login:     payload.Login,
 	})
@@ -129,7 +129,7 @@ func (s *HttpServer) returnRequest(ctx context.Context, payload *ReturnRequestBo
 	}
 
 	return s.sendDealing(ctx, &model.DealingEvent{
-		EventType: model.DealingEventReturn,
+		EventType: model.DealingEvent_return,
 		RequestId: payload.RequestId,
 		Login:     payload.Login,
 		Dealer:    dealer,

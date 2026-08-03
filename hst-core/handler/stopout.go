@@ -67,7 +67,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 	for _, p := range worst {
 		h.logStopOut(ctx, e, p, money, stop)
-		h.CloseAtMarket(ctx, e, p, h.tickFor(p.Symbol, t), model.ReasonStopOut,
+		h.CloseAtMarket(ctx, e, p, h.tickFor(p.Symbol, t), model.OrderReason_so,
 			model.RouteStopOutPosition)
 
 		// stop as soon as the account is back above the line
@@ -136,7 +136,7 @@ func (h *Handler) CompensateNegativeBalance(ctx context.Context, e *book.Entry, 
 
 	h.NewBalance(ctx, &model.BalanceRequest{
 		Login:         login,
-		Action:        int32(model.DealSOCompensation),
+		Action:        model.DealAction_so_compensation,
 		Amount:        -balance,
 		AllowNegative: true,
 		Comment:       "so compensation",
@@ -146,7 +146,7 @@ func (h *Handler) CompensateNegativeBalance(ctx context.Context, e *book.Entry, 
 	if g.TradeFlags&model.TradeFlagSOCompensationCredit != 0 && credit != 0 {
 		h.NewBalance(ctx, &model.BalanceRequest{
 			Login:         login,
-			Action:        int32(model.DealSOCompensationCredit),
+			Action:        model.DealAction_so_compensation_cr,
 			Amount:        -credit,
 			AllowNegative: true,
 			Comment:       "so credit compensation",

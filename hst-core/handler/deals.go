@@ -13,15 +13,15 @@ import (
 // MakeDealIn is the row for volume that opened or grew a position.
 func (h *Handler) MakeDealIn(o *model.Order, r *settings.Rules, e *book.Entry, price float64,
 	volume, positionId, now int64) *model.Deal {
-	return h.dealFor(o, r, e, price, volume, 0, model.EntryIn, positionId, now)
+	return h.dealFor(o, r, e, price, volume, 0, model.DealEntry_in, positionId, now)
 }
 
 // MakeDealOut is the row for volume that closed or shrank a position.
 func (h *Handler) MakeDealOut(o *model.Order, r *settings.Rules, e *book.Entry,
 	p *model.Position, price float64, closed, now int64) *model.Deal {
-	entry := model.EntryOut
+	entry := model.DealEntry_out
 	if o.VolumeCurrent > closed {
-		entry = model.EntryInOut
+		entry = model.DealEntry_inout
 	}
 
 	d := h.dealFor(o, r, e, price, o.VolumeCurrent, closed, entry, p.PositionId, now)
@@ -33,15 +33,15 @@ func (h *Handler) MakeDealOut(o *model.Order, r *settings.Rules, e *book.Entry,
 // MakeDealOutBy is the row for one leg of a close against an opposite position.
 func (h *Handler) MakeDealOutBy(o *model.Order, r *settings.Rules, e *book.Entry,
 	p, by *model.Position, price float64, volume, now int64) *model.Deal {
-	d := h.dealFor(o, r, e, price, volume, volume, model.EntryOutBy, p.PositionId, now)
+	d := h.dealFor(o, r, e, price, volume, volume, model.DealEntry_out_by, p.PositionId, now)
 
 	d.PricePosition = p.PriceOpen
 	d.Comment = fmt.Sprintf("close hedge by #%d", by.PositionId)
 
 	// the side is the position being taken off, not the order that asked for it
-	d.Action = int32(model.DealSell)
-	if p.Buy() {
-		d.Action = int32(model.DealBuy)
+	d.Action = model.DealAction_sell
+	if p.IsBuy() {
+		d.Action = model.DealAction_buy
 	}
 
 	return d
@@ -50,9 +50,9 @@ func (h *Handler) MakeDealOutBy(o *model.Order, r *settings.Rules, e *book.Entry
 // dealFor is the shared row every builder above shapes.
 func (h *Handler) dealFor(o *model.Order, r *settings.Rules, e *book.Entry, price float64,
 	volume, closed int64, entry model.DealEntry, positionId, now int64) *model.Deal {
-	action := int32(model.DealBuy)
-	if !o.Kind().Buy() {
-		action = int32(model.DealSell)
+	action := model.DealAction_buy
+	if !o.Kind().IsBuy() {
+		action = model.DealAction_sell
 	}
 
 	return &model.Deal{
@@ -60,7 +60,7 @@ func (h *Handler) dealFor(o *model.Order, r *settings.Rules, e *book.Entry, pric
 		Dealer:         o.Dealer,
 		OrderId:        o.OrderId,
 		Action:         action,
-		Entry:          int32(entry),
+		Entry:          entry,
 		Digits:         r.Digits,
 		DigitsCurrency: e.Account.CurrencyDigits,
 		ContractSize:   r.ContractSize,
@@ -71,7 +71,7 @@ func (h *Handler) dealFor(o *model.Order, r *settings.Rules, e *book.Entry, pric
 		PriceTP:        o.PriceTP,
 		Volume:         volume,
 		VolumeClosed:   closed,
-		RateProfit:     h.RateProfit(r, e.Account, o.Kind().Buy()),
+		RateProfit:     h.RateProfit(r, e.Account, o.Kind().IsBuy()),
 		RateMargin:     o.RateMargin,
 		ExpertId:       o.ExpertId,
 		PositionId:     positionId,

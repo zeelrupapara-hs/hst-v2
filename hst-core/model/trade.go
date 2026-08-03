@@ -27,127 +27,35 @@ func Extended(volume, ext int64) int64 {
 	return FromLegacy(volume)
 }
 
-type OrderType int32
-
-const (
-	OrderBuy           OrderType = 0
-	OrderSell          OrderType = 1
-	OrderBuyLimit      OrderType = 2
-	OrderSellLimit     OrderType = 3
-	OrderBuyStop       OrderType = 4
-	OrderSellStop      OrderType = 5
-	OrderBuyStopLimit  OrderType = 6
-	OrderSellStopLimit OrderType = 7
-	OrderCloseBy       OrderType = 8
-)
-
-func (t OrderType) Buy() bool {
-	switch t {
-	case OrderBuy, OrderBuyLimit, OrderBuyStop, OrderBuyStopLimit:
-		return true
-	}
-	return false
-}
-
-func (t OrderType) Pending() bool { return t >= OrderBuyLimit && t <= OrderSellStopLimit }
-
-func (t OrderType) Market() bool { return t == OrderBuy || t == OrderSell }
-
-type OrderState int32
-
-const (
-	StateStarted       OrderState = 0
-	StatePlaced        OrderState = 1
-	StateCanceled      OrderState = 2
-	StatePartial       OrderState = 3
-	StateFilled        OrderState = 4
-	StateRejected      OrderState = 5
-	StateExpired       OrderState = 6
-	StateRequestAdd    OrderState = 7
-	StateRequestModify OrderState = 8
-	StateRequestCancel OrderState = 9
-)
-
-// AwaitingDealer reports whether the order is sitting on a dealing desk.
-func (s OrderState) AwaitingDealer() bool {
-	switch s {
-	case StateRequestAdd, StateRequestModify, StateRequestCancel:
-		return true
-	}
-	return false
-}
-
-// A queued request still cooks and still expires, so it counts as live.
-func (s OrderState) Live() bool {
-	switch s {
-	case StateStarted, StatePlaced, StatePartial,
-		StateRequestAdd, StateRequestModify, StateRequestCancel:
-		return true
-	}
-	return false
-}
-
-type Filling int32
-
-const (
-	FillFOK    Filling = 0
-	FillIOC    Filling = 1
-	FillReturn Filling = 2
-	FillBOC    Filling = 3
-)
-
-type Expiry int32
-
-const (
-	ExpiryGTC          Expiry = 0
-	ExpiryDay          Expiry = 1
-	ExpirySpecified    Expiry = 2
-	ExpirySpecifiedDay Expiry = 3
-)
-
-type Reason int32
-
-const (
-	ReasonClient   Reason = 0
-	ReasonExpert   Reason = 1
-	ReasonDealer   Reason = 2
-	ReasonSL       Reason = 3
-	ReasonTP       Reason = 4
-	ReasonStopOut  Reason = 5
-	ReasonRollover Reason = 6
-	ReasonMobile   Reason = 16
-	ReasonWeb      Reason = 17
-)
-
 type Order struct {
-	OrderId        int64   `json:"order_id"`
-	Login          int64   `json:"login"`
-	Dealer         int64   `json:"dealer"`
-	Symbol         string  `json:"symbol"`
-	Digits         int32   `json:"digits"`
-	DigitsCurrency int32   `json:"digits_currency"`
-	ContractSize   float64 `json:"contract_size"`
-	State          int32   `json:"state"`
-	Reason         int32   `json:"reason"`
-	TimeSetup      int64   `json:"time_setup"`
-	TimeExpiration int64   `json:"time_expiration"`
-	TimeDone       int64   `json:"time_done"`
-	Type           int32   `json:"type"`
-	TypeFill       int32   `json:"type_fill"`
-	TypeTime       int32   `json:"type_time"`
-	PriceOrder     float64 `json:"price_order"`
-	PriceTrigger   float64 `json:"price_trigger"`
-	PriceCurrent   float64 `json:"price_current"`
-	PriceSL        float64 `json:"price_sl"`
-	PriceTP        float64 `json:"price_tp"`
-	VolumeInitial  int64   `json:"volume_initial"`
-	VolumeCurrent  int64   `json:"volume_current"`
-	VolumeExt      int64   `json:"volume_ext"`
-	ExpertId       int64   `json:"expert_id"`
-	PositionId     int64   `json:"position_id"`
-	PositionById   int64   `json:"position_by_id"`
-	Comment        string  `json:"comment"`
-	RateMargin     float64 `json:"rate_margin"`
+	OrderId        int64        `json:"order_id"`
+	Login          int64        `json:"login"`
+	Dealer         int64        `json:"dealer"`
+	Symbol         string       `json:"symbol"`
+	Digits         int32        `json:"digits"`
+	DigitsCurrency int32        `json:"digits_currency"`
+	ContractSize   float64      `json:"contract_size"`
+	State          OrderState   `json:"state"`
+	Reason         OrderReason  `json:"reason"`
+	TimeSetup      int64        `json:"time_setup"`
+	TimeExpiration int64        `json:"time_expiration"`
+	TimeDone       int64        `json:"time_done"`
+	Type           OrderType    `json:"type"`
+	TypeFill       OrderFilling `json:"type_fill"`
+	TypeTime       OrderTime    `json:"type_time"`
+	PriceOrder     float64      `json:"price_order"`
+	PriceTrigger   float64      `json:"price_trigger"`
+	PriceCurrent   float64      `json:"price_current"`
+	PriceSL        float64      `json:"price_sl"`
+	PriceTP        float64      `json:"price_tp"`
+	VolumeInitial  int64        `json:"volume_initial"`
+	VolumeCurrent  int64        `json:"volume_current"`
+	VolumeExt      int64        `json:"volume_ext"`
+	ExpertId       int64        `json:"expert_id"`
+	PositionId     int64        `json:"position_id"`
+	PositionById   int64        `json:"position_by_id"`
+	Comment        string       `json:"comment"`
+	RateMargin     float64      `json:"rate_margin"`
 	// RoutingId is the rule that sent this request to the dealing desk, if one did.
 	RoutingId int64 `json:"routing_id"`
 
@@ -178,32 +86,32 @@ const (
 
 func (o *Order) Lots() float64 { return Lots(o.VolumeCurrent) }
 
-func (o *Order) Kind() OrderType { return OrderType(o.Type) }
+func (o *Order) Kind() OrderType { return o.Type }
 
 type Position struct {
-	PositionId     int64   `json:"position_id"`
-	Login          int64   `json:"login"`
-	Dealer         int64   `json:"dealer"`
-	Symbol         string  `json:"symbol"`
-	Action         int32   `json:"action"`
-	Digits         int32   `json:"digits"`
-	DigitsCurrency int32   `json:"digits_currency"`
-	Reason         int32   `json:"reason"`
-	ContractSize   float64 `json:"contract_size"`
-	TimeCreate     int64   `json:"time_create"`
-	TimeUpdate     int64   `json:"time_update"`
-	PriceOpen      float64 `json:"price_open"`
-	PriceCurrent   float64 `json:"price_current"`
-	PriceSL        float64 `json:"price_sl"`
-	PriceTP        float64 `json:"price_tp"`
-	Volume         int64   `json:"volume"`
-	VolumeExt      int64   `json:"volume_ext"`
-	Profit         float64 `json:"profit"`
-	Storage        float64 `json:"storage"`
-	RateProfit     float64 `json:"rate_profit"`
-	RateMargin     float64 `json:"rate_margin"`
-	ExpertId       int64   `json:"expert_id"`
-	Comment        string  `json:"comment"`
+	PositionId     int64          `json:"position_id"`
+	Login          int64          `json:"login"`
+	Dealer         int64          `json:"dealer"`
+	Symbol         string         `json:"symbol"`
+	Action         PositionAction `json:"action"`
+	Digits         int32          `json:"digits"`
+	DigitsCurrency int32          `json:"digits_currency"`
+	Reason         OrderReason    `json:"reason"`
+	ContractSize   float64        `json:"contract_size"`
+	TimeCreate     int64          `json:"time_create"`
+	TimeUpdate     int64          `json:"time_update"`
+	PriceOpen      float64        `json:"price_open"`
+	PriceCurrent   float64        `json:"price_current"`
+	PriceSL        float64        `json:"price_sl"`
+	PriceTP        float64        `json:"price_tp"`
+	Volume         int64          `json:"volume"`
+	VolumeExt      int64          `json:"volume_ext"`
+	Profit         float64        `json:"profit"`
+	Storage        float64        `json:"storage"`
+	RateProfit     float64        `json:"rate_profit"`
+	RateMargin     float64        `json:"rate_margin"`
+	ExpertId       int64          `json:"expert_id"`
+	Comment        string         `json:"comment"`
 
 	ActivationFlags int32 `json:"activation_flags"`
 
@@ -211,74 +119,45 @@ type Position struct {
 	Margin float64 `json:"margin"`
 }
 
-func (p *Position) Buy() bool { return p.Action == 0 }
+func (p *Position) IsBuy() bool { return p.Action.IsBuy() }
 
 func (p *Position) Lots() float64 { return Lots(p.Volume) }
 
-type DealAction int32
-
-const (
-	DealBuy                  DealAction = 0
-	DealSell                 DealAction = 1
-	DealBalance              DealAction = 2
-	DealCredit               DealAction = 3
-	DealCharge               DealAction = 4
-	DealCorrection           DealAction = 5
-	DealBonus                DealAction = 6
-	DealCommission           DealAction = 7
-	DealCommissionDaily      DealAction = 8
-	DealCommissionMonthly    DealAction = 9
-	DealAgentDaily           DealAction = 10
-	DealAgentMonthly         DealAction = 11
-	DealInterest             DealAction = 12
-	DealSOCompensation       DealAction = 19
-	DealSOCompensationCredit DealAction = 20
-)
-
-type DealEntry int32
-
-const (
-	EntryIn    DealEntry = 0
-	EntryOut   DealEntry = 1
-	EntryInOut DealEntry = 2
-	EntryOutBy DealEntry = 3
-)
-
 type Deal struct {
-	DealId         int64   `json:"deal_id"`
-	Login          int64   `json:"login"`
-	Dealer         int64   `json:"dealer"`
-	OrderId        int64   `json:"order_id"`
-	Action         int32   `json:"action"`
-	Entry          int32   `json:"entry"`
-	Digits         int32   `json:"digits"`
-	DigitsCurrency int32   `json:"digits_currency"`
-	ContractSize   float64 `json:"contract_size"`
-	Time           int64   `json:"time"`
-	Symbol         string  `json:"symbol"`
-	Price          float64 `json:"price"`
-	PriceSL        float64 `json:"price_sl"`
-	PriceTP        float64 `json:"price_tp"`
-	Volume         int64   `json:"volume"`
-	VolumeExt      int64   `json:"volume_ext"`
-	VolumeClosed   int64   `json:"volume_closed"`
-	Profit         float64 `json:"profit"`
-	Value          float64 `json:"value"`
-	Storage        float64 `json:"storage"`
-	Commission     float64 `json:"commission"`
-	Fee            float64 `json:"fee"`
-	RateProfit     float64 `json:"rate_profit"`
-	RateMargin     float64 `json:"rate_margin"`
-	ExpertId       int64   `json:"expert_id"`
-	PositionId     int64   `json:"position_id"`
-	Comment        string  `json:"comment"`
-	ProfitRaw      float64 `json:"profit_raw"`
-	PricePosition  float64 `json:"price_position"`
-	TickValue      float64 `json:"tick_value"`
-	TickSize       float64 `json:"tick_size"`
-	Reason         int32   `json:"reason"`
-	MarketBid      float64 `json:"market_bid"`
-	MarketAsk      float64 `json:"market_ask"`
+	DealId         int64       `json:"deal_id"`
+	Login          int64       `json:"login"`
+	Dealer         int64       `json:"dealer"`
+	OrderId        int64       `json:"order_id"`
+	Action         DealAction  `json:"action"`
+	Entry          DealEntry   `json:"entry"`
+	Digits         int32       `json:"digits"`
+	DigitsCurrency int32       `json:"digits_currency"`
+	ContractSize   float64     `json:"contract_size"`
+	Time           int64       `json:"time"`
+	Symbol         string      `json:"symbol"`
+	Price          float64     `json:"price"`
+	PriceSL        float64     `json:"price_sl"`
+	PriceTP        float64     `json:"price_tp"`
+	Volume         int64       `json:"volume"`
+	VolumeExt      int64       `json:"volume_ext"`
+	VolumeClosed   int64       `json:"volume_closed"`
+	Profit         float64     `json:"profit"`
+	Value          float64     `json:"value"`
+	Storage        float64     `json:"storage"`
+	Commission     float64     `json:"commission"`
+	Fee            float64     `json:"fee"`
+	RateProfit     float64     `json:"rate_profit"`
+	RateMargin     float64     `json:"rate_margin"`
+	ExpertId       int64       `json:"expert_id"`
+	PositionId     int64       `json:"position_id"`
+	Comment        string      `json:"comment"`
+	ProfitRaw      float64     `json:"profit_raw"`
+	PricePosition  float64     `json:"price_position"`
+	TickValue      float64     `json:"tick_value"`
+	TickSize       float64     `json:"tick_size"`
+	Reason         OrderReason `json:"reason"`
+	MarketBid      float64     `json:"market_bid"`
+	MarketAsk      float64     `json:"market_ask"`
 }
 
 type Account struct {

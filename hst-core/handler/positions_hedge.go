@@ -39,7 +39,7 @@ func (h *Handler) MarginForSymbol(e *book.Entry, symbol string, r *settings.Rule
 		if p.Symbol != symbol {
 			continue
 		}
-		if p.Buy() {
+		if p.IsBuy() {
 			buys.add(p.Volume, p.PriceOpen)
 			continue
 		}
@@ -55,25 +55,25 @@ func (h *Handler) MarginForSymbol(e *book.Entry, symbol string, r *settings.Rule
 
 	if !model.MarginMode(r.Group.MarginMode).Hedging() {
 		total := buys.volume + sells.volume
-		price, kind := buys.price(), model.OrderBuy
+		price, kind := buys.price(), model.OrderType_buy
 		if sells.volume > buys.volume {
-			price, kind = sells.price(), model.OrderSell
+			price, kind = sells.price(), model.OrderType_sell
 		}
 		return MarginForType(r, model.Lots(total), price, leverage, rate, kind, maintenance)
 	}
 
 	// one leg only: nothing is covered
 	if buys.volume == 0 || sells.volume == 0 {
-		open, price, kind := buys, buys.price(), model.OrderBuy
+		open, price, kind := buys, buys.price(), model.OrderType_buy
 		if buys.volume == 0 {
-			open, price, kind = sells, sells.price(), model.OrderSell
+			open, price, kind = sells, sells.price(), model.OrderType_sell
 		}
 		return MarginForType(r, model.Lots(open.volume), price, leverage, rate, kind, maintenance)
 	}
 
-	larger, smaller, kind := buys, sells, model.OrderBuy
+	larger, smaller, kind := buys, sells, model.OrderType_buy
 	if sells.volume > buys.volume {
-		larger, smaller, kind = sells, buys, model.OrderSell
+		larger, smaller, kind = sells, buys, model.OrderType_sell
 	}
 
 	// with the larger leg option the whole charge is the bigger side and the smaller one is free
@@ -157,7 +157,7 @@ func (h *Handler) RemargeAccount(e *book.Entry) float64 {
 func (h *Handler) pendingMargin(e *book.Entry) (initial, maintenance float64) {
 	for _, o := range e.Orders {
 		kind := o.Kind()
-		if !kind.Pending() || !model.OrderState(o.State).Live() {
+		if !kind.IsPending() || !o.State.IsLive() {
 			continue
 		}
 

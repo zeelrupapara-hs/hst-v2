@@ -1,29 +1,5 @@
 package model
 
-// Position enums and record.
-
-// PositionAction is the side the position holds. A position is only ever buy or sell.
-type PositionAction int32
-
-const (
-	PositionAction_buy  PositionAction = 0
-	PositionAction_sell PositionAction = 1
-)
-
-var PositionAction_name = map[int32]string{0: "buy", 1: "sell"}
-
-// PositionReason is what opened the position. Same vocabulary as the order that caused it.
-type PositionReason int32
-
-const (
-	PositionReason_client PositionReason = 0
-	PositionReason_expert PositionReason = 1
-	PositionReason_dealer PositionReason = 2
-	PositionReason_signal PositionReason = 10
-	PositionReason_mobile PositionReason = 16
-	PositionReason_web    PositionReason = 17
-)
-
 // Position is one row of hst.positions. PriceOpen is the weighted average of what opened it.
 type Position struct {
 	PositionId       int64   `json:"position_id"`

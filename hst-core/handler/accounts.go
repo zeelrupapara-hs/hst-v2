@@ -97,7 +97,7 @@ func (h *Handler) balanceDeal(e *book.Entry, req *model.BalanceRequest) *model.D
 		Login:          req.Login,
 		Dealer:         req.Dealer,
 		Action:         req.Action,
-		Entry:          int32(model.EntryIn),
+		Entry:          model.DealEntry_in,
 		DigitsCurrency: e.Account.CurrencyDigits,
 		Time:           Now(),
 		Profit:         req.Amount,
@@ -106,7 +106,7 @@ func (h *Handler) balanceDeal(e *book.Entry, req *model.BalanceRequest) *model.D
 		RateMargin:     1,
 		ExpertId:       req.ExpertId,
 		Comment:        req.Comment,
-		Reason:         int32(model.ReasonDealer),
+		Reason:         model.OrderReason_dealer,
 	}
 }
 

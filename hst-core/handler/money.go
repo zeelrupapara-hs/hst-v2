@@ -9,9 +9,9 @@ import (
 
 // MarginForPosition is what one position reserves, charged at its own side's rate.
 func MarginForPosition(r *settings.Rules, p *model.Position, price float64, leverage int32) float64 {
-	kind := model.OrderBuy
-	if !p.Buy() {
-		kind = model.OrderSell
+	kind := model.OrderType_buy
+	if !p.IsBuy() {
+		kind = model.OrderType_sell
 	}
 
 	return MarginForType(r, p.Lots(), price, leverage, p.RateMargin, kind, false)

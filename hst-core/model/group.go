@@ -179,15 +179,15 @@ const (
 // OrderFlagFor is the bit an order type needs to be allowed.
 func OrderFlagFor(t OrderType) int32 {
 	switch t {
-	case OrderBuy, OrderSell:
+	case OrderType_buy, OrderType_sell:
 		return OrderFlagMarket
-	case OrderBuyLimit, OrderSellLimit:
+	case OrderType_buy_limit, OrderType_sell_limit:
 		return OrderFlagLimit
-	case OrderBuyStop, OrderSellStop:
+	case OrderType_buy_stop, OrderType_sell_stop:
 		return OrderFlagStop
-	case OrderBuyStopLimit, OrderSellStopLimit:
+	case OrderType_buy_stop_limit, OrderType_sell_stop_limit:
 		return OrderFlagStopLimit
-	case OrderCloseBy:
+	case OrderType_close_by:
 		return OrderFlagCloseBy
 	}
 	return 0

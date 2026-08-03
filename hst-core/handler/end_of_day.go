@@ -208,7 +208,7 @@ func (h *Handler) CalculateSwaps(r *settings.Rules, p *model.Position, a *model.
 	}
 
 	rate := r.SwapLong
-	if !p.Buy() {
+	if !p.IsBuy() {
 		rate = r.SwapShort
 	}
 	if rate == 0 {
@@ -254,7 +254,7 @@ func (h *Handler) CalculateSwaps(r *settings.Rules, p *model.Position, a *model.
 		swap = factor * (lots * r.ContractSize * p.PriceOpen) * (rate / 100) / float64(r.SwapYearDay)
 	}
 
-	swap = h.ConvertCurrency(swap, r.CurrencyProfit, a.Currency, p.Buy())
+	swap = h.ConvertCurrency(swap, r.CurrencyProfit, a.Currency, p.IsBuy())
 
 	return NormalisePrice(swap, a.CurrencyDigits)
 }

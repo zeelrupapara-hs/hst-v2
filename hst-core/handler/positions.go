@@ -24,7 +24,7 @@ type Fill struct {
 // trigger is a level the price crossed.
 type trigger struct {
 	position *model.Position
-	reason   model.Reason
+	reason   model.OrderReason
 }
 
 // Execute turns an order into deals and positions on the account.
@@ -55,9 +55,9 @@ func (h *Handler) Execute(e *book.Entry, o *model.Order, r *settings.Rules, pric
 // NewPosition starts a position.
 func (h *Handler) NewPosition(f *Fill, e *book.Entry, o *model.Order, r *settings.Rules,
 	price float64, now int64) {
-	side := int32(0)
-	if !o.Kind().Buy() {
-		side = 1
+	side := model.PositionAction_buy
+	if !o.Kind().IsBuy() {
+		side = model.PositionAction_sell
 	}
 
 	p := &model.Position{
@@ -77,7 +77,7 @@ func (h *Handler) NewPosition(f *Fill, e *book.Entry, o *model.Order, r *setting
 		PriceTP:         o.PriceTP,
 		Volume:          o.VolumeCurrent,
 		RateMargin:      o.RateMargin,
-		RateProfit:      h.RateProfit(r, e.Account, o.Kind().Buy()),
+		RateProfit:      h.RateProfit(r, e.Account, o.Kind().IsBuy()),
 		ExpertId:        o.ExpertId,
 		Comment:         o.Comment,
 		ActivationFlags: o.ActivationFlags,
@@ -124,7 +124,7 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 	}
 
 	// the rules see a level change as its own kind of request, and can strip a level off it
-	o := h.closingOrder(p, r, model.Reason(req.Reason), p.Volume, "")
+	o := h.closingOrder(p, r, req.Reason, p.Volume, "")
 	o.PriceSL, o.PriceTP = req.PriceSL, req.PriceTP
 
 	decision := h.Route(&Request{
@@ -134,7 +134,7 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 
 	if !decision.Executes() {
 		e.Unlock()
-		return h.refuseByRule(res, decision, e, req, o, model.StateRequestModify)
+		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_modify)
 	}
 
 	p.PriceSL, p.PriceTP = o.PriceSL, o.PriceTP
@@ -192,7 +192,7 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 		return h.refuse(res, model.RetTradeCloseOrderExist, "")
 	}
 
-	o := h.closingOrder(p, r, model.Reason(req.Reason), req.Volume, req.Comment)
+	o := h.closingOrder(p, r, req.Reason, req.Volume, req.Comment)
 	o.Dealer = req.Dealer
 	o.PriceOrder = req.Price
 
@@ -210,12 +210,12 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 
 	if !decision.Executes() {
 		e.Unlock()
-		return h.refuseByRule(res, decision, e, req, o, model.StateRequestModify)
+		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_modify)
 	}
 
 	price := o.PriceOrder
 	if decision.AtMarket() || price <= 0 {
-		price = tick.ClosePrice(p.Buy())
+		price = tick.ClosePrice(p.IsBuy())
 	}
 	price = NormalisePrice(price, r.Digits)
 
@@ -284,7 +284,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 		e.Unlock()
 		return h.refuse(res, model.RetInvalidData, "the two positions are on different symbols")
 	}
-	if p.Buy() == by.Buy() {
+	if p.IsBuy() == by.IsBuy() {
 		e.Unlock()
 		return h.refuse(res, model.RetInvalidData, "the two positions are on the same side")
 	}
@@ -309,10 +309,10 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 		Digits:         r.Digits,
 		DigitsCurrency: e.Account.CurrencyDigits,
 		ContractSize:   r.ContractSize,
-		State:          int32(model.StateStarted),
+		State:          model.OrderState_started,
 		Reason:         req.Reason,
 		TimeSetup:      now,
-		Type:           int32(model.OrderCloseBy),
+		Type:           model.OrderType_close_by,
 		VolumeInitial:  volume,
 		VolumeCurrent:  volume,
 		PositionById:   by.PositionId,
@@ -327,7 +327,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 
 	if !decision.Executes() {
 		e.Unlock()
-		return h.refuseByRule(res, decision, e, req, o, model.StateRequestModify)
+		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_modify)
 	}
 
 	f := &Fill{Price: by.PriceOpen, RetCode: model.RetOK}
@@ -365,7 +365,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 
 // CloseAtMarket is the engine's own close: a stop loss, a take profit or a stop out.
 func (h *Handler) CloseAtMarket(ctx context.Context, e *book.Entry, p *model.Position,
-	t model.Tick, reason model.Reason, kind model.RouteFlags) {
+	t model.Tick, reason model.OrderReason, kind model.RouteFlags) {
 	e.Lock()
 
 	// it may already have gone: two ticks can pick up the same level
@@ -397,7 +397,7 @@ func (h *Handler) CloseAtMarket(ctx context.Context, e *book.Entry, p *model.Pos
 		return
 	}
 
-	price := NormalisePrice(t.ClosePrice(p.Buy()), r.Digits)
+	price := NormalisePrice(t.ClosePrice(p.IsBuy()), r.Digits)
 	fill := h.Execute(e, o, r, price, Now())
 
 	h.bookFill(e, o, fill, r)
@@ -426,7 +426,7 @@ func (h *Handler) CookPosition(e *book.Entry, t model.Tick) []trigger {
 		}
 
 		// a position closes at the opposite side to the one it opened on
-		price := t.ClosePrice(p.Buy())
+		price := t.ClosePrice(p.IsBuy())
 
 		sl := p.PriceSL > 0 && p.ActivationFlags&model.ActivationFlagNoSL == 0
 		tp := p.PriceTP > 0 && p.ActivationFlags&model.ActivationFlagNoTP == 0
@@ -434,14 +434,14 @@ func (h *Handler) CookPosition(e *book.Entry, t model.Tick) []trigger {
 		var hit trigger
 
 		switch {
-		case sl && p.Buy() && price <= p.PriceSL:
-			hit = trigger{p, model.ReasonSL}
-		case sl && !p.Buy() && price >= p.PriceSL:
-			hit = trigger{p, model.ReasonSL}
-		case tp && p.Buy() && price >= p.PriceTP:
-			hit = trigger{p, model.ReasonTP}
-		case tp && !p.Buy() && price <= p.PriceTP:
-			hit = trigger{p, model.ReasonTP}
+		case sl && p.IsBuy() && price <= p.PriceSL:
+			hit = trigger{p, model.OrderReason_sl}
+		case sl && !p.IsBuy() && price >= p.PriceSL:
+			hit = trigger{p, model.OrderReason_sl}
+		case tp && p.IsBuy() && price >= p.PriceTP:
+			hit = trigger{p, model.OrderReason_tp}
+		case tp && !p.IsBuy() && price <= p.PriceTP:
+			hit = trigger{p, model.OrderReason_tp}
 		default:
 			continue
 		}
@@ -486,7 +486,7 @@ func (h *Handler) netInto(f *Fill, e *book.Entry, o *model.Order, r *settings.Ru
 		return
 	}
 
-	if existing.Buy() == o.Kind().Buy() {
+	if existing.IsBuy() == o.Kind().IsBuy() {
 		h.growPosition(f, e, existing, o, r, price, now)
 		return
 	}
@@ -520,7 +520,7 @@ func (h *Handler) growPosition(f *Fill, e *book.Entry, p *model.Position, o *mod
 func (h *Handler) reducePosition(f *Fill, e *book.Entry, p *model.Position, o *model.Order,
 	r *settings.Rules, price float64, now int64) {
 	closed := o.VolumeCurrent
-	profit := ProfitFor(r, p.Buy(), model.Lots(closed), p.PriceOpen, price, p.RateProfit)
+	profit := ProfitFor(r, p.IsBuy(), model.Lots(closed), p.PriceOpen, price, p.RateProfit)
 
 	p.Volume -= closed
 	p.TimeUpdate = now
@@ -537,7 +537,7 @@ func (h *Handler) reducePosition(f *Fill, e *book.Entry, p *model.Position, o *m
 // closeInto takes the whole position off.
 func (h *Handler) closeInto(f *Fill, e *book.Entry, p *model.Position, o *model.Order,
 	r *settings.Rules, price float64, now int64) {
-	profit := ProfitFor(r, p.Buy(), p.Lots(), p.PriceOpen, price, p.RateProfit)
+	profit := ProfitFor(r, p.IsBuy(), p.Lots(), p.PriceOpen, price, p.RateProfit)
 
 	f.Profit += profit
 	f.Closed = append(f.Closed, p)
@@ -550,7 +550,7 @@ func (h *Handler) closeInto(f *Fill, e *book.Entry, p *model.Position, o *model.
 // reversePosition closes what was open and opens the remainder the other way.
 func (h *Handler) reversePosition(f *Fill, e *book.Entry, p *model.Position, o *model.Order,
 	r *settings.Rules, price float64, now int64) {
-	profit := ProfitFor(r, p.Buy(), p.Lots(), p.PriceOpen, price, p.RateProfit)
+	profit := ProfitFor(r, p.IsBuy(), p.Lots(), p.PriceOpen, price, p.RateProfit)
 	remainder := o.VolumeCurrent - p.Volume
 
 	f.Profit += profit
@@ -561,9 +561,9 @@ func (h *Handler) reversePosition(f *Fill, e *book.Entry, p *model.Position, o *
 	f.Deals = append(f.Deals, d)
 
 	// the leftover volume opens a fresh position the other way round
-	side := int32(0)
-	if !o.Kind().Buy() {
-		side = 1
+	side := model.PositionAction_buy
+	if !o.Kind().IsBuy() {
+		side = model.PositionAction_sell
 	}
 
 	np := &model.Position{
@@ -583,7 +583,7 @@ func (h *Handler) reversePosition(f *Fill, e *book.Entry, p *model.Position, o *
 		PriceTP:         o.PriceTP,
 		Volume:          remainder,
 		RateMargin:      o.RateMargin,
-		RateProfit:      h.RateProfit(r, e.Account, o.Kind().Buy()),
+		RateProfit:      h.RateProfit(r, e.Account, o.Kind().IsBuy()),
 		ExpertId:        o.ExpertId,
 		Comment:         o.Comment,
 		ActivationFlags: o.ActivationFlags,
@@ -596,7 +596,7 @@ func (h *Handler) reversePosition(f *Fill, e *book.Entry, p *model.Position, o *
 // closeAgainst offsets two opposite positions.
 func (h *Handler) closeAgainst(f *Fill, e *book.Entry, p, by *model.Position, o *model.Order,
 	r *settings.Rules, volume, now int64) {
-	profit := ProfitFor(r, p.Buy(), model.Lots(volume), p.PriceOpen, by.PriceOpen, p.RateProfit)
+	profit := ProfitFor(r, p.IsBuy(), model.Lots(volume), p.PriceOpen, by.PriceOpen, p.RateProfit)
 	f.Profit += profit
 
 	d := h.MakeDealOutBy(o, r, e, p, by, by.PriceOpen, volume, now)
@@ -667,7 +667,7 @@ func (h *Handler) firstInLine(e *book.Entry, p *model.Position, r *settings.Rule
 	}
 
 	for _, other := range e.Positions {
-		if other.Symbol == p.Symbol && other.Buy() == p.Buy() &&
+		if other.Symbol == p.Symbol && other.IsBuy() == p.IsBuy() &&
 			other.TimeCreate < p.TimeCreate {
 			return false
 		}
@@ -684,11 +684,11 @@ func (h *Handler) positionById(e *book.Entry, id int64) *model.Position {
 }
 
 // closingOrder is the order that takes volume off a position.
-func (h *Handler) closingOrder(p *model.Position, r *settings.Rules, reason model.Reason,
+func (h *Handler) closingOrder(p *model.Position, r *settings.Rules, reason model.OrderReason,
 	volume int64, comment string) *model.Order {
-	side := int32(model.OrderSell)
-	if !p.Buy() {
-		side = int32(model.OrderBuy)
+	side := model.OrderType_sell
+	if !p.IsBuy() {
+		side = model.OrderType_buy
 	}
 
 	if volume <= 0 || volume > p.Volume {
@@ -700,8 +700,8 @@ func (h *Handler) closingOrder(p *model.Position, r *settings.Rules, reason mode
 		Symbol:        p.Symbol,
 		Digits:        r.Digits,
 		ContractSize:  r.ContractSize,
-		State:         int32(model.StateStarted),
-		Reason:        int32(reason),
+		State:         model.OrderState_started,
+		Reason:        reason,
 		TimeSetup:     Now(),
 		Type:          side,
 		VolumeInitial: volume,
@@ -713,22 +713,22 @@ func (h *Handler) closingOrder(p *model.Position, r *settings.Rules, reason mode
 }
 
 // positionReason keeps the order-only reasons off a position.
-func positionReason(reason int32) int32 {
-	switch model.Reason(reason) {
-	case model.ReasonSL, model.ReasonTP, model.ReasonStopOut:
-		return int32(model.ReasonClient)
+func positionReason(reason model.OrderReason) model.OrderReason {
+	switch model.OrderReason(reason) {
+	case model.OrderReason_sl, model.OrderReason_tp, model.OrderReason_so:
+		return model.OrderReason_client
 	}
 	return reason
 }
 
 // closeComment is what shows against the deal in the client's history.
-func closeComment(reason model.Reason) string {
+func closeComment(reason model.OrderReason) string {
 	switch reason {
-	case model.ReasonSL:
+	case model.OrderReason_sl:
 		return "[sl]"
-	case model.ReasonTP:
+	case model.OrderReason_tp:
 		return "[tp]"
-	case model.ReasonStopOut:
+	case model.OrderReason_so:
 		return "[so]"
 	}
 	return ""
@@ -746,8 +746,8 @@ func (h *Handler) CalcPosition(e *book.Entry, symbol string, t model.Tick) {
 			continue
 		}
 
-		p.PriceCurrent = t.ClosePrice(p.Buy())
-		p.Profit = ProfitFor(r, p.Buy(), p.Lots(), p.PriceOpen, p.PriceCurrent, p.RateProfit)
+		p.PriceCurrent = t.ClosePrice(p.IsBuy())
+		p.Profit = ProfitFor(r, p.IsBuy(), p.Lots(), p.PriceOpen, p.PriceCurrent, p.RateProfit)
 		p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
 	}
 }

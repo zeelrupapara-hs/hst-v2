@@ -20,42 +20,42 @@ func (h *Handler) pendingHits(e *book.Entry, t model.Tick) []pendingHit {
 	var hits []pendingHit
 
 	for _, o := range e.Orders {
-		if o.Symbol != t.Symbol || !model.OrderState(o.State).Live() {
+		if o.Symbol != t.Symbol || !o.State.IsLive() {
 			continue
 		}
 
 		kind := o.Kind()
-		if !kind.Pending() {
+		if !kind.IsPending() {
 			continue
 		}
 
 		// an order fills at the price its own side pays
-		price := t.OpenPrice(kind.Buy())
+		price := t.OpenPrice(kind.IsBuy())
 
 		switch kind {
-		case model.OrderBuyLimit:
+		case model.OrderType_buy_limit:
 			if price <= o.PriceOrder {
 				hits = append(hits, pendingHit{order: o})
 			}
-		case model.OrderSellLimit:
+		case model.OrderType_sell_limit:
 			if price >= o.PriceOrder {
 				hits = append(hits, pendingHit{order: o})
 			}
-		case model.OrderBuyStop:
+		case model.OrderType_buy_stop:
 			if price >= o.PriceOrder {
 				hits = append(hits, pendingHit{order: o})
 			}
-		case model.OrderSellStop:
+		case model.OrderType_sell_stop:
 			if price <= o.PriceOrder {
 				hits = append(hits, pendingHit{order: o})
 			}
 
 		// a stop limit does not fill when its stop is reached.
-		case model.OrderBuyStopLimit:
+		case model.OrderType_buy_stop_limit:
 			if price >= o.PriceTrigger {
 				hits = append(hits, pendingHit{order: o, toLimit: true})
 			}
-		case model.OrderSellStopLimit:
+		case model.OrderType_sell_stop_limit:
 			if price <= o.PriceTrigger {
 				hits = append(hits, pendingHit{order: o, toLimit: true})
 			}
@@ -68,10 +68,10 @@ func (h *Handler) pendingHits(e *book.Entry, t model.Tick) []pendingHit {
 // cookStopLimit turns a triggered stop limit into the limit order it was always going to become.
 func (h *Handler) cookStopLimit(ctx context.Context, e *book.Entry, o *model.Order,
 	r *settings.Rules) {
-	if o.Kind() == model.OrderBuyStopLimit {
-		o.Type = int32(model.OrderBuyLimit)
+	if o.Kind() == model.OrderType_buy_stop_limit {
+		o.Type = model.OrderType_buy_limit
 	} else {
-		o.Type = int32(model.OrderSellLimit)
+		o.Type = model.OrderType_sell_limit
 	}
 
 	o.ActivationMode = model.ActivationStopLimit
@@ -97,7 +97,7 @@ func (h *Handler) cookStopLimit(ctx context.Context, e *book.Entry, o *model.Ord
 func (h *Handler) removeOrder(ctx context.Context, e *book.Entry, o *model.Order, comment string) {
 	delete(e.Orders, o.OrderId)
 
-	o.State = int32(model.StateCanceled)
+	o.State = model.OrderState_canceled
 	o.TimeDone = Now()
 	if comment != "" {
 		o.Comment = comment
@@ -130,7 +130,7 @@ func (h *Handler) ExpireOrders(ctx context.Context, e *book.Entry, symbol string
 
 	var expired []*model.Order
 	for _, o := range e.Orders {
-		if o.Symbol != symbol || !model.OrderState(o.State).Live() {
+		if o.Symbol != symbol || !o.State.IsLive() {
 			continue
 		}
 		if o.TimeExpiration > 0 && o.TimeExpiration <= now {

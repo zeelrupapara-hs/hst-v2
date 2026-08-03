@@ -64,7 +64,9 @@ const (
 	ReorderMustListEveryHoliday  = "the reorder must list every holiday exactly once"
 	RoutingAlreadyFirst          = "the routing rule is already first"
 	RoutingAlreadyLast           = "the routing rule is already last"
-	InvalidOrderType             = "this order type does not exist"
+	InvalidOrderType             = "invalid order type"
+	InvalidOrderFilling          = "invalid order filling"
+	InvalidOrderTime             = "invalid order time"
 	PendingNeedsPrice            = "a pending order needs a price"
 	ExpiryRequired               = "this expiration policy needs an expiry time"
 	MarketOrderNotModifiable     = "a market order cannot be modified"
@@ -136,6 +138,8 @@ var (
 	ErrRoutingAlreadyFirst          = errors.New(RoutingAlreadyFirst)
 	ErrRoutingAlreadyLast           = errors.New(RoutingAlreadyLast)
 	ErrInvalidOrderType             = errors.New(InvalidOrderType)
+	ErrInvalidOrderFilling          = errors.New(InvalidOrderFilling)
+	ErrInvalidOrderTime             = errors.New(InvalidOrderTime)
 	ErrPendingNeedsPrice            = errors.New(PendingNeedsPrice)
 	ErrExpiryRequired               = errors.New(ExpiryRequired)
 	ErrMarketOrderNotModifiable     = errors.New(MarketOrderNotModifiable)

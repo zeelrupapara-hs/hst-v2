@@ -65,11 +65,11 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 	}
 
 	if !decision.Executes() {
-		return h.refuseByRule(res, decision, e, req, order, model.StateRequestAdd)
+		return h.refuseByRule(res, decision, e, req, order, model.OrderState_request_add)
 	}
 
 	// a pending order does not fill now; it goes on the book and waits for its price
-	if order.Kind().Pending() {
+	if order.Kind().IsPending() {
 		return h.placeOrder(ctx, res, e, order, decision.Rule.Name)
 	}
 
@@ -91,7 +91,7 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 	// confirm-by-request-price fills where the client asked; confirm-by-market fills here
 	price := order.PriceOrder
 	if decision.AtMarket() || price <= 0 {
-		price = tick.OpenPrice(order.Kind().Buy())
+		price = tick.OpenPrice(order.Kind().IsBuy())
 	}
 	price = NormalisePrice(price, r.Digits)
 
@@ -146,11 +146,11 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 		e.Unlock()
 		return h.refuse(res, model.RetNotFound, "")
 	}
-	if !model.OrderState(o.State).Live() {
+	if !o.State.IsLive() {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeFrozen, "")
 	}
-	if o.Kind().Market() {
+	if o.Kind().IsMarket() {
 		e.Unlock()
 		return h.refuse(res, model.RetInvalidData, "a market order cannot be modified")
 	}
@@ -176,8 +176,8 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 		want.PriceTrigger = req.PriceTrigger
 	}
 	want.PriceSL, want.PriceTP = req.PriceSL, req.PriceTP
-	if req.TypeTime > 0 || req.Expiry > 0 {
-		want.TypeTime, want.TimeExpiration = req.TypeTime, req.Expiry
+	if req.TypeTime > 0 || req.ExpiryAt > 0 {
+		want.TypeTime, want.TimeExpiration = req.TypeTime, req.ExpiryAt
 	}
 
 	if code := h.checkExpiry(&want, r); !code.OK() {
@@ -201,7 +201,7 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 
 	if !decision.Executes() {
 		e.Unlock()
-		return h.refuseByRule(res, decision, e, req, &want, model.StateRequestModify)
+		return h.refuseByRule(res, decision, e, req, &want, model.OrderState_request_modify)
 	}
 
 	*o = want
@@ -249,7 +249,7 @@ func (h *Handler) CancelOrder(ctx context.Context, req *model.TradeRequest) *mod
 		e.Unlock()
 		return h.refuse(res, model.RetNotFound, "")
 	}
-	if !model.OrderState(o.State).Live() {
+	if !o.State.IsLive() {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeFrozen, "")
 	}
@@ -269,7 +269,7 @@ func (h *Handler) CancelOrder(ctx context.Context, req *model.TradeRequest) *mod
 
 	if !decision.Executes() {
 		e.Unlock()
-		return h.refuseByRule(res, decision, e, req, o, model.StateRequestCancel)
+		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_cancel)
 	}
 
 	comment := req.Comment
@@ -347,23 +347,23 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 
 	// a limit fills at its own price; anything else fills at the market
 	price := o.PriceOrder
-	if decision.AtMarket() && o.Kind() != model.OrderBuyLimit && o.Kind() != model.OrderSellLimit {
-		price = t.OpenPrice(o.Kind().Buy())
+	if decision.AtMarket() && o.Kind() != model.OrderType_buy_limit && o.Kind() != model.OrderType_sell_limit {
+		price = t.OpenPrice(o.Kind().IsBuy())
 	}
 	price = NormalisePrice(price, r.Digits)
 
 	// the fill is a market order of the same side and size, against the pending order's ticket
 	fillOrder := *o
-	fillOrder.Type = int32(model.OrderBuy)
-	if !o.Kind().Buy() {
-		fillOrder.Type = int32(model.OrderSell)
+	fillOrder.Type = model.OrderType_buy
+	if !o.Kind().IsBuy() {
+		fillOrder.Type = model.OrderType_sell
 	}
-	fillOrder.Reason = int32(model.ReasonClient)
+	fillOrder.Reason = model.OrderReason_client
 
 	fill := h.Execute(e, &fillOrder, r, price, Now())
 
 	delete(e.Orders, o.OrderId)
-	o.State = int32(model.StateFilled)
+	o.State = model.OrderState_filled
 	o.TimeDone = Now()
 	o.PriceCurrent = price
 
@@ -379,7 +379,7 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 	}
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "pending order filled",
-		"login", o.Login, "order", o.OrderId, "type", model.OrderType(o.Type),
+		"login", o.Login, "order", o.OrderId, "type", o.Type,
 		"price", price)
 
 	return nil
@@ -407,7 +407,7 @@ func (h *Handler) SaveOrderAndPublish(ctx context.Context, e *book.Entry, o *mod
 // placeOrder puts a working order on the book and leaves it there.
 func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *book.Entry,
 	o *model.Order, rule string) *model.TradeResult {
-	o.State = int32(model.StatePlaced)
+	o.State = model.OrderState_placed
 
 	e.Lock()
 	account := *e.Account
@@ -479,7 +479,7 @@ func (h *Handler) bookFill(e *book.Entry, o *model.Order, f *Fill, r *settings.R
 		e.Positions[f.Opened.PositionId] = f.Opened
 	}
 
-	o.State = int32(model.StateFilled)
+	o.State = model.OrderState_filled
 	o.TimeDone = Now()
 	o.PriceCurrent = f.Price
 
@@ -496,16 +496,16 @@ func (h *Handler) orderFrom(req *model.TradeRequest, r *settings.Rules, a *model
 		Symbol:         req.Symbol,
 		Digits:         r.Digits,
 		ContractSize:   r.ContractSize,
-		State:          int32(model.StateStarted),
+		State:          model.OrderState_started,
 		Reason:         req.Reason,
 		TimeSetup:      now,
-		TimeExpiration: req.Expiry,
+		TimeExpiration: req.ExpiryAt,
 		Type:           req.Type,
 		TypeFill:       req.TypeFill,
 		TypeTime:       req.TypeTime,
 		PriceOrder:     req.Price,
 		PriceTrigger:   req.PriceTrigger,
-		PriceCurrent:   t.OpenPrice(model.OrderType(req.Type).Buy()),
+		PriceCurrent:   t.OpenPrice(req.Type.IsBuy()),
 		PriceSL:        req.PriceSL,
 		PriceTP:        req.PriceTP,
 		VolumeInitial:  req.Volume,
@@ -514,16 +514,16 @@ func (h *Handler) orderFrom(req *model.TradeRequest, r *settings.Rules, a *model
 		PositionId:     req.PositionId,
 		PositionById:   req.PositionById,
 		Comment:        req.Comment,
-		RateMargin:     h.RateMargin(r, a, model.OrderType(req.Type).Buy()),
+		RateMargin:     h.RateMargin(r, a, req.Type.IsBuy()),
 	}
 }
 
 // kindOf is which routing request type this order counts as, which decides what rules see it.
 func (h *Handler) kindOf(o *model.Order, r *settings.Rules) model.RouteFlags {
-	if o.Kind().Pending() {
+	if o.Kind().IsPending() {
 		return model.RoutePending
 	}
-	if o.Kind() == model.OrderCloseBy {
+	if o.Kind() == model.OrderType_close_by {
 		return model.RouteCloseBy
 	}
 
@@ -545,7 +545,7 @@ func (h *Handler) deviation(o *model.Order, t model.Tick, r *settings.Rules) flo
 		return 0
 	}
 
-	if o.Kind().Buy() {
+	if o.Kind().IsBuy() {
 		return Points(t.Ask-o.PriceOrder, r.Point)
 	}
 
@@ -582,7 +582,7 @@ func (h *Handler) refuseByRule(res *model.TradeResult, d Decision, e *book.Entry
 	case model.ActionRequote:
 		return h.refuse(res, model.RetTradeRequote, "")
 	case model.ActionDealer, model.ActionDealerOnline:
-		o.State = int32(state)
+		o.State = state
 		return h.SendDealing(req, o, d.Dealers, d.Rule.RoutingId)
 	case model.ActionCancelOrder:
 		return h.refuse(res, model.RetTradeRejected, "order cancelled")

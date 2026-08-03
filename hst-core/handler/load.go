@@ -475,9 +475,9 @@ func (h *Handler) LoadPendingOrders(ctx context.Context, and string, args ...any
 		        routing_id
 		   FROM hst.orders
 		  WHERE state IN ($1, $2, $3, $4, $5, $6)`,
-		int32(model.StateStarted), int32(model.StatePlaced), int32(model.StatePartial),
-		int32(model.StateRequestAdd), int32(model.StateRequestModify),
-		int32(model.StateRequestCancel))
+		model.OrderState_started, model.OrderState_placed, model.OrderState_partial,
+		model.OrderState_request_add, model.OrderState_request_modify,
+		model.OrderState_request_cancel)
 	if err != nil {
 		return err
 	}
