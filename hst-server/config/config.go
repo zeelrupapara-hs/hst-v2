@@ -86,11 +86,10 @@ const (
 	// internal service auth
 	INTERNAL_SERVICE_TOKEN = "INTERNAL_SERVICE_TOKEN"
 
-	INFLUX_ENABLED = "INFLUX_ENABLED"
-	INFLUX_URL     = "INFLUX_URL"
-	INFLUX_TOKEN   = "INFLUX_TOKEN"
-	INFLUX_ORG     = "INFLUX_ORG"
-	INFLUX_BUCKET  = "INFLUX_BUCKET"
+	INFLUX_URL    = "INFLUX_URL"
+	INFLUX_TOKEN  = "INFLUX_TOKEN"
+	INFLUX_ORG    = "INFLUX_ORG"
+	INFLUX_BUCKET = "INFLUX_BUCKET"
 
 	INFLUX_CANDLE_BUCKET       = "INFLUX_CANDLE_BUCKET"
 	INFLUX_TICK_RETENTION_DAYS = "INFLUX_TICK_RETENTION_DAYS"
@@ -122,11 +121,10 @@ type Mail struct {
 
 // Influx is the tick store the charts read their history out of.
 type Influx struct {
-	Enabled bool
-	Url     string
-	Token   string
-	Org     string
-	Bucket  string
+	Url    string
+	Token  string
+	Org    string
+	Bucket string
 	// CandleBucket holds the minute bars the rollup writes; it is where deep history lives.
 	CandleBucket string
 	// TickRetention is how far back the raw ticks still reach.
@@ -321,7 +319,6 @@ func NewConfig() (*Config, error) {
 	c.Internal.ServiceToken = getEnv(INTERNAL_SERVICE_TOKEN, "")
 
 	// Influx, where hst-quote writes every tick and the charts read them back
-	c.Influx.Enabled = getEnvAsBool(INFLUX_ENABLED, false)
 	c.Influx.Url = getEnv(INFLUX_URL, "http://localhost:8086")
 	c.Influx.Token = getEnv(INFLUX_TOKEN, "")
 	c.Influx.Org = getEnv(INFLUX_ORG, "HybridSolutions")

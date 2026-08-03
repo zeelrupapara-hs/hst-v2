@@ -48,11 +48,10 @@ const (
 	QUOTE_INSTANCE_INDEX   = "QUOTE_INSTANCE_INDEX"
 	QUOTE_INSTANCE_COUNT   = "QUOTE_INSTANCE_COUNT"
 
-	INFLUX_ENABLED = "INFLUX_ENABLED"
-	INFLUX_URL     = "INFLUX_URL"
-	INFLUX_TOKEN   = "INFLUX_TOKEN"
-	INFLUX_ORG     = "INFLUX_ORG"
-	INFLUX_BUCKET  = "INFLUX_BUCKET"
+	INFLUX_URL    = "INFLUX_URL"
+	INFLUX_TOKEN  = "INFLUX_TOKEN"
+	INFLUX_ORG    = "INFLUX_ORG"
+	INFLUX_BUCKET = "INFLUX_BUCKET"
 
 	INFLUX_CANDLE_BUCKET       = "INFLUX_CANDLE_BUCKET"
 	INFLUX_TICK_RETENTION_DAYS = "INFLUX_TICK_RETENTION_DAYS"
@@ -80,11 +79,10 @@ type Config struct {
 
 // Influx config for tick history storage.
 type Influx struct {
-	Enabled bool
-	URL     string
-	Token   string
-	Org     string
-	Bucket  string
+	URL    string
+	Token  string
+	Org    string
+	Bucket string
 	// CandleBucket keeps the minute bars, which are the history a chart reads.
 	CandleBucket string
 	// TickRetention is how long the raw ticks are kept before the rollup is all that is left.
@@ -243,7 +241,6 @@ func NewConfig() (*Config, error) {
 	c.Quote.InstanceIndex = getEnvAsInt(QUOTE_INSTANCE_INDEX, 0)
 	c.Quote.InstanceCount = getEnvAsInt(QUOTE_INSTANCE_COUNT, 1)
 
-	c.Influx.Enabled = getEnvAsBool(INFLUX_ENABLED, false)
 	c.Influx.URL = getEnv(INFLUX_URL, "http://localhost:8086")
 	c.Influx.Token = getEnv(INFLUX_TOKEN, "")
 	c.Influx.Org = getEnv(INFLUX_ORG, "HybridSolutions")
@@ -272,8 +269,9 @@ func (c *Config) validate() error {
 	if c.Quote.InstanceIndex < 0 || c.Quote.InstanceIndex >= c.Quote.InstanceCount {
 		return fmt.Errorf("%s must be between 0 and %d", QUOTE_INSTANCE_INDEX, c.Quote.InstanceCount-1)
 	}
-	if c.Influx.Enabled && c.Influx.Token == "" {
-		return fmt.Errorf("%s is required when %s=true", INFLUX_TOKEN, INFLUX_ENABLED)
+	// every tick is written to the store, so a missing token is a misconfiguration, not a mode
+	if c.Influx.Token == "" {
+		return fmt.Errorf("%s is required", INFLUX_TOKEN)
 	}
 	return nil
 }

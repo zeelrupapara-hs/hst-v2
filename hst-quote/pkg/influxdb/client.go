@@ -24,13 +24,10 @@ type Client struct {
 	log    *logger.Logger
 }
 
-// NewClient connects to InfluxDB when enabled in config.
+// NewClient connects to InfluxDB, which every tick is written to.
 func NewClient(cfg *config.Config, log *logger.Logger) (*Client, error) {
-	if !cfg.Influx.Enabled {
-		return nil, nil
-	}
 	if cfg.Influx.URL == "" || cfg.Influx.Token == "" {
-		return nil, fmt.Errorf("influx enabled but URL or token is empty")
+		return nil, fmt.Errorf("influx url and token are required")
 	}
 
 	client := influxdb2.NewClient(cfg.Influx.URL, cfg.Influx.Token)

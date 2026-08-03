@@ -34,15 +34,10 @@ type Candle struct {
 	Volume float64 `json:"volume"`
 }
 
-// NewReader connects, or reports that history is switched off.
+// NewReader connects to the tick store. Charts are part of the platform, not an option.
 func NewReader(cfg *config.Config, log *logger.Logger) (*Reader, error) {
-	if !cfg.Influx.Enabled {
-		log.Log(logger.TypeSys, logger.CodeWarn, "chart history is disabled, no tick store configured")
-		return nil, nil
-	}
-
 	if cfg.Influx.Url == "" || cfg.Influx.Token == "" {
-		return nil, fmt.Errorf("influx url and token are required when history is enabled")
+		return nil, fmt.Errorf("influx url and token are required")
 	}
 
 	client := influx.NewClient(cfg.Influx.Url, cfg.Influx.Token)
