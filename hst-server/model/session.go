@@ -83,4 +83,6 @@ const (
 	SessionRevokedLogout        = "logout"
 	SessionRevokedReuseDetected = "reuse_detected"
 	SessionRevokedRightsChanged = "rights_changed"
+	// an account holds one session at a time, so signing in again closes the one before it
+	SessionRevokedSuperseded = "superseded"
 )
