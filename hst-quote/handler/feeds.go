@@ -3,7 +3,6 @@ package handler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -441,7 +440,7 @@ func (f *Feeds) publishTick(tick model.Tick) {
 	if err != nil {
 		return
 	}
-	subject := fmt.Sprintf(SubjectTick, tick.Symbol)
+	subject := model.SubjectTick(tick.Symbol)
 	if err := f.h.Nats.NC.Publish(subject, payload); err != nil {
 		f.h.Log.Log(logger.TypeNet, logger.CodeErr, "tick publish failed",
 			"subject", subject, "error", err.Error())

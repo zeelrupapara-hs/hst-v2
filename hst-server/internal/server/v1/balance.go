@@ -70,7 +70,7 @@ func (s *HttpServer) makeBalance(ctx context.Context, payload *CrtBalance, deale
 }
 
 func (s *HttpServer) sendBalance(ctx context.Context, login int64, e *model.BalanceEvent) (*model.TradeResult, int, error) {
-	return s.request(ctx, model.SubjectSystemBalance(login), e)
+	return s.request(ctx, model.SubjectSystemBalance, e)
 }
 
 func (s *HttpServer) journalBalance(c *fiber.Ctx, actor int64, body *CrtBalance) {

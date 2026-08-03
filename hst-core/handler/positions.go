@@ -1,6 +1,8 @@
 package handler
 
 import (
+	wire "hstmodel"
+
 	"context"
 	"time"
 
@@ -95,7 +97,7 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 
 	e, ok := h.Accounts.Get(req.Login)
 	if !ok {
-		return h.refuse(res, model.RetTradeWrongShard, "")
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
 	e.Lock()
@@ -164,7 +166,7 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 
 	e, ok := h.Accounts.Get(req.Login)
 	if !ok {
-		return h.refuse(res, model.RetTradeWrongShard, "")
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
 	e.Lock()
@@ -259,7 +261,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 
 	e, ok := h.Accounts.Get(req.Login)
 	if !ok {
-		return h.refuse(res, model.RetTradeWrongShard, "")
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
 	e.Lock()
@@ -634,7 +636,7 @@ func (h *Handler) SavePositionAndPublish(ctx context.Context, p *model.Position)
 		return err
 	}
 
-	h.PublishWS(model.SubjectAccountPositions(p.Login), "position_changed", p)
+	h.PublishWS(model.SubjectAccountPositions(p.Login), wire.EventPositionUpdate, p)
 
 	return nil
 }

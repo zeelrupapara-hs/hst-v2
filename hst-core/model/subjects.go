@@ -1,39 +1,53 @@
 package model
 
-import "fmt"
+import wire "hstmodel"
 
-// server -> core, one pod owns a shard and subscribes to its three subjects
-var (
-	SubjectShardOrders    = func(shard uint32) string { return fmt.Sprintf("system.s%d.orders", shard) }
-	SubjectShardPositions = func(shard uint32) string { return fmt.Sprintf("system.s%d.positions", shard) }
-	SubjectShardDealing   = func(shard uint32) string { return fmt.Sprintf("system.s%d.dealing", shard) }
-	SubjectShardBalance   = func(shard uint32) string { return fmt.Sprintf("system.s%d.balance", shard) }
-	SubjectShardQuery     = func(shard uint32) string { return fmt.Sprintf("system.s%d.query", shard) }
+// Every string comes from the shared contract, so the api and the engine cannot drift into two
+// names for one wire string.
+
+// server -> core. Every pod listens on one subject per command under a queue group, so exactly one
+// receives it; that pod forwards to the owner when it is not holding the account itself.
+const (
+	SubjectSystemOrders    = wire.SubjectSystemOrders
+	SubjectSystemPositions = wire.SubjectSystemPositions
+	SubjectSystemDealing   = wire.SubjectSystemDealing
+	SubjectSystemBalance   = wire.SubjectSystemBalance
+	SubjectSystemQuery     = wire.SubjectSystemQuery
+
+	QueueOrders    = wire.QueueOrders
+	QueuePositions = wire.QueuePositions
+	QueueDealing   = wire.QueueDealing
+	QueueBalance   = wire.QueueBalance
+	QueueQuery     = wire.QueueQuery
 )
 
-// core -> one trading account, under the ws.t.<login>.> tree the socket already holds
+// SubjectOwner is the private inbox of the pod holding a shard, the one place a shard is named.
+var SubjectOwner = wire.SubjectOwner
+
+// core -> one trading account, under the tree the socket already holds
 var (
-	SubjectAccountOrders    = func(login int64) string { return fmt.Sprintf("ws.t.%d.orders", login) }
-	SubjectAccountPositions = func(login int64) string { return fmt.Sprintf("ws.t.%d.positions", login) }
-	SubjectAccountDeals     = func(login int64) string { return fmt.Sprintf("ws.t.%d.deals", login) }
-	SubjectAccountSummary   = func(login int64) string { return fmt.Sprintf("ws.t.%d.summary", login) }
-	SubjectAccountResult    = func(login int64) string { return fmt.Sprintf("ws.t.%d.result", login) }
+	SubjectAccountOrders      = wire.SubjectAccountOrders
+	SubjectAccountPositions   = wire.SubjectAccountPositions
+	SubjectAccountDeals       = wire.SubjectAccountDeals
+	SubjectAccountSummary     = wire.SubjectAccountSummary
+	SubjectAccountMarginCall  = wire.SubjectAccountMarginCall
+	SubjectAccountMoneyChange = wire.SubjectAccountMoneyChange
 )
 
 // core -> one dealer's request queue
-var SubjectDealerRequests = func(login int64) string { return fmt.Sprintf("ws.m.%d.requests", login) }
+var SubjectDealerRequests = wire.SubjectBrokerRequests
 
 const (
-	SubjectSystemMarketFeedAll = "hstquote.tick.*"
-
-	SubjectSystemGroups       = "system.group.*"
-	SubjectSystemGroupSymbols = "system.group_symbol.*"
-	SubjectSystemSymbols      = "system.symbol.*"
-	SubjectSystemCommissions  = "system.group_commission.*"
-	SubjectSystemRules        = "system.routing.*"
-	SubjectSystemAccounts     = "system.user.*"
-	SubjectSystemEndOfDay     = "system.core.endofday"
+	SubjectSystemMarketFeedAll = wire.SubjectQuoteTickAll
 	// SubjectSystemSnapshot asks the feed for the last price of every instrument.
-	SubjectSystemSnapshot     = "hstquote.snapshot"
-	SubjectSystemEndOfDayTime = "system.core.endofday.time"
+	SubjectSystemSnapshot = wire.SubjectQuoteSnapshot
+
+	SubjectSystemGroups       = wire.SubjectSystemGroups
+	SubjectSystemGroupSymbols = wire.SubjectSystemGroupSymbols
+	SubjectSystemSymbols      = wire.SubjectSystemSymbols
+	SubjectSystemCommissions  = wire.SubjectSystemCommissions
+	SubjectSystemRules        = wire.SubjectSystemRouting
+	SubjectSystemAccounts     = wire.SubjectSystemAccounts
+	SubjectSystemEndOfDay     = wire.SubjectSystemEndOfDay
+	SubjectSystemEndOfDayTime = wire.SubjectSystemEndOfDayTime
 )

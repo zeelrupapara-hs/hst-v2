@@ -34,7 +34,7 @@ const (
 	RetTradeFrozen          RetCode = 10019
 	RetTradeNotProcessed    RetCode = 10020
 	RetTradeMaxVolume       RetCode = 10021
-	RetTradeWrongShard      RetCode = 10022
+	RetTradeAccountNotFound RetCode = 10022
 	RetTradeDealerQueued    RetCode = 10023
 	RetTradeDealerReturned  RetCode = 10024
 	RetTradeCloseOrderExist RetCode = 10025
@@ -69,7 +69,7 @@ var retNames = map[RetCode]string{
 	RetTradeFrozen:          "order is frozen",
 	RetTradeNotProcessed:    "no routing rule admitted this request",
 	RetTradeMaxVolume:       "position volume limit reached",
-	RetTradeWrongShard:      "account is not held here",
+	RetTradeAccountNotFound: "account not found",
 	RetTradeDealerQueued:    "request placed in a dealer queue",
 	RetTradeDealerReturned:  "request rejected, due all assigned dealers returned request in queue",
 	RetTradeCloseOrderExist: "an older position on this symbol must be closed first",

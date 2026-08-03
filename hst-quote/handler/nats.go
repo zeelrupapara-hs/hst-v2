@@ -1,14 +1,14 @@
 package handler
 
+import "hstquote/model"
+
 const (
-	SubjectTick = "hstquote.tick.%s"
+	SubjectDatafeedCreated = model.SubjectDatafeedCreated
+	SubjectDatafeedUpdated = model.SubjectDatafeedUpdated
+	SubjectDatafeedDeleted = model.SubjectDatafeedDeleted
+	SubjectDatafeedConfig  = model.SubjectDatafeedConfig
 
-	SubjectDatafeedCreated = "hstserver.datafeed.created"
-	SubjectDatafeedUpdated = "hstserver.datafeed.updated"
-	SubjectDatafeedDeleted = "hstserver.datafeed.deleted"
-	SubjectDatafeedConfig  = "hstserver.datafeed.config.>"
-
-	GroupDatafeedConfig = "hstquote-datafeed"
+	GroupDatafeedConfig = model.GroupDatafeedConfig
 )
 
 // DatafeedEvent is published by hst-server when feed configuration changes.

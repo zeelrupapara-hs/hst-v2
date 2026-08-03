@@ -41,6 +41,20 @@ var (
 	SubjectClientLogout = func(session string) string { return fmt.Sprintf("websocket.clients.%s.session_logout", session) }
 )
 
+// What a manager is subscribed to, scoped to the group tree their masks cover.
+//
+// The tree is what makes this different from vfx, which sends every manager everything: a group
+// path becomes subject tokens, so demo\\forex is websocket.groups.users.demo.forex and a mask
+// subscribes to the subtree under it.
+var (
+	SubjectGroupScoped = func(family, token string) string {
+		return fmt.Sprintf("%s.%s.%s", RootGroupScoped, family, token)
+	}
+)
+
+// RootGroupScoped prefixes every group scoped subject.
+const RootGroupScoped = "websocket.groups"
+
 // What staff and the dealing desk are subscribed to.
 var (
 	SubjectBrokerAll        = "websocket.broker.>"

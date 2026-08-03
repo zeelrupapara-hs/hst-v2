@@ -24,7 +24,7 @@ func (s *HttpServer) askEngine(ctx context.Context, login int64, what model.Quer
 	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	msg, err := s.Nats.NC.RequestWithContext(ctx, model.SubjectSystemQuery(login), payload)
+	msg, err := s.Nats.NC.RequestWithContext(ctx, model.SubjectSystemQuery, payload)
 	if err != nil {
 		return nil
 	}

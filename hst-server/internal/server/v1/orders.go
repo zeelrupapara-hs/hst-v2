@@ -272,7 +272,7 @@ func (s *HttpServer) cancelOrder(ctx context.Context, payload *CancelOrder, deal
 
 // sendOrder hands the envelope to the pod holding this account and waits for the answer.
 func (s *HttpServer) sendOrder(ctx context.Context, login int64, e *model.OrderEvent) (*model.TradeResult, int, error) {
-	return s.request(ctx, model.SubjectSystemOrders(login), e)
+	return s.request(ctx, model.SubjectSystemOrders, e)
 }
 
 // request is the one call into the engine: marshal, ask, decode, map the retcode to a status.

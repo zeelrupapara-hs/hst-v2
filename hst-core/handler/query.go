@@ -24,6 +24,10 @@ func (h *Handler) QuerySystemEventHandler(msg *natscore.Msg) {
 		return
 	}
 
+	if h.forwarded(msg, "query", q.Login) {
+		return
+	}
+
 	res := &model.QueryResult{Login: q.Login}
 
 	switch q.What {

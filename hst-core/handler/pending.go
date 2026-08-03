@@ -1,6 +1,8 @@
 package handler
 
 import (
+	wire "hstmodel"
+
 	"context"
 
 	"hstcore/internal/book"
@@ -87,7 +89,7 @@ func (h *Handler) cookStopLimit(ctx context.Context, e *book.Entry, o *model.Ord
 		return
 	}
 
-	h.PublishWS(model.SubjectAccountOrders(saved.Login), "order", &saved)
+	h.PublishWS(model.SubjectAccountOrders(saved.Login), wire.EventOrderCreate, &saved)
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "stop limit became a limit",
 		"login", saved.Login, "order", saved.OrderId, "price", saved.PriceOrder)
@@ -113,7 +115,7 @@ func (h *Handler) removeOrder(ctx context.Context, e *book.Entry, o *model.Order
 	}
 
 	h.unwatchIfLast(e, saved.Symbol)
-	h.PublishWS(model.SubjectAccountOrders(saved.Login), "order_canceled", &saved)
+	h.PublishWS(model.SubjectAccountOrders(saved.Login), wire.EventOrderCancel, &saved)
 
 	// whatever the order was reserving goes back
 	h.CalculateAccountMarginsAndProfits(ctx, e)

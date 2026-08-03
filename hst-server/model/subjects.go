@@ -1,21 +1,17 @@
 package model
 
 import (
-	"fmt"
+	wire "hstmodel"
+
 	"strings"
 )
 
-// Group scoped websocket subjects.
-const (
-	// SubjectGroupRoot prefixes every group scoped subject.
-	SubjectGroupRoot = "ws.g"
+// GroupSep separates the segments of a group path.
+const GroupSep = `\`
 
-	// SubjectTraderRoot prefixes every subject a trading account listens on.
-	SubjectTraderRoot = "ws.t"
-
-	// GroupSep separates the segments of a group path.
-	GroupSep = `\`
-)
+// SubjectGroupRoot prefixes every group scoped subject, under the websocket root so the delivery
+// rule holds: anything beginning websocket reaches a client.
+const SubjectGroupRoot = wire.RootGroupScoped
 
 // family is the kind of record an event is about: a group, a user, a client, an account or a group symbol.
 type family string
@@ -68,36 +64,40 @@ var (
 	SubjectGroupCommission = func(path string) string { return subject(familyGroupCommissions, path) }
 
 	// SubjectTrader is everything one trading account hears: its own and nothing else.
-	SubjectTrader = func(login int64) string { return fmt.Sprintf("%s.%d.>", SubjectTraderRoot, login) }
+	SubjectTrader = wire.SubjectAccountAll
 	// SubjectTraderProfile carries a change to one account's own record.
-	SubjectTraderProfile = func(login int64) string { return fmt.Sprintf("%s.%d.profile", SubjectTraderRoot, login) }
+	SubjectTraderProfile = wire.SubjectAccountProfile
 
-	// SubjectJournal carries a manager's own journal lines: it records what that manager did, so nobody else is listening.
-	SubjectJournal = func(login int64) string { return fmt.Sprintf("websocket.%d.journal", login) }
+	// SubjectJournal is a manager's own journal lines, on the operations topic of their account.
+	SubjectJournal = wire.SubjectAccountOperations
 )
 
-// server -> core, the shard routes it to the pod holding the account
-var (
-	SubjectSystemOrders    = func(login int64) string { return fmt.Sprintf("system.s%d.orders", ShardOf(login)) }
-	SubjectSystemPositions = func(login int64) string { return fmt.Sprintf("system.s%d.positions", ShardOf(login)) }
-	SubjectSystemDealing   = func(login int64) string { return fmt.Sprintf("system.s%d.dealing", ShardOf(login)) }
-	SubjectSystemBalance   = func(login int64) string { return fmt.Sprintf("system.s%d.balance", ShardOf(login)) }
-	SubjectSystemQuery     = func(login int64) string { return fmt.Sprintf("system.s%d.query", ShardOf(login)) }
+// server -> core. One subject per command; a queue group picks the pod, and that pod forwards to
+// the owner if it is not holding the account itself.
+const (
+	SubjectSystemOrders    = wire.SubjectSystemOrders
+	SubjectSystemPositions = wire.SubjectSystemPositions
+	SubjectSystemDealing   = wire.SubjectSystemDealing
+	SubjectSystemBalance   = wire.SubjectSystemBalance
+	SubjectSystemQuery     = wire.SubjectSystemQuery
+)
 
-	// core -> one trading account, under the ws.t.<login>.> tree the socket already holds
-	SubjectAccountOrders    = func(login int64) string { return fmt.Sprintf("ws.t.%d.orders", login) }
-	SubjectAccountPositions = func(login int64) string { return fmt.Sprintf("ws.t.%d.positions", login) }
-	SubjectAccountDeals     = func(login int64) string { return fmt.Sprintf("ws.t.%d.deals", login) }
-	SubjectAccountSummary   = func(login int64) string { return fmt.Sprintf("ws.t.%d.summary", login) }
-	SubjectAccountResult    = func(login int64) string { return fmt.Sprintf("ws.t.%d.result", login) }
+// core -> one trading account, under the tree the socket already holds
+var (
+	SubjectAccountOrders     = wire.SubjectAccountOrders
+	SubjectAccountPositions  = wire.SubjectAccountPositions
+	SubjectAccountDeals      = wire.SubjectAccountDeals
+	SubjectAccountSummary    = wire.SubjectAccountSummary
+	SubjectAccountMarginCall = wire.SubjectAccountMarginCall
+	SubjectAccountOperations = wire.SubjectAccountOperations
 
 	// core -> one dealer's request queue
-	SubjectDealerRequests = func(login int64) string { return fmt.Sprintf("ws.m.%d.requests", login) }
+	SubjectDealerRequests = wire.SubjectBrokerRequests
 )
 
 const (
-	// ticks, produced outside both modules; the wire name does not change
-	SubjectSystemMarketFeedAll = "hstquote.tick.*"
+	// ticks, produced outside both modules
+	SubjectSystemMarketFeedAll = wire.SubjectQuoteTickAll
 
 	// config reload, broadcast to every pod
 	SubjectSystemRoutingCreated = "system.routing.created"
@@ -107,10 +107,10 @@ const (
 
 // Records with no group of their own. Access to them is a right, not a path, so the subject carries no group.
 const (
-	SubjectSymbol   = "ws.right.symbols"
-	SubjectHoliday  = "ws.right.holidays"
-	SubjectLeverage = "ws.right.leverages"
-	SubjectManager  = "ws.right.managers"
+	SubjectSymbol   = "websocket.broker.symbols_update"
+	SubjectHoliday  = "websocket.broker.holidays_update"
+	SubjectLeverage = "websocket.broker.leverages_update"
+	SubjectManager  = "websocket.broker.managers_update"
 )
 
 // From the api to the other services.
@@ -213,7 +213,8 @@ func subject(f family, groupPath string) string {
 		// a trailing * is the group itself and the subtree under it
 		token = "root"
 	}
-	return SubjectGroupRoot + "." + string(f) + "." + token
+
+	return wire.SubjectGroupScoped(string(f), token)
 }
 
 // maskSubject turns one of a manager's group masks into the subscription that covers it.

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	wire "hstmodel"
+
 	"context"
 	"encoding/json"
 
@@ -15,6 +17,10 @@ func (h *Handler) BalanceSystemEventHandler(msg *natscore.Msg) {
 	var e model.BalanceEvent
 	if err := json.Unmarshal(msg.Data, &e); err != nil || e.Data == nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "bad balance request")
+		return
+	}
+
+	if h.forwarded(msg, "balance", e.Data.Login) {
 		return
 	}
 
@@ -42,7 +48,7 @@ func (h *Handler) NewBalance(ctx context.Context, req *model.BalanceRequest) *mo
 
 	e, ok := h.Accounts.Get(req.Login)
 	if !ok {
-		return h.refuse(res, model.RetTradeWrongShard, "")
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
 	e.Lock()
@@ -138,7 +144,7 @@ func (h *Handler) SaveBalanceAndPublish(ctx context.Context, e *book.Entry, d *m
 		return err
 	}
 
-	h.PublishWS(model.SubjectAccountDeals(d.Login), model.BalanceActionName(d.Action), d)
+	h.PublishWS(model.SubjectAccountMoneyChange(d.Login), wire.EventMoneyChange, d)
 	h.PublishAccount(a, nil)
 
 	return nil

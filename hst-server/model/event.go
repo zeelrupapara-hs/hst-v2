@@ -1,7 +1,8 @@
 package model
 
 import (
-	"fmt"
+	wire "hstmodel"
+
 	"strings"
 )
 
@@ -135,31 +136,14 @@ type ErrorPayload struct {
 }
 
 // Subject roots.
-const (
-	// SubjectSessionRoot targets exactly one session.
-	SubjectSessionRoot = "ws.session"
-	// SubjectLoginRoot targets every session of one login, which is what a user with two terminals open has.
-	SubjectLoginRoot = "ws.login"
-	// SubjectRightRoot targets every manager holding one right.
-	SubjectRightRoot = "ws.right"
-	// SubjectBroadcastRoot reaches every connected socket.
-	SubjectBroadcastRoot = "ws.broadcast"
-)
+// SubjectBroadcastRoot reaches every connected socket.
+const SubjectBroadcastRoot = "websocket.broadcast"
 
-// everything after the routing prefix is the name, dots included
-func SubjectSession(sid string) string {
-	return fmt.Sprintf("%s.%s.>", SubjectSessionRoot, sid)
-}
+// SubjectSession is everything one connection hears, as opposed to one account.
+func SubjectSession(sid string) string { return wire.SubjectClientAll(sid) }
 
-// SubjectLogin is every session of one login: ws.login.<login>.>
-func SubjectLogin(login int64) string {
-	return fmt.Sprintf("%s.%d.>", SubjectLoginRoot, login)
-}
-
-// SubjectBroadcast is every connected socket.
-func SubjectBroadcast() string {
-	return SubjectBroadcastRoot + ".>"
-}
+// SubjectBroadcast reaches every connected socket.
+func SubjectBroadcast() string { return SubjectBroadcastRoot + ".>" }
 
 // ParseSubject splits a subject into the event type and, for a group scoped subject, the group path it happened in.
 func ParseSubject(subject string) (eventType, groupPath string) {

@@ -42,8 +42,16 @@ func (h *Handler) subscribe() error {
 		return err
 	}
 
+	// one queue per command, so a command reaches exactly one pod whichever holds the account
+	for _, c := range commands {
+		if err := h.QueueSubscribe(c.subject, c.queue, c.handler(h)); err != nil {
+			return err
+		}
+	}
+
+	// and the private inbox of each shard this pod holds, where a forwarded command arrives
 	for _, shard := range h.Shards.Mine() {
-		if err := h.subscribeShard(shard); err != nil {
+		if err := h.subscribeOwned(shard); err != nil {
 			return err
 		}
 	}
@@ -54,24 +62,55 @@ func (h *Handler) subscribe() error {
 	return nil
 }
 
-// subscribeShard opens the subjects one owned shard carries.
-func (h *Handler) subscribeShard(shard uint32) error {
-	if err := h.subscribeQuiet(model.SubjectShardOrders(shard), h.OrderSystemEventHandler); err != nil {
-		return err
-	}
-	if err := h.subscribeQuiet(model.SubjectShardPositions(shard), h.PositionSystemEventHandler); err != nil {
-		return err
+// command is one thing the api can ask the engine to do.
+type command struct {
+	topic   string
+	subject string
+	queue   string
+	handler func(*Handler) func(*natscore.Msg)
+}
+
+var commands = []command{
+	{"orders", model.SubjectSystemOrders, model.QueueOrders,
+		func(h *Handler) func(*natscore.Msg) { return h.OrderSystemEventHandler }},
+	{"positions", model.SubjectSystemPositions, model.QueuePositions,
+		func(h *Handler) func(*natscore.Msg) { return h.PositionSystemEventHandler }},
+	{"dealing", model.SubjectSystemDealing, model.QueueDealing,
+		func(h *Handler) func(*natscore.Msg) { return h.DealingSystemEventHandler }},
+	{"balance", model.SubjectSystemBalance, model.QueueBalance,
+		func(h *Handler) func(*natscore.Msg) { return h.BalanceSystemEventHandler }},
+	{"query", model.SubjectSystemQuery, model.QueueQuery,
+		func(h *Handler) func(*natscore.Msg) { return h.QuerySystemEventHandler }},
+}
+
+// subscribeOwned opens the private inbox of one shard this pod holds.
+func (h *Handler) subscribeOwned(shard uint32) error {
+	for _, c := range commands {
+		if err := h.subscribeQuiet(model.SubjectOwner(shard, c.topic), c.handler(h)); err != nil {
+			return err
+		}
 	}
 
-	if err := h.subscribeQuiet(model.SubjectShardDealing(shard), h.DealingSystemEventHandler); err != nil {
-		return err
+	return nil
+}
+
+// forwarded hands a command to the pod holding the account and reports that it did.
+//
+// A pod that does not own an account must not refuse the trade: it passes the message on with the
+// caller's reply subject intact, so the owner answers the caller directly and the client never
+// learns that more than one pod was involved.
+func (h *Handler) forwarded(msg *natscore.Msg, topic string, login int64) bool {
+	if login == 0 || h.Shards.HoldsLogin(login) {
+		return false
 	}
 
-	if err := h.subscribeQuiet(model.SubjectShardBalance(shard), h.BalanceSystemEventHandler); err != nil {
-		return err
+	owner := model.SubjectOwner(model.ShardOf(login), topic)
+	if err := h.Nats.NC.PublishRequest(owner, msg.Reply, msg.Data); err != nil {
+		h.Log.Log(logger.TypeNet, logger.CodeErr, "could not forward to the owning pod",
+			"login", login, "topic", topic, "error", err.Error())
 	}
 
-	return h.subscribeQuiet(model.SubjectShardQuery(shard), h.QuerySystemEventHandler)
+	return true
 }
 
 // ConfigSystemEventHandler reads the configuration again.
@@ -211,6 +250,10 @@ func (h *Handler) OrderSystemEventHandler(msg *natscore.Msg) {
 		return
 	}
 
+	if h.forwarded(msg, "orders", e.Data.Login) {
+		return
+	}
+
 	ctx := context.Background()
 	res := &model.TradeResult{RequestId: e.Data.RequestId, Login: e.Data.Login}
 
@@ -233,6 +276,10 @@ func (h *Handler) PositionSystemEventHandler(msg *natscore.Msg) {
 	var e model.PositionEvent
 	if err := json.Unmarshal(msg.Data, &e); err != nil || e.Data == nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "bad position event", "subject", msg.Subject)
+		return
+	}
+
+	if h.forwarded(msg, "positions", e.Data.Login) {
 		return
 	}
 
@@ -264,5 +311,5 @@ func (h *Handler) reply(msg *natscore.Msg, res *model.TradeResult) {
 		}
 	}
 
-	h.PublishResult(res)
+	h.PublishRejected(res)
 }

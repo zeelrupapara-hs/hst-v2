@@ -83,7 +83,6 @@ func (s *HttpServer) subjectsFor(c *ws.Client, rights model.ManagerRights, group
 	// its own session, every session of its login, and the whole floor
 	subjects := []string{
 		model.SubjectSession(c.SessionId),
-		model.SubjectLogin(c.Login),
 		model.SubjectBroadcast(),
 	}
 

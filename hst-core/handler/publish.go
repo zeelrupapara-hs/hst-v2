@@ -1,6 +1,8 @@
 package handler
 
 import (
+	wire "hstmodel"
+
 	"encoding/json"
 	"time"
 
@@ -18,7 +20,7 @@ const (
 )
 
 // PublishWS never fails the caller: a trade already written must not be undone because a socket message could not go out.
-func (h *Handler) PublishWS(subject, event string, payload any) {
+func (h *Handler) PublishWS(subject string, event wire.EventType, payload any) {
 	body, err := json.Marshal(payload)
 	if err != nil {
 		h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not encode an event",
@@ -31,7 +33,7 @@ func (h *Handler) PublishWS(subject, event string, payload any) {
 		Data:    body,
 		Header: natscore.Header{
 			headerFormat: []string{"json"},
-			headerEvent:  []string{event},
+			headerEvent:  []string{string(event)},
 		},
 	}
 
@@ -42,13 +44,13 @@ func (h *Handler) PublishWS(subject, event string, payload any) {
 }
 
 // PublishText sends an already formatted payload, for messages too frequent to afford an envelope.
-func (h *Handler) PublishText(subject, event, payload string) {
+func (h *Handler) PublishText(subject string, event wire.EventType, payload string) {
 	msg := &natscore.Msg{
 		Subject: subject,
 		Data:    []byte(payload),
 		Header: natscore.Header{
 			headerFormat: []string{"text"},
-			headerEvent:  []string{event},
+			headerEvent:  []string{string(event)},
 		},
 	}
 
@@ -58,38 +60,43 @@ func (h *Handler) PublishText(subject, event, payload string) {
 	}
 }
 
-func (h *Handler) PublishResult(res *model.TradeResult) {
-	if res.Login == 0 {
+// PublishRejected tells an account its request was refused, which is the only way a caller that
+// did not wait for a reply learns the outcome.
+func (h *Handler) PublishRejected(res *model.TradeResult) {
+	if res.Login == 0 || res.RetCode == int32(model.RetOK) {
 		return
 	}
 
-	h.PublishWS(model.SubjectAccountResult(res.Login), "trade_result", res)
+	h.PublishWS(model.SubjectAccountOrders(res.Login), wire.EventOrderRejected, res)
 }
 
-// PublishTrade announces everything a fill changed.
+// PublishTrade announces a fill in the order the trade actually happened.
+//
+// The position and the deals that made it go out before the order, because a client told its order
+// filled before the position exists has nothing to show against it.
 func (h *Handler) PublishTrade(e *book.Entry, o *model.Order, f *Fill, a *model.Account) {
-	h.PublishWS(model.SubjectAccountOrders(o.Login), "order", o)
-
-	for _, d := range f.Deals {
-		h.PublishWS(model.SubjectAccountDeals(d.Login), "deal", d)
-	}
-
 	if f.Opened != nil {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), "position_opened", f.Opened)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), wire.EventPositionCreate, f.Opened)
 	}
 	for _, p := range f.Changed {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), "position_changed", p)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), wire.EventPositionUpdate, p)
 	}
 	for _, p := range f.Closed {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), "position_closed", p)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), wire.EventPositionClose, p)
 	}
+
+	for _, d := range f.Deals {
+		h.PublishWS(model.SubjectAccountDeals(d.Login), wire.EventDealCreate, d)
+	}
+
+	h.PublishWS(model.SubjectAccountOrders(o.Login), wire.EventOrderCreate, o)
 
 	h.PublishAccount(a, nil)
 }
 
 // PublishAccount goes out on every tick touching the account, so it is one line rather than json.
 func (h *Handler) PublishAccount(a *model.Account, positions map[int64]float64) {
-	h.PublishText(model.SubjectAccountSummary(a.Login), "summary", AccountSummary(a, positions))
+	h.PublishText(model.SubjectAccountSummary(a.Login), wire.EventAccountSummary, AccountSummary(a, positions))
 }
 
 // SummaryFor returns "" when a tick is not worth a frame; gated per instrument so a busy symbol cannot crowd out a quiet one. Caller holds the entry's lock.
@@ -120,9 +127,9 @@ func (h *Handler) summaryInterval() time.Duration {
 
 // PublishDealing offers one request to one dealer's queue.
 func (h *Handler) PublishDealing(dealer int64, e *model.DealingEvent) {
-	event := "dealer_request"
+	event := wire.EventDealerRequest
 	if e.EventType != model.DealingEvent_offer {
-		event = "dealer_request_done"
+		event = wire.EventDealerRequestDone
 	}
 
 	h.PublishWS(model.SubjectDealerRequests(dealer), event, e)

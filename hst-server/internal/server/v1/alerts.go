@@ -63,7 +63,7 @@ func (s *HttpServer) StartAlerts() {
 		s.Log.Log(logger.TypeSys, logger.CodeErr, "could not load alerts", "error", err.Error())
 	}
 
-	if _, err := s.Nats.NC.Subscribe("ws.t.*.summary", s.AlertSummaryHandler); err != nil {
+	if _, err := s.Nats.NC.Subscribe("websocket.accounts.*.summary", s.AlertSummaryHandler); err != nil {
 		s.Log.Log(logger.TypeNet, logger.CodeErr, "could not watch account summaries for alerts",
 			"error", err.Error())
 	}

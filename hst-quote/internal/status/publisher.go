@@ -1,14 +1,13 @@
 package status
 
 import (
+	"hstquote/model"
+
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"hstquote/pkg/nats"
 )
-
-const subjectTemplate = "hstquote.status.%d"
 
 // Event is runtime telemetry for hst-server aggregation.
 type Event struct {
@@ -47,7 +46,7 @@ func (p *Publisher) Publish(evt Event) {
 	if err != nil {
 		return
 	}
-	_ = p.nc.NC.Publish(fmt.Sprintf(subjectTemplate, evt.DatafeedID), payload)
+	_ = p.nc.NC.Publish(model.SubjectStatus(evt.DatafeedID), payload)
 }
 
 func (p *Publisher) Connected(datafeedID int64) {

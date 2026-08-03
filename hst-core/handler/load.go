@@ -367,14 +367,19 @@ func (h *Handler) canExecute(rules []model.RoutingRule) bool {
 // loadAccounts reads this pod's accounts with their open orders and positions.
 // LoadAccount takes on a single account, for one that appeared after boot.
 func (h *Handler) LoadAccountById(ctx context.Context, login int64) error {
-	return h.readAccounts(ctx, `AND u.login = $1`, login)
+	return h.readAccounts(ctx, nil, `AND u.login = $1`, login)
 }
 
 func (h *Handler) LoadAccount(ctx context.Context) error {
-	return h.readAccounts(ctx, "")
+	return h.readAccounts(ctx, nil, "")
 }
 
-func (h *Handler) readAccounts(ctx context.Context, and string, args ...any) error {
+// LoadAccountsIn reads only the accounts falling in the shards named, for a pod taking them on.
+func (h *Handler) LoadAccountsIn(ctx context.Context, shards map[uint32]bool) error {
+	return h.readAccounts(ctx, shards, "")
+}
+
+func (h *Handler) readAccounts(ctx context.Context, shards map[uint32]bool, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT u.login, u."group", u.rights, u.leverage,
 		        a.currency_digits, a.balance, a.credit, a.margin, a.margin_free,
@@ -402,6 +407,11 @@ func (h *Handler) readAccounts(ctx context.Context, and string, args ...any) err
 		}
 
 		if !h.Shards.HoldsLogin(a.Login) {
+			continue
+		}
+
+		// a rebalance asks for the shards just gained, so the rest are already resident
+		if shards != nil && !shards[model.ShardOf(a.Login)] {
 			continue
 		}
 

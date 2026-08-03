@@ -126,7 +126,7 @@ func (h *Handler) Start(ctx context.Context) error {
 	h.RecoverDealingRequests()
 
 	h.Go(func() { h.RunEndOfDay(ctx) })
-	h.Go(func() { h.RunMembership(ctx) })
+	h.Go(func() { h.WatchPodMembership(ctx) })
 	h.Go(func() { h.RunDealingSweep(ctx) })
 
 	// subscribe last: no message should arrive before the state it reads
@@ -171,7 +171,20 @@ func (h *Handler) Subscribe(subject string, cb natscore.MsgHandler) error {
 	return nil
 }
 
-// subscribeQuiet is Subscribe without the log line, for the shard subjects.
+// QueueSubscribe registers a handler that competes with the other pods for each message.
+func (h *Handler) QueueSubscribe(subject, queue string, cb natscore.MsgHandler) error {
+	sub, err := h.Nats.NC.QueueSubscribe(subject, queue, cb)
+	if err != nil {
+		return err
+	}
+	h.subs = append(h.subs, sub)
+
+	h.Log.Log(logger.TypeNet, logger.CodeOK, "watching subject", "subject", subject, "queue", queue)
+
+	return nil
+}
+
+// subscribeQuiet is Subscribe without the log line, for the per shard inboxes.
 func (h *Handler) subscribeQuiet(subject string, cb natscore.MsgHandler) error {
 	sub, err := h.Nats.NC.Subscribe(subject, cb)
 	if err != nil {

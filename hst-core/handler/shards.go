@@ -22,11 +22,11 @@ const (
 	podRefresh = 5 * time.Second
 )
 
-// RunMembership keeps this pod registered and reacts to the others.
-func (h *Handler) RunMembership(ctx context.Context) {
+// WatchPodMembership keeps this pod registered and reacts to the others.
+func (h *Handler) WatchPodMembership(ctx context.Context) {
 	// register before the first look, so this pod is in its own first map
 	h.register(ctx)
-	h.rebalance(ctx)
+	h.ReassignShards(ctx)
 
 	ticker := time.NewTicker(podRefresh)
 	defer ticker.Stop()
@@ -38,7 +38,7 @@ func (h *Handler) RunMembership(ctx context.Context) {
 			return
 		case <-ticker.C:
 			h.register(ctx)
-			h.rebalance(ctx)
+			h.ReassignShards(ctx)
 		}
 	}
 }
@@ -85,8 +85,8 @@ func (h *Handler) livePods(ctx context.Context) []string {
 	return pods
 }
 
-// rebalance rebuilds the map and moves accounts if the membership changed.
-func (h *Handler) rebalance(ctx context.Context) {
+// ReassignShards rebuilds the map and moves accounts if the membership changed.
+func (h *Handler) ReassignShards(ctx context.Context) {
 	pods := h.livePods(ctx)
 	next := shardmap.New(h.name, pods)
 
@@ -108,10 +108,12 @@ func (h *Handler) rebalance(ctx context.Context) {
 		"pod", h.name, "pods", len(pods),
 		"holding", len(next.Mine()), "gained", len(gained), "lost", len(lost))
 
-	// drop first, so an account is never held by two pods at once even for a moment
-	h.dropShards(lost)
-	h.takeShards(ctx, gained)
-	h.resubscribe(gained, lost)
+	// stop listening before letting go, so nothing arrives for an account this pod no longer has,
+	// and start listening only once the accounts are here to answer for
+	h.CloseLostInboxes(lost)
+	h.ReleaseLostAccounts(ctx, lost)
+	h.LoadGainedAccounts(ctx, gained)
+	h.OpenGainedInboxes(gained)
 }
 
 func sameShards(a, b []uint32) bool {
@@ -145,8 +147,8 @@ func shardDiff(before, after *shardmap.Map) (gained, lost []uint32) {
 	return gained, lost
 }
 
-// dropShards forgets the accounts that now belong elsewhere; nothing is written on the way out.
-func (h *Handler) dropShards(lost []uint32) {
+// ReleaseLostAccounts writes out and forgets the accounts that now belong elsewhere.
+func (h *Handler) ReleaseLostAccounts(ctx context.Context, lost []uint32) {
 	if len(lost) == 0 {
 		return
 	}
@@ -164,7 +166,13 @@ func (h *Handler) dropShards(lost []uint32) {
 		}
 	})
 
+	// the margin and profit worked out since the last write only exist here, so they go to the
+	// database before the account does, or the pod taking it over reads a stale balance
 	for _, login := range dropped {
+		if e, ok := h.Accounts.Get(login); ok {
+			h.flushAccount(ctx, e)
+		}
+
 		h.Accounts.Remove(login)
 	}
 
@@ -172,16 +180,33 @@ func (h *Handler) dropShards(lost []uint32) {
 		"shards", len(lost), "accounts", len(dropped))
 }
 
-// takeShards loads the accounts that now belong here.
-func (h *Handler) takeShards(ctx context.Context, gained []uint32) {
+// flushAccount writes one account's money before this pod stops holding it.
+func (h *Handler) flushAccount(ctx context.Context, e *book.Entry) {
+	e.Lock()
+	account := *e.Account
+	e.Unlock()
+
+	if err := h.SaveAccount(ctx, &account); err != nil {
+		h.Log.Log(logger.TypeSys, logger.CodeErr, "could not write an account being released",
+			"login", account.Login, "error", err.Error())
+	}
+}
+
+// LoadGainedAccounts loads the accounts that now belong here, and only those.
+func (h *Handler) LoadGainedAccounts(ctx context.Context, gained []uint32) {
 	if len(gained) == 0 {
 		return
 	}
 
 	before := h.Accounts.Len()
 
-	// the loaders already skip anything outside this pod's shards, so the new map is enough
-	if err := h.LoadAccount(ctx); err != nil {
+	set := make(map[uint32]bool, len(gained))
+	for _, shard := range gained {
+		set[shard] = true
+	}
+
+	// only the shards just gained, rather than every account this pod could ever hold
+	if err := h.LoadAccountsIn(ctx, set); err != nil {
 		h.Log.Log(logger.TypeSys, logger.CodeErr, "could not load the accounts this pod gained",
 			"shards", len(gained), "error", err.Error())
 		return
@@ -191,13 +216,13 @@ func (h *Handler) takeShards(ctx context.Context, gained []uint32) {
 		"shards", len(gained), "accounts", h.Accounts.Len()-before)
 }
 
-// resubscribe listens to the shards this pod gained and stops listening to the ones it lost.
-func (h *Handler) resubscribe(gained, lost []uint32) {
+// CloseLostInboxes stops this pod answering for the shards it no longer holds.
+func (h *Handler) CloseLostInboxes(lost []uint32) {
 	for _, shard := range lost {
-		dropped := map[string]bool{
-			model.SubjectShardOrders(shard):    true,
-			model.SubjectShardPositions(shard): true,
-			model.SubjectShardDealing(shard):   true,
+		// every inbox the shard opened, or this pod keeps answering for accounts it let go
+		dropped := make(map[string]bool, len(commands))
+		for _, c := range commands {
+			dropped[model.SubjectOwner(shard, c.topic)] = true
 		}
 
 		h.mu.Lock()
@@ -205,7 +230,7 @@ func (h *Handler) resubscribe(gained, lost []uint32) {
 		for _, sub := range h.subs {
 			if dropped[sub.Subject] {
 				if err := sub.Unsubscribe(); err != nil {
-					h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not stop listening to a shard",
+					h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not close a shard inbox",
 						"subject", sub.Subject, "error", err.Error())
 				}
 				continue
@@ -216,9 +241,13 @@ func (h *Handler) resubscribe(gained, lost []uint32) {
 		h.mu.Unlock()
 	}
 
+}
+
+// OpenGainedInboxes starts this pod answering for the shards it now holds.
+func (h *Handler) OpenGainedInboxes(gained []uint32) {
 	for _, shard := range gained {
-		if err := h.subscribeShard(shard); err != nil {
-			h.Log.Log(logger.TypeNet, logger.CodeErr, "could not listen to a shard this pod gained",
+		if err := h.subscribeOwned(shard); err != nil {
+			h.Log.Log(logger.TypeNet, logger.CodeErr, "could not open the inbox of a shard gained",
 				"shard", shard, "error", err.Error())
 		}
 	}

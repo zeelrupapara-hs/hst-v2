@@ -51,7 +51,7 @@ type ReturnRequestBody struct {
 // sendDealing hands the dealer's answer to the pod holding the account.
 func (s *HttpServer) sendDealing(ctx context.Context, e *model.DealingEvent) (*model.TradeResult, int, error) {
 	e.At = time.Now().UnixNano()
-	return s.request(ctx, model.SubjectSystemDealing(e.Login), e)
+	return s.request(ctx, model.SubjectSystemDealing, e)
 }
 
 func (s *HttpServer) confirmRequest(ctx context.Context, payload *ConfirmRequest, dealer int64) (*model.TradeResult, int, error) {

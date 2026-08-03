@@ -9,10 +9,10 @@ import (
 )
 
 const (
-	SubjectDatafeedCreated = "hstserver.datafeed.created"
-	SubjectDatafeedUpdated = "hstserver.datafeed.updated"
-	SubjectDatafeedDeleted = "hstserver.datafeed.deleted"
-	SubjectDatafeedConfig  = "hstserver.datafeed.config"
+	SubjectDatafeedCreated = "system.datafeeds.created"
+	SubjectDatafeedUpdated = "system.datafeeds.updated"
+	SubjectDatafeedDeleted = "system.datafeeds.deleted"
+	SubjectDatafeedConfig  = "system.datafeeds.config"
 )
 
 // DatafeedEvent notifies workers that feed configuration changed.

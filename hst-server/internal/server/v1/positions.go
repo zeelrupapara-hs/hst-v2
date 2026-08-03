@@ -191,7 +191,7 @@ func (s *HttpServer) closeByPosition(ctx context.Context, payload *CloseByPositi
 
 // sendPosition hands the envelope to the pod holding this account and waits for the answer.
 func (s *HttpServer) sendPosition(ctx context.Context, login int64, e *model.PositionEvent) (*model.TradeResult, int, error) {
-	return s.request(ctx, model.SubjectSystemPositions(login), e)
+	return s.request(ctx, model.SubjectSystemPositions, e)
 }
 
 // positionState is what the write paths need before they may ask.

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	wire "hstmodel"
+
 	"context"
 	"sort"
 
@@ -47,7 +49,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "margin call",
 			"login", login, "level", level, "call_at", call)
 
-		h.PublishWS(model.SubjectAccountSummary(login), "margin_call", map[string]any{
+		h.PublishWS(model.SubjectAccountMarginCall(login), wire.EventMarginCall, map[string]any{
 			"login": login, "margin_level": level, "call_level": call,
 		})
 

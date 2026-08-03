@@ -59,6 +59,10 @@ func (h *Handler) DealingSystemEventHandler(msg *natscore.Msg) {
 		return
 	}
 
+	if h.forwarded(msg, "dealing", e.Login) {
+		return
+	}
+
 	ctx := context.Background()
 	res := &model.TradeResult{RequestId: e.RequestId, Login: e.Login}
 
@@ -142,7 +146,7 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 
 	e, ok := h.Accounts.Get(p.Request.Login)
 	if !ok {
-		return h.refuse(res, model.RetTradeWrongShard, "")
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
 	o := p.Order
@@ -302,7 +306,7 @@ func (h *Handler) AcceptRequote(ctx context.Context, ev *model.DealingEvent) *mo
 
 	e, ok := h.Accounts.Get(p.Request.Login)
 	if !ok {
-		return h.refuse(res, model.RetTradeWrongShard, "")
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
 	r, ok := h.Settings.For(e.Account.Group, p.Order.Symbol)
@@ -514,7 +518,7 @@ func (h *Handler) CheckDealingRequests() {
 		h.done(p, 0)
 
 		res := &model.TradeResult{RequestId: p.Request.RequestId, Login: p.Request.Login}
-		h.PublishResult(h.refuse(res, model.RetTradeTimeout, ""))
+		h.PublishRejected(h.refuse(res, model.RetTradeTimeout, ""))
 	}
 }
 
