@@ -119,11 +119,16 @@ func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 		return s.loginFailed(c, err)
 	}
 
-	// An account holds one session at a time. Closing the earlier one here, before the new one
-	// exists, is what tells the terminal already signed in that it has been replaced: it is sent
-	// session.revoked and its socket closes, rather than sitting there quietly receiving nothing.
-	if err := s.OAuth2.InvalidateLogin(ctx, login, model.SessionRevokedSuperseded); err != nil {
-		return s.loginFailed(c, err)
+	// A trading account holds one session at a time. Closing the earlier one here, before the new
+	// one exists, is what tells the terminal already signed in that it has been replaced: it is
+	// sent session.revoked and its socket closes, rather than sitting there receiving nothing.
+	//
+	// Staff are exempt: running the manager and the administrator side by side, or a desk across
+	// two screens, is how the platform is actually operated.
+	if !connType.IsStaff() {
+		if err := s.OAuth2.InvalidateLogin(ctx, login, model.SessionRevokedSuperseded); err != nil {
+			return s.loginFailed(c, err)
+		}
 	}
 
 	// hand over the tokens
