@@ -95,7 +95,7 @@ func (s *Server) MyAccount(c *fiber.Ctx) error {
 func (s *Server) TraderAccount(ctx context.Context, login int64) (*ViewTraderAccount, int, error) {
 	v := &ViewTraderAccount{}
 	err := s.DB.DB.QueryRow(ctx,
-		`SELECT a.login, u."group", COALESCE(g.currency, ''), a.currency_digits,
+		`SELECT a.login, u."group", COALESCE(g.currency, ''), COALESCE(g.currency_digits, 2),
 		        a.balance, a.credit, a.margin, a.margin_free, a.margin_level, a.margin_leverage,
 		        a.margin_initial, a.margin_maintenance, a.profit, a.storage, a.floating,
 		        a.equity, a.assets, a.liabilities, a.updated_at

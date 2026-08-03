@@ -148,13 +148,24 @@ func (h *Handler) ResettleAccounts(ctx context.Context) {
 
 		before := *e.Account
 
+		// the group decides what an account is denominated in and to how many digits, so a group
+		// edit has to reach the accounts already in memory or they keep answering at the old one
+		if g, ok := h.Settings.Group(e.Account.Group); ok {
+			e.Account.Currency = g.Currency
+			e.Account.CurrencyDigits = g.CurrencyDigits
+		}
+
 		h.CalculateAccountMargins(e).Apply(e.Account)
 
 		account := *e.Account
 		e.Unlock()
 
+		// the currency and its digits decide how the summary reads, so a change to either is worth
+		// announcing even when the money itself has not moved
 		if account.Margin == before.Margin && account.Equity == before.Equity &&
-			account.MarginFree == before.MarginFree {
+			account.MarginFree == before.MarginFree &&
+			account.Currency == before.Currency &&
+			account.CurrencyDigits == before.CurrencyDigits {
 			return
 		}
 

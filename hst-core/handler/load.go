@@ -382,7 +382,7 @@ func (h *Handler) LoadAccountsIn(ctx context.Context, shards map[uint32]bool) er
 func (h *Handler) readAccounts(ctx context.Context, shards map[uint32]bool, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT u.login, u."group", u.rights, u.leverage,
-		        a.currency_digits, a.balance, a.credit, a.margin, a.margin_free,
+		        COALESCE(g.currency_digits, 2), a.balance, a.credit, a.margin, a.margin_free,
 		        a.margin_level, a.margin_initial, a.margin_maintenance, a.profit,
 		        a.storage, a.floating, a.equity, a.assets, a.liabilities,
 		        a.blocked_commission, a.blocked_profit, a.updated_at,
@@ -535,7 +535,8 @@ func (h *Handler) RefreshAccount(ctx context.Context, e *book.Entry) error {
 	login := e.Account.Login
 
 	if err := h.DB.DB.QueryRow(ctx,
-		`SELECT u."group", u.rights, u.leverage, COALESCE(g.currency, ''), a.currency_digits
+		`SELECT u."group", u.rights, u.leverage,
+		        COALESCE(g.currency, ''), COALESCE(g.currency_digits, 2)
 		   FROM hst.users u
 		   JOIN hst.accounts a ON a.login = u.login
 		   LEFT JOIN hst.groups g ON g."group" = u."group"

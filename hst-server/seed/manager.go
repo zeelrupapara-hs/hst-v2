@@ -83,8 +83,8 @@ func (s *Seeder) SeedManager(ctx context.Context) error {
 	}
 
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO hst.accounts (login, currency_digits, margin_leverage, updated_at)
-		 VALUES ($1, 2, 100, $2)`, login, now); err != nil {
+		`INSERT INTO hst.accounts (login, margin_leverage, updated_at)
+		 VALUES ($1, 100, $2)`, login, now); err != nil {
 		return err
 	}
 

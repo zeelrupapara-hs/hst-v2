@@ -70,8 +70,8 @@ func (s *HttpServer) OpenLogin(ctx context.Context, n NewLogin) (int64, int, err
 	}
 
 	if _, err := tx.Exec(ctx,
-		`INSERT INTO hst.accounts (login, currency_digits, margin_leverage, balance, equity, updated_at)
-		 VALUES ($1, 2, $2, $3, $3, $4)`, login, leverage, deposit, now); err != nil {
+		`INSERT INTO hst.accounts (login, margin_leverage, balance, equity, updated_at)
+		 VALUES ($1, $2, $3, $3, $4)`, login, leverage, deposit, now); err != nil {
 		return 0, nethttp.StatusInternalServerError, err
 	}
 
