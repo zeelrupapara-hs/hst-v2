@@ -194,8 +194,8 @@ func (s *HttpServer) UpdateMyPosition(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
-	if err := writable(snap); err != nil {
-		return s.App.HttpResponseForbidden(c, err)
+	if isReadOnlyScope(snap.Scope) {
+		return s.App.HttpResponseForbidden(c, errs.ErrReadOnlySession)
 	}
 
 	var body UptMyPosition
@@ -263,8 +263,8 @@ func (s *HttpServer) CloseMyPosition(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
-	if err := writable(snap); err != nil {
-		return s.App.HttpResponseForbidden(c, err)
+	if isReadOnlyScope(snap.Scope) {
+		return s.App.HttpResponseForbidden(c, errs.ErrReadOnlySession)
 	}
 
 	var body CloseMyPosition
@@ -330,8 +330,8 @@ func (s *HttpServer) CloseByMyPosition(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
-	if err := writable(snap); err != nil {
-		return s.App.HttpResponseForbidden(c, err)
+	if isReadOnlyScope(snap.Scope) {
+		return s.App.HttpResponseForbidden(c, errs.ErrReadOnlySession)
 	}
 
 	var body CloseByMyPosition

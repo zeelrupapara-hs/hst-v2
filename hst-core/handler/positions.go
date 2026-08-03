@@ -114,7 +114,7 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 		return h.refuse(res, model.RetTradeBadSymbol, "")
 	}
 
-	tick, ok := h.Quotes.Get(p.Symbol)
+	tick, ok := h.QuoteFor(r, p.Symbol)
 	if !ok {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeNoQuotes, "")
@@ -183,7 +183,7 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 		return h.refuse(res, model.RetTradeBadSymbol, "")
 	}
 
-	tick, ok := h.Quotes.Get(p.Symbol)
+	tick, ok := h.QuoteFor(r, p.Symbol)
 	if !ok {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeNoQuotes, "")
@@ -291,7 +291,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 		return h.refuse(res, model.RetInvalidData, "the two positions are on the same side")
 	}
 
-	tick, ok := h.Quotes.Get(p.Symbol)
+	tick, ok := h.QuoteFor(r, p.Symbol)
 	if !ok {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeNoQuotes, "")

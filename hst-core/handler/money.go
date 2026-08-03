@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"hstcore/internal/book"
 	"hstcore/internal/settings"
 	"hstcore/model"
 )
@@ -207,4 +208,55 @@ func Points(diff float64, point float64) float64 {
 		return 0
 	}
 	return diff / point
+}
+
+// CalculateAccountSpread is the tick as one group sees it.
+//
+// A group's spread_diff widens the quote in points around the mid, so two groups on the same
+// instrument trade at different prices. The engine keeps one raw book, so the markup is applied
+// here, at each price the group is about to be charged, and never written back to the book.
+func CalculateAccountSpread(r *settings.Rules, t model.Tick) model.Tick {
+	if r == nil || r.SpreadDiff == 0 || r.Point <= 0 {
+		return t
+	}
+
+	// half either side, so the mid the client sees is the mid the feed sent
+	half := float64(r.SpreadDiff) * r.Point / 2
+
+	t.Bid = NormalisePrice(t.Bid-half, r.Digits)
+	t.Ask = NormalisePrice(t.Ask+half, r.Digits)
+
+	return t
+}
+
+// QuoteFor is the price this group trades at: the book's tick with the group's spread applied.
+//
+// Every path that prices a trade goes through here rather than the book directly, so no route can
+// quietly charge the raw feed price.
+func (h *Handler) QuoteFor(r *settings.Rules, symbol string) (model.Tick, bool) {
+	t, ok := h.Quotes.Get(symbol)
+	if !ok {
+		return t, false
+	}
+
+	return CalculateAccountSpread(r, t), true
+}
+
+// The two halves of what a trade costs, kept together because they are easy to miss apart.
+//
+// Commission is charged once, as the deal is booked. Swap is accrued nightly onto the position and
+// only reaches the balance when that position closes, so the money moves in two different places
+// at two different times.
+
+// ChargeCommission takes the commission for every deal in a fill off the balance.
+func (h *Handler) ChargeCommission(e *book.Entry, f *Fill, r *settings.Rules) {
+	for _, d := range f.Deals {
+		d.Commission = -h.CommissionFor(d, r)
+		e.Account.Balance += d.Commission
+	}
+}
+
+// SettleSwap moves the swap accrued on a closing position onto the balance.
+func (h *Handler) SettleSwap(e *book.Entry, p *model.Position) {
+	e.Account.Balance += p.Storage
 }

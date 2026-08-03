@@ -34,7 +34,7 @@ func (s *HttpServer) wsDealer(c *ws.Ctx, right uint) bool {
 
 // wsWritable refuses a socket that authenticated with an investor password.
 func (s *HttpServer) wsWritable(c *ws.Ctx) bool {
-	if c.Scope() != int32(model.UsersPasswords_investor) {
+	if !isReadOnlyScope(c.Scope()) {
 		return true
 	}
 	_ = c.SendEvent(s.App.WSResponseForbidden(c.Type, errs.ErrReadOnlySession))

@@ -104,7 +104,7 @@ func (h *Handler) SwapsJob(ctx context.Context) {
 
 	h.Accounts.Each(func(e *book.Entry) {
 		accounts++
-		if h.chargeAccountSwaps(ctx, e) {
+		if h.AccrueSwap(ctx, e) {
 			changed++
 		}
 	})
@@ -113,7 +113,7 @@ func (h *Handler) SwapsJob(ctx context.Context) {
 		"accounts", accounts, "changed", changed)
 }
 
-func (h *Handler) chargeAccountSwaps(ctx context.Context, e *book.Entry) bool {
+func (h *Handler) AccrueSwap(ctx context.Context, e *book.Entry) bool {
 	e.Lock()
 
 	group := e.Account.Group

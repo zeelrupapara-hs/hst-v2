@@ -456,7 +456,8 @@ func (h *Handler) checkStops(o *model.Order, r *settings.Rules, t model.Tick) mo
 
 // checkMoney refuses a trade the account cannot cover.
 func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t model.Tick) model.RetCode {
-	if h.closesPosition(e, o, r) {
+	opening := h.openingVolume(e, o, r)
+	if opening <= 0 {
 		return model.RetOK
 	}
 
@@ -465,8 +466,9 @@ func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t
 		price = t.OpenPrice(o.Kind().IsBuy())
 	}
 
-	// the order's own type decides the multiplier, and a pending type rated zero costs nothing
-	need := MarginForType(r, o.Lots(), price, e.Account.Leverage, o.RateMargin, o.Kind(), false)
+	// only the part that opens exposure is charged, and the order's own type decides the
+	// multiplier, so a pending type rated zero costs nothing
+	need := MarginForType(r, model.Lots(opening), price, e.Account.Leverage, o.RateMargin, o.Kind(), false)
 
 	money := h.CalculateAccountMargins(e)
 	if money.FreeMargin < need {
@@ -476,17 +478,25 @@ func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t
 	return model.RetOK
 }
 
-// closesPosition reports whether the order would reduce what is already open rather than add to it.
-func (h *Handler) closesPosition(e *book.Entry, o *model.Order, r *settings.Rules) bool {
+// openingVolume is how much of an order opens exposure rather than closing what is already there.
+//
+// Only the closing part is free of margin. An order larger than the position it offsets still
+// opens the difference, and that difference has to be paid for.
+func (h *Handler) openingVolume(e *book.Entry, o *model.Order, r *settings.Rules) int64 {
 	if model.MarginMode(r.Group.MarginMode).Hedging() {
-		return false
+		return o.VolumeCurrent
 	}
 
+	var opposite int64
 	for _, p := range e.Positions {
 		if p.Symbol == o.Symbol && p.IsBuy() != o.Kind().IsBuy() {
-			return true
+			opposite += p.Volume
 		}
 	}
 
-	return false
+	if opposite >= o.VolumeCurrent {
+		return 0
+	}
+
+	return o.VolumeCurrent - opposite
 }

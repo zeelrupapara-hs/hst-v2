@@ -318,7 +318,7 @@ func (s *Server) GetClient(c *fiber.Ctx) error {
 //
 // A client has no group of its own, it is reached through the logins it owns, which is the same
 // rule the list uses. Without this a manager could read by id what the list would never show.
-func (s *Server) clientInReach(ctx context.Context, snap *cache.Snapshot, id int64) (bool, error) {
+func (s *Server) clientInReach(ctx context.Context, snap *cache.Session, id int64) (bool, error) {
 	access, args := utils.GroupAccessFor(snap.IsManager, snap.ManagerGroups, `u."group"`, 2)
 	if access == "TRUE" {
 		return true, nil

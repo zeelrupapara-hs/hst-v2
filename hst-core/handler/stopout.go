@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"hstcore/internal/settings"
 	wire "hstmodel"
 
 	"context"
@@ -69,7 +70,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 	for _, p := range worst {
 		h.logStopOut(ctx, e, p, money, stop)
-		h.CloseAtMarket(ctx, e, p, h.tickFor(p.Symbol, t), model.OrderReason_so,
+		h.CloseAtMarket(ctx, e, p, h.tickFor(h.rulesFor(e, p.Symbol), p.Symbol, t), model.OrderReason_so,
 			model.RouteStopOutPosition)
 
 		// stop as soon as the account is back above the line
@@ -156,11 +157,23 @@ func (h *Handler) CompensateNegativeBalance(ctx context.Context, e *book.Entry, 
 	}
 }
 
-// tickFor is the current quote for a symbol, falling back to the tick that started this pass.
-func (h *Handler) tickFor(symbol string, fallback model.Tick) model.Tick {
-	if t, ok := h.Quotes.Get(symbol); ok {
+// rulesFor is this account's settings for one instrument, or nil when the group cannot trade it.
+func (h *Handler) rulesFor(e *book.Entry, symbol string) *settings.Rules {
+	r, ok := h.Settings.For(e.Account.Group, symbol)
+	if !ok {
+		return nil
+	}
+
+	return r
+}
+
+// tickFor is the current quote for a symbol at this group's spread, falling back to the tick that
+// started this pass.
+func (h *Handler) tickFor(r *settings.Rules, symbol string, fallback model.Tick) model.Tick {
+	if t, ok := h.QuoteFor(r, symbol); ok {
 		return t
 	}
+
 	return fallback
 }
 

@@ -30,7 +30,7 @@ var rightSubjects = []struct {
 
 // ServeWS upgrades an authenticated request and attaches it to the hub.
 func (s *HttpServer) ServeWS(c *websocket.Conn) {
-	snap, ok := c.Locals(nethttp.LocalsClient).(*cache.Snapshot)
+	snap, ok := c.Locals(nethttp.LocalsClient).(*cache.Session)
 	if !ok || snap == nil {
 		// Protect guarantees this, so reaching it means the chain was changed
 		_ = c.Close()

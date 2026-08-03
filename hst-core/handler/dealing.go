@@ -157,7 +157,7 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 		return h.refuse(res, model.RetTradeBadSymbol, "")
 	}
 
-	tick, ok := h.Quotes.Get(o.Symbol)
+	tick, ok := h.QuoteFor(r, o.Symbol)
 	if !ok {
 		return h.refuse(res, model.RetTradeNoQuotes, "")
 	}
@@ -269,8 +269,13 @@ func (h *Handler) RequoteRequest(ctx context.Context, ev *model.DealingEvent) *m
 
 	res := &model.TradeResult{RequestId: p.Request.RequestId, Login: p.Request.Login}
 
-	if tick, ok := h.Quotes.Get(p.Order.Symbol); ok {
-		res.Bid, res.Ask = tick.Bid, tick.Ask
+	// the requote shows the client the price their own group would be charged
+	if e, ok := h.Accounts.Get(p.Request.Login); ok {
+		if r, ok := h.Settings.For(e.Account.Group, p.Order.Symbol); ok {
+			if tick, ok := h.QuoteFor(r, p.Order.Symbol); ok {
+				res.Bid, res.Ask = tick.Bid, tick.Ask
+			}
+		}
 	}
 
 	// the dealer's own price replaces the side the client was asking to trade

@@ -41,6 +41,9 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 		return
 	}
 
+	// this group's price, not the raw book, so a position is valued at what closing it would pay
+	t = CalculateAccountSpread(r, t)
+
 	h.CalcPosition(e, t.Symbol, t)
 
 	money := h.CalculateAccountMargins(e)

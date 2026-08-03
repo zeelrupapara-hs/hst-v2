@@ -8,8 +8,8 @@ import (
 )
 
 // GetClient returns the session snapshot Protect stored on the request.
-func GetClient(c *fiber.Ctx) (*cache.Snapshot, bool) {
-	v, ok := c.Locals(http.LocalsClient).(*cache.Snapshot)
+func GetClient(c *fiber.Ctx) (*cache.Session, bool) {
+	v, ok := c.Locals(http.LocalsClient).(*cache.Session)
 	return v, ok
 }
 

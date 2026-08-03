@@ -173,7 +173,7 @@ func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
 		SwapShort: r.SwapShort,
 	}
 
-	if t, ok := h.Quotes.Get(r.Symbol.Symbol); ok {
+	if t, ok := h.QuoteFor(r, r.Symbol.Symbol); ok {
 		v.Bid, v.Ask, v.Last, v.Time = t.Bid, t.Ask, t.Last, t.Time
 		v.Gap, v.HasQuote = t.Gap, true
 		v.Open, v.High, v.Low, v.Close = t.Open, t.High, t.Low, t.Close

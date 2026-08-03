@@ -207,8 +207,8 @@ func (s *HttpServer) CreateMyOrder(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
-	if err := writable(snap); err != nil {
-		return s.App.HttpResponseForbidden(c, err)
+	if isReadOnlyScope(snap.Scope) {
+		return s.App.HttpResponseForbidden(c, errs.ErrReadOnlySession)
 	}
 
 	var body CrtMyOrder
@@ -273,8 +273,8 @@ func (s *HttpServer) UpdateMyOrder(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
-	if err := writable(snap); err != nil {
-		return s.App.HttpResponseForbidden(c, err)
+	if isReadOnlyScope(snap.Scope) {
+		return s.App.HttpResponseForbidden(c, errs.ErrReadOnlySession)
 	}
 
 	var body UptMyOrder
@@ -341,8 +341,8 @@ func (s *HttpServer) CancelMyOrder(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
-	if err := writable(snap); err != nil {
-		return s.App.HttpResponseForbidden(c, err)
+	if isReadOnlyScope(snap.Scope) {
+		return s.App.HttpResponseForbidden(c, errs.ErrReadOnlySession)
 	}
 
 	var body CancelMyOrder

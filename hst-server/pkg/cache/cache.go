@@ -11,8 +11,8 @@ import (
 	"github.com/cespare/xxhash/v2"
 )
 
-// Snapshot is everything the middleware needs to authorise a request.
-type Snapshot struct {
+// Session is an authenticated login: who they are, and what they may reach.
+type Session struct {
 	SessionId      string `json:"sid"`
 	Login          int64  `json:"login"`
 	ClientId       int64  `json:"cid"`
@@ -31,40 +31,40 @@ type Snapshot struct {
 	ExpiresAt     int64    `json:"expires_at"`
 }
 
-type entry struct {
-	snap    *Snapshot
+type cached struct {
+	sess    *Session
 	expires time.Time
 	elem    *list.Element
 }
 
-type bucket struct {
+type stripe struct {
 	mu    sync.RWMutex
-	items map[string]*entry
+	items map[string]*cached
 	lru   *list.List
 	cap   int
 }
 
 // Stats is what the monitor endpoint reports.
 type Stats struct {
-	Entries     int     `json:"entries"`
-	MaxAccounts int     `json:"max_accounts"`
-	ShardId     uint64  `json:"shard_id"`
-	ShardCount  uint64  `json:"shard_count"`
-	Hits        uint64  `json:"hits"`
-	Misses      uint64  `json:"misses"`
-	HitRate     float64 `json:"hit_rate"`
-	Evictions   uint64  `json:"evictions"`
-	Foreign     uint64  `json:"foreign"`
+	Entries       int     `json:"entries"`
+	MaxAccounts   int     `json:"max_accounts"`
+	InstanceId    uint64  `json:"shard_id"`
+	InstanceCount uint64  `json:"shard_count"`
+	Hits          uint64  `json:"hits"`
+	Misses        uint64  `json:"misses"`
+	HitRate       float64 `json:"hit_rate"`
+	Evictions     uint64  `json:"evictions"`
+	Foreign       uint64  `json:"foreign"`
 }
 
-// DistributeCache holds the snapshots this instance owns.
-type DistributeCache struct {
-	shardId     uint64
-	shardCount  uint64
-	maxAccounts int
-	ttl         time.Duration
+// SessionCache holds the snapshots this instance owns.
+type SessionCache struct {
+	instanceId    uint64
+	instanceCount uint64
+	maxAccounts   int
+	ttl           time.Duration
 
-	buckets []*bucket
+	stripes []*stripe
 
 	// login -> set of session ids, so revoking a user reaches every session
 	idxMu sync.RWMutex
@@ -80,34 +80,34 @@ type DistributeCache struct {
 }
 
 // New builds the cache.
-func New(shardId, shardCount, maxAccounts, bucketCount int, ttl time.Duration) *DistributeCache {
-	if shardCount < 1 {
-		shardCount = 1
+func New(instanceId, instanceCount, maxAccounts, stripeCount int, ttl time.Duration) *SessionCache {
+	if instanceCount < 1 {
+		instanceCount = 1
 	}
-	if bucketCount < 1 {
-		bucketCount = 1
+	if stripeCount < 1 {
+		stripeCount = 1
 	}
 
 	// spread the capacity so no single bucket becomes the limit
-	perBucket := maxAccounts / bucketCount
+	perBucket := maxAccounts / stripeCount
 	if perBucket < 1 {
 		perBucket = 1
 	}
 
-	d := &DistributeCache{
+	d := &SessionCache{
 		// both are non negative, config.validate rejects anything else
-		shardId:     uint64(shardId),    // #nosec G115
-		shardCount:  uint64(shardCount), // #nosec G115
-		maxAccounts: maxAccounts,
-		ttl:         ttl,
-		buckets:     make([]*bucket, bucketCount),
-		idx:         make(map[int64]map[string]struct{}),
-		stop:        make(chan struct{}),
+		instanceId:    uint64(instanceId),    // #nosec G115
+		instanceCount: uint64(instanceCount), // #nosec G115
+		maxAccounts:   maxAccounts,
+		ttl:           ttl,
+		stripes:       make([]*stripe, stripeCount),
+		idx:           make(map[int64]map[string]struct{}),
+		stop:          make(chan struct{}),
 	}
 
-	for i := range d.buckets {
-		d.buckets[i] = &bucket{
-			items: make(map[string]*entry, perBucket),
+	for i := range d.stripes {
+		d.stripes[i] = &stripe{
+			items: make(map[string]*cached, perBucket),
 			lru:   list.New(),
 			cap:   perBucket,
 		}
@@ -119,13 +119,13 @@ func New(shardId, shardCount, maxAccounts, bucketCount int, ttl time.Duration) *
 }
 
 // Owns reports whether this instance is the cache owner of the session.
-func (d *DistributeCache) Owns(sid string) bool {
-	return xxhash.Sum64String(sid)%d.shardCount == d.shardId
+func (d *SessionCache) Owns(sid string) bool {
+	return xxhash.Sum64String(sid)%d.instanceCount == d.instanceId
 }
 
 // Get returns the cached snapshot. Roughly 60ns, no I/O.
-func (d *DistributeCache) Get(sid string) (*Snapshot, bool) {
-	b := d.bucketFor(sid)
+func (d *SessionCache) Get(sid string) (*Session, bool) {
+	b := d.stripeFor(sid)
 
 	b.mu.RLock()
 	e, ok := b.items[sid]
@@ -134,7 +134,7 @@ func (d *DistributeCache) Get(sid string) (*Snapshot, bool) {
 		d.misses.Add(1)
 		return nil, false
 	}
-	snap, expires := e.snap, e.expires
+	sess, expires := e.sess, e.expires
 	b.mu.RUnlock()
 
 	if time.Now().After(expires) {
@@ -144,26 +144,26 @@ func (d *DistributeCache) Get(sid string) (*Snapshot, bool) {
 	}
 
 	d.hits.Add(1)
-	return snap, true
+	return sess, true
 }
 
 // Put stores a snapshot, unless the session belongs to another shard.
-func (d *DistributeCache) Put(snap *Snapshot) {
-	if snap == nil || !d.Owns(snap.SessionId) {
+func (d *SessionCache) Put(sess *Session) {
+	if sess == nil || !d.Owns(sess.SessionId) {
 		d.foreign.Add(1)
 		return
 	}
 
-	sid := snap.SessionId
-	b := d.bucketFor(sid)
+	sid := sess.SessionId
+	b := d.stripeFor(sid)
 
 	b.mu.Lock()
 	if e, ok := b.items[sid]; ok {
-		e.snap = snap
+		e.sess = sess
 		e.expires = time.Now().Add(d.ttl)
 		b.lru.MoveToFront(e.elem)
 		b.mu.Unlock()
-		d.index(snap.Login, sid)
+		d.index(sess.Login, sid)
 		return
 	}
 
@@ -175,26 +175,26 @@ func (d *DistributeCache) Put(snap *Snapshot) {
 		}
 		victim := oldest.Value.(string)
 		if ve, ok := b.items[victim]; ok {
-			d.unindex(ve.snap.Login, victim)
+			d.unindex(ve.sess.Login, victim)
 			delete(b.items, victim)
 		}
 		b.lru.Remove(oldest)
 		d.evictions.Add(1)
 	}
 
-	b.items[sid] = &entry{
-		snap:    snap,
+	b.items[sid] = &cached{
+		sess:    sess,
 		expires: time.Now().Add(d.ttl),
 		elem:    b.lru.PushFront(sid),
 	}
 	b.mu.Unlock()
 
-	d.index(snap.Login, sid)
+	d.index(sess.Login, sid)
 }
 
 // Invalidate drops one session.
-func (d *DistributeCache) Invalidate(sid string) {
-	b := d.bucketFor(sid)
+func (d *SessionCache) Invalidate(sid string) {
+	b := d.stripeFor(sid)
 
 	b.mu.Lock()
 	e, ok := b.items[sid]
@@ -205,12 +205,12 @@ func (d *DistributeCache) Invalidate(sid string) {
 	b.mu.Unlock()
 
 	if ok {
-		d.unindex(e.snap.Login, sid)
+		d.unindex(e.sess.Login, sid)
 	}
 }
 
 // InvalidateLogin drops every session of a login, for a rights or password change.
-func (d *DistributeCache) InvalidateLogin(login int64) {
+func (d *SessionCache) InvalidateLogin(login int64) {
 	d.idxMu.RLock()
 	sids := make([]string, 0, len(d.idx[login]))
 	for sid := range d.idx[login] {
@@ -224,9 +224,9 @@ func (d *DistributeCache) InvalidateLogin(login int64) {
 }
 
 // Stats reports the numbers behind the memory dial.
-func (d *DistributeCache) Stats() Stats {
+func (d *SessionCache) Stats() Stats {
 	entries := 0
-	for _, b := range d.buckets {
+	for _, b := range d.stripes {
 		b.mu.RLock()
 		entries += len(b.items)
 		b.mu.RUnlock()
@@ -239,28 +239,28 @@ func (d *DistributeCache) Stats() Stats {
 	}
 
 	return Stats{
-		Entries:     entries,
-		MaxAccounts: d.maxAccounts,
-		ShardId:     d.shardId,
-		ShardCount:  d.shardCount,
-		Hits:        hits,
-		Misses:      misses,
-		HitRate:     rate,
-		Evictions:   d.evictions.Load(),
-		Foreign:     d.foreign.Load(),
+		Entries:       entries,
+		MaxAccounts:   d.maxAccounts,
+		InstanceId:    d.instanceId,
+		InstanceCount: d.instanceCount,
+		Hits:          hits,
+		Misses:        misses,
+		HitRate:       rate,
+		Evictions:     d.evictions.Load(),
+		Foreign:       d.foreign.Load(),
 	}
 }
 
 // Close stops the janitor.
-func (d *DistributeCache) Close() {
+func (d *SessionCache) Close() {
 	d.once.Do(func() { close(d.stop) })
 }
 
-func (d *DistributeCache) bucketFor(sid string) *bucket {
-	return d.buckets[xxhash.Sum64String(sid)%uint64(len(d.buckets))]
+func (d *SessionCache) stripeFor(sid string) *stripe {
+	return d.stripes[xxhash.Sum64String(sid)%uint64(len(d.stripes))]
 }
 
-func (d *DistributeCache) index(login int64, sid string) {
+func (d *SessionCache) index(login int64, sid string) {
 	d.idxMu.Lock()
 	defer d.idxMu.Unlock()
 
@@ -270,7 +270,7 @@ func (d *DistributeCache) index(login int64, sid string) {
 	d.idx[login][sid] = struct{}{}
 }
 
-func (d *DistributeCache) unindex(login int64, sid string) {
+func (d *SessionCache) unindex(login int64, sid string) {
 	d.idxMu.Lock()
 	defer d.idxMu.Unlock()
 
@@ -283,7 +283,7 @@ func (d *DistributeCache) unindex(login int64, sid string) {
 }
 
 // janitor reclaims expired entries so idle sessions free their memory.
-func (d *DistributeCache) janitor() {
+func (d *SessionCache) janitor() {
 	ticker := time.NewTicker(d.ttl)
 	defer ticker.Stop()
 
@@ -293,13 +293,13 @@ func (d *DistributeCache) janitor() {
 			return
 		case <-ticker.C:
 			now := time.Now()
-			for _, b := range d.buckets {
+			for _, b := range d.stripes {
 				b.mu.Lock()
 				for sid, e := range b.items {
 					if now.After(e.expires) {
 						b.lru.Remove(e.elem)
 						delete(b.items, sid)
-						d.unindex(e.snap.Login, sid)
+						d.unindex(e.sess.Login, sid)
 					}
 				}
 				b.mu.Unlock()

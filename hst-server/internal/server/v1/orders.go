@@ -3,7 +3,9 @@ package v1
 import (
 	"context"
 	"errors"
+	"fmt"
 	wire "hstmodel"
+	"hstserver/pkg/logger"
 	"time"
 
 	"hstserver/model"
@@ -378,7 +380,13 @@ func uptFromMy(p *UptMyOrder, login int64) *UptOrder {
 }
 
 // answer writes the engine's reply, carrying the result even when it is a refusal.
+//
+// Every trading route ends here, so this is where the journal line is written: an order, a
+// position, a dealer's answer and a balance operation are all audited by one call rather than by
+// remembering to add one to each handler.
 func (s *HttpServer) answer(c *fiber.Ctx, res *model.TradeResult, status int, err error) error {
+	s.journalTrade(c, res, err)
+
 	if err != nil {
 		if status == nethttp.StatusServiceUnavailable {
 			return s.App.HttpResponseServiceUnavailable(c, err)
@@ -399,8 +407,31 @@ func (s *HttpServer) answer(c *fiber.Ctx, res *model.TradeResult, status int, er
 	return s.App.HttpResponseOK(c, res)
 }
 
+// journalTrade records what was asked for and what came back.
+func (s *HttpServer) journalTrade(c *fiber.Ctx, res *model.TradeResult, err error) {
+	code := logger.CodeOK
+	outcome := "done"
+
+	switch {
+	case err != nil:
+		code, outcome = logger.CodeErr, err.Error()
+	case res == nil:
+		return
+	case res.RetCode != 0:
+		code, outcome = logger.CodeAtt, res.Message
+	}
+
+	login := int64(0)
+	if res != nil {
+		login = res.Login
+	}
+
+	s.JournalEntry(c, code, fmt.Sprintf("%s %s for #%d: %s",
+		c.Method(), c.Path(), login, outcome), res)
+}
+
 // inReach answers false and writes the refusal itself when the account is outside the manager's masks.
-func (s *HttpServer) inReach(c *fiber.Ctx, snap *cache.Snapshot, login int64) (bool, error) {
+func (s *HttpServer) inReach(c *fiber.Ctx, snap *cache.Session, login int64) (bool, error) {
 	if login <= 0 {
 		return false, s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
@@ -445,12 +476,10 @@ func (s *HttpServer) accountInReach(ctx context.Context, isManager bool, masks [
 	return ok, err
 }
 
-// writable refuses a session that authenticated with an investor password.
-func writable(snap *cache.Snapshot) error {
-	if snap.Scope == int32(model.UsersPasswords_investor) {
-		return errs.ErrReadOnlySession
-	}
-	return nil
+// isReadOnlyScope reports whether the session authenticated with the investor password, which may
+// see everything and change nothing.
+func isReadOnlyScope(scope int32) bool {
+	return scope == int32(model.UsersPasswords_investor)
 }
 
 // reasonFor records how the request arrived, which the routing rules can key on.

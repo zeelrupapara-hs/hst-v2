@@ -28,7 +28,7 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 		return h.refuse(res, model.RetTradeBadSymbol, "")
 	}
 
-	tick, ok := h.Quotes.Get(req.Symbol)
+	tick, ok := h.QuoteFor(r, req.Symbol)
 	if !ok {
 		return h.refuse(res, model.RetTradeNoQuotes, "")
 	}
@@ -77,7 +77,7 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 
 	e.Lock()
 
-	if t, ok := h.Quotes.Get(req.Symbol); ok {
+	if t, ok := h.QuoteFor(r, req.Symbol); ok {
 		tick = t
 	}
 	// the standard mode checks margin when the order is placed and when a pending one triggers;
@@ -163,7 +163,7 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetTradeBadSymbol, "")
 	}
 
-	tick, ok := h.Quotes.Get(o.Symbol)
+	tick, ok := h.QuoteFor(r, o.Symbol)
 	if !ok {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeNoQuotes, "")
@@ -262,7 +262,7 @@ func (h *Handler) CancelOrder(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetTradeBadSymbol, "")
 	}
 
-	tick, _ := h.Quotes.Get(o.Symbol)
+	tick, _ := h.QuoteFor(r, o.Symbol)
 
 	decision := h.Route(&Request{
 		Kind: model.RouteRemove, Order: o, Entry: e, Rules: r, Tick: tick,
@@ -461,16 +461,11 @@ func (h *Handler) writeOrder(ctx context.Context, o *model.Order) error {
 
 // bookFill puts the fill onto the account and recomputes the money.
 func (h *Handler) bookFill(e *book.Entry, o *model.Order, f *Fill, r *settings.Rules) {
-	// commission comes off as the deal is booked, so the client sees the true cost of the trade
-	for _, d := range f.Deals {
-		d.Commission = -h.CommissionFor(d, r)
-		e.Account.Balance += d.Commission
-	}
+	h.ChargeCommission(e, f, r)
 
-	// Only the swap comes off a closed position here.
 	for _, p := range f.Closed {
 		delete(e.Positions, p.PositionId)
-		e.Account.Balance += p.Storage
+		h.SettleSwap(e, p)
 	}
 
 	h.creditRealised(e, f.Profit)

@@ -33,7 +33,7 @@ type OAuth2 struct {
 	// Signer mints and verifies access tokens
 	Signer *jwt.Signer
 	// Cache is the in process snapshot cache, sharded across instances
-	Cache *cache.DistributeCache
+	Cache *cache.SessionCache
 	// Hasher does argon2id behind a concurrency limit
 	Hasher *crypto.Hasher
 	// Redis is the source of truth for live sessions
