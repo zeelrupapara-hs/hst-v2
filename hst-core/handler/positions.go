@@ -634,7 +634,7 @@ func (h *Handler) SavePositionAndPublish(ctx context.Context, p *model.Position)
 		return err
 	}
 
-	h.PublishWS(model.SubjectAccountPositions(p.Login), model.EventPositionUpdate, p)
+	h.PublishWS(model.SubjectAccountPositions(p.Login), model.EventPositionUpdate, model.NewWirePosition(p))
 
 	return nil
 }

@@ -74,20 +74,25 @@ func (h *Handler) PublishRejected(res *model.TradeResult) {
 // filled before the position exists has nothing to show against it.
 func (h *Handler) PublishTrade(e *book.Entry, o *model.Order, f *Fill, a *model.Account) {
 	if f.Opened != nil {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionCreate, f.Opened)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionCreate,
+			model.NewWirePosition(f.Opened))
 	}
 	for _, p := range f.Changed {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionUpdate, p)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionUpdate,
+			model.NewWirePosition(p))
 	}
 	for _, p := range f.Closed {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionClose, p)
+		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionClose,
+			model.NewWirePosition(p))
 	}
 
 	for _, d := range f.Deals {
-		h.PublishWS(model.SubjectAccountDeals(d.Login), model.EventDealCreate, d)
+		h.PublishWS(model.SubjectAccountDeals(d.Login), model.EventDealCreate,
+			model.NewWireDeal(d))
 	}
 
-	h.PublishWS(model.SubjectAccountOrders(o.Login), model.EventOrderCreate, o)
+	h.PublishWS(model.SubjectAccountOrders(o.Login), model.EventOrderCreate,
+		model.NewWireOrder(o))
 
 	h.PublishAccount(a, nil)
 }
