@@ -64,23 +64,23 @@ type CloseByMyPosition struct {
 
 // ViewPosition is one open position as a panel renders it.
 type ViewPosition struct {
-	PositionId   int64   `json:"position_id"`
-	Login        int64   `json:"login"`
-	Symbol       string  `json:"symbol"`
-	Action       int32   `json:"action"`
-	Reason       int32   `json:"reason"`
-	Volume       float64 `json:"volume"`
-	VolumeUnits  int64   `json:"-"`
-	VolumeExt    int64   `json:"-"`
-	PriceOpen    float64 `json:"price_open"`
-	PriceCurrent float64 `json:"price_current"`
-	PriceSL      float64 `json:"price_sl"`
-	PriceTP      float64 `json:"price_tp"`
-	Profit       float64 `json:"profit"`
-	Storage      float64 `json:"storage"`
-	TimeCreate   int64   `json:"time_create"`
-	TimeUpdate   int64   `json:"time_update"`
-	Comment      string  `json:"comment"`
+	PositionId   int64                `json:"position_id"`
+	Login        int64                `json:"login"`
+	Symbol       string               `json:"symbol"`
+	Action       model.PositionAction `json:"action"`
+	Reason       model.OrderReason    `json:"reason"`
+	Volume       float64              `json:"volume"`
+	VolumeUnits  int64                `json:"-"`
+	VolumeExt    int64                `json:"-"`
+	PriceOpen    float64              `json:"price_open"`
+	PriceCurrent float64              `json:"price_current"`
+	PriceSL      float64              `json:"price_sl"`
+	PriceTP      float64              `json:"price_tp"`
+	Profit       float64              `json:"profit"`
+	Storage      float64              `json:"storage"`
+	TimeCreate   int64                `json:"time_create"`
+	TimeUpdate   int64                `json:"time_update"`
+	Comment      string               `json:"comment"`
 }
 
 const positionColumns = `p.position_id, p.login, p.symbol, p.action, p.reason, p.volume, p.volume_ext,

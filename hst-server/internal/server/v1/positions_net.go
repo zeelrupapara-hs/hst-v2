@@ -83,7 +83,7 @@ func netBySymbol(in []ViewPosition) []ViewNetPosition {
 		lots := model.ExtToLots(ext)
 		a.priceCurrent = p.PriceCurrent
 
-		if p.Action == int32(model.OrderType_buy) {
+		if p.Action.IsBuy() {
 			a.buyExt += ext
 			a.buyNotional += p.PriceOpen * lots
 			a.buyValue += p.PriceCurrent * lots

@@ -100,24 +100,24 @@ type CancelMyOrder struct {
 
 // ViewOrder is one order as a panel renders it. Volume is in lots.
 type ViewOrder struct {
-	OrderId        int64   `json:"order_id"`
-	Login          int64   `json:"login"`
-	Symbol         string  `json:"symbol"`
-	Type           int32   `json:"type"`
-	State          int32   `json:"state"`
-	Reason         int32   `json:"reason"`
-	Volume         float64 `json:"volume"`
-	VolumeInitial  int64   `json:"-"`
-	VolumeCurrent  int64   `json:"-"`
-	VolumeExt      int64   `json:"-"`
-	PriceOrder     float64 `json:"price_order"`
-	PriceTrigger   float64 `json:"price_trigger"`
-	PriceCurrent   float64 `json:"price_current"`
-	PriceSL        float64 `json:"price_sl"`
-	PriceTP        float64 `json:"price_tp"`
-	TimeSetup      int64   `json:"time_setup"`
-	TimeExpiration int64   `json:"time_expiration"`
-	Comment        string  `json:"comment"`
+	OrderId        int64             `json:"order_id"`
+	Login          int64             `json:"login"`
+	Symbol         string            `json:"symbol"`
+	Type           model.OrderType   `json:"type"`
+	State          model.OrderState  `json:"state"`
+	Reason         model.OrderReason `json:"reason"`
+	Volume         float64           `json:"volume"`
+	VolumeInitial  int64             `json:"-"`
+	VolumeCurrent  int64             `json:"-"`
+	VolumeExt      int64             `json:"-"`
+	PriceOrder     float64           `json:"price_order"`
+	PriceTrigger   float64           `json:"price_trigger"`
+	PriceCurrent   float64           `json:"price_current"`
+	PriceSL        float64           `json:"price_sl"`
+	PriceTP        float64           `json:"price_tp"`
+	TimeSetup      int64             `json:"time_setup"`
+	TimeExpiration int64             `json:"time_expiration"`
+	Comment        string            `json:"comment"`
 }
 
 const orderColumns = `o.order_id, o.login, o.symbol, o.type, o.state, o.reason,
