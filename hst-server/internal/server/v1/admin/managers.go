@@ -67,6 +67,15 @@ func (s *Server) GetManager(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
+	// a login the masks do not cover reads as absent, so the id space cannot be walked
+	reach, err := s.AccountInReach(c, int64(login))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
 	m, err := s.SelectManager(c.UserContext(), int64(login))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
@@ -93,6 +102,15 @@ func (s *Server) GetManagerRights(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	// a login the masks do not cover reads as absent, so the id space cannot be walked
+	reach, err := s.AccountInReach(c, int64(login))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	m, err := s.SelectManager(c.UserContext(), int64(login))
@@ -484,6 +502,15 @@ func (s *Server) UpdateManager(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
+	// a login the masks do not cover reads as absent, so the id space cannot be walked
+	reach, err := s.AccountInReach(c, int64(login))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
 	var body UptManager
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -540,6 +567,15 @@ func (s *Server) DeleteManager(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	// a login the masks do not cover reads as absent, so the id space cannot be walked
+	reach, err := s.AccountInReach(c, int64(login))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.managers WHERE login = $1`, login)

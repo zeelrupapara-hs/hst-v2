@@ -189,6 +189,15 @@ func (s *Server) GetUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
+	// a login the masks do not cover reads as absent, so the id space cannot be walked
+	reach, err := s.AccountInReach(c, int64(login))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
 	return s.getUserByLogin(c, int64(login), s.respondUser)
 }
 
@@ -212,6 +221,15 @@ func (s *Server) UpdateUser(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	// a login the masks do not cover reads as absent, so the id space cannot be walked
+	reach, err := s.AccountInReach(c, int64(login))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	var body UptUser
@@ -299,6 +317,15 @@ func (s *Server) DeleteUser(c *fiber.Ctx) error {
 	login, err := c.ParamsInt("login")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	// a login the masks do not cover reads as absent, so the id space cannot be walked
+	reach, err := s.AccountInReach(c, int64(login))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
 	// returning the group saves a read: it is needed to announce the delete and it does not exist afterwards

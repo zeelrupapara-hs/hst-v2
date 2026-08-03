@@ -389,6 +389,19 @@ func groupWhere(isManager bool, masks []string, next int) (string, []any) {
 	return utils.GroupAccessFor(isManager, masks, `u."group"`, next)
 }
 
+// AccountInReach reports whether the caller's masks cover the login, and writes nothing.
+//
+// The by id handlers need the answer, not a response: a helper that writes the refusal returns
+// nil for having written it, and a caller testing that error would read the refusal as success.
+func (s *HttpServer) AccountInReach(c *fiber.Ctx, login int64) (bool, error) {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return false, errs.ErrCouldNotParseClientCfg
+	}
+
+	return s.accountInReach(c.UserContext(), snap.IsManager, snap.ManagerGroups, login)
+}
+
 // accountInReach reports whether the masks cover the account they named.
 func (s *HttpServer) accountInReach(ctx context.Context, isManager bool, masks []string, login int64) (bool, error) {
 	where, args := groupWhere(isManager, masks, 2)
