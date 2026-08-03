@@ -65,6 +65,11 @@ func (h *Handler) GetAccount(login int64) (*model.Account, bool) {
 	e.Lock()
 	defer e.Unlock()
 
+	// An account with no open position is not in the tick path, so nothing has worked its money
+	// out since it was loaded: it would answer with the zeroes its row was created with. Settling
+	// on read is what makes a flat account report its free margin rather than nothing.
+	h.CalculateAccountMargins(e).Apply(e.Account)
+
 	a := *e.Account
 
 	return &a, true
