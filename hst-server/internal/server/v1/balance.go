@@ -64,7 +64,7 @@ func (s *HttpServer) makeBalance(ctx context.Context, payload *CrtBalance, deale
 	}
 
 	return s.sendBalance(ctx, payload.Login, &model.BalanceEvent{
-		EventType: model.BalanceEventApply,
+		EventType: model.BalanceEvent_apply,
 		Data:      req,
 	})
 }

@@ -1,15 +1,5 @@
 package model
 
-type QueryWhat int32
-
-const (
-	QueryAccount   QueryWhat = 1
-	QueryPositions QueryWhat = 2
-	QueryOrders    QueryWhat = 3
-	QueryState     QueryWhat = 4
-	QuerySymbols   QueryWhat = 5
-)
-
 type QueryRequest struct {
 	Login int64     `json:"login"`
 	What  QueryWhat `json:"what"`

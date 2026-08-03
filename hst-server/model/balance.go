@@ -3,7 +3,7 @@ package model
 type BalanceEventType int32
 
 const (
-	BalanceEventApply BalanceEventType = 1
+	BalanceEvent_apply BalanceEventType = 1
 )
 
 type BalanceEvent struct {

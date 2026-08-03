@@ -39,7 +39,7 @@ func (s *HttpServer) askEngine(ctx context.Context, login int64, what model.Quer
 
 // AskEngineAccount is the live money state, or nil if the engine did not answer.
 func (s *HttpServer) AskEngineAccount(ctx context.Context, login int64) *model.Account {
-	res := s.askEngine(ctx, login, model.QueryAccount)
+	res := s.askEngine(ctx, login, model.QueryWhat_account)
 	if res == nil {
 		return nil
 	}
@@ -48,7 +48,7 @@ func (s *HttpServer) AskEngineAccount(ctx context.Context, login int64) *model.A
 
 // AskEnginePositions is the live positions, or nil if the engine did not answer.
 func (s *HttpServer) AskEnginePositions(ctx context.Context, login int64) []model.Position {
-	res := s.askEngine(ctx, login, model.QueryPositions)
+	res := s.askEngine(ctx, login, model.QueryWhat_positions)
 	if res == nil {
 		return nil
 	}
@@ -58,7 +58,7 @@ func (s *HttpServer) AskEnginePositions(ctx context.Context, login int64) []mode
 // AskEngineSymbols is what the caller's group may trade, resolved and priced, or nil if the
 // engine did not answer.
 func (s *HttpServer) AskEngineSymbols(ctx context.Context, login int64) []model.SymbolInfo {
-	res := s.askEngine(ctx, login, model.QuerySymbols)
+	res := s.askEngine(ctx, login, model.QueryWhat_symbols)
 	if res == nil {
 		return nil
 	}

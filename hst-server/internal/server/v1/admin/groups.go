@@ -420,7 +420,7 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 		v1.PtrOr(body.MarginFreeMode, model.FreeMarginMode_not_use_pl), v1.PtrOr(body.MarginSOMode, model.StopOutMode_percent),
 		v1.PtrOr(body.MarginCall, 0.0), v1.PtrOr(body.MarginStopOut, 0.0),
 		v1.PtrOr(body.MarginFreeProfitMode, model.MarginFreeProfitMode_pl),
-		v1.PtrOr(body.MarginMode, model.MarginMode_retail), v1.PtrOr(body.MarginFlags, model.GroupMarginFlags_none),
+		v1.PtrOr(body.MarginMode, model.MarginMode_retail_netting), v1.PtrOr(body.MarginFlags, model.GroupMarginFlags_none),
 		body.DemoLeverage, body.DemoDeposit,
 		v1.PtrOr(body.LimitHistory, model.HistoryLimit_all), v1.PtrOr(body.LimitOrders, int32(0)),
 		v1.PtrOr(body.LimitSymbols, int32(0)), v1.PtrOr(body.LimitPositions, int32(0)), v1.PtrOr(body.LimitPositionsVolume, 0.0),

@@ -66,7 +66,7 @@ func (h *Handler) ValidatePosition(e *book.Entry, p *model.Position, req *model.
 	if code := h.checkQuote(r, t); !code.OK() {
 		return code
 	}
-	if r.TradeMode == model.TradeDisabled {
+	if r.TradeMode == model.TradeMode_disabled {
 		return model.RetTradeDisabled
 	}
 
@@ -160,13 +160,13 @@ func (h *Handler) checkExecution(o *model.Order, r *settings.Rules,
 	t model.Tick) (model.RetCode, model.RouteFlags) {
 	kind := h.kindOf(o, r)
 
-	if kind != model.RouteInstant {
+	if kind != model.RouteFlags_instant {
 		return model.RetOK, kind
 	}
 
 	// instant execution above the size the broker fills on the spot is not refused.
 	if r.MaxInstantVolume > 0 && o.VolumeCurrent > r.MaxInstantVolume {
-		return model.RetOK, model.RouteRequest
+		return model.RetOK, model.RouteFlags_request
 	}
 
 	// a quote the client answered too late is no longer a price they can be held to
@@ -224,7 +224,7 @@ func (h *Handler) checkSymbol(o *model.Order, r *settings.Rules) model.RetCode {
 	}
 
 	switch {
-	case r.TradeMode == model.TradeDisabled:
+	case r.TradeMode == model.TradeMode_disabled:
 		return model.RetTradeDisabled
 	case r.TradeMode.CloseOnly():
 		return model.RetTradeCloseOnly
@@ -239,9 +239,9 @@ func (h *Handler) checkSymbol(o *model.Order, r *settings.Rules) model.RetCode {
 
 // checkQuote refuses a trade with no usable price behind it.
 func (h *Handler) checkMarket(o *model.Order, r *settings.Rules) model.RetCode {
-	dir := model.DirectionIn
+	dir := model.Direction_in
 	if o.PositionId != 0 {
-		dir = model.DirectionOut
+		dir = model.Direction_out
 	}
 
 	if !h.IsMarketOpen(r, dir) {

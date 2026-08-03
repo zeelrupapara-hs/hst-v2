@@ -31,15 +31,15 @@ func (h *Handler) QuerySystemEventHandler(msg *natscore.Msg) {
 	res := &model.QueryResult{Login: q.Login}
 
 	switch q.What {
-	case model.QueryAccount:
+	case model.QueryWhat_account:
 		res.Account, res.Found = h.GetAccount(q.Login)
-	case model.QueryPositions:
+	case model.QueryWhat_positions:
 		res.Positions, res.Found = h.GetAllPositions(q.Login)
-	case model.QueryOrders:
+	case model.QueryWhat_orders:
 		res.Orders, res.Found = h.GetAllOrders(q.Login)
-	case model.QuerySymbols:
+	case model.QueryWhat_symbols:
 		res.Symbols, res.Found = h.GetAllSymbols(q.Login)
-	case model.QueryState:
+	case model.QueryWhat_state:
 		res.Account, res.Found = h.GetAccount(q.Login)
 		res.Positions, _ = h.GetAllPositions(q.Login)
 		res.Orders, _ = h.GetAllOrders(q.Login)

@@ -57,44 +57,6 @@ type Symbol struct {
 	TimeExpiration int64
 }
 
-// How the margin for an instrument is worked out.
-type CalcMode int32
-
-const (
-	CalcForex             CalcMode = 0
-	CalcFutures           CalcMode = 1
-	CalcCFD               CalcMode = 2
-	CalcCFDIndex          CalcMode = 3
-	CalcCFDLeverage       CalcMode = 4
-	CalcForexNoLeverage   CalcMode = 5
-	CalcExchStocks        CalcMode = 32
-	CalcExchFutures       CalcMode = 33
-	CalcExchFORTS         CalcMode = 34
-	CalcExchOptions       CalcMode = 35
-	CalcExchOptionsMargin CalcMode = 36
-)
-
-// What a group may do with an instrument.
-type TradeMode int32
-
-const (
-	TradeDisabled  TradeMode = 0
-	TradeLongOnly  TradeMode = 1
-	TradeShortOnly TradeMode = 2
-	TradeCloseOnly TradeMode = 3
-	TradeFull      TradeMode = 4
-)
-
-// How a request is turned into a fill.
-type ExecMode int32
-
-const (
-	ExecRequest  ExecMode = 0
-	ExecInstant  ExecMode = 1
-	ExecMarket   ExecMode = 2
-	ExecExchange ExecMode = 3
-)
-
 // Which filling policies a symbol allows, as a set of flags.
 const (
 	FillFlagFOK    = 0x01
@@ -110,12 +72,6 @@ const (
 	ExpirFlagSpecified    = 0x04
 	ExpirFlagSpecifiedDay = 0x08
 )
-
-func (m TradeMode) AllowsBuy() bool { return m == TradeFull || m == TradeLongOnly }
-
-func (m TradeMode) AllowsSell() bool { return m == TradeFull || m == TradeShortOnly }
-
-func (m TradeMode) CloseOnly() bool { return m == TradeCloseOnly }
 
 // How margin is checked and shared, from margin_flags on the instrument or the group's override.
 const (

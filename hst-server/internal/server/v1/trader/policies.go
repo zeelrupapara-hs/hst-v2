@@ -17,13 +17,13 @@ type ViewUIPolicy struct {
 	ReadOnly bool  `json:"read_only"`
 	CanTrade bool  `json:"can_trade"`
 
-	Enabled         bool              `json:"enabled"`
-	TradeDisabled   bool              `json:"trade_disabled"`
-	ExpertAllowed   bool              `json:"expert_allowed"`
-	TrailingAllowed bool              `json:"trailing_allowed"`
-	ApiAllowed      bool              `json:"api_allowed"`
-	ReportsAllowed  bool              `json:"reports_allowed"`
-	Rights          model.UsersRights `json:"rights"`
+	Enabled            bool              `json:"enabled"`
+	TradeMode_disabled bool              `json:"trade_disabled"`
+	ExpertAllowed      bool              `json:"expert_allowed"`
+	TrailingAllowed    bool              `json:"trailing_allowed"`
+	ApiAllowed         bool              `json:"api_allowed"`
+	ReportsAllowed     bool              `json:"reports_allowed"`
+	Rights             model.UsersRights `json:"rights"`
 
 	CanOpenMarket    bool  `json:"can_open_market"`
 	CanOpenLimit     bool  `json:"can_open_limit"`
@@ -79,12 +79,12 @@ func (s *Server) MyUIPolicies(c *fiber.Ctx) error {
 	// an investor session sees everything and trades nothing, same check MyProfile makes
 	v.ReadOnly = snap.Scope == int32(model.UsersPasswords_investor) || v.Rights.Has(model.UsersRights_readonly)
 	v.Enabled = v.Rights.CanConnect()
-	v.TradeDisabled = v.Rights.Has(model.UsersRights_trade_disabled)
+	v.TradeMode_disabled = v.Rights.Has(model.UsersRights_trade_disabled)
 	v.ExpertAllowed = v.Rights.Has(model.UsersRights_expert)
 	v.TrailingAllowed = v.Rights.Has(model.UsersRights_trailing)
 	v.ApiAllowed = v.Rights.Has(model.UsersRights_api_enabled)
 	v.ReportsAllowed = v.Rights.Has(model.UsersRights_reports)
-	v.CanTrade = v.Enabled && !v.TradeDisabled && !v.ReadOnly
+	v.CanTrade = v.Enabled && !v.TradeMode_disabled && !v.ReadOnly
 
 	// the flags the group actually grants are per symbol, so the shell gets the union of what it may see
 	symbols := s.AskEngineSymbols(c.UserContext(), snap.Login)

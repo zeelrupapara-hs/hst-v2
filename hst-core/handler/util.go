@@ -16,10 +16,10 @@ const (
 )
 
 func (h *Handler) IsMarketOpen(r *settings.Rules, dir model.Direction) bool {
-	if r.TradeMode == model.TradeDisabled {
+	if r.TradeMode == model.TradeMode_disabled {
 		return false
 	}
-	if dir == model.DirectionOut {
+	if dir == model.Direction_out {
 		return true
 	}
 

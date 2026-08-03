@@ -28,25 +28,6 @@ type Group struct {
 	DemoLeverage *int32
 }
 
-// Netting keeps one position per symbol; hedging lets many sit side by side.
-type MarginMode int32
-
-const (
-	MarginRetailNetting MarginMode = 0
-	MarginExchange      MarginMode = 1
-	MarginRetailHedging MarginMode = 2
-)
-
-func (m MarginMode) Hedging() bool { return m == MarginRetailHedging }
-
-// How the stop out level is read.
-type StopOutMode int32
-
-const (
-	StopOutPercent StopOutMode = 0
-	StopOutMoney   StopOutMode = 1
-)
-
 // GroupSymbol is what a group changes about one instrument; nil means it did not override.
 type GroupSymbol struct {
 	SymbolId    int64
@@ -116,42 +97,6 @@ const (
 	TradeFlagHedgeProhibit        int32 = 0x0200
 	TradeFlagDealCost             int32 = 0x0400
 	TradeFlagSOCompensationCredit int32 = 0x0800
-)
-
-// How much of the floating result counts toward free margin, from hst.groups.margin_free_mode.
-type FreeMarginMode int32
-
-const (
-	FreeMarginNotUsePL FreeMarginMode = 0
-	FreeMarginUsePL    FreeMarginMode = 1
-	FreeMarginProfit   FreeMarginMode = 2
-	FreeMarginLoss     FreeMarginMode = 3
-)
-
-// Counts reports how much of a floating result the mode admits into free margin.
-func (m FreeMarginMode) Counts(floating float64) float64 {
-	switch m {
-	case FreeMarginUsePL:
-		return floating
-	case FreeMarginProfit:
-		if floating > 0 {
-			return floating
-		}
-	case FreeMarginLoss:
-		if floating < 0 {
-			return floating
-		}
-	}
-
-	return 0
-}
-
-// How a day's realised profit is treated, from hst.groups.margin_free_profit_mode.
-type FreeMarginProfitMode int32
-
-const (
-	FreeMarginDayProfitAndLoss FreeMarginProfitMode = 0
-	FreeMarginDayProfitLoss    FreeMarginProfitMode = 1
 )
 
 // The group's own margin flags, from hst.groups.margin_flags.

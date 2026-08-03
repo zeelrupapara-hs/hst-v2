@@ -195,7 +195,7 @@ func maintenanceRate(r *settings.Rules) float64 {
 func (h *Handler) CalculateAccountMargins(e *book.Entry) Money {
 	reserved := h.RemargeAccount(e)
 
-	free := model.FreeMarginUsePL
+	free := model.FreeMarginMode_use_pl
 	if g, ok := h.Settings.Group(e.Account.Group); ok {
 		free = model.FreeMarginMode(g.MarginFreeMode)
 	}

@@ -192,7 +192,7 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 	}
 
 	decision := h.Route(&Request{
-		Kind:      model.RouteModify,
+		Kind:      model.RouteFlags_modify,
 		Order:     &want,
 		Entry:     e,
 		Rules:     r,
@@ -265,7 +265,7 @@ func (h *Handler) CancelOrder(ctx context.Context, req *model.TradeRequest) *mod
 	tick, _ := h.QuoteFor(r, o.Symbol)
 
 	decision := h.Route(&Request{
-		Kind: model.RouteRemove, Order: o, Entry: e, Rules: r, Tick: tick,
+		Kind: model.RouteFlags_remove, Order: o, Entry: e, Rules: r, Tick: tick,
 		Gapped: h.Quotes.Gapped(o.Symbol),
 	})
 
@@ -323,13 +323,13 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 
 	// the rules see an activation as its own kind of request, so a broker can hold one during a gap
 	decision := h.Route(&Request{
-		Kind: model.RouteActivate, Order: o, Entry: e, Rules: r, Tick: t,
+		Kind: model.RouteFlags_activate, Order: o, Entry: e, Rules: r, Tick: t,
 		Gapped: h.Quotes.Gapped(o.Symbol),
 	})
 
 	if !decision.Executes() {
 		// cancel order is the rule that exists precisely for this.
-		if decision.Action == model.ActionCancelOrder {
+		if decision.Action == model.RouteAction_cancel_order {
 			h.removeOrder(ctx, e, o, "deleted [by routing rule]")
 			return nil
 		}
@@ -518,21 +518,21 @@ func (h *Handler) orderFrom(req *model.TradeRequest, r *settings.Rules, a *model
 // kindOf is which routing request type this order counts as, which decides what rules see it.
 func (h *Handler) kindOf(o *model.Order, r *settings.Rules) model.RouteFlags {
 	if o.Kind().IsPending() {
-		return model.RoutePending
+		return model.RouteFlags_pending
 	}
 	if o.Kind() == model.OrderType_close_by {
-		return model.RouteCloseBy
+		return model.RouteFlags_close_by
 	}
 
 	switch r.ExecMode {
-	case model.ExecInstant:
-		return model.RouteInstant
-	case model.ExecRequest:
-		return model.RouteRequest
-	case model.ExecExchange:
-		return model.RouteExchange
+	case model.ExecMode_instant:
+		return model.RouteFlags_instant
+	case model.ExecMode_request:
+		return model.RouteFlags_request
+	case model.ExecMode_exchange:
+		return model.RouteFlags_exchange
 	default:
-		return model.RouteMarket
+		return model.RouteFlags_market
 	}
 }
 
@@ -574,14 +574,14 @@ func (h *Handler) refuseByRule(res *model.TradeResult, d Decision, e *book.Entry
 	res.Rule = d.Rule.Name
 
 	switch d.Action {
-	case model.ActionReject:
+	case model.RouteAction_reject:
 		return h.refuse(res, model.RetTradeRejected, d.Reason)
-	case model.ActionRequote:
+	case model.RouteAction_requote:
 		return h.refuse(res, model.RetTradeRequote, "")
-	case model.ActionDealer, model.ActionDealerOnline:
+	case model.RouteAction_dealer, model.RouteAction_dealer_online:
 		o.State = state
 		return h.SendDealing(req, o, d.Dealers, d.Rule.RoutingId)
-	case model.ActionCancelOrder:
+	case model.RouteAction_cancel_order:
 		return h.refuse(res, model.RetTradeRejected, "order cancelled")
 	}
 
@@ -605,7 +605,7 @@ func (h *Handler) nextTempId() int64 {
 func (h *Handler) creditRealised(e *book.Entry, amount float64) {
 	g, ok := h.Settings.Group(e.Account.Group)
 
-	if amount > 0 && ok && g.MarginFreeProfit == int32(model.FreeMarginDayProfitLoss) {
+	if amount > 0 && ok && g.MarginFreeProfit == int32(model.FreeMarginProfitMode_day_profit_loss) {
 		e.Account.BlockedProfit += amount
 		return
 	}

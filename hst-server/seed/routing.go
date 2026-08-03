@@ -29,7 +29,7 @@ var startingRules = []struct {
 		Name:   "Reject during gap",
 		Action: model.RouteAction_reject,
 		Value:  "Market gap",
-		Conds:  []ruleCond{{model.RouteCondition_gap, model.ConditionRule_eq, "1"}},
+		Conds:  []ruleCond{{model.RouteCondition_gap, model.ConditionRule_equal, "1"}},
 	},
 	{
 		// anything not caught above executes at the market price.

@@ -2,24 +2,6 @@ package model
 
 // Symbol-domain enums.
 
-type CalcMode int32
-
-const (
-	CalcMode_forex               CalcMode = 0
-	CalcMode_futures             CalcMode = 1
-	CalcMode_cfd                 CalcMode = 2
-	CalcMode_cfdindex            CalcMode = 3
-	CalcMode_cfdleverage         CalcMode = 4
-	CalcMode_forex_no_leverage   CalcMode = 5
-	CalcMode_exch_stocks         CalcMode = 32
-	CalcMode_exch_futures        CalcMode = 33
-	CalcMode_exch_forts          CalcMode = 34
-	CalcMode_exch_options        CalcMode = 35
-	CalcMode_exch_options_margin CalcMode = 36
-	CalcMode_exch_bonds          CalcMode = 37
-	CalcMode_serv_collateral     CalcMode = 64
-)
-
 var (
 	CalcMode_name = map[int32]string{
 		0: "forex", 1: "futures", 2: "cfd", 3: "cfdindex", 4: "cfdleverage",
@@ -33,16 +15,6 @@ var (
 	}
 )
 
-type TradeMode int32
-
-const (
-	TradeMode_disabled  TradeMode = 0
-	TradeMode_longonly  TradeMode = 1
-	TradeMode_shortonly TradeMode = 2
-	TradeMode_closeonly TradeMode = 3
-	TradeMode_full      TradeMode = 4
-)
-
 var (
 	TradeMode_name = map[int32]string{
 		0: "disabled", 1: "longonly", 2: "shortonly", 3: "closeonly", 4: "full",
@@ -50,15 +22,6 @@ var (
 	TradeMode_value = map[string]int32{
 		"disabled": 0, "longonly": 1, "shortonly": 2, "closeonly": 3, "full": 4,
 	}
-)
-
-type ExecMode int32
-
-const (
-	ExecMode_request  ExecMode = 0
-	ExecMode_instant  ExecMode = 1
-	ExecMode_market   ExecMode = 2
-	ExecMode_exchange ExecMode = 3
 )
 
 var (

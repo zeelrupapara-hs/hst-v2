@@ -130,7 +130,7 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 	o.PriceSL, o.PriceTP = req.PriceSL, req.PriceTP
 
 	decision := h.Route(&Request{
-		Kind: model.RouteSLTP, Order: o, Entry: e, Rules: r, Tick: tick,
+		Kind: model.RouteFlags_sltp, Order: o, Entry: e, Rules: r, Tick: tick,
 		Gapped: h.Quotes.Gapped(p.Symbol),
 	})
 
@@ -323,7 +323,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 	}
 
 	decision := h.Route(&Request{
-		Kind: model.RouteCloseBy, Order: o, Entry: e, Rules: r, Tick: tick,
+		Kind: model.RouteFlags_close_by, Order: o, Entry: e, Rules: r, Tick: tick,
 		Gapped: h.Quotes.Gapped(p.Symbol),
 	})
 
@@ -774,7 +774,7 @@ func (h *Handler) coversAfterClose(e *book.Entry, p *model.Position) bool {
 	after := *e.Account
 	after.Balance += p.Profit + p.Storage
 
-	free := model.FreeMarginUsePL
+	free := model.FreeMarginMode_use_pl
 	if g, ok := h.Settings.Group(e.Account.Group); ok {
 		free = model.FreeMarginMode(g.MarginFreeMode)
 	}

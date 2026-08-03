@@ -192,6 +192,6 @@ type Account struct {
 type Direction int32
 
 const (
-	DirectionIn  Direction = 0
-	DirectionOut Direction = 1
+	Direction_in  Direction = 0
+	Direction_out Direction = 1
 )

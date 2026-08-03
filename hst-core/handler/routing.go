@@ -34,7 +34,7 @@ type Decision struct {
 func (d Decision) Executes() bool { return d.Rule != nil && d.Action.Executes() }
 
 // AtMarket reports whether the fill should use the current price rather than the requested one.
-func (d Decision) AtMarket() bool { return d.Action == model.ActionConfirmMarket }
+func (d Decision) AtMarket() bool { return d.Action == model.RouteAction_confirm_market }
 
 // Request is everything the rules can look at.
 type Request struct {
@@ -92,26 +92,26 @@ func (h *Handler) Route(req *Request) Decision {
 func (h *Handler) applySoftAction(action model.RouteAction, rule *model.RoutingRule,
 	req *Request, d *Decision) {
 	switch action {
-	case model.ActionDelayTime:
+	case model.RouteAction_delay_time:
 		if ms, err := strconv.Atoi(rule.ActionValue); err == nil && ms > 0 {
 			d.Delay += time.Duration(ms) * time.Millisecond
 		}
 
-	case model.ActionDelayTick:
+	case model.RouteAction_delay_tick:
 		// a tick delay is counted in ticks, not time.
 		if n, err := strconv.Atoi(rule.ActionValue); err == nil && n > 0 {
 			d.Delay += time.Duration(n) * tickDelayEstimate
 		}
 
-	case model.ActionClearTP:
+	case model.RouteAction_clear_tp:
 		d.ClearTP = true
 		req.Order.PriceTP = 0
 
-	case model.ActionClearSL:
+	case model.RouteAction_clear_sl:
 		d.ClearSL = true
 		req.Order.PriceSL = 0
 
-	case model.ActionClearSLTP:
+	case model.RouteAction_clear_sltp:
 		d.ClearSL, d.ClearTP = true, true
 		req.Order.PriceSL, req.Order.PriceTP = 0, 0
 	}
@@ -148,82 +148,82 @@ func (h *Handler) conditionHolds(c *model.RoutingCondition, req *Request) bool {
 	switch model.RouteCondition(c.Condition) {
 
 	// request
-	case model.CondSymbol:
+	case model.RouteCondition_symbol:
 		return matchMask(c, symbolOf(req))
-	case model.CondVolume:
+	case model.RouteCondition_volume:
 		return compareNumber(c, model.Lots(volumeOf(req)))
-	case model.CondDeviation:
+	case model.RouteCondition_deviation:
 		return compareNumber(c, req.Deviation)
-	case model.CondDeviationSpread:
+	case model.RouteCondition_deviation_spread:
 		spread := Points(req.Tick.Spread(), pointOf(req))
 		if spread <= 0 {
 			return false
 		}
 		return compareNumber(c, req.Deviation/spread)
-	case model.CondCurrentSpread:
+	case model.RouteCondition_current_spread:
 		return compareNumber(c, Points(req.Tick.Spread(), pointOf(req)))
-	case model.CondGap:
+	case model.RouteCondition_gap:
 		return compareBool(c, req.Gapped)
-	case model.CondComment:
+	case model.RouteCondition_comment:
 		return matchText(c, commentOf(req))
-	case model.CondExpert:
+	case model.RouteCondition_expert:
 		return compareBool(c, req.Order != nil && req.Order.ExpertId != 0)
-	case model.CondRequestPrice:
+	case model.RouteCondition_request_price:
 		return compareNumber(c, priceOf(req))
-	case model.CondReason:
+	case model.RouteCondition_reason:
 		if req.Order == nil {
 			return false
 		}
 		return compareNumber(c, float64(req.Order.Reason))
-	case model.CondWeekday:
+	case model.RouteCondition_weekday:
 		return compareNumber(c, float64(time.Now().Weekday()))
-	case model.CondTime:
+	case model.RouteCondition_time:
 		now := time.Now()
 		return compareNumber(c, float64(now.Hour()*60+now.Minute()))
-	case model.CondDatetime:
+	case model.RouteCondition_datetime:
 		return compareNumber(c, float64(time.Now().Unix()))
 
 	// account
-	case model.CondLogin:
+	case model.RouteCondition_login:
 		return compareNumber(c, float64(loginOf(req)))
-	case model.CondGroup:
+	case model.RouteCondition_group:
 		return matchMask(c, groupOf(req))
-	case model.CondLeverage:
+	case model.RouteCondition_leverage:
 		if req.Entry == nil {
 			return false
 		}
 		return compareNumber(c, float64(req.Entry.Account.Leverage))
-	case model.CondBalance:
+	case model.RouteCondition_balance:
 		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return a.Balance }))
-	case model.CondEquity:
+	case model.RouteCondition_equity:
 		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return a.Equity }))
-	case model.CondMargin:
+	case model.RouteCondition_margin:
 		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return a.Margin }))
-	case model.CondMarginFree:
+	case model.RouteCondition_margin_free:
 		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return a.MarginFree }))
-	case model.CondMarginLevel:
+	case model.RouteCondition_margin_level:
 		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return a.MarginLevel }))
-	case model.CondProfit:
+	case model.RouteCondition_profit:
 		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return a.Floating }))
 
 	// positions and orders
-	case model.CondPositionTotal:
+	case model.RouteCondition_position_total:
 		if req.Entry == nil {
 			return false
 		}
 		return compareNumber(c, float64(len(req.Entry.Positions)))
-	case model.CondOrderTotal:
+	case model.RouteCondition_order_total:
 		if req.Entry == nil {
 			return false
 		}
 		return compareNumber(c, float64(len(req.Entry.Orders)))
-	case model.CondPositionTotalSymbol:
+	case model.RouteCondition_position_total_symbol:
 		return compareNumber(c, float64(countOnSymbol(req, true)))
-	case model.CondOrderTotalSymbol:
+	case model.RouteCondition_order_total_symbol:
 		return compareNumber(c, float64(countOnSymbol(req, false)))
-	case model.CondPositionVolume:
+	case model.RouteCondition_position_volume:
 		return compareNumber(c, model.Lots(volumeOnSymbol(req)))
-	case model.CondPositionProfit:
+	case model.RouteCondition_position_profit:
 		return compareNumber(c, profitOnSymbol(req))
 	}
 
@@ -242,17 +242,17 @@ func compareNumber(c *model.RoutingCondition, actual float64) bool {
 	}
 
 	switch model.ConditionRule(c.Rule) {
-	case model.RuleEqual:
+	case model.ConditionRule_equal:
 		return actual == want
-	case model.RuleNotEqual:
+	case model.ConditionRule_not_equal:
 		return actual != want
-	case model.RuleGreater:
+	case model.ConditionRule_greater:
 		return actual > want
-	case model.RuleNotLess:
+	case model.ConditionRule_not_less:
 		return actual >= want
-	case model.RuleLess:
+	case model.ConditionRule_less:
 		return actual < want
-	case model.RuleNotGreater:
+	case model.ConditionRule_not_greater:
 		return actual <= want
 	}
 
@@ -264,7 +264,7 @@ func compareBool(c *model.RoutingCondition, actual bool) bool {
 	want := strings.TrimSpace(c.Value)
 	yes := want == "1" || strings.EqualFold(want, "true")
 
-	if model.ConditionRule(c.Rule) == model.RuleNotEqual {
+	if model.ConditionRule(c.Rule) == model.ConditionRule_not_equal {
 		return actual != yes
 	}
 
@@ -276,13 +276,13 @@ func matchText(c *model.RoutingCondition, actual string) bool {
 	want := c.Value
 
 	switch model.ConditionRule(c.Rule) {
-	case model.RuleEqual:
+	case model.ConditionRule_equal:
 		return actual == want
-	case model.RuleNotEqual:
+	case model.ConditionRule_not_equal:
 		return actual != want
-	case model.RuleGreater, model.RuleNotLess:
+	case model.ConditionRule_greater, model.ConditionRule_not_less:
 		return strings.Contains(actual, want)
-	case model.RuleLess, model.RuleNotGreater:
+	case model.ConditionRule_less, model.ConditionRule_not_greater:
 		return strings.Contains(want, actual)
 	}
 
@@ -312,7 +312,7 @@ func matchMask(c *model.RoutingCondition, actual string) bool {
 		}
 	}
 
-	if model.ConditionRule(c.Rule) == model.RuleNotEqual {
+	if model.ConditionRule(c.Rule) == model.ConditionRule_not_equal {
 		return !hit
 	}
 
@@ -503,7 +503,7 @@ func (h *Handler) deskFor(rule *model.RoutingRule, action model.RouteAction,
 		return nil, true
 	}
 
-	if action == model.ActionDealerOnline {
+	if action == model.RouteAction_dealer_online {
 		return online, false
 	}
 

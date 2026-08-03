@@ -46,19 +46,19 @@ func marginBase(r *settings.Rules, lots float64, price float64, leverage int32, 
 	var base float64
 
 	switch r.CalcMode {
-	case model.CalcForex:
+	case model.CalcMode_forex:
 		base = lots * r.ContractSize / float64(leverage)
 
-	case model.CalcForexNoLeverage:
+	case model.CalcMode_forex_no_leverage:
 		base = lots * r.ContractSize
 
-	case model.CalcCFD, model.CalcExchStocks:
+	case model.CalcMode_cfd, model.CalcMode_exch_stocks:
 		base = lots * r.ContractSize * price
 
-	case model.CalcCFDLeverage:
+	case model.CalcMode_cfd_leverage:
 		base = lots * r.ContractSize * price / float64(leverage)
 
-	case model.CalcCFDIndex, model.CalcFutures, model.CalcExchFutures, model.CalcExchFORTS:
+	case model.CalcMode_cfd_index, model.CalcMode_futures, model.CalcMode_exch_futures, model.CalcMode_exch_forts:
 		// futures reserve a fixed amount per lot rather than a slice of the notional
 		base = lots * r.MarginInitial
 		if r.MarginInitial == 0 {
@@ -70,7 +70,7 @@ func marginBase(r *settings.Rules, lots float64, price float64, leverage int32, 
 	}
 
 	// an explicit initial margin on the instrument replaces the formula
-	if r.MarginInitial > 0 && r.CalcMode != model.CalcFutures {
+	if r.MarginInitial > 0 && r.CalcMode != model.CalcMode_futures {
 		base = lots * r.MarginInitial
 	}
 
@@ -91,7 +91,7 @@ func ProfitFor(r *settings.Rules, buy bool, lots, open, current, rate float64) f
 	var raw float64
 
 	switch r.CalcMode {
-	case model.CalcFutures, model.CalcExchFutures, model.CalcExchFORTS:
+	case model.CalcMode_futures, model.CalcMode_exch_futures, model.CalcMode_exch_forts:
 		if r.TickSize > 0 {
 			raw = diff / r.TickSize * r.TickValue * lots
 		} else {

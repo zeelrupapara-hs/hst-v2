@@ -348,7 +348,7 @@ func (h *Handler) AcceptRequote(ctx context.Context, ev *model.DealingEvent) *mo
 
 // needsSecondConfirmation decides whether an accepted requote goes back to the dealer.
 func (h *Handler) needsSecondConfirmation(p *Pending, r *settings.Rules) bool {
-	if r.ExecMode == model.ExecInstant {
+	if r.ExecMode == model.ExecMode_instant {
 		if r.IEFlags&model.InstantFlagFastConfirmation == 0 {
 			return true
 		}

@@ -248,16 +248,6 @@ var (
 	}
 )
 
-// FreeMarginMode controls whether floating P/L counts toward free margin.
-type FreeMarginMode int32
-
-const (
-	FreeMarginMode_not_use_pl FreeMarginMode = 0
-	FreeMarginMode_use_pl     FreeMarginMode = 1
-	FreeMarginMode_profit     FreeMarginMode = 2
-	FreeMarginMode_loss       FreeMarginMode = 3
-)
-
 // Enum value maps for FreeMarginMode.
 var (
 	FreeMarginMode_name = map[int32]string{
@@ -272,14 +262,6 @@ var (
 		"profit":     2,
 		"loss":       3,
 	}
-)
-
-// StopOutMode is the unit for Margin Call / Stop Out levels.
-type StopOutMode int32
-
-const (
-	StopOutMode_percent StopOutMode = 0
-	StopOutMode_money   StopOutMode = 1
 )
 
 // Enum value maps for StopOutMode.
@@ -312,15 +294,6 @@ var (
 		"pl":   0,
 		"loss": 1,
 	}
-)
-
-// MarginMode is the account margin calculation mode for the group.
-type MarginMode int32
-
-const (
-	MarginMode_retail            MarginMode = 0
-	MarginMode_exchange_discount MarginMode = 1
-	MarginMode_retail_hedged     MarginMode = 2
 )
 
 // Enum value maps for MarginMode.

@@ -34,7 +34,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 	level := money.MarginLevel
 
 	// the levels can be read as money rather than a percentage
-	if model.StopOutMode(g.MarginSOMode) == model.StopOutMoney {
+	if model.StopOutMode(g.MarginSOMode) == model.StopOutMode_money {
 		level = money.Equity
 	}
 
@@ -71,7 +71,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 	for _, p := range worst {
 		h.logStopOut(ctx, e, p, money, stop)
 		h.CloseAtMarket(ctx, e, p, h.tickFor(h.rulesFor(e, p.Symbol), p.Symbol, t), model.OrderReason_so,
-			model.RouteStopOutPosition)
+			model.RouteFlags_stop_out_position)
 
 		// stop as soon as the account is back above the line
 		e.Lock()

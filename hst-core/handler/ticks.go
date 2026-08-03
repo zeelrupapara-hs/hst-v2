@@ -78,9 +78,9 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 	h.ExpireOrders(ctx, e, t.Symbol)
 
 	for _, hit := range hits {
-		kind := model.RouteSL
+		kind := model.RouteFlags_sl
 		if hit.reason == model.OrderReason_tp {
-			kind = model.RouteTP
+			kind = model.RouteFlags_tp
 		}
 
 		h.CloseAtMarket(ctx, e, hit.position, t, hit.reason, kind)
