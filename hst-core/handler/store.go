@@ -182,6 +182,9 @@ func (h *Handler) unwatchIfLast(e *book.Entry, symbol string) {
 		}
 	}
 
+	// nothing is open here any more, so the throttle has nothing to remember about it
+	e.ForgetSent(symbol)
+
 	h.Accounts.Unwatch(symbol, e.Account.Login)
 }
 

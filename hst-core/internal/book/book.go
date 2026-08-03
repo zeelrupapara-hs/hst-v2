@@ -31,6 +31,10 @@ func (e *Entry) LastSent(symbol string) (Sent, bool) {
 	return s, ok
 }
 
+// ForgetSent drops what was last sent about an instrument, for an account that no longer holds
+// one. Caller holds the lock, as the other two do.
+func (e *Entry) ForgetSent(symbol string) { delete(e.sent, symbol) }
+
 // MarkSent records a summary as delivered.
 func (e *Entry) MarkSent(symbol string, at int64, line string) {
 	if e.sent == nil {

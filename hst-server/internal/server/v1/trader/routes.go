@@ -45,12 +45,14 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Post("/requotes/:request_id/accept", s.AcceptMyRequote)
 	trader.Get("/deals", s.GetMyDeals)
 
+	// alerts
 	trader.Get("/alerts", s.GetMyAlerts)
 	trader.Post("/alerts", s.CreateMyAlert)
 	trader.Get("/alerts/:alert_id", s.GetMyAlert)
 	trader.Put("/alerts/:alert_id", s.UpdateMyAlert)
 	trader.Delete("/alerts/:alert_id", s.DeleteMyAlert)
 
+	// watchlists
 	trader.Get("/watchlists", s.GetMyWatchlists)
 	trader.Post("/watchlists", s.CreateMyWatchlist)
 	trader.Put("/watchlists/:watchlist_id", s.UpdateMyWatchlist)
