@@ -31,13 +31,15 @@ type CrtForgotPassword struct {
 
 // CrtVerifyCode checks a code without spending it.
 type CrtVerifyCode struct {
-	Login int64  `json:"login" validate:"required"`
+	Login int64  `json:"login"`
+	Email string `json:"email" validate:"omitempty,email,max=255"`
 	Code  string `json:"code" validate:"required,max=16"`
 }
 
 // CrtResetPassword spends the code and sets the new password.
 type CrtResetPassword struct {
-	Login    int64  `json:"login" validate:"required"`
+	Login    int64  `json:"login"`
+	Email    string `json:"email" validate:"omitempty,email,max=255"`
 	Code     string `json:"code" validate:"required,max=16"`
 	Password string `json:"password" validate:"required,min=8,max=128"`
 }
@@ -142,7 +144,12 @@ func (s *Server) VerifyCode(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	if _, err := s.claimResetCode(ctx, body.Login, body.Code, false); err != nil {
+	login, err := s.recoverLogin(ctx, body.Login, body.Email)
+	if err != nil {
+		return s.resetDenied(c, err)
+	}
+
+	if _, err := s.claimResetCode(ctx, login, body.Code, false); err != nil {
 		return s.resetDenied(c, err)
 	}
 
@@ -176,7 +183,12 @@ func (s *Server) ResetPassword(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	if _, err := s.claimResetCode(ctx, body.Login, body.Code, true); err != nil {
+	login, err := s.recoverLogin(ctx, body.Login, body.Email)
+	if err != nil {
+		return s.resetDenied(c, err)
+	}
+
+	if _, err := s.claimResetCode(ctx, login, body.Code, true); err != nil {
 		return s.resetDenied(c, err)
 	}
 
@@ -191,18 +203,28 @@ func (s *Server) ResetPassword(c *fiber.Ctx) error {
 		    SET password_main = $1, last_pass_change = $2, updated_at = $2,
 		        rights = rights & ~$3::bigint, failed_attempts = 0, locked_until = 0
 		  WHERE login = $4`,
-		hash, now, int64(model.UsersRights_reset_pass), body.Login); err != nil {
+		hash, now, int64(model.UsersRights_reset_pass), login); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	// whoever was signed in with the old password is signed out
-	if err := s.OAuth2.InvalidateLogin(ctx, body.Login, model.SessionRevokedRightsChanged); err != nil {
+	if err := s.OAuth2.InvalidateLogin(ctx, login, model.SessionRevokedRightsChanged); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	s.Log.Log(logger.TypeUser, logger.CodeLogin, "password reset", "login", body.Login)
+	s.Log.Log(logger.TypeUser, logger.CodeLogin, "password reset", "login", login)
 
 	return s.App.HttpResponseOK(c, nil)
+}
+
+// recoverLogin is the login behind whichever identifier the caller holds. A person recovering a
+// password knows their email, not their number, so every step of the flow takes either.
+func (s *Server) recoverLogin(ctx context.Context, login int64, email string) (int64, error) {
+	if login != 0 {
+		return login, nil
+	}
+
+	return s.findRecoverable(ctx, CrtForgotPassword{Email: email})
 }
 
 // findRecoverable resolves the request to a trading login that may recover a password.
