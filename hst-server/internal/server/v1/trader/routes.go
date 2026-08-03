@@ -57,11 +57,7 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Delete("/watchlists/:watchlist_id", s.DeleteMyWatchlist)
 	trader.Put("/watchlists/:watchlist_id/symbols", s.SetMyWatchlistSymbols)
 
-	// the named folders must be registered before the :tracking_id wildcard
-	trader.Get("/mails/inbox", s.GetMyInbox)
-	trader.Get("/mails/outbox", s.GetMyOutbox)
-	trader.Get("/mails/draft", s.GetMyDrafts)
-	trader.Get("/mails/bin", s.GetMyBin)
+	trader.Get("/mails", s.GetMyMails)
 	trader.Get("/mails/:tracking_id", s.GetMyMail)
 	trader.Post("/mails", s.SendMyMail)
 	trader.Put("/mails/:tracking_id", s.UpdateMyDraft)

@@ -89,80 +89,44 @@ func (s *HttpServer) supportLogin(ctx context.Context) (int64, error) {
 	return login, err
 }
 
-// GetMyInbox lists the mail addressed to the caller.
+// mailFolderWhere maps a folder name to the rows that belong to the caller there.
+func mailFolderWhere(typ string) (string, error) {
+	switch strings.ToLower(typ) {
+	case "inbox":
+		return "m.recipient_login = $1 AND m.folder = 1", nil
+	case "outbox":
+		return "m.sender_login = $1 AND m.folder = 2", nil
+	case "draft":
+		return "m.sender_login = $1 AND m.folder = 3", nil
+	case "bin":
+		return "m.folder = 4 AND (m.sender_login = $1 OR m.recipient_login = $1)", nil
+	default:
+		return "", errors.New("type must be inbox, outbox, draft or bin")
+	}
+}
+
+// GetMyMails lists the caller's mail in one folder.
 //
-//	@Id			GetMyInbox
+//	@Id			GetMyMails
 //	@Tags		Trader
 //	@Produce	json
-//	@Param		limit	query		int	false	"how many, newest first"
-//	@Param		page	query		int	false	"which page, zero based"
-//	@Param		from	query		int	false	"unix seconds, inclusive"
-//	@Param		to		query		int	false	"unix seconds, exclusive"
+//	@Param		type	query		string	true	"folder"	Enums(inbox, outbox, draft, bin)
+//	@Param		limit	query		int		false	"how many, newest first"
+//	@Param		page	query		int		false	"which page, zero based"
+//	@Param		from	query		int		false	"unix seconds, inclusive"
+//	@Param		to		query		int		false	"unix seconds, exclusive"
 //	@Success	200		{object}	Response{data=[]ViewMail}
+//	@Failure	400		{object}	Response
 //	@Failure	403		{object}	Response
 //	@Failure	500		{object}	Response
 //	@Security	BearerAuth
-//	@Router		/api/trader/v1/mails/inbox [get]
-func (s *HttpServer) GetMyInbox(c *fiber.Ctx) error {
-	return s.listMails(c, "m.recipient_login = $1 AND m.folder = 1")
-}
+//	@Router		/api/trader/v1/mails [get]
+func (s *HttpServer) GetMyMails(c *fiber.Ctx) error {
+	where, err := mailFolderWhere(c.Query("type"))
+	if err != nil {
+		return s.App.HttpResponseBadQueryParams(c, err)
+	}
 
-// GetMyOutbox lists the mail the caller sent.
-//
-//	@Id			GetMyOutbox
-//	@Tags		Trader
-//	@Produce	json
-//	@Param		limit	query		int	false	"how many, newest first"
-//	@Param		page	query		int	false	"which page, zero based"
-//	@Param		from	query		int	false	"unix seconds, inclusive"
-//	@Param		to		query		int	false	"unix seconds, exclusive"
-//	@Success	200		{object}	Response{data=[]ViewMail}
-//	@Failure	403		{object}	Response
-//	@Failure	500		{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/trader/v1/mails/outbox [get]
-func (s *HttpServer) GetMyOutbox(c *fiber.Ctx) error {
-	return s.listMails(c, "m.sender_login = $1 AND m.folder = 2")
-}
-
-// GetMyDrafts lists the caller's unsent mail.
-//
-//	@Id			GetMyDrafts
-//	@Tags		Trader
-//	@Produce	json
-//	@Param		limit	query		int	false	"how many, newest first"
-//	@Param		page	query		int	false	"which page, zero based"
-//	@Param		from	query		int	false	"unix seconds, inclusive"
-//	@Param		to		query		int	false	"unix seconds, exclusive"
-//	@Success	200		{object}	Response{data=[]ViewMail}
-//	@Failure	403		{object}	Response
-//	@Failure	500		{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/trader/v1/mails/draft [get]
-func (s *HttpServer) GetMyDrafts(c *fiber.Ctx) error {
-	return s.listMails(c, "m.sender_login = $1 AND m.folder = 3")
-}
-
-// GetMyBin lists the caller's deleted mail, still recoverable.
-//
-//	@Id			GetMyBin
-//	@Tags		Trader
-//	@Produce	json
-//	@Param		limit	query		int	false	"how many, newest first"
-//	@Param		page	query		int	false	"which page, zero based"
-//	@Param		from	query		int	false	"unix seconds, inclusive"
-//	@Param		to		query		int	false	"unix seconds, exclusive"
-//	@Success	200		{object}	Response{data=[]ViewMail}
-//	@Failure	403		{object}	Response
-//	@Failure	500		{object}	Response
-//	@Security	BearerAuth
-//	@Router		/api/trader/v1/mails/bin [get]
-func (s *HttpServer) GetMyBin(c *fiber.Ctx) error {
-	return s.listMails(c, "m.folder = 4 AND (m.sender_login = $1 OR m.recipient_login = $1)")
-}
-
-// listMails is every folder handler, differing only in which rows belong to the caller.
-func (s *HttpServer) listMails(c *fiber.Ctx, where string) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
