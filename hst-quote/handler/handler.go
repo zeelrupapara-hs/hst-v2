@@ -1,6 +1,6 @@
-// Package handler is the hst-quote service: connect to quote datafeeds via FIX
-// or simulator, apply symbol translates, cache ticks in redis, store history
-// in InfluxDB, and publish on NATS.
+// Package handler is the hst-quote service: connect to quote datafeeds via FIX,
+// apply symbol translates, cache ticks in redis, store history in InfluxDB,
+// and publish on NATS.
 package handler
 
 import (
