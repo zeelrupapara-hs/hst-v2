@@ -94,22 +94,24 @@ func defaultErrorHandler(error) *model.Event {
 }
 
 // Add registers a connection and starts its pumps.
-func (h *Hub) Add(conn *websocket.Conn, snap Session, ip string) *Client {
+func (h *Hub) Add(conn *websocket.Conn, snap Session, ip, os string) *Client {
 	c := &Client{
-		Id:          uuid.NewString(),
-		SessionId:   snap.SessionId,
-		Login:       snap.Login,
-		Scope:       snap.Scope,
-		Ip:          ip,
-		rights:      snap.ManagerRights,
-		groups:      snap.ManagerGroups,
-		IsManager:   snap.IsManager,
-		ConnectedAt: time.Now(),
-		conn:        conn,
-		hub:         h,
-		log:         h.log,
-		egress:      make(chan *model.Event, egressBuffer),
-		closing:     make(chan struct{}),
+		Id:             uuid.NewString(),
+		SessionId:      snap.SessionId,
+		Login:          snap.Login,
+		Scope:          snap.Scope,
+		Ip:             ip,
+		rights:         snap.ManagerRights,
+		groups:         snap.ManagerGroups,
+		IsManager:      snap.IsManager,
+		ConnectionType: snap.ConnectionType,
+		Os:             os,
+		ConnectedAt:    time.Now(),
+		conn:           conn,
+		hub:            h,
+		log:            h.log,
+		egress:         make(chan *model.Event, egressBuffer),
+		closing:        make(chan struct{}),
 	}
 
 	h.mu.Lock()
@@ -132,9 +134,11 @@ type Session struct {
 	SessionId string
 	Login     int64
 	// Scope is the password slot the session authenticated with: investor may look and not touch.
-	Scope         int32
-	IsManager     bool
-	ManagerRights model.ManagerRights
+	Scope int32
+	// ConnectionType is the terminal that authenticated.
+	ConnectionType int32
+	IsManager      bool
+	ManagerRights  model.ManagerRights
 	// ManagerGroups is the group access, a list of masks.
 	ManagerGroups []string
 }

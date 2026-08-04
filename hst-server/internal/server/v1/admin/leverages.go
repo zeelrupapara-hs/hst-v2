@@ -355,7 +355,7 @@ func (s *Server) DeleteLeverageProfile(c *fiber.Ctx) error {
 	ref := v1.ViewLeverageRef{LeverageId: id}
 	s.NotifyWS(model.SubjectLeverage, model.EventLeverageDeleted, ref)
 	s.NotifySystem(model.SubjectSystemLeverageDeleted, ref)
-	s.JournalEntry(c, logger.CodeWarn, journal.LeverageDeletedMsg(snap.Login, id), ref)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.LeverageDeletedMsg(snap.Login, id), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -903,7 +903,7 @@ func (s *Server) NotifyLeverage(event, systemSubject, message string, created bo
 	return func(c *fiber.Ctx, v interface{}) error {
 		s.NotifyWS(model.SubjectLeverage, event, v)
 		s.NotifySystem(systemSubject, v)
-		s.JournalEntry(c, logger.CodeOK, message, v)
+		s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, message, v)
 
 		if created {
 			return s.App.HttpResponseCreated(c, v)

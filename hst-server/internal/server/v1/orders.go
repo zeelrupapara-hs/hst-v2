@@ -457,7 +457,7 @@ func (s *HttpServer) journalAsked(c *fiber.Ctx, res *Accepted, err error) {
 		login = res.Login
 	}
 
-	s.JournalEntry(c, code, fmt.Sprintf("%s %s for #%d: %s", c.Method(), c.Path(), login, outcome), res)
+	s.JournalEntry(c, logger.TypeTrade, code, fmt.Sprintf("%s %s for #%d: %s", c.Method(), c.Path(), login, outcome), res)
 }
 
 // answer writes the engine's reply, carrying the result even when it is a refusal.
@@ -507,7 +507,7 @@ func (s *HttpServer) journalTrade(c *fiber.Ctx, res *model.TradeResult, err erro
 		login = res.Login
 	}
 
-	s.JournalEntry(c, code, fmt.Sprintf("%s %s for #%d: %s",
+	s.JournalEntry(c, logger.TypeTrade, code, fmt.Sprintf("%s %s for #%d: %s",
 		c.Method(), c.Path(), login, outcome), res)
 }
 

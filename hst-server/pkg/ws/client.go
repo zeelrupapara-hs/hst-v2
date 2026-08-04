@@ -27,6 +27,10 @@ type Client struct {
 	Ip string
 	// IsManager is false for a trading account.
 	IsManager bool
+	// ConnectionType is the terminal that authenticated, which names the journal channel.
+	ConnectionType int32
+	// Os is the platform that terminal reported when it connected.
+	Os string
 	// ConnectedAt is when the socket was accepted.
 	ConnectedAt time.Time
 

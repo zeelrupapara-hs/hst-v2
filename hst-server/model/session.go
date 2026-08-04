@@ -86,3 +86,32 @@ const (
 	// an account holds one session at a time, so signing in again closes the one before it
 	SessionRevokedSuperseded = "superseded"
 )
+
+// The kind of terminal an action came from, as the journal records it. A connection type says
+// which client is asking; the channel is that answer in the words a person reads.
+const (
+	ChannelWeb     = "web"
+	ChannelDesktop = "desktop"
+	ChannelMobile  = "mobile"
+	ChannelApi     = "api"
+	ChannelSystem  = "system"
+)
+
+// Channel names the terminal behind a connection type.
+func (t UsersConnectionTypes) Channel() string {
+	switch t {
+	case UsersConnectionTypes_client_web:
+		return ChannelWeb
+	case UsersConnectionTypes_client_winmobile, UsersConnectionTypes_client_winphone,
+		UsersConnectionTypes_client_iphone, UsersConnectionTypes_client_android,
+		UsersConnectionTypes_client_blackberry:
+		return ChannelMobile
+	case UsersConnectionTypes_client_api_web, UsersConnectionTypes_manager_api,
+		UsersConnectionTypes_admin_api, UsersConnectionTypes_manager_api_web:
+		return ChannelApi
+	case UsersConnectionTypes_client, UsersConnectionTypes_admin, UsersConnectionTypes_manager:
+		return ChannelDesktop
+	default:
+		return ChannelSystem
+	}
+}

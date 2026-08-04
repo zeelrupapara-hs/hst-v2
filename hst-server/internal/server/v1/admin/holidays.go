@@ -145,7 +145,7 @@ func (s *Server) CreateHoliday(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectHoliday, model.EventHolidayCreated, out)
 	s.NotifySystem(model.SubjectSystemHolidayCreated, out)
-	s.JournalEntry(c, logger.CodeOK, journal.HolidayCreatedMsg(snap.Login, int(out.HolidayId)), out)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.HolidayCreatedMsg(snap.Login, int(out.HolidayId)), out)
 
 	return s.App.HttpResponseCreated(c, out)
 }
@@ -339,7 +339,7 @@ func (s *Server) UpdateHoliday(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectHoliday, model.EventHolidayUpdated, out)
 	s.NotifySystem(model.SubjectSystemHolidayUpdated, out)
-	s.JournalEntry(c, logger.CodeOK, journal.HolidayUpdatedMsg(snap.Login, int(out.HolidayId)), out)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.HolidayUpdatedMsg(snap.Login, int(out.HolidayId)), out)
 
 	return s.App.HttpResponseOK(c, out)
 }
@@ -404,7 +404,7 @@ func (s *Server) DeleteHoliday(c *fiber.Ctx) error {
 	ref := v1.ViewHolidayRef{HolidayId: id}
 	s.NotifyWS(model.SubjectHoliday, model.EventHolidayDeleted, ref)
 	s.NotifySystem(model.SubjectSystemHolidayDeleted, ref)
-	s.JournalEntry(c, logger.CodeWarn, journal.HolidayDeletedMsg(snap.Login, id), ref)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.HolidayDeletedMsg(snap.Login, id), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -497,7 +497,7 @@ func (s *Server) ReorderHolidays(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectHoliday, model.EventHolidayReordered, body)
 	s.NotifySystem(model.SubjectSystemHolidayReordered, body)
-	s.JournalEntry(c, logger.CodeOK, journal.HolidayReorderedMsg(snap.Login), body)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.HolidayReorderedMsg(snap.Login), body)
 
 	rows, err := s.DB.DB.Query(ctx,
 		`SELECT `+holidayColumns+` FROM hst.holidays ORDER BY config_index`)

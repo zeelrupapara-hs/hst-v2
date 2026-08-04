@@ -33,6 +33,8 @@ type Journal struct {
 	Code      int32           `db:"code" json:"code"`
 	Login     int64           `db:"login" json:"login"`
 	Ip        string          `db:"ip" json:"ip"`
+	Channel   string          `db:"channel" json:"channel"`
+	Os        string          `db:"os" json:"os"`
 	Message   string          `db:"message" json:"message"`
 	Detail    json.RawMessage `db:"detail" json:"detail" swaggertype:"object"`
 }

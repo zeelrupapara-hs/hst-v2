@@ -96,7 +96,7 @@ func (s *Server) UpdateEndOfDay(c *fiber.Ctx) error {
 	// written down first, so a pod coming up mid-change reads the new hour rather than the old
 	s.NotifySystem(model.SubjectSystemEndOfDayTime, fiber.Map{"at": v.At})
 
-	s.JournalEntry(c, logger.CodeOK, journal.EndOfDayTimeMsg(managerOf(c), v.At), v)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.EndOfDayTimeMsg(managerOf(c), v.At), v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -113,7 +113,7 @@ func (s *Server) UpdateEndOfDay(c *fiber.Ctx) error {
 func (s *Server) RunEndOfDay(c *fiber.Ctx) error {
 	s.NotifySystem(model.SubjectSystemEndOfDay, fiber.Map{"at": time.Now().UnixNano()})
 
-	s.JournalEntry(c, logger.CodeAtt, journal.EndOfDayRunMsg(managerOf(c)), nil)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeAtt, journal.EndOfDayRunMsg(managerOf(c)), nil)
 
 	return s.App.HttpResponseOK(c, nil)
 }

@@ -205,7 +205,7 @@ func (s *Server) CreateClient(c *fiber.Ctx) error {
 
 	s.NotifyClient(c.UserContext(), view.ClientId, model.EventClientCreated, view)
 	s.NotifySystem(model.SubjectSystemClientCreated, view)
-	s.JournalEntry(c, logger.CodeOK, journal.ClientCreatedMsg(snap.Login, view.ClientId), view)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.ClientCreatedMsg(snap.Login, view.ClientId), view)
 
 	return s.App.HttpResponseCreated(c, view)
 }
@@ -591,7 +591,7 @@ func (s *Server) UpdateClient(c *fiber.Ctx) error {
 
 	s.NotifyClient(c.UserContext(), int64(id), model.EventClientUpdated, client)
 	s.NotifySystem(model.SubjectSystemClientUpdated, client)
-	s.JournalEntry(c, logger.CodeOK, journal.ClientUpdatedMsg(snap.Login, int64(id)), client)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.ClientUpdatedMsg(snap.Login, int64(id)), client)
 
 	return s.respondClient(c, client)
 }
@@ -663,7 +663,7 @@ func (s *Server) DeleteClient(c *fiber.Ctx) error {
 	ref := v1.ViewClientRef{ClientId: int64(id)}
 	s.NotifyClientIn(groups, model.EventClientDeleted, ref)
 	s.NotifySystem(model.SubjectSystemClientDeleted, ref)
-	s.JournalEntry(c, logger.CodeWarn, journal.ClientDeletedMsg(snap.Login, int64(id)), ref)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.ClientDeletedMsg(snap.Login, int64(id)), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

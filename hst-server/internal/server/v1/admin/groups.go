@@ -441,7 +441,7 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 	// every manager whose access covers this path hears about it, including the ones granted a parent long before this group existed
 	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupCreated, v)
 	s.NotifySystem(model.SubjectSystemGroupCreated, v)
-	s.JournalEntry(c, logger.CodeOK, journal.GroupCreatedMsg(snap.Login, v.Group), v)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.GroupCreatedMsg(snap.Login, v.Group), v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -549,7 +549,7 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupUpdated, v)
 	s.NotifySystem(model.SubjectSystemGroupUpdated, v)
-	s.JournalEntry(c, logger.CodeOK, journal.GroupUpdatedMsg(snap.Login, v.Group), v)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.GroupUpdatedMsg(snap.Login, v.Group), v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -618,7 +618,7 @@ func (s *Server) DeleteGroup(c *fiber.Ctx) error {
 	ref := v1.ViewGroupRef{GroupID: id, Group: path}
 	s.NotifyWS(model.SubjectGroup(path), model.EventGroupDeleted, ref)
 	s.NotifySystem(model.SubjectSystemGroupDeleted, ref)
-	s.JournalEntry(c, logger.CodeWarn, journal.GroupDeletedMsg(snap.Login, path), ref)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.GroupDeletedMsg(snap.Login, path), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

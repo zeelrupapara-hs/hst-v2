@@ -49,10 +49,11 @@ func (j *Journal) Entry(ctx context.Context, entry *model.Journal) error {
 	}
 
 	if err := tx.QueryRow(ctx,
-		`INSERT INTO hst.journal (created_at, type, code, login, ip, message, detail)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`INSERT INTO hst.journal (created_at, type, code, login, ip, channel, os, message, detail)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		 RETURNING journal_id`,
-		entry.CreatedAt, entry.Type, entry.Code, entry.Login, ip, entry.Message, entry.Detail,
+		entry.CreatedAt, entry.Type, entry.Code, entry.Login, ip,
+		channelOr(entry.Channel), entry.Os, entry.Message, entry.Detail,
 	).Scan(&entry.JournalId); err != nil {
 		return err
 	}
@@ -70,28 +71,32 @@ func (j *Journal) Entry(ctx context.Context, entry *model.Journal) error {
 type wireEntry struct {
 	JournalId int64  `json:"journal_id"`
 	CreatedAt int64  `json:"created_at"`
+	Type      int32  `json:"type"`
+	Code      int32  `json:"code"`
 	Channel   string `json:"channel"`
+	Os        string `json:"os"`
 	Ip        string `json:"ip"`
 	Message   string `json:"message"`
 }
 
-// publishMsg announces an entry and reports whether the broker actually holds it.
-func (j *Journal) publishMsg(entry *model.Journal) error {
-	// the writer may name a channel in the detail; the API defaults it the same way
-	channel := "api"
-	if len(entry.Detail) > 0 {
-		var detail map[string]any
-		if err := json.Unmarshal(entry.Detail, &detail); err == nil {
-			if c, ok := detail["channel"].(string); ok && c != "" {
-				channel = c
-			}
-		}
+// channelOr keeps the column honest for entries the platform writes to itself.
+func channelOr(c string) string {
+	if c == "" {
+		return "system"
 	}
 
+	return c
+}
+
+// publishMsg announces an entry and reports whether the broker actually holds it.
+func (j *Journal) publishMsg(entry *model.Journal) error {
 	journal, err := json.Marshal(&wireEntry{
 		JournalId: entry.JournalId,
 		CreatedAt: entry.CreatedAt,
-		Channel:   channel,
+		Type:      entry.Type,
+		Code:      entry.Code,
+		Channel:   channelOr(entry.Channel),
+		Os:        entry.Os,
 		Ip:        entry.Ip,
 		Message:   entry.Message,
 	})

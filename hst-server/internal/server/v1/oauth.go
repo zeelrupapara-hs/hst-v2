@@ -152,7 +152,8 @@ func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 	s.Log.Log(logger.TypeUser, logger.CodeLogin, "login",
 		"login", login, "ip", ip, "connection_type", body.ConnectionType)
 
-	s.WriteJournal(ctx, login, ip, logger.CodeLogin, journal.SignedInMsg(login, ip), view)
+	s.WriteJournalFrom(ctx, login, ip, connType.Channel(), utils.OperatingSystem(utils.GetUserAgent(c)),
+		logger.TypeUser, logger.CodeLogin, journal.SignedInMsg(login, ip), view)
 
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }

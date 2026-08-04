@@ -11,7 +11,10 @@ import (
 type ViewJournal struct {
 	JournalId int64  `json:"journal_id"`
 	CreatedAt int64  `json:"created_at"`
+	Type      int32  `json:"type"`
+	Code      int32  `json:"code"`
 	Channel   string `json:"channel"`
+	Os        string `json:"os"`
 	Ip        string `json:"ip"`
 	Message   string `json:"message"`
 }
@@ -40,9 +43,9 @@ func (s *HttpServer) GetMyJournal(c *fiber.Ctx) error {
 	p := readPage(c, 100)
 	where, args := p.bound("created_at", "login = $1", []any{snap.Login})
 
-	// host() drops the /32 that inet carries; the channel is whatever the writer put in the detail
+	// host() drops the /32 that inet carries
 	rows, err := s.DB.DB.Query(c.UserContext(),
-		`SELECT journal_id, created_at, COALESCE(detail->>'channel', 'api'),
+		`SELECT journal_id, created_at, type, code, channel, os,
 		        COALESCE(host(ip), ''), message
 		   FROM hst.journal
 		  WHERE `+where+p.tail("journal_id"), args...)
@@ -54,7 +57,8 @@ func (s *HttpServer) GetMyJournal(c *fiber.Ctx) error {
 	out := []ViewJournal{}
 	for rows.Next() {
 		var v ViewJournal
-		if err := rows.Scan(&v.JournalId, &v.CreatedAt, &v.Channel, &v.Ip, &v.Message); err != nil {
+		if err := rows.Scan(&v.JournalId, &v.CreatedAt, &v.Type, &v.Code,
+			&v.Channel, &v.Os, &v.Ip, &v.Message); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
 		out = append(out, v)

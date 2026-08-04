@@ -91,12 +91,12 @@ func (s *HttpServer) CreateMyOrderWS(c *ws.Ctx) error {
 	}
 
 	if _, status, err := s.makeOrder(context.Background(), crtFromMy(payload, c.Login()), 0); err != nil {
-		s.JournalWS(c, logger.CodeErr, journal.OrderAskedMsg(c.Login(),
+		s.JournalWS(c, logger.TypeTrade, logger.CodeErr, journal.OrderAskedMsg(c.Login(),
 			model.OrderType_name[int32(payload.Type)], payload.Symbol, payload.Volume)+": "+err.Error(), payload)
 		return s.wsFail(c, status, err)
 	}
 
-	s.JournalWS(c, logger.CodeOK, journal.OrderAskedMsg(c.Login(),
+	s.JournalWS(c, logger.TypeTrade, logger.CodeOK, journal.OrderAskedMsg(c.Login(),
 		model.OrderType_name[int32(payload.Type)], payload.Symbol, payload.Volume), payload)
 
 	return nil
@@ -139,7 +139,7 @@ func (s *HttpServer) UpdateMyOrderWS(c *ws.Ctx) error {
 		return s.wsFail(c, status, err)
 	}
 
-	s.JournalWS(c, logger.CodeOK, journal.OrderChangedMsg(c.Login(), payload.OrderId), payload)
+	s.JournalWS(c, logger.TypeTrade, logger.CodeOK, journal.OrderChangedMsg(c.Login(), payload.OrderId), payload)
 
 	return nil
 }
@@ -182,7 +182,7 @@ func (s *HttpServer) CancelMyOrderWS(c *ws.Ctx) error {
 		return s.wsFail(c, status, err)
 	}
 
-	s.JournalWS(c, logger.CodeOK, journal.OrderCancelledMsg(c.Login(), payload.OrderId), payload)
+	s.JournalWS(c, logger.TypeTrade, logger.CodeOK, journal.OrderCancelledMsg(c.Login(), payload.OrderId), payload)
 
 	return nil
 }

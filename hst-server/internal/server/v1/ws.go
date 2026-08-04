@@ -38,15 +38,17 @@ func (s *HttpServer) ServeWS(c *websocket.Conn) {
 	}
 
 	ip, _ := c.Locals(nethttp.LocalsIp).(string)
+	agent, _ := c.Locals(nethttp.LocalsUserAgent).(string)
 
 	client := s.Hub.Add(c, ws.Session{
-		SessionId:     snap.SessionId,
-		Login:         snap.Login,
-		Scope:         snap.Scope,
-		IsManager:     snap.IsManager,
-		ManagerRights: snap.ManagerRights,
-		ManagerGroups: snap.ManagerGroups,
-	}, ip)
+		SessionId:      snap.SessionId,
+		Login:          snap.Login,
+		Scope:          snap.Scope,
+		ConnectionType: snap.ConnectionType,
+		IsManager:      snap.IsManager,
+		ManagerRights:  snap.ManagerRights,
+		ManagerGroups:  snap.ManagerGroups,
+	}, ip, utils.OperatingSystem(agent))
 
 	if err := s.subscribe(client); err != nil {
 		s.Log.Log(logger.TypeNet, logger.CodeErr, "could not subscribe a websocket",
@@ -198,7 +200,7 @@ func (s *HttpServer) NotifySystem(subject string, payload any) {
 }
 
 // write journal entry
-func (s *HttpServer) JournalEntry(c *fiber.Ctx, code logger.Code, message string, detail any) {
+func (s *HttpServer) JournalEntry(c *fiber.Ctx, typ logger.Type, code logger.Code, message string, detail any) {
 	snap, _ := utils.GetClient(c)
 
 	var login int64
@@ -206,17 +208,31 @@ func (s *HttpServer) JournalEntry(c *fiber.Ctx, code logger.Code, message string
 		login = snap.Login
 	}
 
-	s.WriteJournal(c.UserContext(), login, utils.GetRealIP(c), code, message, detail)
+	channel, os := model.ChannelSystem, ""
+	if snap != nil {
+		channel = model.UsersConnectionTypes(snap.ConnectionType).Channel()
+		os = utils.OperatingSystem(utils.GetUserAgent(c))
+	}
+
+	s.WriteJournalFrom(c.UserContext(), login, utils.GetRealIP(c), channel, os, typ, code, message, detail)
 }
 
 // JournalWS records what a trader did over the socket. The terminal trades here rather than over
 // http, so without this the journal sees configuration changes and nothing a trader ever does.
-func (s *HttpServer) JournalWS(c *ws.Ctx, code logger.Code, message string, detail any) {
-	s.WriteJournal(context.Background(), c.Login(), c.Client.Ip, code, message, detail)
+func (s *HttpServer) JournalWS(c *ws.Ctx, typ logger.Type, code logger.Code, message string, detail any) {
+	s.WriteJournalFrom(context.Background(), c.Login(), c.Client.Ip,
+		model.UsersConnectionTypes(c.Client.ConnectionType).Channel(), c.Client.Os,
+		typ, code, message, detail)
 }
 
-// WriteJournal records a line for an actor that is not a session, such as a public signup.
-func (s *HttpServer) WriteJournal(ctx context.Context, login int64, ip string, code logger.Code, message string, detail any) {
+// WriteJournal records a line for an actor that is not a session, such as a public signup or the
+// platform itself, where there is no terminal to name.
+func (s *HttpServer) WriteJournal(ctx context.Context, login int64, ip string, typ logger.Type, code logger.Code, message string, detail any) {
+	s.WriteJournalFrom(ctx, login, ip, model.ChannelSystem, "", typ, code, message, detail)
+}
+
+// WriteJournalFrom records a line and names the terminal it came from.
+func (s *HttpServer) WriteJournalFrom(ctx context.Context, login int64, ip, channel, os string, typ logger.Type, code logger.Code, message string, detail any) {
 
 	raw, err := json.Marshal(detail)
 	if err != nil {
@@ -227,7 +243,10 @@ func (s *HttpServer) WriteJournal(ctx context.Context, login int64, ip string, c
 	}
 
 	if err := s.Journal.Entry(ctx, &model.Journal{
-		Type: int32(logger.TypeCfg),
+		Channel: channel,
+		Os:      os,
+		// #nosec G115 -- a logger type is 0..8, far inside the column
+		Type: int32(typ),
 		// #nosec G115 -- a logger code is 0..4, far inside the column
 		Code:    int32(code),
 		Login:   login,

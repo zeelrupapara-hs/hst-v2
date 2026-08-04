@@ -616,7 +616,7 @@ func (s *Server) CreateSymbol(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectSymbol, model.EventSymbolCreated, view)
 	s.NotifySystem(model.SubjectSystemSymbolCreated, view)
-	s.JournalEntry(c, logger.CodeOK, journal.SymbolCreatedMsg(snap.Login, view.Symbol), view)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.SymbolCreatedMsg(snap.Login, view.Symbol), view)
 
 	return s.App.HttpResponseCreated(c, view)
 }
@@ -1255,7 +1255,7 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 	s.NotifyDatafeedsForSymbolID(c.UserContext(), int64(id))
 	s.NotifyWS(model.SubjectSymbol, model.EventSymbolUpdated, detail)
 	s.NotifySystem(model.SubjectSystemSymbolUpdated, detail)
-	s.JournalEntry(c, logger.CodeOK, journal.SymbolUpdatedMsg(snap.Login, detail.Symbol.Symbol), detail)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.SymbolUpdatedMsg(snap.Login, detail.Symbol.Symbol), detail)
 
 	return s.App.HttpResponseOK(c, detail)
 }
@@ -1296,7 +1296,7 @@ func (s *Server) DeleteSymbol(c *fiber.Ctx) error {
 	ref := v1.ViewSymbolRef{SymbolId: id, Symbol: symbol, Path: path}
 	s.NotifyWS(model.SubjectSymbol, model.EventSymbolDeleted, ref)
 	s.NotifySystem(model.SubjectSystemSymbolDeleted, ref)
-	s.JournalEntry(c, logger.CodeWarn, journal.SymbolDeletedMsg(snap.Login, symbol), ref)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.SymbolDeletedMsg(snap.Login, symbol), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

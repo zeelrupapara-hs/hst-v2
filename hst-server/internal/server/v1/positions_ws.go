@@ -47,7 +47,7 @@ func (s *HttpServer) UpdateMyPositionWS(c *ws.Ctx) error {
 		return s.wsFail(c, status, err)
 	}
 
-	s.JournalWS(c, logger.CodeOK, journal.PositionStopsMsg(c.Login(),
+	s.JournalWS(c, logger.TypeTrade, logger.CodeOK, journal.PositionStopsMsg(c.Login(),
 		payload.PositionId, payload.PriceSL, payload.PriceTP), payload)
 
 	return nil
@@ -91,7 +91,7 @@ func (s *HttpServer) CloseMyPositionWS(c *ws.Ctx) error {
 		return s.wsFail(c, status, err)
 	}
 
-	s.JournalWS(c, logger.CodeOK, journal.PositionClosedMsg(c.Login(),
+	s.JournalWS(c, logger.TypeTrade, logger.CodeOK, journal.PositionClosedMsg(c.Login(),
 		payload.PositionId, payload.Volume), payload)
 
 	return nil
@@ -135,7 +135,7 @@ func (s *HttpServer) CloseByMyPositionWS(c *ws.Ctx) error {
 		return s.wsFail(c, status, err)
 	}
 
-	s.JournalWS(c, logger.CodeOK, journal.PositionClosedByMsg(c.Login(),
+	s.JournalWS(c, logger.TypeTrade, logger.CodeOK, journal.PositionClosedByMsg(c.Login(),
 		payload.PositionId, payload.PositionById), payload)
 
 	return nil

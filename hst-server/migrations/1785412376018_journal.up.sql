@@ -9,6 +9,8 @@ CREATE TABLE IF NOT EXISTS hst.journal (
     code       SMALLINT     NOT NULL DEFAULT 0,
     login      BIGINT       NOT NULL DEFAULT 0,
     ip         INET,
+    channel    VARCHAR(16)  NOT NULL DEFAULT 'system',
+    os         VARCHAR(64)  NOT NULL DEFAULT '',
     message    VARCHAR(512) NOT NULL DEFAULT '',
     detail     JSONB,
 
@@ -31,9 +33,13 @@ COMMENT ON TABLE hst.journal IS
 COMMENT ON COLUMN hst.journal.created_at IS
     'unix nanoseconds';
 COMMENT ON COLUMN hst.journal.type IS
-    'EnMTLogType: 0=all 1=cfg 2=sys 3=net 4=hst 5=user 6=trade 7=api 8=notify';
+    'LogType: 0=all 1=cfg 2=sys 3=net 4=hst 5=user 6=trade 7=api 8=notify';
 COMMENT ON COLUMN hst.journal.code IS
     'severity: 0=ok 1=warn 2=error 3=critical 4=login';
+COMMENT ON COLUMN hst.journal.channel IS
+    'the terminal the entry came from: web, desktop, mobile, api, system';
+COMMENT ON COLUMN hst.journal.os IS
+    'the operating system that terminal reported, taken from the user agent';
 COMMENT ON COLUMN hst.journal.login IS
     'the login that performed the action, 0 when the server did';
 COMMENT ON COLUMN hst.journal.ip IS

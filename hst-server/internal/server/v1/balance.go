@@ -74,6 +74,6 @@ func (s *HttpServer) sendBalance(ctx context.Context, login int64, e *model.Bala
 }
 
 func (s *HttpServer) journalBalance(c *fiber.Ctx, actor int64, body *CrtBalance) {
-	s.JournalEntry(c, logger.CodeOK, journal.BalanceMsg(actor, body.Login,
+	s.JournalEntry(c, logger.TypeTrade, logger.CodeOK, journal.BalanceMsg(actor, body.Login,
 		model.BalanceActionName(body.Action), body.Amount), body)
 }

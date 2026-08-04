@@ -598,7 +598,7 @@ func (s *Server) DeleteManager(c *fiber.Ctx) error {
 	ref := v1.ViewManagerRef{Login: int64(login)}
 	s.NotifyWS(model.SubjectManager, model.EventManagerDeleted, ref)
 	s.NotifySystem(model.SubjectSystemManagerDeleted, ref)
-	s.JournalEntry(c, logger.CodeWarn, journal.ManagerDeletedMsg(snap.Login, int64(login)), ref)
+	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.ManagerDeletedMsg(snap.Login, int64(login)), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -623,7 +623,7 @@ func (s *Server) NotifyManager(event, systemSubject, message string, created boo
 	return func(c *fiber.Ctx, v interface{}) error {
 		s.NotifyWS(model.SubjectManager, event, v)
 		s.NotifySystem(systemSubject, v)
-		s.JournalEntry(c, logger.CodeOK, message, v)
+		s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, message, v)
 
 		if created {
 			return s.App.HttpResponseCreated(c, v)

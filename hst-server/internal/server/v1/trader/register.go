@@ -116,7 +116,7 @@ func (s *Server) Register(c *fiber.Ctx) error {
 	// the managers whose access covers the tree see the signup arrive
 	s.NotifyWS(model.SubjectUser(group), model.EventUserCreated, view)
 	s.NotifySystem(model.SubjectSystemUserCreated, view)
-	s.WriteJournal(ctx, login, ip, logger.CodeOK, journal.RegisteredMsg(login, body.Type), view)
+	s.WriteJournal(ctx, login, ip, logger.TypeUser, logger.CodeOK, journal.RegisteredMsg(login, body.Type), view)
 
 	return s.App.HttpResponseCreated(c, view)
 }
