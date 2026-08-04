@@ -2,7 +2,3 @@
 # fix session logs and stores, written at runtime
 logs/
 .playwright-mcp/
-
-# local artifacts
-*.zip
-*_test.go
