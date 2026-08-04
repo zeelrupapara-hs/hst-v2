@@ -10,6 +10,7 @@ import (
 	"hstserver/pkg/crypto"
 	errs "hstserver/pkg/errors"
 	"hstserver/pkg/http"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/jwt"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/oauth2"
@@ -150,6 +151,8 @@ func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 
 	s.Log.Log(logger.TypeUser, logger.CodeLogin, "login",
 		"login", login, "ip", ip, "connection_type", body.ConnectionType)
+
+	s.WriteJournal(ctx, login, ip, logger.CodeLogin, journal.SignedInMsg(login, ip), view)
 
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }

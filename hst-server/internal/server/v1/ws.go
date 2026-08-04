@@ -209,6 +209,12 @@ func (s *HttpServer) JournalEntry(c *fiber.Ctx, code logger.Code, message string
 	s.WriteJournal(c.UserContext(), login, utils.GetRealIP(c), code, message, detail)
 }
 
+// JournalWS records what a trader did over the socket. The terminal trades here rather than over
+// http, so without this the journal sees configuration changes and nothing a trader ever does.
+func (s *HttpServer) JournalWS(c *ws.Ctx, code logger.Code, message string, detail any) {
+	s.WriteJournal(context.Background(), c.Login(), c.Client.Ip, code, message, detail)
+}
+
 // WriteJournal records a line for an actor that is not a session, such as a public signup.
 func (s *HttpServer) WriteJournal(ctx context.Context, login int64, ip string, code logger.Code, message string, detail any) {
 

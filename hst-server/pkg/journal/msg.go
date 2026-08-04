@@ -4,6 +4,35 @@ import "fmt"
 
 // Journal messages. The first argument is the manager who acted, the second names the record; the rest is in the detail.
 var (
+
+	// What a trader does with their own account, written in the words the terminal uses.
+	SignedInMsg  = func(login int64, ip string) string { return fmt.Sprintf("%d: signed in from %s", login, ip) }
+	SignedOutMsg = func(login int64) string { return fmt.Sprintf("%d: signed out", login) }
+
+	OrderAskedMsg = func(login int64, kind, symbol string, lots float64) string {
+		return fmt.Sprintf("%d: %s %.2f %s requested", login, kind, lots, symbol)
+	}
+	OrderChangedMsg   = func(login, order int64) string { return fmt.Sprintf("%d: order #%d modified", login, order) }
+	OrderCancelledMsg = func(login, order int64) string { return fmt.Sprintf("%d: order #%d cancelled", login, order) }
+
+	PositionStopsMsg = func(login, position int64, sl, tp float64) string {
+		return fmt.Sprintf("%d: position #%d stops set, sl %g tp %g", login, position, sl, tp)
+	}
+	PositionClosedMsg = func(login, position int64, lots float64) string {
+		if lots <= 0 {
+			return fmt.Sprintf("%d: position #%d close requested", login, position)
+		}
+		return fmt.Sprintf("%d: position #%d close requested, %.2f lots", login, position, lots)
+	}
+	PositionClosedByMsg = func(login, position, by int64) string {
+		return fmt.Sprintf("%d: position #%d closed by #%d", login, position, by)
+	}
+
+	MailSentMsg  = func(login int64, subject string) string { return fmt.Sprintf("%d: mail sent, %q", login, subject) }
+	MailDraftMsg = func(login int64, subject string) string { return fmt.Sprintf("%d: draft saved, %q", login, subject) }
+
+	PasswordChangedMsg = func(login int64) string { return fmt.Sprintf("%d: password changed", login) }
+
 	RegisteredMsg = func(login int64, accountType string) string {
 		return fmt.Sprintf("%d: %s account registered", login, accountType)
 	}

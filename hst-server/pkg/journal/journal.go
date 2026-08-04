@@ -65,9 +65,36 @@ func (j *Journal) Entry(ctx context.Context, entry *model.Journal) error {
 	return tx.Commit(ctx)
 }
 
+// wireEntry is a journal line as its owner sees it, matching what the API returns so a line reads
+// the same whether it arrived by request or was announced.
+type wireEntry struct {
+	JournalId int64  `json:"journal_id"`
+	CreatedAt int64  `json:"created_at"`
+	Channel   string `json:"channel"`
+	Ip        string `json:"ip"`
+	Message   string `json:"message"`
+}
+
 // publishMsg announces an entry and reports whether the broker actually holds it.
 func (j *Journal) publishMsg(entry *model.Journal) error {
-	journal, err := json.Marshal(entry)
+	// the writer may name a channel in the detail; the API defaults it the same way
+	channel := "api"
+	if len(entry.Detail) > 0 {
+		var detail map[string]any
+		if err := json.Unmarshal(entry.Detail, &detail); err == nil {
+			if c, ok := detail["channel"].(string); ok && c != "" {
+				channel = c
+			}
+		}
+	}
+
+	journal, err := json.Marshal(&wireEntry{
+		JournalId: entry.JournalId,
+		CreatedAt: entry.CreatedAt,
+		Channel:   channel,
+		Ip:        entry.Ip,
+		Message:   entry.Message,
+	})
 	if err != nil {
 		return err
 	}
