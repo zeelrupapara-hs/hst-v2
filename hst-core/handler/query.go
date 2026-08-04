@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"sort"
+	"time"
 
 	"hstcore/internal/settings"
 	"hstcore/model"
@@ -180,7 +181,9 @@ func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
 
 	if t, ok := h.QuoteFor(r, r.Symbol.Symbol); ok {
 		v.Bid, v.Ask, v.Last, v.Time = t.Bid, t.Ask, t.Last, t.Time
-		v.Gap, v.HasQuote = t.Gap, true
+		// a price is kept for ever once received, so being priced says nothing about being fed;
+		// an instrument whose feed has stopped is reported for what it is rather than as current
+		v.Gap, v.HasQuote = t.Gap, h.quoteIsCurrent(t.Time)
 		v.Open, v.High, v.Low, v.Close = t.Open, t.High, t.Low, t.Close
 
 		if t.Close != 0 {
@@ -190,4 +193,14 @@ func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
 	}
 
 	return v
+}
+
+// quoteIsCurrent reports whether a tick is recent enough to call the instrument priced.
+func (h *Handler) quoteIsCurrent(at int64) bool {
+	max := h.Cfg.Engine.QuoteMaxAge
+	if max <= 0 || at <= 0 {
+		return at > 0
+	}
+
+	return time.Since(time.Unix(0, at)) <= max
 }

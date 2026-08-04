@@ -41,6 +41,7 @@ const (
 	REDIS_DB       = "REDIS_DB"
 
 	ENGINE_PRICE_MAX_AGE_HOURS = "ENGINE_PRICE_MAX_AGE_HOURS"
+	ENGINE_QUOTE_MAX_AGE_SECS  = "ENGINE_QUOTE_MAX_AGE_SECS"
 	ENGINE_SUMMARY_INTERVAL_MS = "ENGINE_SUMMARY_INTERVAL_MS"
 	REDIS_POOL_SIZE            = "REDIS_POOL_SIZE"
 	REDIS_TLS                  = "REDIS_TLS"
@@ -65,6 +66,9 @@ type Setting struct {
 type Engine struct {
 	// PriceMaxAge bounds a stale start price; beyond it the instrument starts unpriced and refuses trades
 	PriceMaxAge time.Duration
+	// QuoteMaxAge is how long a quote still counts as current. A price is kept for ever once
+	// received, so without this an instrument whose feed has stopped goes on looking live.
+	QuoteMaxAge time.Duration
 	// SummaryInterval is the shortest gap between two summaries for one account on one instrument; zero sends every tick
 	SummaryInterval time.Duration
 }
@@ -179,6 +183,7 @@ func NewConfig() (*Config, error) {
 
 	// three days covers a weekend, which is the longest a price is normally left standing
 	c.Engine.PriceMaxAge = time.Duration(getEnvAsInt(ENGINE_PRICE_MAX_AGE_HOURS, 72)) * time.Hour
+	c.Engine.QuoteMaxAge = time.Duration(getEnvAsInt(ENGINE_QUOTE_MAX_AGE_SECS, 60)) * time.Second
 	// twice a second is faster than a person reads and slower than a busy instrument prints
 	c.Engine.SummaryInterval = time.Duration(getEnvAsInt(ENGINE_SUMMARY_INTERVAL_MS, 500)) * time.Millisecond
 	c.Redis.DialTimeout = 5 * time.Second
