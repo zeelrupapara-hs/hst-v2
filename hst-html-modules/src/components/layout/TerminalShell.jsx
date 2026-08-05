@@ -5,7 +5,15 @@ import { NavTree } from "./NavTree.jsx";
 import { StatusBar } from "./StatusBar.jsx";
 import { Toolbox } from "./Toolbox.jsx";
 
-export function TerminalShell({ panel, title, nav, moduleLabel, demo }) {
+export function TerminalShell({
+  panel,
+  title,
+  nav,
+  refreshNav,
+  onNavRefresh,
+  moduleLabel,
+  demo,
+}) {
   return (
     <>
       <div className="terminal-title">
@@ -71,9 +79,9 @@ export function TerminalShell({ panel, title, nav, moduleLabel, demo }) {
 
       <div className="terminal-body">
         <div className="terminal-main">
-          <NavTree panel={panel} tree={nav} />
+          <NavTree panel={panel} tree={nav} onNavRefresh={onNavRefresh} />
           <main className="workspace module-workspace">
-            <Outlet />
+            <Outlet context={{ refreshNav: refreshNav || onNavRefresh }} />
           </main>
         </div>
         <Toolbox panel={panel} />

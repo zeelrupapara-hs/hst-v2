@@ -11,34 +11,62 @@ export function SymbolTabIntro({ children }) {
   );
 }
 
-function Field({ label, value, wide }) {
+function Field({ label, value, wide, readOnly, onChange }) {
   return (
     <>
       <label>{label}</label>
-      <input type="text" readOnly value={value ?? ""} className={wide ? "wide" : ""} />
+      <input
+        type="text"
+        readOnly={readOnly}
+        value={value ?? ""}
+        className={wide ? "wide" : ""}
+        onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+      />
     </>
   );
 }
 
-export function SymbolCommonTab({ s }) {
+export function SymbolCommonTab({ s, onFieldChange, isNew }) {
   if (!s) return null;
+  const canEdit = !!onFieldChange;
   return (
     <>
       <SymbolTabIntro>
         The common symbol parameters are set up on this tab.
       </SymbolTabIntro>
       <div className="form-grid sym-form-two-col">
-        <Field label="Symbol" value={s.symbol} />
-        <Field label="Description" value={s.description} />
-        <Field label="Exchange" value={s.exchange || "—"} />
-        <Field label="International" value={s.international || ""} />
-        <Field label="ISIN" value={s.isin || ""} />
-        <Field label="Sector" value={s.sector === 12 ? "Currency" : "Undefined"} />
-        <Field label="CFI" value={s.cfi || ""} />
-        <Field label="Industry" value="Undefined" />
-        <Field label="Digits" value={s.digits} />
-        <Field label="Spread" value={s.spread === 0 ? "off" : s.spread} />
-        <Field label="Market depth" value={s.tick_book_depth ? s.tick_book_depth : "off"} />
+        <Field
+          label="Symbol"
+          value={s.symbol}
+          readOnly={!canEdit || !isNew}
+          onChange={isNew ? (v) => onFieldChange("symbol", v) : undefined}
+        />
+        <Field
+          label="Description"
+          value={s.description}
+          readOnly={!canEdit}
+          onChange={canEdit ? (v) => onFieldChange("description", v) : undefined}
+          wide
+        />
+        <Field label="Exchange" value={s.exchange || ""} readOnly={!canEdit} onChange={canEdit ? (v) => onFieldChange("exchange", v) : undefined} />
+        <Field label="International" value={s.international || ""} readOnly />
+        <Field label="ISIN" value={s.isin || ""} readOnly />
+        <Field label="Sector" value={s.sector === 12 ? "Currency" : "Undefined"} readOnly />
+        <Field label="CFI" value={s.cfi || ""} readOnly />
+        <Field label="Industry" value="Undefined" readOnly />
+        <Field
+          label="Digits"
+          value={s.digits}
+          readOnly={!canEdit}
+          onChange={canEdit ? (v) => onFieldChange("digits", Number(v) || 0) : undefined}
+        />
+        <Field
+          label="Spread"
+          value={s.spread === 0 ? "off" : s.spread}
+          readOnly={!canEdit}
+          onChange={canEdit ? (v) => onFieldChange("spread", v === "off" ? 0 : Number(v) || 0) : undefined}
+        />
+        <Field label="Market depth" value={s.tick_book_depth ? s.tick_book_depth : "off"} readOnly />
       </div>
     </>
   );

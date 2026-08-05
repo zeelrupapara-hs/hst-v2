@@ -223,10 +223,183 @@
     3: []
   };
 
+  var datafeedModuleCatalog = {
+    1: [
+      { module: "fix44", label: "FIX 4.4", description: "QuickFIX initiator, incremental refresh by default" },
+      { module: "fix43", label: "FIX 4.3", description: "QuickFIX initiator, full refresh by default" }
+    ],
+    2: [
+      { module: "RSSNewsFeeder", label: "RSS News", description: "Poll an HTTP RSS or Atom feed" }
+    ]
+  };
+
   var datafeeds = [
-    { datafeed_id: 1, name: "MetaQuotes Demo", module: "MetaQuotes", enable: 1, feed_server: "demo.metaquotes.net:443", gateway_server: "", feed_login: 0, ticks_count: 1845230, updated_at: NOW - 60 },
-    { datafeed_id: 2, name: "LMAX Bridge", module: "LMAX", enable: 1, feed_server: "feed.lmax.example:443", gateway_server: "gw.lmax.example", feed_login: 5001, ticks_count: 923441, updated_at: NOW - 120 }
+    {
+      datafeed_id: 1, name: "FIX 4.4 Bridge", module: "fix44", enable: 1, mode: 1,
+      feed_server: "fix.broker.example:9876", gateway_server: "127.0.0.1:16387",
+      feed_login: 1001, gateway_login: 1, timeout: 60, timeout_reconnect: 5, timeout_sleep: 600, attempts_sleep: 3,
+      ticks_count: 1845230, tick_stats_count: 1845230, books_count: 42000, news_count: 0,
+      sys_connection: 1, sys_last_time: NOW - 60, updated_at: NOW - 60, symbol_count: 3
+    },
+    {
+      datafeed_id: 2, name: "FIX 4.3 Bridge", module: "fix43", enable: 1, mode: 1,
+      feed_server: "fix43.broker.example:9876", gateway_server: "",
+      feed_login: 1002, gateway_login: 0, timeout: 60, timeout_reconnect: 5, timeout_sleep: 600, attempts_sleep: 3,
+      ticks_count: 512000, tick_stats_count: 512000, books_count: 0, news_count: 0,
+      sys_connection: 1, sys_last_time: NOW - 120, updated_at: NOW - 120, symbol_count: 2
+    },
+    {
+      datafeed_id: 3, name: "Market News RSS", module: "RSSNewsFeeder", enable: 1, mode: 2,
+      feed_server: "https://news.example.com/rss.xml", gateway_server: "",
+      feed_login: 0, gateway_login: 0, timeout: 60, timeout_reconnect: 5, timeout_sleep: 600, attempts_sleep: 3,
+      ticks_count: 0, tick_stats_count: 0, books_count: 0, news_count: 842,
+      sys_connection: 1, sys_last_time: NOW - 45, updated_at: NOW - 45, symbol_count: 0
+    }
   ];
+
+  var datafeedDetails = {
+    1: {
+      feed_password: "", gateway_password: "", company: "Broker LP", issuer: "FIX",
+      allow_import_symbols: 0,
+      params: [
+        { param_id: 1, param_key: "Quotes Delay", type: 0, value: "0", priority: 0 },
+        { param_id: 2, param_key: "SenderCompID", type: 0, value: "HSTBRIDGE", priority: 1 },
+        { param_id: 3, param_key: "TargetCompID", type: 0, value: "LPFIX", priority: 2 }
+      ],
+      feed_symbols: [
+        { feed_symbol_id: 1, symbol: "Forex\\*", exclude: 0 },
+        { feed_symbol_id: 2, symbol: "Metals\\*", exclude: 0 }
+      ],
+      translates: [
+        { translate_id: 1, symbol: "EURUSD", source: "EUR/USD", bid_markup: 0, ask_markup: 0, digits: 5 }
+      ]
+    },
+    2: {
+      feed_password: "", gateway_password: "", company: "Broker LP", issuer: "FIX",
+      allow_import_symbols: 1,
+      params: [
+        { param_id: 4, param_key: "Quotes Delay", type: 0, value: "0", priority: 0 },
+        { param_id: 5, param_key: "SenderCompID", type: 0, value: "HSTBRIDGE43", priority: 1 },
+        { param_id: 6, param_key: "TargetCompID", type: 0, value: "LPFIX43", priority: 2 }
+      ],
+      feed_symbols: [
+        { feed_symbol_id: 3, symbol: "Forex\\Majors\\*", exclude: 0 },
+        { feed_symbol_id: 4, symbol: "Crypto\\*", exclude: 0 }
+      ],
+      translates: []
+    },
+    3: {
+      feed_password: "", gateway_password: "", company: "Example News", issuer: "RSS",
+      allow_import_symbols: 0,
+      params: [
+        { param_id: 5, param_key: "News Category", type: 0, value: "Market", priority: 0 },
+        { param_id: 6, param_key: "News Request Period", type: 1, value: "300", priority: 1 },
+        { param_id: 7, param_key: "Language", type: 0, value: "en", priority: 2 }
+      ],
+      feed_symbols: [],
+      translates: []
+    }
+  };
+
+  function listDatafeedModules(mode) {
+    var m = Number(mode) || 1;
+    return (datafeedModuleCatalog[m] || datafeedModuleCatalog[1]).slice();
+  }
+
+  function datafeedDetail(id) {
+    var num = Number(id);
+    var base = datafeeds.find(function (d) { return d.datafeed_id === num; });
+    if (!base) return null;
+    var extra = datafeedDetails[num] || {
+      feed_password: "", gateway_password: "", company: "", issuer: "",
+      allow_import_symbols: 0, params: [], feed_symbols: [], translates: []
+    };
+    return Object.assign({}, base, extra, {
+      params: (extra.params || []).slice(),
+      feed_symbols: (extra.feed_symbols || []).slice(),
+      translates: (extra.translates || []).slice()
+    });
+  }
+
+  function getDatafeed(id) {
+    return datafeedDetail(id);
+  }
+
+  function createDatafeed(data) {
+    var nextId = datafeeds.reduce(function (m, d) {
+      return Math.max(m, Number(d.datafeed_id) || 0);
+    }, 0) + 1;
+    var row = {
+      datafeed_id: nextId,
+      name: String(data.name || "New Feed").trim(),
+      module: data.module || "fix44",
+      enable: data.enable != null ? data.enable : 1,
+      mode: data.mode != null ? data.mode : 1,
+      feed_server: data.feed_server || "",
+      gateway_server: data.gateway_server || "",
+      feed_login: data.feed_login || 0,
+      gateway_login: data.gateway_login || 0,
+      timeout: data.timeout != null ? data.timeout : 60,
+      timeout_reconnect: data.timeout_reconnect != null ? data.timeout_reconnect : 5,
+      timeout_sleep: data.timeout_sleep != null ? data.timeout_sleep : 600,
+      attempts_sleep: data.attempts_sleep != null ? data.attempts_sleep : 3,
+      ticks_count: 0, tick_stats_count: 0, books_count: 0, news_count: 0,
+      sys_connection: 0, sys_last_time: 0, updated_at: NOW, symbol_count: 0
+    };
+    datafeeds.push(row);
+    datafeedDetails[nextId] = {
+      feed_password: data.feed_password || "",
+      gateway_password: data.gateway_password || "",
+      company: data.company || "",
+      issuer: data.issuer || "",
+      allow_import_symbols: data.allow_import_symbols || 0,
+      params: (data.params || []).slice(),
+      feed_symbols: (data.feed_symbols || []).slice(),
+      translates: (data.translates || []).slice()
+    };
+    return row;
+  }
+
+  function updateDatafeed(id, patch) {
+    var num = Number(id);
+    var idx = datafeeds.findIndex(function (d) { return d.datafeed_id === num; });
+    if (idx < 0) return null;
+    Object.assign(datafeeds[idx], patch, { updated_at: NOW });
+    if (patch.params || patch.feed_symbols || patch.translates || patch.feed_password != null) {
+      if (!datafeedDetails[num]) {
+        datafeedDetails[num] = { params: [], feed_symbols: [], translates: [] };
+      }
+      Object.assign(datafeedDetails[num], patch);
+    }
+    if (patch.feed_symbols) {
+      datafeeds[idx].symbol_count = patch.feed_symbols.length;
+    }
+    return datafeedDetail(num);
+  }
+
+  function deleteDatafeeds(ids) {
+    var set = {};
+    (ids || []).forEach(function (id) { set[Number(id)] = true; });
+    var before = datafeeds.length;
+    datafeeds = datafeeds.filter(function (d) { return !set[d.datafeed_id]; });
+    return before - datafeeds.length;
+  }
+
+  function moveDatafeedInList(id, direction) {
+    var num = Number(id);
+    var idx = datafeeds.findIndex(function (d) { return d.datafeed_id === num; });
+    if (idx < 0) return false;
+    var swap = direction === "up" ? idx - 1 : idx + 1;
+    if (swap < 0 || swap >= datafeeds.length) return false;
+    var tmp = datafeeds[idx];
+    datafeeds[idx] = datafeeds[swap];
+    datafeeds[swap] = tmp;
+    return true;
+  }
+
+  function setDatafeedEnable(id, enable) {
+    return updateDatafeed(id, { enable: enable ? 1 : 0 });
+  }
 
   var leverages = [
     { leverage_id: 1, name: "Standard FX", flags: 0, timestamp: NOW - 864000 },
@@ -585,6 +758,7 @@
     if (key.indexOf("groups") >= 0) return findById(pool, "group_id", id) || pool[0];
     if (key.indexOf("symbols") >= 0) return symbolDetail(id);
     if (key.indexOf("routing") >= 0) return findById(pool, "routing_id", id) || pool[0];
+    if (key.indexOf("datafeeds") >= 0) return getDatafeed(id);
     if (key.indexOf("deals") >= 0) return findById(deals, "deal_id", id) || deals[0];
     if (key.indexOf("orders") >= 0) return findById(orders, "order_id", id) || orders[0];
     if (key.indexOf("positions") >= 0) return findById(positions, "position_id", id) || positions[0];
@@ -635,6 +809,13 @@
     getSymbolSessions: getSymbolSessions,
     updateSymbol: updateSymbol,
     symbolDetail: symbolDetail,
+    getDatafeed: getDatafeed,
+    createDatafeed: createDatafeed,
+    updateDatafeed: updateDatafeed,
+    deleteDatafeeds: deleteDatafeeds,
+    moveDatafeedInList: moveDatafeedInList,
+    setDatafeedEnable: setDatafeedEnable,
+    listDatafeedModules: listDatafeedModules,
     managers: managers,
     clients: clients,
     users: users,

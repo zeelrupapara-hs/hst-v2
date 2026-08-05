@@ -1,17 +1,24 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { adminNav } from "../features/navigation/adminNav.js";
 import { managerNav } from "../features/navigation/managerNav.js";
-import { fetchList } from "../lib/data.js";
+import { fetchList, fetchSymbolGroups } from "../lib/data.js";
 import { cloneNav, injectSymbolFolders } from "../lib/symbolNavTree.js";
+import { injectDatafeedItems } from "../lib/datafeedNavTree.js";
 
 /**
- * Admin navigator with symbol folders merged under Symbols (MT5 style).
+ * Admin navigator with symbol folders and data feed rows (MT5 style).
  * @param {"admin"|"manager"} panel
  * @param {string} activeFolder selected folder path when on symbols module
+ * @param {string|number} activeDatafeedId selected feed when on datafeeds module
  */
-export function useAdminNavTree(panel, activeFolder = "") {
+export function useAdminNavTree(panel, activeFolder = "", activeDatafeedId = "") {
   const base = panel === "admin" ? adminNav : managerNav;
   const [nav, setNav] = useState(() => cloneNav(base));
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  const refreshNav = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
 
   useEffect(() => {
     if (panel !== "admin") {
@@ -22,20 +29,32 @@ export function useAdminNavTree(panel, activeFolder = "") {
     let cancelled = false;
 
     (async () => {
-      const res = await fetchList({
-        endpoint: "/api/v1/symbols",
-        query: { limit: "500" },
-      });
+      const [symRes, groupRes, dfRes] = await Promise.all([
+        fetchList({
+          endpoint: "/api/v1/symbols",
+          query: { limit: "500" },
+        }),
+        fetchSymbolGroups(),
+        fetchList({
+          endpoint: "/api/v1/datafeeds",
+          query: { limit: "500" },
+        }),
+      ]);
       if (cancelled) return;
-      setNav(
-        injectSymbolFolders(cloneNav(adminNav), res.data || [], activeFolder)
+      let tree = injectSymbolFolders(
+        cloneNav(adminNav),
+        symRes.data || [],
+        activeFolder,
+        groupRes.data || []
       );
+      tree = injectDatafeedItems(tree, dfRes.data || [], activeDatafeedId);
+      setNav(tree);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [panel, activeFolder]);
+  }, [panel, activeFolder, activeDatafeedId, refreshKey]);
 
-  return nav;
+  return { nav, refreshNav };
 }

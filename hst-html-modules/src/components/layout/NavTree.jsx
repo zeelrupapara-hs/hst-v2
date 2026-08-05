@@ -1,18 +1,30 @@
 import { useState } from "react";
 import { NavLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { NavIcon } from "../ui/Icon.jsx";
+import { ContextMenu, useContextMenu } from "../ui/ContextMenu.jsx";
+import { Mt5InputDialog } from "../ui/Mt5InputDialog.jsx";
 import { resolveNavIcon } from "../../lib/icons.js";
 import { symbolNavLink } from "../../lib/symbolNavTree.js";
+import { datafeedNavLink } from "../../lib/datafeedNavTree.js";
+import { buildSymbolFolderMenu } from "../../lib/symbolContextMenu.js";
+import { createSymbolGroup } from "../../lib/data.js";
 
-function isNodeActive(node, activeModule, currentFolder) {
+function isNodeActive(node, activeModule, currentFolder, activeRecordId) {
   if (node.moduleId !== activeModule) return false;
+  if (node.datafeedId !== undefined) {
+    return String(node.datafeedId) === String(activeRecordId);
+  }
   if (node.folderPath !== undefined) {
     return currentFolder === node.folderPath;
   }
+  if (activeRecordId) return false;
   return true;
 }
 
 function nodeLink(panel, node) {
+  if (node.datafeedId !== undefined) {
+    return datafeedNavLink(panel, node.datafeedId);
+  }
   if (node.folderPath !== undefined) {
     return symbolNavLink(panel, node.folderPath);
   }
@@ -23,7 +35,10 @@ function nodeLink(panel, node) {
 }
 
 function navClass(node, isActive) {
-  return `nav-item nav-indent-${node.indent}${isActive ? " active" : ""}`;
+  const disabledFeed = node.datafeedId !== undefined && !node.enable;
+  return `nav-item nav-indent-${node.indent}${isActive ? " active" : ""}${
+    disabledFeed ? " nav-feed-disabled" : ""
+  }`;
 }
 
 function NavItemContent({ node, open, onToggleOpen }) {
@@ -43,17 +58,20 @@ function NavItemContent({ node, open, onToggleOpen }) {
   );
 }
 
-function NavItem({ panel, node }) {
+function NavItem({ panel, node, onSymbolFolderContextMenu }) {
   const navigate = useNavigate();
-  const { moduleId: activeModule } = useParams();
+  const { moduleId: activeModule, recordId: activeRecordId } = useParams();
   const [searchParams] = useSearchParams();
   const currentFolder = searchParams.get("folder") || "";
   const [open, setOpen] = useState(node.open !== false);
   const hasChildren = node.children?.length > 0;
   const isNavigable = !!node.moduleId;
-  const isActive = isNavigable && isNodeActive(node, activeModule, currentFolder);
+  const isActive =
+    isNavigable &&
+    isNodeActive(node, activeModule, currentFolder, activeRecordId);
   const linkTo = nodeLink(panel, node);
   const isSymbolFolder = node.folderPath !== undefined;
+  const linkEnd = hasChildren && node.moduleId === "datafeeds";
 
   function toggleOpen(e) {
     e.preventDefault();
@@ -68,6 +86,17 @@ function NavItem({ panel, node }) {
     }
   }
 
+  function onFolderContextMenu(e) {
+    if (!isSymbolFolder || !onSymbolFolderContextMenu) return;
+    e.preventDefault();
+    e.stopPropagation();
+    onSymbolFolderContextMenu(e, node);
+  }
+
+  const folderCtx = isSymbolFolder
+    ? { onContextMenu: onFolderContextMenu }
+    : {};
+
   if (hasChildren && !isNavigable) {
     return (
       <li className="nav-branch">
@@ -78,9 +107,16 @@ function NavItem({ panel, node }) {
           <ul>
             {node.children.map((child, i) => (
               <NavItem
-                key={child.moduleId || child.folderPath || child.label || i}
+                key={
+                  child.datafeedId ??
+                  child.moduleId ??
+                  child.folderPath ??
+                  child.label ??
+                  i
+                }
                 panel={panel}
                 node={child}
+                onSymbolFolderContextMenu={onSymbolFolderContextMenu}
               />
             ))}
           </ul>
@@ -92,9 +128,15 @@ function NavItem({ panel, node }) {
   if (hasChildren && isNavigable) {
     const RowTag = isSymbolFolder ? "div" : NavLink;
     const rowProps = isSymbolFolder
-      ? { className: navClass(node, isActive), onClick: goTo, role: "button" }
+      ? {
+          className: navClass(node, isActive),
+          onClick: goTo,
+          role: "button",
+          ...folderCtx,
+        }
       : {
           to: linkTo,
+          end: linkEnd,
           className: ({ isActive: on }) => navClass(node, on),
         };
 
@@ -111,9 +153,16 @@ function NavItem({ panel, node }) {
           <ul>
             {node.children.map((child, i) => (
               <NavItem
-                key={child.moduleId || child.folderPath || child.label || i}
+                key={
+                  child.datafeedId ??
+                  child.moduleId ??
+                  child.folderPath ??
+                  child.label ??
+                  i
+                }
                 panel={panel}
                 node={child}
+                onSymbolFolderContextMenu={onSymbolFolderContextMenu}
               />
             ))}
           </ul>
@@ -130,6 +179,7 @@ function NavItem({ panel, node }) {
             className={navClass(node, isActive)}
             onClick={goTo}
             role="button"
+            {...folderCtx}
           >
             <NavItemContent node={node} open={open} />
           </div>
@@ -141,6 +191,7 @@ function NavItem({ panel, node }) {
       <li>
         <NavLink
           to={linkTo}
+          end={linkEnd}
           className={({ isActive: on }) => navClass(node, on)}
           onClick={(e) => e.stopPropagation()}
         >
@@ -161,15 +212,116 @@ function NavItem({ panel, node }) {
   );
 }
 
-export function NavTree({ panel, tree }) {
+export function NavTree({ panel, tree, onNavRefresh }) {
+  const navigate = useNavigate();
+  const { menu, show, close } = useContextMenu();
+  const [toast, setToast] = useState(null);
+  const [groupDialog, setGroupDialog] = useState(null);
+  const [groupName, setGroupName] = useState("");
+  const [groupError, setGroupError] = useState("");
+
+  function showToast(msg) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 2800);
+  }
+
+  function openGroupDialog(node) {
+    const folderPath = node.folderPath ?? "";
+    setGroupName("");
+    setGroupError("");
+    setGroupDialog({
+      parentPath: folderPath,
+      parentLabel: node.label,
+      title: folderPath ? `Add group under ${node.label}` : "Add symbol group",
+      label: folderPath ? "Subfolder name:" : "Group name:",
+    });
+  }
+
+  function closeGroupDialog() {
+    setGroupDialog(null);
+    setGroupName("");
+    setGroupError("");
+  }
+
+  async function submitGroupDialog() {
+    if (!groupDialog) return;
+    const name = groupName.trim();
+    if (!name) {
+      setGroupError("Group name is required");
+      return;
+    }
+    if (/[\\\/]/.test(name)) {
+      setGroupError("Name cannot contain \\ or /");
+      return;
+    }
+    const res = await createSymbolGroup(groupDialog.parentPath, name);
+    if (!res.data) {
+      setGroupError("A group with this name already exists here");
+      return;
+    }
+    closeGroupDialog();
+    onNavRefresh?.();
+    navigate(symbolNavLink(panel, res.data));
+    showToast(`Created group "${name}"`);
+  }
+
+  function onSymbolFolderContextMenu(e, node) {
+    const folderPath = node.folderPath ?? "";
+    const items = buildSymbolFolderMenu({
+      folderPath,
+      folderLabel: node.label,
+      toast: showToast,
+      handlers: {
+        add: () => {
+          close();
+          openGroupDialog(node);
+        },
+        edit: () => navigate(symbolNavLink(panel, folderPath)),
+        delete: () =>
+          showToast("Delete folder — remove all symbols in this group first"),
+        sort: () =>
+          showToast("Sort Alphabetically — server-side sort not implemented"),
+      },
+    });
+    show(e, items);
+  }
+
   return (
-    <aside className="navigator">
+    <aside className="navigator" onClick={close}>
       <div className="nav-header">Navigator</div>
       <ul className="nav-tree">
         {tree.map((node, i) => (
-          <NavItem key={node.label || node.moduleId || i} panel={panel} node={node} />
+          <NavItem
+            key={node.label || node.moduleId || i}
+            panel={panel}
+            node={node}
+            onSymbolFolderContextMenu={onSymbolFolderContextMenu}
+          />
         ))}
       </ul>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          items={menu.items}
+          onClose={close}
+        />
+      )}
+      {groupDialog && (
+        <Mt5InputDialog
+          title={groupDialog.title}
+          label={groupDialog.label}
+          value={groupName}
+          onChange={(v) => {
+            setGroupName(v);
+            if (groupError) setGroupError("");
+          }}
+          onOk={submitGroupDialog}
+          onCancel={closeGroupDialog}
+          error={groupError}
+        />
+      )}
+      {toast && <div className="ctx-toast show">{toast}</div>}
     </aside>
   );
 }

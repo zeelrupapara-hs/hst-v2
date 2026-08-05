@@ -20,7 +20,18 @@ export function TerminalPage({ panel }) {
     panel === "admin" && moduleId === "symbols"
       ? searchParams.get("folder") || ""
       : "";
-  const nav = useAdminNavTree(panel, activeFolder);
+  const activeDatafeedId =
+    panel === "admin" &&
+    moduleId === "datafeeds" &&
+    recordId &&
+    recordId !== "new"
+      ? recordId
+      : "";
+  const { nav, refreshNav } = useAdminNavTree(
+    panel,
+    activeFolder,
+    activeDatafeedId
+  );
 
   if (!moduleId) {
     return <Navigate to={`/${panel}/${DEFAULT_MODULE[panel]}`} replace />;
@@ -35,6 +46,8 @@ export function TerminalPage({ panel }) {
       panel={panel}
       title={TITLES[panel]}
       nav={nav}
+      refreshNav={refreshNav}
+      onNavRefresh={refreshNav}
       moduleLabel={moduleLabel}
       demo={demo}
     />

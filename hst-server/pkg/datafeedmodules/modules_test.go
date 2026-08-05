@@ -9,7 +9,7 @@ import (
 )
 
 func TestValidateQuoteModules(t *testing.T) {
-	for _, mod := range []string{"fix44", "FIXFeeder", "QuoteSimulator", "simulator"} {
+	for _, mod := range []string{"fix44", "FIXFeeder", "fix43", "fix_43"} {
 		if err := datafeedmodules.Validate(mod, model.FeederFlags_quotes); err != nil {
 			t.Fatalf("%q: %v", mod, err)
 		}
@@ -48,7 +48,7 @@ func TestCanonical(t *testing.T) {
 
 func TestOptions(t *testing.T) {
 	opts := datafeedmodules.Options(model.FeederFlags_quotes)
-	if len(opts) != 3 {
+	if len(opts) != 2 {
 		t.Fatalf("got %d quote options", len(opts))
 	}
 	opts = datafeedmodules.Options(model.FeederFlags_news)

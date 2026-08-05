@@ -5,6 +5,7 @@ import { useSymbolSettings } from "../../hooks/useSymbolSettings.js";
 import { useDialogDrag } from "../../hooks/useDialogDrag.js";
 import { symbolNavLink } from "../../lib/symbolNavTree.js";
 import { symbolFolder } from "../../lib/symbolTree.js";
+import { isNewSymbolId } from "../../lib/symbolDraft.js";
 import { SYMBOL_TABS } from "./SymbolTabPanels.jsx";
 import { SymbolSessionsTab } from "./SymbolSessionsTab.jsx";
 
@@ -12,14 +13,19 @@ import { SymbolSessionsTab } from "./SymbolSessionsTab.jsx";
 export function SymbolSettingsModule({ symbolId, onClose }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const folderPath = searchParams.get("folder") || "";
+  const isNew = isNewSymbolId(symbolId);
   const [activeTab, setActiveTab] = useState("common");
   const { offset, onTitlePointerDown } = useDialogDrag(symbolId);
   const {
     symbol,
+    isNew: creating,
+    updateField,
     updateSessions,
     updateTimeLimits,
     saveAll,
-  } = useSymbolSettings(symbolId);
+    toast,
+  } = useSymbolSettings(symbolId, folderPath);
 
   useEffect(() => {
     setActiveTab("common");
@@ -37,9 +43,14 @@ export function SymbolSettingsModule({ symbolId, onClose }) {
   }
 
   async function handleOk() {
-    await saveAll();
+    const saved = await saveAll();
+    if (creating && !saved) return;
     close();
   }
+
+  const titlePath = creating
+    ? folderPath || "New"
+    : symbol?.path || "…";
 
   return (
     <div
@@ -59,7 +70,7 @@ export function SymbolSettingsModule({ symbolId, onClose }) {
           draggable
           onTitlePointerDown={onTitlePointerDown}
           className="sym-config-window"
-          title={`Symbol: ${symbol?.path || "…"}`}
+          title={`Symbol: ${titlePath}`}
           tabs={
             <div className="config-tabs sym-config-tabs">
               {SYMBOL_TABS.map((tab) => (
@@ -108,12 +119,21 @@ export function SymbolSettingsModule({ symbolId, onClose }) {
                     onUpdateTimeLimits={updateTimeLimits}
                   />
                 )
+              ) : tab.id === "common" ? (
+                tab.Panel && (
+                  <tab.Panel
+                    s={symbol}
+                    onFieldChange={updateField}
+                    isNew={creating}
+                  />
+                )
               ) : (
                 tab.Panel && <tab.Panel s={symbol} />
               )}
             </div>
           ))}
         </Mt5ConfigDialog>
+        {toast && <div className="module-toast sym-settings-toast">{toast}</div>}
       </div>
     </div>
   );

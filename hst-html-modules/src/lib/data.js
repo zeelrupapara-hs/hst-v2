@@ -97,6 +97,113 @@ export async function saveSymbol(id, patch) {
   return { ok: true, data, elapsed: 0, demo: true };
 }
 
+export async function deleteSymbols(ids) {
+  const mock = getMock();
+  const count = mock?.deleteSymbols?.(ids) ?? 0;
+  return { ok: true, count, elapsed: 0, demo: true };
+}
+
+export async function createSymbol(folder, name, description) {
+  const mock = getMock();
+  const data = mock?.createSymbol?.(folder, name, description) ?? null;
+  return { ok: !!data, data, elapsed: 0, demo: true };
+}
+
+export async function moveSymbol(id, direction) {
+  const mock = getMock();
+  const ok = mock?.moveSymbolInList?.(id, direction) ?? false;
+  return { ok, elapsed: 0, demo: true };
+}
+
+export async function fetchSymbolGroups() {
+  const mock = getMock();
+  return {
+    ok: true,
+    data: mock?.listSymbolGroups?.() ?? [],
+    elapsed: 0,
+    demo: true,
+  };
+}
+
+export async function createSymbolGroup(parentPath, name) {
+  const mock = getMock();
+  const path = mock?.createSymbolGroup?.(parentPath, name) ?? null;
+  return { ok: !!path, data: path, elapsed: 0, demo: true };
+}
+
+export async function fetchDatafeed(id) {
+  const mock = getMock();
+  if (isDemoMode() || !mock) {
+    return { ok: true, data: mock?.getDatafeed?.(id) ?? null, elapsed: 0, demo: true };
+  }
+  const res = await get("/api/v1/datafeeds/" + encodeURIComponent(id));
+  if (!res.ok) {
+    return {
+      ok: true,
+      data: mock.getDatafeed(id),
+      elapsed: res.elapsed,
+      demo: true,
+      fallback: res.status,
+    };
+  }
+  return res;
+}
+
+export async function saveDatafeed(id, patch) {
+  const mock = getMock();
+  const data = mock?.updateDatafeed?.(id, patch) ?? patch;
+  return { ok: true, data, elapsed: 0, demo: true };
+}
+
+export async function deleteDatafeeds(ids) {
+  const mock = getMock();
+  const count = mock?.deleteDatafeeds?.(ids) ?? 0;
+  return { ok: true, count, elapsed: 0, demo: true };
+}
+
+export async function createDatafeed(data) {
+  const mock = getMock();
+  const created = mock?.createDatafeed?.(data) ?? null;
+  return { ok: !!created, data: created, elapsed: 0, demo: true };
+}
+
+export async function moveDatafeed(id, direction) {
+  const mock = getMock();
+  const ok = mock?.moveDatafeedInList?.(id, direction) ?? false;
+  return { ok, elapsed: 0, demo: true };
+}
+
+export async function setDatafeedEnable(id, enable) {
+  const mock = getMock();
+  const data = mock?.setDatafeedEnable?.(id, enable) ?? null;
+  return { ok: !!data, data, elapsed: 0, demo: true };
+}
+
+export async function fetchDatafeedModules(mode = 1) {
+  const mock = getMock();
+  if (isDemoMode() || !mock) {
+    return {
+      ok: true,
+      data: mock?.listDatafeedModules?.(mode) ?? [],
+      elapsed: 0,
+      demo: true,
+    };
+  }
+  const path =
+    "/api/v1/datafeeds/modules" + buildQuery({ mode: String(mode) });
+  const res = await get(path);
+  if (!res.ok) {
+    return {
+      ok: true,
+      data: mock?.listDatafeedModules?.(mode) ?? [],
+      elapsed: res.elapsed,
+      demo: true,
+      fallback: res.status,
+    };
+  }
+  return res;
+}
+
 export function getSymbolSessionsForList(symbolId) {
   const mock = getMock();
   return mock?.getSymbolSessions?.(symbolId) ?? [];

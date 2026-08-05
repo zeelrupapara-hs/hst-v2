@@ -30,15 +30,14 @@ export function topType(path) {
  * Does NOT add symbol names as nodes (admin MT5: symbols appear in the table only).
  *
  * @param {Array<{ path?: string }>} symbols
+ * @param {string[]} [extraFolderPaths] empty groups persisted without symbols yet
  * @returns {SymbolTreeNode}
  */
-export function buildFolderTree(symbols) {
+export function buildFolderTree(symbols, extraFolderPaths = []) {
   const root = { name: "All symbols", path: "", children: {}, isRoot: true };
 
-  for (const row of symbols || []) {
-    const folder = symbolFolder(row.path || "");
-    if (!folder) continue;
-
+  function addFolderPath(folder) {
+    if (!folder) return;
     const parts = folder.split("\\").filter(Boolean);
     let node = root;
     let acc = "";
@@ -50,6 +49,13 @@ export function buildFolderTree(symbols) {
       }
       node = node.children[part];
     }
+  }
+
+  for (const row of symbols || []) {
+    addFolderPath(symbolFolder(row.path || ""));
+  }
+  for (const folder of extraFolderPaths || []) {
+    addFolderPath(folder);
   }
 
   return root;

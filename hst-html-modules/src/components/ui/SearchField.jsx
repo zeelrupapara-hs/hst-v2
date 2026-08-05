@@ -1,4 +1,10 @@
-export function SearchField({ value, onChange, onSubmit, placeholder = "Search…" }) {
+export function SearchField({
+  value,
+  onChange,
+  onSubmit,
+  placeholder = "Search…",
+  inputProps,
+}) {
   return (
     <div className="filter-bar">
       <label>Search</label>
@@ -8,6 +14,7 @@ export function SearchField({ value, onChange, onSubmit, placeholder = "Search�
         onChange={(e) => onChange(e.target.value)}
         onKeyDown={(e) => e.key === "Enter" && onSubmit?.()}
         placeholder={placeholder}
+        {...inputProps}
       />
     </div>
   );

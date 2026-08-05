@@ -53,9 +53,13 @@ function markOpenAlongPath(node, activeFolder) {
  * @param {Array} nav
  * @param {Array<{ path?: string }>} symbols
  * @param {string} [activeFolder]
+ * @param {string[]} [extraFolderPaths]
  */
-export function injectSymbolFolders(nav, symbols, activeFolder = "") {
-  const root = annotateTreeCounts(buildFolderTree(symbols), symbols);
+export function injectSymbolFolders(nav, symbols, activeFolder = "", extraFolderPaths = []) {
+  const root = annotateTreeCounts(
+    buildFolderTree(symbols, extraFolderPaths),
+    symbols
+  );
 
   function walk(nodes) {
     return nodes.map((node) => {

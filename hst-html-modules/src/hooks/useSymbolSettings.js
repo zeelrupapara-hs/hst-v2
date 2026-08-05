@@ -1,19 +1,28 @@
 import { useCallback, useEffect, useState } from "react";
-import { fetchSymbol, saveSymbol } from "../lib/data.js";
+import { createSymbol, fetchSymbol, saveSymbol } from "../lib/data.js";
 import { mergeDaySessions } from "../lib/symbolSessions.js";
 import { statusMessage } from "../lib/formatters.js";
+import { isNewSymbolId, newSymbolDraft } from "../lib/symbolDraft.js";
+import { symbolFolder } from "../lib/symbolTree.js";
 
-export function useSymbolSettings(symbolId) {
+export function useSymbolSettings(symbolId, folderPath = "") {
+  const isNew = isNewSymbolId(symbolId);
   const [symbol, setSymbol] = useState(null);
   const [apiState, setApiState] = useState({
-    loading: true,
+    loading: !isNew,
     demo: true,
-    message: "…",
+    message: isNew ? "New symbol" : "…",
   });
   const [toast, setToast] = useState(null);
 
   const load = useCallback(async () => {
     if (!symbolId) return null;
+    if (isNew) {
+      const draft = newSymbolDraft(folderPath);
+      setSymbol(draft);
+      setApiState({ loading: false, demo: true, message: "New symbol" });
+      return draft;
+    }
     setApiState({ loading: true, demo: true, message: "Loading…" });
     const res = await fetchSymbol(symbolId);
     setSymbol(res.data);
@@ -24,19 +33,31 @@ export function useSymbolSettings(symbolId) {
         statusMessage("Symbol", res, 1) + (res.fallback ? " (API fallback)" : ""),
     });
     return res.data;
-  }, [symbolId]);
+  }, [symbolId, folderPath, isNew]);
 
   useEffect(() => {
     load();
   }, [load]);
 
+  const updateField = useCallback((key, value) => {
+    setSymbol((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, [key]: value };
+      if (key === "symbol") {
+        const folder = folderPath || symbolFolder(prev.path || "");
+        next.path = folder ? `${folder}\\${value}` : value;
+      }
+      return next;
+    });
+  }, [folderPath]);
+
   const persist = useCallback(
-    async (patch) => {
-      const res = await saveSymbol(symbolId, patch);
+    async (id, patch) => {
+      const res = await saveSymbol(id, patch);
       if (res.data) setSymbol(res.data);
       return res.data;
     },
-    [symbolId]
+    []
   );
 
   const updateSessions = useCallback(
@@ -49,33 +70,68 @@ export function useSymbolSettings(symbolId) {
         tradeWins,
         separate
       );
-      await persist({ sessions: merged });
+      if (isNew) {
+        setSymbol((s) => ({ ...s, sessions: merged }));
+        return;
+      }
+      await persist(symbolId, { sessions: merged });
     },
-    [symbol, persist]
+    [symbol, isNew, persist, symbolId]
   );
 
   const updateTimeLimits = useCallback(
     async (enabled, timeStart, timeExpiration) => {
-      await persist({
+      const patch = {
         time_start: enabled ? timeStart : 0,
         time_expiration: enabled ? timeExpiration : 0,
-      });
+      };
+      if (isNew) {
+        setSymbol((s) => ({ ...s, ...patch }));
+        return;
+      }
+      await persist(symbolId, patch);
     },
-    [persist]
+    [isNew, persist, symbolId]
   );
 
   const saveAll = useCallback(async () => {
-    if (!symbol) return;
-    await persist(symbol);
+    if (!symbol) return null;
+    if (isNew) {
+      const name = String(symbol.symbol || "").trim();
+      if (!name) {
+        setToast("Symbol name is required");
+        setTimeout(() => setToast(null), 3000);
+        return null;
+      }
+      const folder = folderPath || symbolFolder(symbol.path || "");
+      const created = await createSymbol(
+        folder,
+        name,
+        symbol.description || name
+      );
+      if (!created.data) return null;
+      const saved = await persist(created.data.symbol_id, {
+        ...symbol,
+        symbol: name,
+        path: created.data.path,
+      });
+      setToast("Symbol created");
+      setTimeout(() => setToast(null), 3000);
+      return saved;
+    }
+    await persist(symbolId, symbol);
     setToast("Symbol settings saved");
     setTimeout(() => setToast(null), 3000);
-  }, [symbol, persist]);
+    return symbol;
+  }, [symbol, isNew, folderPath, persist, symbolId]);
 
   return {
     symbol,
+    isNew,
     apiState,
     toast,
     reload: load,
+    updateField,
     updateSessions,
     updateTimeLimits,
     saveAll,

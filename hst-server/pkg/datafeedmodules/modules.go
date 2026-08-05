@@ -37,12 +37,6 @@ var (
 			description: "QuickFIX initiator, full refresh by default",
 			aliases:     aliasSet("fix43", "fix_43", "fix4.3"),
 		},
-		{
-			canonical:   "QuoteSimulator",
-			label:       "Quote Simulator",
-			description: "Synthetic ticks for local development",
-			aliases:     aliasSet("QuoteSimulator", "SimulatorFeeder", "simulator"),
-		},
 	}
 	newsModules = []moduleDef{
 		{

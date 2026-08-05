@@ -6,6 +6,7 @@ import { LegacyModuleFrame } from "./LegacyModuleFrame.jsx";
 import { ListModule } from "./ListModule.jsx";
 import { SettingsModule } from "./SettingsModule.jsx";
 import { SplitModule } from "./SplitModule.jsx";
+import { DatafeedsModule } from "../datafeeds/DatafeedsModule.jsx";
 import { SymbolSettingsModule } from "../symbols/SymbolSettingsModule.jsx";
 
 export function ModuleView({ panel, moduleId, recordId }) {
@@ -23,8 +24,16 @@ export function ModuleView({ panel, moduleId, recordId }) {
     return <SplitModule config={def} panel={panel} moduleId={moduleId} />;
   }
 
+  if (recordId && def.detailKind === "datafeed" && def.type === "split") {
+    return <DatafeedsModule config={def} panel={panel} moduleId={moduleId} />;
+  }
+
   if (recordId && def.detailKind === "symbol") {
-    return <SymbolSettingsModule symbolId={recordId} />;
+    return (
+      <div className="module-root module-center-host">
+        <SymbolSettingsModule symbolId={recordId} />
+      </div>
+    );
   }
 
   if (recordId) {
@@ -45,6 +54,9 @@ export function ModuleView({ panel, moduleId, recordId }) {
   }
 
   if (def.type === "split") {
+    if (def.detailKind === "datafeed") {
+      return <DatafeedsModule config={def} panel={panel} moduleId={moduleId} />;
+    }
     return <SplitModule config={def} panel={panel} moduleId={moduleId} />;
   }
 

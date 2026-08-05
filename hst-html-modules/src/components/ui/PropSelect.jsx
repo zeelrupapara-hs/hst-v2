@@ -1,13 +1,43 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
+function normalizeOptions(options) {
+  return (options || []).map((o) =>
+    typeof o === "string" ? { value: o, label: o } : o
+  );
+}
+
 /**
- * MT5-style select: white square field + arrow; list opens downward as overlay (no layout shift).
+ * MT5-style select: white field + arrow; list opens downward as overlay.
+ * Options: string[] or { value, label, description? }[]
  */
-export function PropSelect({ value, options, onChange, wide, narrow }) {
+export function PropSelect({
+  value,
+  options,
+  onChange,
+  wide,
+  narrow,
+  fill,
+  disabled,
+  initialOpen,
+  className = "",
+}) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const rootRef = useRef(null);
+  const items = normalizeOptions(options);
+  const current =
+    items.find((o) => String(o.value) === String(value)) ?? items[0];
+  const display = current?.label ?? value ?? "";
+
+  useEffect(() => {
+    if (!initialOpen || disabled) return;
+    const el = rootRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    setPos({ top: r.bottom, left: r.left, width: r.width });
+    setOpen(true);
+  }, [initialOpen, disabled]);
 
   useEffect(() => {
     if (!open) return;
@@ -31,6 +61,7 @@ export function PropSelect({ value, options, onChange, wide, narrow }) {
   }, [open]);
 
   function openMenu(e) {
+    if (disabled) return;
     e.stopPropagation();
     const el = rootRef.current;
     if (!el) return;
@@ -40,7 +71,8 @@ export function PropSelect({ value, options, onChange, wide, narrow }) {
   }
 
   function pick(opt) {
-    onChange(opt);
+    if (disabled) return;
+    onChange?.(opt.value);
     setOpen(false);
   }
 
@@ -48,6 +80,9 @@ export function PropSelect({ value, options, onChange, wide, narrow }) {
     "prop-select",
     wide && "prop-select-wide",
     narrow && "prop-select-narrow",
+    fill && "prop-select-fill",
+    disabled && "prop-select-disabled",
+    className,
   ]
     .filter(Boolean)
     .join(" ");
@@ -56,16 +91,20 @@ export function PropSelect({ value, options, onChange, wide, narrow }) {
     <>
       <div ref={rootRef} className={cls} onClick={(e) => e.stopPropagation()}>
         <div className="prop-select-box">
-          <span className="prop-select-value">{value}</span>
+          <span className="prop-select-value" title={display}>
+            {display}
+          </span>
           <button
             type="button"
             className="prop-select-btn"
             aria-label="Open list"
+            disabled={disabled}
             onClick={openMenu}
           />
         </div>
       </div>
       {open &&
+        !disabled &&
         pos &&
         createPortal(
           <ul
@@ -77,16 +116,19 @@ export function PropSelect({ value, options, onChange, wide, narrow }) {
               minWidth: pos.width,
             }}
           >
-            {options.map((opt) => (
+            {items.map((opt) => (
               <li
-                key={opt}
-                className={opt === value ? "sel" : undefined}
+                key={String(opt.value)}
+                className={
+                  String(opt.value) === String(value) ? "sel" : undefined
+                }
+                title={opt.description || undefined}
                 onMouseDown={(e) => {
                   e.preventDefault();
                   pick(opt);
                 }}
               >
-                {opt}
+                {opt.label}
               </li>
             ))}
           </ul>,

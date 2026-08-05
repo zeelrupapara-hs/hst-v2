@@ -159,22 +159,16 @@ export const adminModules = {
     columns: adminDealCols(),
   },
   datafeeds: {
-    type: "list",
+    type: "split",
     title: "Data feeds",
     endpoint: "/api/v1/datafeeds",
     query: { limit: "500" },
     idKey: "datafeed_id",
-    searchPlaceholder: "Name, module…",
-    columns: [
-      { key: "datafeed_id", label: "ID" },
-      { key: "name", label: "Name" },
-      { key: "module", label: "Module" },
-      { key: "enable", label: "Enable" },
-      { key: "feed_server", label: "Feed server" },
-      { key: "gateway_server", label: "Gateway" },
-      { key: "ticks_count", label: "Ticks" },
-      tsCol("updated_at", "Updated"),
-    ],
+    editLabel: "✎ Data Feed Settings…",
+    detailKind: "datafeed",
+    searchPlaceholder: "Name, module, server…",
+    note:
+      "Data feeds supply quotes, market depth, and news to the history server. List order defines priority.",
   },
   routing: {
     type: "list",

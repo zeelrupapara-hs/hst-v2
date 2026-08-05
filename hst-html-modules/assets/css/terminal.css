@@ -469,6 +469,8 @@ html, body {
 
 .module-split-root {
   overflow: hidden;
+  flex: 1;
+  min-height: 0;
 }
 
 .module-toolbar {
@@ -525,6 +527,354 @@ html, body {
 .data-table tbody tr:hover:not(.selected) { background: #e8f0fe; }
 
 /* Split view: nav tree + table (Symbols, Groups) */
+.df-table-pane {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+}
+
+.df-table-pane .table-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+.df-table { width: 100%; }
+
+.sym-fieldset {
+  margin: 10px 12px 0;
+  padding: 8px 10px 10px;
+  border: 1px solid var(--table-border);
+}
+
+.sym-fieldset legend {
+  font-size: 11px;
+  padding: 0 4px;
+}
+
+.sym-sub-table-wrap {
+  margin: 8px 12px 0;
+  max-height: 220px;
+}
+
+.sym-inline-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 8px;
+  font-size: 11px;
+}
+
+.sym-tab-note {
+  margin: 8px 12px;
+}
+
+.df-config-window .config-body {
+  min-height: 320px;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.df-config-window .config-panel.active {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 280px;
+}
+
+/* MT5 data feed properties dialog — fixed 656×455 like MT5 Administrator */
+.df-config-window {
+  background: #fff;
+  border: 1px solid #0054e3;
+  min-width: 656px;
+  width: 656px;
+  max-width: 656px;
+}
+
+.df-config-window .config-title {
+  font-size: 12px;
+}
+
+.df-config-window .config-panel {
+  padding: 0;
+}
+
+.df-config-tabs {
+  background: #ece9d8;
+  border-bottom: 1px solid #aca899;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+}
+
+.df-config-tabs button {
+  background: #ece9d8;
+  border-right: 1px solid #aca899;
+  border-bottom: 1px solid #aca899;
+  margin-bottom: -1px;
+}
+
+.df-config-tabs button.active {
+  background: #fff;
+  border-bottom-color: #fff;
+  font-weight: normal;
+}
+
+.df-config-actions {
+  justify-content: center;
+  background: #ece9d8;
+  border-top: 1px solid #aca899;
+}
+
+.df-config-actions button {
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+  min-width: 80px;
+  border: 1px solid #aca899;
+}
+
+.df-tab-intro {
+  padding: 10px 14px;
+  margin: 0;
+  border-bottom: 1px solid #c0c0c0;
+  background: #fff;
+}
+
+.df-tab-intro p {
+  font-size: 11px;
+  color: #000;
+}
+
+.df-common-form {
+  padding: 10px 14px 12px;
+  background: #fff;
+}
+
+.df-common-form .df-form-pad {
+  visibility: hidden;
+}
+
+.df-common-form input.df-checkbox {
+  width: 13px;
+  height: 13px;
+  max-width: none;
+  margin: 0;
+  justify-self: start;
+}
+
+.sym-form-two-col input.df-input-wide {
+  grid-column: 2 / -1;
+  max-width: none;
+}
+
+.df-common-form .prop-select {
+  justify-self: start;
+}
+
+.df-module-pair {
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  align-items: center;
+}
+
+.df-module-pair .prop-select {
+  width: 100%;
+}
+
+.nav-feed-disabled .label {
+  color: #808080;
+}
+
+.df-network-fieldset {
+  grid-column: 1 / -1;
+  margin: 4px 0 0;
+  padding: 14px 10px 10px;
+  border-color: #808080;
+}
+
+.df-network-grid {
+  padding: 0;
+}
+
+.df-attention {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.4;
+  background: #fff8e1;
+  border: 1px solid #ffe082;
+  color: #333;
+}
+
+.df-attention-full {
+  grid-column: 1 / -1;
+}
+
+.df-timeouts-form {
+  padding: 10px 14px 12px;
+  grid-template-columns: 240px 168px;
+  gap: 6px 10px;
+  max-width: 420px;
+  background: #fff;
+}
+
+.df-timeouts-form label {
+  text-align: right;
+  font-weight: normal;
+}
+
+.df-timeouts-form input {
+  height: 22px;
+  border: 1px solid #7f9db9;
+  padding: 1px 4px;
+  font-size: 11px;
+}
+
+.df-inline-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 12px 8px 88px;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.df-table-panel {
+  display: flex;
+  flex: 1;
+  min-height: 220px;
+  background: #fff;
+}
+
+.df-table-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 8px 10px 10px;
+  flex-shrink: 0;
+}
+
+.df-table-toolbar button {
+  width: 74px;
+  height: 24px;
+  padding: 0 6px;
+  font-size: 11px;
+  border: 1px solid #aca899;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+  cursor: default;
+}
+
+.df-table-toolbar button:not(:disabled):hover {
+  background: linear-gradient(180deg, #fff 0%, #ddd9c8 100%);
+}
+
+.df-table-toolbar button:disabled {
+  color: #808080;
+  background: #ece9d8;
+}
+
+.df-table-main {
+  flex: 1;
+  min-width: 0;
+  margin: 0 12px 10px 0;
+  border: 1px solid #808080;
+  overflow: auto;
+  background: #fff;
+}
+
+.df-table-main .data-table {
+  border: none;
+}
+
+.df-table-main .data-table th,
+.df-table-main .data-table td {
+  border-color: #c0c0c0;
+}
+
+.df-table-main .data-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #ece9d8;
+  font-weight: normal;
+  border-bottom: 1px solid #808080;
+}
+
+.df-table-main tbody tr {
+  cursor: default;
+}
+
+.df-table-main tbody tr.selected td {
+  background: #316ac5;
+  color: #fff;
+}
+
+.df-table-main tbody tr.df-table-empty td {
+  color: #808080;
+  font-style: italic;
+  background: #fff;
+}
+
+.df-cell-editable {
+  cursor: default;
+}
+
+.df-sub-table td .prop-select {
+  width: 100%;
+  min-width: 0;
+}
+
+.df-cell-input {
+  width: 100%;
+  height: 20px;
+  box-sizing: border-box;
+  border: 1px solid #7f9db9;
+  padding: 0 4px;
+  font-size: 11px;
+  font-family: inherit;
+  background: #fff;
+  color: #000;
+}
+
+.df-table-main tbody tr.selected .df-cell-input {
+  background: #fff;
+  color: #000;
+}
+
+.df-table-main tbody tr.selected .prop-select-box {
+  background: #fff;
+}
+
+.df-table-main tbody tr.selected .prop-select-value {
+  color: #000;
+}
+
+.df-param-type {
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  align-items: center;
+  justify-content: center;
+  font-size: 7px;
+  font-weight: bold;
+  font-family: Tahoma, sans-serif;
+  background: linear-gradient(180deg, #e8c88a 0%, #c4a060 100%);
+  color: #fff;
+  border: 1px solid #8b6914;
+  margin-right: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.df-sub-table {
+  width: 100%;
+}
+
 .symbols-table-pane {
   flex: 1;
   min-height: 0;
@@ -540,6 +890,50 @@ html, body {
   background: #fff;
 }
 
+.mt5-input-overlay {
+  position: fixed;
+  z-index: 500;
+}
+
+.mt5-input-dialog {
+  width: 360px;
+  max-width: calc(100vw - 32px);
+  border: 1px solid var(--chrome-border);
+  background: var(--menu-bg);
+  box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.mt5-input-body {
+  padding: 12px 14px 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.mt5-input-body label {
+  font-size: 11px;
+  color: #333;
+}
+
+.mt5-input-body input {
+  width: 100%;
+  box-sizing: border-box;
+  height: 22px;
+  padding: 2px 6px;
+  border: 1px solid #7f9db9;
+  font-size: 11px;
+}
+
+.mt5-input-error {
+  margin: 0;
+  font-size: 11px;
+  color: #b00020;
+}
+
+.mt5-input-dialog .config-actions {
+  padding: 8px 10px 10px;
+  justify-content: flex-end;
+}
+
 .mt5-dialog-overlay {
   position: absolute;
   inset: 0;
@@ -547,13 +941,24 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px;
+  padding: 20px;
   overflow: auto;
-  background: rgba(236, 233, 216, 0.55);
+  background: transparent;
+  box-sizing: border-box;
+}
+
+.mt5-dialog-overlay .mt5-config-dialog {
+  min-height: 0;
+  max-height: calc(100% - 8px);
+}
+
+.mt5-dialog-overlay .df-config-window {
+  max-height: calc(100% - 8px);
 }
 
 .mt5-dialog-positioner {
   flex-shrink: 0;
+  margin: auto;
 }
 
 .config-title-draggable {
@@ -565,12 +970,22 @@ html, body {
 .nav-tree .nav-item[role="button"] {
   display: flex;
   text-decoration: none;
-  color: inherit;
+  color: var(--text);
   cursor: default;
+}
+
+.nav-tree a.nav-item.active,
+.nav-tree .nav-item[role="button"].active {
+  color: var(--select-fg);
 }
 
 .nav-tree .nav-item[role="button"] {
   cursor: pointer;
+}
+
+.nav-item.active .label,
+.nav-item.active .chevron {
+  color: var(--select-fg);
 }
 
 .nav-item.active .ico .hst-icon {
@@ -663,12 +1078,37 @@ html, body {
 
 .symbols-table { width: 100%; }
 
-.symbols-table .col-icon,
-.symbols-table td:first-child {
-  width: 28px;
-  text-align: center;
-  padding-left: 4px;
-  padding-right: 4px;
+.sym-symbol-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.sym-coin-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: inline-block;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect x='1' y='1' width='14' height='14' rx='1' fill='%23E8B923' stroke='%23C99A12' stroke-width='1'/%3E%3Ctext x='8' y='11' text-anchor='middle' fill='%23000' font-size='9' font-weight='bold' font-family='Arial'%3E%24%3C/text%3E%3C/svg%3E") center/contain no-repeat;
+}
+
+.symbols-table .col-description,
+.symbols-table th.col-description,
+.symbols-table td.col-description {
+  min-width: 12rem;
+  max-width: 28rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sym-settings-toast {
+  position: absolute;
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
 }
 
 .sym-icon-cell {
@@ -1108,6 +1548,13 @@ html, body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  position: relative;
+}
+
+.module-center-host {
+  position: relative;
+  flex: 1;
+  min-height: 0;
 }
 
 .module-split-main .table-wrap {
@@ -1773,6 +2220,24 @@ html, body {
 .prop-select-wide { width: 120px; }
 .prop-select-narrow { width: 64px; }
 
+.prop-select-fill {
+  width: 100%;
+  max-width: 148px;
+}
+
+.prop-select-fill .prop-select-box {
+  width: 100%;
+}
+
+.prop-select-disabled {
+  opacity: 0.65;
+  pointer-events: none;
+}
+
+.prop-select-disabled .prop-select-box {
+  background: #f0f0f0;
+}
+
 .prop-select-box {
   display: flex;
   height: 22px;
@@ -1941,54 +2406,72 @@ html, body {
   color: var(--text);
 }
 
-.time-hour-grid {
-  padding: 8px 10px 10px;
+.time-hour-grid,
+.time-hour-table-wrap {
+  padding: 8px 12px 12px;
+  overflow-x: auto;
 }
 
-.time-hour-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 4px;
+.time-hour-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  border: 1px solid var(--table-border);
+  background: #fff;
 }
 
-.time-hour-row.focused .time-hour-cells {
-  outline: 1px dotted var(--chrome-border);
-  outline-offset: 1px;
+.time-hour-table th,
+.time-hour-table td {
+  border: 1px solid var(--table-border);
+  padding: 0;
+  vertical-align: middle;
+  text-align: center;
+}
+
+.time-hour-table tr.focused .time-hour-label {
+  background: #e8f0fe;
 }
 
 .time-hour-label {
-  flex: 0 0 72px;
+  width: 72px;
+  min-width: 72px;
+  padding: 2px 6px;
+  font-weight: normal;
   text-align: right;
-  padding-right: 4px;
+  background: #fff;
+  white-space: nowrap;
 }
 
-.time-hour-cells {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 1px;
+.time-hour-table td:not(.time-hour-star-cell) {
+  width: 22px;
+  min-width: 22px;
+  height: 20px;
+}
+
+.time-hour-star-cell {
+  width: 24px;
+  min-width: 24px;
 }
 
 .time-hour-cell {
-  width: 22px;
+  display: block;
+  width: 100%;
   height: 20px;
   padding: 0;
-  border: 1px solid var(--chrome-border);
+  border: none;
   background: #fff;
   font-size: 9px;
   font-family: inherit;
   cursor: default;
-  line-height: 18px;
+  line-height: 20px;
   text-align: center;
 }
 
 .time-hour-cell.active {
   background: #b3d4fc;
-  border-color: #7eb6ea;
 }
 
 .time-hour-cell.time-hour-star {
-  width: 20px;
   font-weight: 700;
 }
 
@@ -1998,6 +2481,11 @@ html, body {
   gap: 8px;
   padding: 8px 12px 12px;
   border-top: 1px solid var(--table-border);
+  background: #fff;
+}
+
+.time-edit-footer button {
+  background: #fff;
 }
 
 .sym-config-tabs {

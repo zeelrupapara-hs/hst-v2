@@ -73,39 +73,46 @@ export function TimeEditDialog({ dayIndex, hours, onSave, onClose }) {
             mark working hours with the blue color.
           </p>
         </div>
-        <div className="time-hour-grid">
-          {TIME_DAY_NAMES.map((name, row) => (
-            <div
-              key={name}
-              className={`time-hour-row${focusedRow === row ? " focused" : ""}`}
-            >
-              <span className="time-hour-label">{name}:</span>
-              <div className="time-hour-cells">
+        <div className="time-hour-table-wrap">
+          <table className="time-hour-table">
+          <tbody>
+            {TIME_DAY_NAMES.map((name, row) => (
+              <tr
+                key={name}
+                className={focusedRow === row ? "focused" : undefined}
+              >
+                <th scope="row" className="time-hour-label">
+                  {name}:
+                </th>
                 {Array.from({ length: 24 }, (_, col) => (
-                  <button
-                    key={col}
-                    type="button"
-                    className={`time-hour-cell${draft[row][col] ? " active" : ""}`}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      handlePointerDown(row, col);
-                    }}
-                    onMouseEnter={() => handlePointerEnter(row, col)}
-                  >
-                    {String(col).padStart(2, "0")}
-                  </button>
+                  <td key={col}>
+                    <button
+                      type="button"
+                      className={`time-hour-cell${draft[row][col] ? " active" : ""}`}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        handlePointerDown(row, col);
+                      }}
+                      onMouseEnter={() => handlePointerEnter(row, col)}
+                    >
+                      {String(col).padStart(2, "0")}
+                    </button>
+                  </td>
                 ))}
-                <button
-                  type="button"
-                  className="time-hour-cell time-hour-star"
-                  title="Toggle all hours"
-                  onClick={() => toggleRowAll(row)}
-                >
-                  *
-                </button>
-              </div>
-            </div>
-          ))}
+                <td className="time-hour-star-cell">
+                  <button
+                    type="button"
+                    className="time-hour-cell time-hour-star"
+                    title="Toggle all hours"
+                    onClick={() => toggleRowAll(row)}
+                  >
+                    *
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
         </div>
         <div className="config-actions time-edit-footer">
           <button type="button" className="config-ok" onClick={handleOk}>
