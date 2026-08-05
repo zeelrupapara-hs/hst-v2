@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
+import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
@@ -300,6 +301,7 @@ export function RoutingModule() {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [menu, setMenu] = useState(null);
   const canEdit = session.can?.right_cfg_requests !== false;
 
   const load = () =>
@@ -328,33 +330,7 @@ export function RoutingModule() {
 
   return (
     <div className="module-root">
-      <div className="module-toolbar">
-        {canEdit && (
-          <>
-            <button type="button" onClick={() => setDialog({ id: "new" })}>Add</button>
-            <button
-              type="button"
-              disabled={selected == null}
-              onClick={() => setDialog({ id: rows[selected]?.routing_id })}
-            >
-              Edit
-            </button>
-            <button type="button" disabled={selected == null} onClick={() => onDelete(rows[selected])}>
-              Delete
-            </button>
-            <button type="button" disabled={!selected} onClick={() => move("up")}>↑</button>
-            <button
-              type="button"
-              disabled={selected == null || selected >= (rows?.length ?? 0) - 1}
-              onClick={() => move("down")}
-            >
-              ↓
-            </button>
-          </>
-        )}
-        <span className="module-note">{rows ? `${rows.length} rules, applied top-down` : "Loading…"}</span>
-      </div>
-      <div className="table-wrap">
+      <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
         <table className="data-table data-table-grid data-table-auto">
           <thead>
             <tr>
@@ -369,6 +345,7 @@ export function RoutingModule() {
                 key={row.routing_id}
                 className={selected === i ? "selected" : ""}
                 onClick={() => setSelected(i)}
+                onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ id: row.routing_id })}
               >
                 <td>

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useGroups } from "@/hooks/useGroups.js";
 import { useSession } from "@/hooks/useSession.js";
+import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { AuthMode_name, MarginMode_short } from "@/constants/groups.js";
 import { filterGroupsByFolder } from "@/lib/groupTree.js";
@@ -16,6 +17,7 @@ export function GroupsModule() {
   const folder = params.get("folder") || "";
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [menu, setMenu] = useState(null);
   const canEdit = session.can?.right_cfg_groups !== false;
 
   const rows = useMemo(
@@ -37,27 +39,7 @@ export function GroupsModule() {
 
   return (
     <div className="module-root">
-      <div className="module-toolbar">
-        {canEdit && (
-          <>
-            <button type="button" onClick={() => setDialog({ id: "new" })}>Add</button>
-            <button
-              type="button"
-              disabled={selected == null}
-              onClick={() => setDialog({ id: rows[selected]?.group_id })}
-            >
-              Edit
-            </button>
-            <button type="button" disabled={selected == null} onClick={() => onDelete(rows[selected])}>
-              Delete
-            </button>
-          </>
-        )}
-        <span className="module-note">
-          {loading ? "Loading…" : `${rows.length} groups${folder ? ` in ${folder}` : ""}`}
-        </span>
-      </div>
-      <div className="table-wrap">
+      <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
         <table className="data-table data-table-grid data-table-auto">
           <thead>
             <tr>
@@ -76,6 +58,7 @@ export function GroupsModule() {
                 key={row.group_id}
                 className={selected === i ? "selected" : ""}
                 onClick={() => setSelected(i)}
+                onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ id: row.group_id })}
               >
                 <td>
@@ -95,6 +78,19 @@ export function GroupsModule() {
           </tbody>
         </table>
       </div>
+      {menu && canEdit && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Add", onClick: () => setDialog({ id: "new" }) },
+            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ id: rows[selected]?.group_id }) },
+            "sep",
+            { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
+          ]}
+        />
+      )}
       {dialog && (
         <GroupDialog
           groupId={dialog.id}

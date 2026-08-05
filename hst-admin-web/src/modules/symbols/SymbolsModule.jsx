@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSymbols } from "@/hooks/useSymbols.js";
 import { useSession } from "@/hooks/useSession.js";
+import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { ExecMode_name } from "@/constants/symbols.js";
 import { filterSymbolsByFolder, topType } from "@/lib/symbolTree.js";
 import { deleteSymbol } from "@/api/endpoints/symbols.js";
@@ -18,6 +19,7 @@ export function SymbolsModule() {
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [menu, setMenu] = useState(null);
   const canEdit = session.can?.right_cfg_symbols !== false;
 
   const rows = useMemo(() => {
@@ -57,31 +59,7 @@ export function SymbolsModule() {
 
   return (
     <div className="module-root">
-      <div className="module-toolbar">
-        {canEdit && (
-          <>
-            <button type="button" onClick={() => setDialog({ id: "new" })}>Add</button>
-            <button
-              type="button"
-              disabled={selected == null}
-              onClick={() => setDialog({ id: rows[selected]?.symbol_id })}
-            >
-              Edit
-            </button>
-            <button
-              type="button"
-              disabled={selected == null}
-              onClick={() => onDelete(rows[selected])}
-            >
-              Delete
-            </button>
-          </>
-        )}
-        <span className="module-note">
-          {loading ? "Loading…" : `${rows.length} symbols${folder ? ` in ${folder}` : ""}`}
-        </span>
-      </div>
-      <div className="table-wrap">
+      <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
         <table className="data-table symbols-table data-table-grid data-table-auto">
           <thead>
             <tr>
@@ -98,6 +76,7 @@ export function SymbolsModule() {
                 key={row.symbol_id}
                 className={selected === i ? "selected" : ""}
                 onClick={() => setSelected(i)}
+                onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ id: row.symbol_id })}
               >
                 <td>
@@ -127,6 +106,19 @@ export function SymbolsModule() {
           }}
         />
       </div>
+      {menu && canEdit && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Add", onClick: () => setDialog({ id: "new" }) },
+            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ id: rows[selected]?.symbol_id }) },
+            "sep",
+            { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
+          ]}
+        />
+      )}
       {dialog && (
         <SymbolDialog
           symbolId={dialog.id}

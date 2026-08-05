@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
+import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
@@ -238,6 +239,7 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
                           key={i}
                           className={i === selected ? "selected" : ""}
                           onClick={() => setSelected(i)}
+                onContextMenu={() => setSelected(i)}
                           onDoubleClick={() => setEditor({ index: i })}
                         >
                           <td>{r.name}</td>
@@ -276,6 +278,7 @@ export function LeveragesModule() {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [menu, setMenu] = useState(null);
   const canEdit = session.can?.right_cfg_groups !== false;
 
   const load = () => fetchLeverages().then((res) => res.ok && setRows(res.data || []));
@@ -298,25 +301,7 @@ export function LeveragesModule() {
 
   return (
     <div className="module-root">
-      <div className="module-toolbar">
-        {canEdit && (
-          <>
-            <button type="button" onClick={() => setDialog({ id: "new" })}>Add</button>
-            <button
-              type="button"
-              disabled={selected == null}
-              onClick={() => setDialog({ id: rows[selected]?.leverage_id })}
-            >
-              Edit
-            </button>
-            <button type="button" disabled={selected == null} onClick={() => onDelete(rows[selected])}>
-              Delete
-            </button>
-          </>
-        )}
-        <span className="module-note">{rows ? `${rows.length} profiles` : "Loading…"}</span>
-      </div>
-      <div className="table-wrap">
+      <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
         <table className="data-table data-table-grid data-table-auto">
           <thead>
             <tr>
@@ -344,6 +329,19 @@ export function LeveragesModule() {
           </tbody>
         </table>
       </div>
+      {menu && canEdit && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Add", onClick: () => setDialog({ id: "new" }) },
+            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ id: rows[selected]?.leverage_id }) },
+            "sep",
+            { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
+          ]}
+        />
+      )}
       {dialog && (
         <LeverageDialog profileId={dialog.id} onClose={() => setDialog(null)} onSaved={saved} />
       )}

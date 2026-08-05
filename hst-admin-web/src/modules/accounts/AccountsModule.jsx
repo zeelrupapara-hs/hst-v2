@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
+import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { deleteUser, fetchUsers } from "@/api/endpoints/users.js";
 import { formatNs } from "@/lib/time.js";
 import { Icon } from "@/components/ui/Icon.jsx";
@@ -13,6 +14,7 @@ export function AccountsModule() {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [menu, setMenu] = useState(null);
   const canEdit = session.can?.right_acc_manager !== false;
 
   const load = () => fetchUsers().then((res) => res.ok && setRows(res.data || []));
@@ -35,25 +37,7 @@ export function AccountsModule() {
 
   return (
     <div className="module-root">
-      <div className="module-toolbar">
-        {canEdit && (
-          <>
-            <button type="button" onClick={() => setDialog({ login: "new" })}>Add</button>
-            <button
-              type="button"
-              disabled={selected == null}
-              onClick={() => setDialog({ login: rows[selected]?.login })}
-            >
-              Edit
-            </button>
-            <button type="button" disabled={selected == null} onClick={() => onDelete(rows[selected])}>
-              Delete
-            </button>
-          </>
-        )}
-        <span className="module-note">{rows ? `${rows.length} accounts` : "Loading…"}</span>
-      </div>
-      <div className="table-wrap">
+      <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
         <table className="data-table data-table-grid data-table-auto">
           <thead>
             <tr>
@@ -73,6 +57,7 @@ export function AccountsModule() {
                 key={row.login}
                 className={selected === i ? "selected" : ""}
                 onClick={() => setSelected(i)}
+                onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ login: row.login })}
               >
                 <td>
@@ -93,6 +78,19 @@ export function AccountsModule() {
           </tbody>
         </table>
       </div>
+      {menu && canEdit && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Add", onClick: () => setDialog({ login: "new" }) },
+            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ login: rows[selected]?.login }) },
+            "sep",
+            { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
+          ]}
+        />
+      )}
       {dialog && (
         <AccountDialog login={dialog.login} onClose={() => setDialog(null)} onSaved={saved} />
       )}

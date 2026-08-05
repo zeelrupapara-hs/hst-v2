@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useDatafeeds } from "@/hooks/useDatafeeds.js";
 import { useSession } from "@/hooks/useSession.js";
+import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { activateDatafeed, deleteDatafeed } from "@/api/endpoints/datafeeds.js";
 import { formatNs } from "@/lib/time.js";
 import { DatafeedDialog } from "./DatafeedDialog.jsx";
@@ -23,6 +24,7 @@ export function DatafeedsModule() {
   const highlight = Number(params.get("feed")) || null;
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [menu, setMenu] = useState(null);
   const canEdit = session.can?.right_cfg_datafeeds !== false;
 
   async function onDelete(row) {
@@ -45,28 +47,7 @@ export function DatafeedsModule() {
 
   return (
     <div className="module-root">
-      <div className="module-toolbar">
-        {canEdit && (
-          <>
-            <button type="button" onClick={() => setDialog({ id: "new" })}>Add</button>
-            <button
-              type="button"
-              disabled={selected == null}
-              onClick={() => setDialog({ id: datafeeds[selected]?.datafeed_id })}
-            >
-              Edit
-            </button>
-            <button type="button" disabled={selected == null} onClick={() => onDelete(datafeeds[selected])}>
-              Delete
-            </button>
-            <button type="button" disabled={selected == null} onClick={() => onRestart(datafeeds[selected])}>
-              Restart
-            </button>
-          </>
-        )}
-        <span className="module-note">{loading ? "Loading…" : `${datafeeds.length} data feeds`}</span>
-      </div>
-      <div className="table-wrap">
+      <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
         <table className="data-table df-table data-table-grid data-table-auto">
           <thead>
             <tr>
@@ -85,6 +66,7 @@ export function DatafeedsModule() {
                 key={row.datafeed_id}
                 className={selected === i || row.datafeed_id === highlight ? "selected" : ""}
                 onClick={() => setSelected(i)}
+                onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ id: row.datafeed_id })}
               >
                 <td>{row.name}</td>
@@ -101,6 +83,20 @@ export function DatafeedsModule() {
           </tbody>
         </table>
       </div>
+      {menu && canEdit && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Add", onClick: () => setDialog({ id: "new" }) },
+            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ id: datafeeds[selected]?.datafeed_id }) },
+            { label: "Restart", disabled: selected == null, onClick: () => onRestart(datafeeds[selected]) },
+            "sep",
+            { label: "Delete", disabled: selected == null, onClick: () => onDelete(datafeeds[selected]) },
+          ]}
+        />
+      )}
       {dialog && (
         <DatafeedDialog feedId={dialog.id} onClose={() => setDialog(null)} onSaved={saved} />
       )}

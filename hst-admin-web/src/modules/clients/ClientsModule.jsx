@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
+import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
@@ -175,6 +176,7 @@ export function ClientsModule() {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [menu, setMenu] = useState(null);
   const canEdit = session.can?.right_clients_edit !== false;
 
   const load = () => fetchClients().then((res) => res.ok && setRows(res.data || []));
@@ -197,25 +199,7 @@ export function ClientsModule() {
 
   return (
     <div className="module-root">
-      <div className="module-toolbar">
-        {canEdit && (
-          <>
-            <button type="button" onClick={() => setDialog({ id: "new" })}>Add</button>
-            <button
-              type="button"
-              disabled={selected == null}
-              onClick={() => setDialog({ id: rows[selected]?.client_id })}
-            >
-              Edit
-            </button>
-            <button type="button" disabled={selected == null} onClick={() => onDelete(rows[selected])}>
-              Delete
-            </button>
-          </>
-        )}
-        <span className="module-note">{rows ? `${rows.length} clients` : "Loading…"}</span>
-      </div>
-      <div className="table-wrap">
+      <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
         <table className="data-table data-table-grid data-table-auto">
           <thead>
             <tr>
@@ -234,6 +218,7 @@ export function ClientsModule() {
                 key={row.client_id}
                 className={selected === i ? "selected" : ""}
                 onClick={() => setSelected(i)}
+                onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ id: row.client_id })}
               >
                 <td>{row.client_id}</td>
