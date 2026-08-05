@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Group Settings</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-config-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" onclick="history.back()">← Back</button>
+    <button type="button" class="tb-btn" data-reload>↻ Reload</button>
+  </div>
+  <div class="module-content">
+    <div class="config-window full">
+      <div class="config-title">Group: <span data-field="group">…</span></div>
+      <div class="config-tabs">
+        <button type="button" class="active" data-config-tab="common">Common</button>
+        <button type="button" data-config-tab="company">Company</button>
+        <button type="button" data-config-tab="reports">Reports</button>
+        <button type="button" data-config-tab="permissions">Permissions</button>
+        <button type="button" data-config-tab="news">News</button>
+        <button type="button" data-config-tab="mail">Mail</button>
+        <button type="button" data-config-tab="trade">Trade</button>
+        <button type="button" data-config-tab="margin">Margin</button>
+      </div>
+      <div class="config-body">
+        <div class="config-panel active" data-config-panel="common">
+          <fieldset class="fieldset"><legend>Common</legend>
+            <div class="form-grid">
+              <label>Group path</label><input data-field="group" readonly>
+              <label>Name</label><input data-field="name" readonly>
+              <label>Status</label><input data-field="status" readonly>
+              <label>Currency</label><input data-field="currency" readonly>
+              <label>Currency digits</label><input data-field="currency_digits" readonly>
+              <label>Authorization</label><input data-field="auth_mode" readonly>
+              <label>Min password length</label><input data-field="auth_password_min" readonly>
+              <label>Limit orders</label><input data-field="limit_orders" readonly>
+              <label>Limit symbols</label><input data-field="limit_symbols" readonly>
+              <label>Limit positions</label><input data-field="limit_positions" readonly>
+            </div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="company">
+          <fieldset class="fieldset"><legend>Company</legend>
+            <div class="form-grid">
+              <label>Company</label><input data-field="company" readonly>
+              <label>Web page</label><input data-field="company_page" readonly>
+              <label>Email</label><input data-field="company_email" readonly>
+              <label>Support page</label><input data-field="company_support_page" readonly>
+              <label>Support email</label><input data-field="company_support_email" readonly>
+              <label>Catalog</label><input data-field="company_catalog" readonly>
+            </div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="reports">
+          <fieldset class="fieldset"><legend>Reports</legend>
+            <div class="form-grid">
+              <label>Reports mode</label><input data-field="reports_mode" readonly>
+              <label>Reports flags</label><input data-field="reports_flags" readonly>
+              <label>Reports email</label><input data-field="reports_email" readonly>
+              <label>SMTP server</label><input data-field="reports_smtp" readonly>
+              <label>SMTP login</label><input data-field="reports_smtp_login" readonly>
+            </div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="permissions">
+          <fieldset class="fieldset"><legend>Permissions</legend>
+            <div class="form-grid">
+              <label>Permission flags</label><input data-field="permission_flags" readonly>
+            </div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="news">
+          <fieldset class="fieldset"><legend>News</legend>
+            <div class="form-grid">
+              <label>News mode</label><input data-field="news_mode" readonly>
+              <label>Category</label><input data-field="news_category" readonly>
+              <label>Languages</label><input data-field="news_langs" readonly>
+            </div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="mail">
+          <fieldset class="fieldset"><legend>Internal mail</legend>
+            <div class="form-grid">
+              <label>Mail mode</label><input data-field="mail_mode" readonly>
+            </div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="trade">
+          <fieldset class="fieldset"><legend>Trade</legend>
+            <div class="form-grid">
+              <label>Trade flags</label><input data-field="trade_flags" readonly>
+              <label>Interest rate</label><input data-field="trade_interest_rate" readonly>
+              <label>Virtual credit</label><input data-field="trade_virtual_credit" readonly>
+              <label>Transfer mode</label><input data-field="trade_transfer_mode" readonly>
+              <label>Demo leverage</label><input data-field="demo_leverage" readonly>
+              <label>Demo deposit</label><input data-field="demo_deposit" readonly>
+            </div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="margin">
+          <fieldset class="fieldset"><legend>Margin</legend>
+            <div class="form-grid">
+              <label>Margin call (%)</label><input data-field="margin_call" readonly>
+              <label>Stop out (%)</label><input data-field="margin_stop_out" readonly>
+              <label>Free margin mode</label><input data-field="margin_free_mode" readonly>
+              <label>Stop out mode</label><input data-field="margin_so_mode" readonly>
+              <label>Margin mode</label><input data-field="margin_mode" readonly>
+              <label>Margin flags</label><input data-field="margin_flags" readonly>
+            </div>
+          </fieldset>
+        </div>
+      </div>
+      <div class="config-actions">
+        <button type="button">OK</button>
+        <button type="button" onclick="history.back()">Cancel</button>
+      </div>
+    </div>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootConfig({
+      title: "Group",
+      endpoint: "/api/v1/groups",
+      getId: function () { return new URLSearchParams(location.search).get("id"); },
+      fillForm: function (data, root) {
+        data.auth_mode = HSTModule.fmtAuthMode(data.auth_mode);
+        HSTModule.fillFields(root, data);
+      }
+    });
+    document.querySelector("[data-reload]").addEventListener("click", function () { location.reload(); });
+  </script>
+</body>
+</html>

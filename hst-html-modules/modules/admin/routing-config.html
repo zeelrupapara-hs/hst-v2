@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Routing Rule</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-config-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" onclick="history.back()">← Back</button>
+  </div>
+  <div class="module-content">
+    <div class="config-window full">
+      <div class="config-title">Routing: <span data-field="name">…</span></div>
+      <div class="config-tabs">
+        <button type="button" class="active" data-config-tab="common">Common</button>
+        <button type="button" data-config-tab="dealers">Dealers</button>
+        <button type="button" data-config-tab="conditions">Conditions</button>
+      </div>
+      <div class="config-body">
+        <div class="config-panel active" data-config-panel="common">
+          <div class="form-grid">
+            <label>ID</label><input data-field="routing_id" readonly>
+            <label>Name</label><input data-field="name" readonly>
+            <label>Mode</label><input data-field="mode" readonly>
+            <label>Action</label><input data-field="action" readonly>
+            <label>Action value</label><input data-field="action_value" readonly>
+            <label>Index</label><input data-field="routing_index" readonly>
+            <label>Request</label><input data-field="request" readonly>
+            <label>Type</label><input data-field="type" readonly>
+            <label>Flags</label><input data-field="flags" readonly>
+          </div>
+        </div>
+        <div class="config-panel" data-config-panel="dealers">
+          <table class="data-table">
+            <thead><tr><th>Login</th><th>Name</th><th>Index</th></tr></thead>
+            <tbody id="dealersBody"></tbody>
+          </table>
+        </div>
+        <div class="config-panel" data-config-panel="conditions">
+          <table class="data-table">
+            <thead><tr><th>Condition</th><th>Rule</th><th>Value</th></tr></thead>
+            <tbody id="condBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="config-actions"><button type="button" onclick="history.back()">Close</button></div>
+    </div>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    (function () {
+      var root = document.querySelector("[data-config-module]");
+      HSTModule.bootConfig({
+        title: "Routing",
+        endpoint: "/api/v1/routing",
+        getId: function () { return new URLSearchParams(location.search).get("id"); },
+        fillForm: async function (data, rootEl, id, res) {
+          HSTModule.fillFields(rootEl, data);
+          var dealers;
+          if (res && res.demo) {
+            dealers = { ok: true, data: HSTMock.routingDealers(Number(id)) };
+          } else {
+            dealers = await HSTApi.get("/api/v1/routing/" + id + "/dealers");
+          }
+          var db = document.getElementById("dealersBody");
+          db.innerHTML = "";
+          (dealers.data || []).forEach(function (d) {
+            var tr = document.createElement("tr");
+            tr.innerHTML = "<td>" + d.login + "</td><td>" + HSTModule.esc(d.name) + "</td><td>" + d.dealer_index + "</td>";
+            db.appendChild(tr);
+          });
+          var cb = document.getElementById("condBody");
+          cb.innerHTML = "";
+          (data.conditions || []).forEach(function (c) {
+            var tr = document.createElement("tr");
+            tr.innerHTML = "<td>" + c.condition + "</td><td>" + c.rule + "</td><td>" + HSTModule.esc(c.value) + "</td>";
+            cb.appendChild(tr);
+          });
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

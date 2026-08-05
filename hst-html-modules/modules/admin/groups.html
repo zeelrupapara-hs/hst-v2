@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Groups</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" data-reload>↻ Reload</button>
+    <button type="button" class="tb-btn" data-edit>✎ Group Settings…</button>
+  </div>
+  <p class="module-note"><strong>Group</strong> = trading template (margin, symbols, permissions). Trading accounts are assigned to a group path e.g. <code>real\standard</code>. Double-click or <strong>Group Settings</strong> for full config.</p>
+  <div class="filter-bar">
+    <label>Search</label>
+    <input type="search" data-search placeholder="Group name…">
+  </div>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Group</th>
+          <th>Authorization</th>
+          <th>Currency</th>
+          <th>Status</th>
+          <th>Margin call</th>
+          <th>Stop out</th>
+          <th>Limit orders</th>
+        </tr>
+      </thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Groups",
+      menu: "admin.groups",
+      endpoint: "/api/v1/groups",
+      query: { flat: "1", limit: "500" },
+      idKey: "group_id",
+      configPage: "groups-config.html?id=",
+      columns: [
+        { key: "group" },
+        { key: "auth_mode", render: function (r) { return HSTModule.fmtAuthMode(r.auth_mode); } },
+        { key: "currency" },
+        { key: "status" },
+        { key: "margin_call" },
+        { key: "margin_stop_out" },
+        { key: "limit_orders" }
+      ]
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+node_modules/
+dist/
+scripts/.icon-cache/
+scripts/.tools/vtracer.tar.gz

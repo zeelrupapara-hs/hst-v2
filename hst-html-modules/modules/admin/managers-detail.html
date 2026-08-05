@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Manager Settings</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-config-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" onclick="history.back()">← Back</button>
+    <button type="button" class="tb-btn" data-reload>↻ Reload</button>
+  </div>
+  <div class="module-content">
+    <div class="config-window full">
+      <div class="config-title"><span id="roleIcon"></span> Manager: <span data-field="login">…</span> — <span data-field="name">…</span></div>
+      <div class="config-tabs">
+        <button type="button" class="active" data-config-tab="common">Common</button>
+        <button type="button" data-config-tab="permissions">Permissions</button>
+        <button type="button" data-config-tab="reports">Reports</button>
+        <button type="button" data-config-tab="access">IP Access List</button>
+      </div>
+      <div class="config-body">
+        <div class="config-panel active" data-config-panel="common">
+          <fieldset class="fieldset"><legend>Common</legend>
+            <div class="form-grid">
+              <label>Login</label><input data-field="login" readonly>
+              <label>Name</label><input data-field="name" readonly>
+              <label>Mailbox name</label><input data-field="mailbox" readonly>
+              <label>Server</label><input data-field="server" readonly>
+            </div>
+          </fieldset>
+          <fieldset class="fieldset"><legend>Groups serviced</legend>
+            <p class="module-note">Group masks this manager may access (supports <code>*</code> and <code>!</code> negation).</p>
+            <table class="data-table">
+              <thead><tr><th>Group mask</th></tr></thead>
+              <tbody id="groupsBody"></tbody>
+            </table>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="permissions">
+          <p class="perm-intro">Set up permissions of the manager by selecting entries or a previously saved set.</p>
+          <div class="perm-limits">
+            <label>Available logs</label>
+            <select id="limitLogs" data-limit-logs></select>
+            <label>Available reports</label>
+            <select id="limitReports" data-limit-reports></select>
+          </div>
+          <div class="perm-role-bar">
+            <label>Role:</label>
+            <select data-role-select></select>
+            <button type="button" class="tb-btn" data-role-save>Save As</button>
+            <button type="button" class="tb-btn" data-role-delete>Delete</button>
+          </div>
+          <fieldset class="fieldset perm-tree-fieldset"><legend>Permissions</legend>
+            <div id="rightsTree" class="perm-tree"></div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="reports">
+          <p class="module-note">Per-report history depth — combined with &quot;Available reports&quot; on Permissions tab (strictest limit applies).</p>
+          <table class="data-table">
+            <thead><tr><th>Report</th><th>Depth limit</th></tr></thead>
+            <tbody id="reportsBody"></tbody>
+          </table>
+        </div>
+        <div class="config-panel" data-config-panel="access">
+          <p class="module-note">Empty list = any IP allowed.</p>
+          <table class="data-table">
+            <thead><tr><th>Allowed network (CIDR)</th></tr></thead>
+            <tbody id="accessBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="config-actions">
+        <button type="button">OK</button>
+        <button type="button" onclick="history.back()">Cancel</button>
+        <button type="button">Help</button>
+      </div>
+    </div>
+  </div>
+  <script src="../../assets/js/icons.js"></script>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/managers-ui.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    (function () {
+      var root = document.querySelector("[data-config-module]");
+      var currentRights = {};
+      var treeEl = document.getElementById("rightsTree");
+      var roleBarReady = false;
+
+      HSTModule.bindConfigTabs(root);
+
+      function setRoleIcon(rights) {
+        var el = document.getElementById("roleIcon");
+        el.innerHTML = HSTIcons.img(rights && rights.right_admin ? "administrator" : "manager");
+      }
+
+      function onRightsChange(rights) {
+        currentRights = rights;
+        setRoleIcon(rights);
+      }
+
+      HSTModule.bootConfig({
+        title: "Manager",
+        endpoint: "/api/v1/managers",
+        getId: function () {
+          var login = new URLSearchParams(location.search).get("login");
+          return login || HSTMock.defaultId("/api/v1/managers");
+        },
+        fillForm: async function (detail, root, login, res) {
+          var rightsView;
+          if (res.demo || HSTModule.useDemo()) {
+            rightsView = HSTMock.managerRightsView(login);
+          } else {
+            var rRes = await HSTApi.get("/api/v1/managers/" + encodeURIComponent(login) + "/rights");
+            if (rRes.ok && rRes.data) {
+              rightsView = rRes.data.rights ? rRes.data : { rights: rRes.data };
+            } else {
+              rightsView = HSTMock.managerRightsView(login);
+            }
+          }
+
+          if (!detail || !detail.login) {
+            detail = HSTMock.managerDetailRecord(login);
+          }
+
+          HSTModule.fillFields(root, detail);
+          currentRights = Object.assign({}, (rightsView && rightsView.rights) || {});
+
+          setRoleIcon(currentRights);
+          HSTManagersUI.fillLimitSelect(document.getElementById("limitLogs"), detail.request_limit_logs);
+          HSTManagersUI.fillLimitSelect(document.getElementById("limitReports"), detail.request_limit_reports);
+
+          var groups = (rightsView && rightsView.groups) || detail.groups || [];
+          HSTModule.renderTable(document.getElementById("groupsBody"), groups.map(function (g) {
+            return { group: g };
+          }), [{ key: "group" }], { selectable: false });
+
+          var access = detail.access || [];
+          HSTModule.renderTable(document.getElementById("accessBody"),
+            access.length ? access.map(function (a) { return { cidr: typeof a === "string" ? a : String(a) }; }) : [{ cidr: "(any IP)" }],
+            [{ key: "cidr" }], { selectable: false });
+
+          var reports = HSTMock.managerReports(Number(login));
+          HSTModule.renderTable(document.getElementById("reportsBody"), reports, [
+            { key: "report" },
+            { key: "limit", render: function (r) {
+              var map = { all: 0, months_1: 1, months_3: 2, months_6: 3, year_1: 4, year_2: 5, year_3: 6 };
+              var n = typeof r.limit === "string" ? map[r.limit] : r.limit;
+              return HSTMock.fmtManagerLimit(n != null ? n : 0);
+            }}
+          ], { selectable: false });
+
+          HSTManagersUI.renderTree(treeEl, HSTManagersUI.PERMISSION_TREE, currentRights, { onChange: onRightsChange });
+          if (!roleBarReady) {
+            HSTManagersUI.initRoleBar(root, currentRights, treeEl, onRightsChange);
+            roleBarReady = true;
+          } else {
+            var sel = root.querySelector("[data-role-select]");
+            if (sel) sel.value = HSTManagersUI.detectRole(currentRights);
+          }
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Trading Account</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-config-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" onclick="history.back()">← Back</button>
+    <button type="button" class="tb-btn" data-reload>↻ Reload</button>
+    <a class="tb-btn" id="linkClient" href="#">Open client…</a>
+  </div>
+  <p class="module-note">Account <strong>login</strong> belongs to <strong>client</strong> #<span id="clientIdLabel">—</span> and trades in <strong>group</strong> <span id="groupLabel">—</span>.</p>
+  <div class="module-content">
+    <div class="config-window full">
+      <div class="config-title">Account: <span data-field="login">…</span> — <span data-field="name">…</span></div>
+      <div class="config-tabs">
+        <button type="button" class="active" data-config-tab="account">Account</button>
+        <button type="button" data-config-tab="positions">Positions</button>
+        <button type="button" data-config-tab="orders">Orders</button>
+        <button type="button" data-config-tab="deals">Deals</button>
+      </div>
+      <div class="config-body">
+        <div class="config-panel active" data-config-panel="account">
+          <fieldset class="fieldset"><legend>Common</legend>
+            <div class="form-grid">
+              <label>Login</label><input data-field="login" readonly>
+              <label>Client ID</label><input data-field="client_id" readonly>
+              <label>Group</label><input data-field="group" readonly>
+              <label>Name</label><input data-field="name" readonly>
+              <label>Email</label><input data-field="email" readonly>
+              <label>Phone</label><input data-field="phone" readonly>
+              <label>Country</label><input data-field="country" readonly>
+              <label>Leverage</label><input data-field="leverage" readonly>
+              <label>Balance</label><input data-field="balance" readonly>
+              <label>Credit</label><input data-field="credit" readonly>
+              <label>Last access</label><input data-field="last_access" readonly>
+            </div>
+          </fieldset>
+        </div>
+        <div class="config-panel" data-config-panel="positions">
+          <table class="data-table">
+            <thead><tr><th>Position</th><th>Symbol</th><th>Action</th><th>Volume</th><th>Profit</th><th>Open</th></tr></thead>
+            <tbody id="posBody"></tbody>
+          </table>
+        </div>
+        <div class="config-panel" data-config-panel="orders">
+          <table class="data-table">
+            <thead><tr><th>Order</th><th>Symbol</th><th>Type</th><th>State</th><th>Volume</th><th>Price</th></tr></thead>
+            <tbody id="ordBody"></tbody>
+          </table>
+        </div>
+        <div class="config-panel" data-config-panel="deals">
+          <table class="data-table">
+            <thead><tr><th>Deal</th><th>Symbol</th><th>Action</th><th>Volume</th><th>Price</th><th>Profit</th><th>Time</th></tr></thead>
+            <tbody id="dealBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="config-actions"><button type="button" onclick="history.back()">Close</button></div>
+    </div>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootConfig({
+      title: "Trading account",
+      endpoint: "/api/v1/users",
+      getId: function () { return new URLSearchParams(location.search).get("login"); },
+      fillForm: async function (data, root, login) {
+        data.last_access = HSTModule.fmtTs(data.last_access);
+        HSTModule.fillFields(root, data);
+        document.getElementById("clientIdLabel").textContent = data.client_id;
+        document.getElementById("groupLabel").textContent = data.group;
+        document.getElementById("linkClient").href = "clients-detail.html?id=" + encodeURIComponent(data.client_id);
+        var pos = HSTMock.positionsForLogin(login);
+        var ord = HSTMock.ordersForLogin(login);
+        var dls = HSTMock.dealsForLogin(login);
+        HSTModule.renderTable(document.getElementById("posBody"), pos, [
+          { key: "position_id" }, { key: "symbol" }, { key: "action" }, { key: "volume" }, { key: "profit" }, { key: "price_open" }
+        ], { selectable: false });
+        HSTModule.renderTable(document.getElementById("ordBody"), ord, [
+          { key: "order_id" }, { key: "symbol" }, { key: "type" }, { key: "state" }, { key: "volume" }, { key: "price_order" }
+        ], { selectable: false });
+        HSTModule.renderTable(document.getElementById("dealBody"), dls, [
+          { key: "deal_id" }, { key: "symbol" }, { key: "action" }, { key: "volume" }, { key: "price" }, { key: "profit" },
+          { key: "time", render: function (r) { return HSTModule.fmtTs(r.time); } }
+        ], { selectable: false });
+      }
+    });
+    document.querySelector("[data-reload]").addEventListener("click", function () { location.reload(); });
+  </script>
+</body>
+</html>

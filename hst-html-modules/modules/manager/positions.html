@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Positions</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar"><button type="button" class="tb-btn" data-reload>↻ Reload</button></div>
+  <p class="module-note">Open positions are live trades on an account. Each position generates <strong>deals</strong> when opened, modified, or closed.</p>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Position</th><th>Login</th><th>Symbol</th><th>Action</th><th>Volume</th><th>Profit</th><th>Open</th></tr>
+      </thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Positions",
+      menu: "manager.positions",
+      endpoint: "/api/v1/positions",
+      query: { limit: "500" },
+      idKey: "position_id",
+      configPage: "../admin/positions-detail.html?id=",
+      columns: [
+        { key: "position_id" },
+        { key: "login", html: true, render: function (r) {
+          return '<a href="users-detail.html?login=' + r.login + '">' + r.login + "</a>";
+        }},
+        { key: "symbol" }, { key: "action" }, { key: "volume" }, { key: "profit" }, { key: "price_open" }
+      ]
+    });
+  </script>
+</body>
+</html>

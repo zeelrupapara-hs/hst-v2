@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Journal</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar"><button type="button" class="tb-btn" data-reload>↻ Reload</button></div>
+  <div class="module-content table-wrap">
+    <table class="data-table journal-table">
+      <thead><tr><th>Time</th><th>Channel</th><th>IP</th><th>Message</th></tr></thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Journal",
+      menu: "manager.journal",
+      endpoint: "/api/v1/journal",
+      query: { limit: "200" },
+      idKey: "journal_id",
+      columns: [
+        { key: "created_at", render: function (r) { return HSTModule.fmtTs(r.created_at); } },
+        { key: "channel" }, { key: "ip" }, { key: "message" }
+      ]
+    });
+  </script>
+</body>
+</html>

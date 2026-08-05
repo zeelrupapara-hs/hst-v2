@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HST Administrator — MetaTrader Server</title>
+  <link rel="stylesheet" href="assets/css/terminal.css?v=mt5">
+  <script src="assets/js/terminal.js" defer></script>
+</head>
+<body>
+  <div class="terminal-title">
+    <span>HST Administrator — MetaTrader Server (Live)</span>
+    <div class="title-actions">
+      <a class="panel-switch" href="login.html">Connect API</a>
+      <a class="panel-switch" href="index.html">Switch panel</a>
+      <button type="button" class="title-btn" id="btnFullscreen" title="Full Screen (F11)" aria-label="Full Screen">□</button>
+    </div>
+  </div>
+
+  <nav class="menu-bar" aria-label="Main menu">
+    <span>File</span>
+    <span>Edit</span>
+    <button type="button" class="menu-trigger" id="menuView">View</button>
+    <span>Services</span>
+    <span>Help</span>
+  </nav>
+
+  <div class="toolbar" aria-label="Standard toolbar">
+    <button type="button" class="tb-btn" title="Add"><span class="ico"><img class="hst-icon" src="assets/icons/svg/add.svg?v=3" alt=""></span> Add</button>
+    <button type="button" class="tb-btn" title="Edit"><span class="ico"><img class="hst-icon" src="assets/icons/svg/edit.svg?v=3" alt=""></span> Edit</button>
+    <button type="button" class="tb-btn" title="Delete"><span class="ico"><img class="hst-icon" src="assets/icons/svg/delete.svg?v=3" alt=""></span> Delete</button>
+    <span class="toolbar-sep"></span>
+    <button type="button" class="tb-btn" title="Move Up">↑</button>
+    <button type="button" class="tb-btn" title="Move Down">↓</button>
+    <span class="toolbar-sep"></span>
+    <button type="button" class="tb-btn" title="Apply Changes">Apply</button>
+    <button type="button" class="tb-btn" title="Refresh"><span class="ico"><img class="hst-icon" src="assets/icons/svg/refresh.svg?v=3" alt=""></span> Refresh</button>
+    <div class="toolbar-search">
+      <label>Search</label>
+      <input type="text" placeholder="Find configuration…" disabled>
+    </div>
+  </div>
+
+  <div class="terminal-body">
+    <div class="terminal-main">
+      <aside class="navigator">
+        <div class="nav-header">Navigator</div>
+        <ul class="nav-tree" id="navTree">
+          <!-- Servers > MetaTrader Server (MT5 admin tree) -->
+          <li class="nav-branch">
+            <div class="nav-item nav-indent-0">
+              <span class="chevron">▼</span>
+              <span class="ico"><img class="hst-icon" src="assets/icons/svg/servers.svg?v=3" alt=""></span>
+              <span class="label">Servers</span>
+            </div>
+            <ul>
+              <li class="nav-branch">
+                <div class="nav-item nav-indent-1">
+                  <span class="chevron">▼</span>
+                  <span class="ico"><img class="hst-icon" src="assets/icons/svg/server.svg?v=3" alt=""></span>
+                  <span class="label">MetaTrader Server</span>
+                </div>
+                <ul>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/network-cluster.svg?v=3" alt=""></span><span class="label">Network Cluster</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/integrations.svg?v=3" alt=""></span><span class="label">Integrations</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/automations.svg?v=3" alt=""></span><span class="label">Automations</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/security.svg?v=3" alt=""></span><span class="label">Security</span></div></li>
+                  <li><div class="nav-item nav-indent-2" data-module="modules/admin/time.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/time.svg?v=3" alt=""></span><span class="label">Time</span></div></li>
+                  <li><div class="nav-item nav-indent-2" data-module="modules/admin/holidays.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/holidays.svg?v=3" alt=""></span><span class="label">Holidays</span></div></li>
+                  <li><div class="nav-item nav-indent-2" data-module="modules/admin/leverages.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/leverages.svg?v=3" alt=""></span><span class="label">Leverages</span></div></li>
+                  <li><div class="nav-item nav-indent-2" data-module="modules/admin/groups.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/groups.svg?v=3" alt=""></span><span class="label">Groups</span><span class="count">(39)</span></div></li>
+                  <li class="nav-branch">
+                    <div class="nav-item nav-indent-2">
+                      <span class="chevron">▼</span>
+                      <span class="ico"><img class="hst-icon" src="assets/icons/svg/clients-accounts.svg?v=3" alt=""></span>
+                      <span class="label">Clients &amp; Accounts</span>
+                    </div>
+                    <ul>
+                      <li><div class="nav-item nav-indent-3 active" data-module="modules/admin/clients.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/clients-tree.svg?v=3" alt=""></span><span class="label">Clients</span><span class="count">(4)</span></div></li>
+                      <li><div class="nav-item nav-indent-3" data-module="modules/admin/managers.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/managers-tree.svg?v=3" alt=""></span><span class="label">Managers</span><span class="count">(3)</span></div></li>
+                      <li><div class="nav-item nav-indent-3" data-module="modules/admin/users.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/accounts-tree.svg?v=3" alt=""></span><span class="label">Trading Accounts</span><span class="count">(5)</span></div></li>
+                    </ul>
+                  </li>
+                  <li class="nav-branch">
+                    <div class="nav-item nav-indent-2">
+                      <span class="chevron">▼</span>
+                      <span class="ico"><img class="hst-icon" src="assets/icons/svg/orders-deals.svg?v=3" alt=""></span>
+                      <span class="label">Orders &amp; Deals</span>
+                    </div>
+                    <ul>
+                      <li><div class="nav-item nav-indent-3" data-module="modules/admin/positions.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/positions.svg?v=3" alt=""></span><span class="label">Positions</span><span class="count">(3)</span></div></li>
+                      <li><div class="nav-item nav-indent-3" data-module="modules/admin/orders.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/orders-tree.svg?v=3" alt=""></span><span class="label">Orders</span><span class="count">(4)</span></div></li>
+                      <li><div class="nav-item nav-indent-3" data-module="modules/admin/deals.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/deals-tree.svg?v=3" alt=""></span><span class="label">Deals</span><span class="count">(4)</span></div></li>
+                    </ul>
+                  </li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/payments.svg?v=3" alt=""></span><span class="label">Payments</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/gateways.svg?v=3" alt=""></span><span class="label">Gateways</span></div></li>
+                  <li><div class="nav-item nav-indent-2" data-module="modules/admin/datafeeds.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/datafeeds.svg?v=3" alt=""></span><span class="label">Data Feeds</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/plugins.svg?v=3" alt=""></span><span class="label">Plugins</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/reports.svg?v=3" alt=""></span><span class="label">Reports</span></div></li>
+                  <li><div class="nav-item nav-indent-2" data-module="modules/admin/routing.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/routing.svg?v=3" alt=""></span><span class="label">Routing</span></div></li>
+                  <li><div class="nav-item nav-indent-2" data-module="modules/admin/symbols.html"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/symbols-tree.svg?v=3" alt=""></span><span class="label">Symbols</span><span class="count">(160)</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/spreads.svg?v=3" alt=""></span><span class="label">Spreads</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/charts-ticks.svg?v=3" alt=""></span><span class="label">Charts &amp; Ticks</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/subscriptions.svg?v=3" alt=""></span><span class="label">Subscriptions</span></div></li>
+                  <li><div class="nav-item nav-indent-2 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/mailbox.svg?v=3" alt=""></span><span class="label">Mailbox</span><span class="count">(0)</span></div></li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+          <li><div class="nav-item nav-indent-0 disabled"><span class="chevron empty">▶</span><span class="ico"><img class="hst-icon" src="assets/icons/svg/support-center.svg?v=3" alt=""></span><span class="label">Support Center</span></div></li>
+        </ul>
+      </aside>
+
+      <main class="workspace">
+        <iframe id="moduleFrame" name="moduleFrame" src="modules/admin/clients.html" title="Module workspace"></iframe>
+      </main>
+    </div>
+
+    <div class="toolbox" id="toolbox">
+      <div class="toolbox-tabs">
+        <button type="button" class="active" data-panel="panelJournal">Journal</button>
+        <button type="button" data-panel="panelNews">News</button>
+        <button type="button" data-panel="panelMail">Mail</button>
+        <button type="button" data-panel="panelSearch">Search</button>
+      </div>
+      <div class="toolbox-panel active" id="panelJournal">
+        <table class="journal-table">
+          <thead>
+            <tr><th>Time</th><th>Server</th><th>IP</th><th>Message</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>2026.08.03 10:00:01</td><td>Trade</td><td>127.0.0.1</td><td>Configuration synchronized</td></tr>
+            <tr><td>2026.08.03 09:58:12</td><td>Trade</td><td>127.0.0.1</td><td>Manager login 1000 connected</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="toolbox-panel" id="panelNews"><p style="padding:8px;color:#666">News feed — phase 2</p></div>
+      <div class="toolbox-panel" id="panelMail"><p style="padding:8px;color:#666">Internal mail — phase 2</p></div>
+      <div class="toolbox-panel" id="panelSearch"><p style="padding:8px;color:#666">Global search — phase 2</p></div>
+    </div>
+
+    <footer class="status-bar">
+      <span class="connected">● Demo mode</span>
+      <span>Server: Sample data</span>
+      <span id="statusModule">Clients</span>
+    </footer>
+  </div>
+</body>
+</html>

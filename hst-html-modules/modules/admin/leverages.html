@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Leverages</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar"><button type="button" class="tb-btn" data-reload>↻ Reload</button></div>
+  <div class="filter-bar"><label>Search</label><input type="search" data-search placeholder="Profile name…"></div>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead><tr><th>ID</th><th>Name</th><th>Flags</th><th>Updated</th></tr></thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Leverage profiles",
+      menu: "admin.leverages",
+      endpoint: "/api/v1/leverage-profiles",
+      query: { limit: "500" },
+      idKey: "leverage_id",
+      columns: [
+        { key: "leverage_id" }, { key: "name" }, { key: "flags" },
+        { key: "timestamp", render: function (r) { return HSTModule.fmtTs(r.timestamp); } }
+      ]
+    });
+  </script>
+</body>
+</html>

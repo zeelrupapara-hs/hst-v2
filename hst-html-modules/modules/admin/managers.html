@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Managers</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" data-reload>↻ Reload</button>
+    <button type="button" class="tb-btn" data-edit>✎ Edit</button>
+    <button type="button" class="tb-btn">＋ Add</button>
+  </div>
+  <p class="module-note">Staff logins with permissions to run the platform. Double-click or <strong>Edit</strong> for Common, Permissions, Reports and IP Access tabs.</p>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th></th><th>Login</th><th>Name</th><th>Mailbox</th><th>Groups</th><th>Type</th></tr>
+      </thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/icons.js"></script>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Managers",
+      menu: "admin.managers",
+      endpoint: "/api/v1/managers",
+      query: { limit: "500" },
+      idKey: "login",
+      configPage: "managers-detail.html?login=",
+      columns: [
+        { key: "icon", html: true, render: function (r) {
+          return HSTIcons.img(r.rights && r.rights.right_admin ? "administrator" : "manager");
+        }},
+        { key: "login" },
+        { key: "name" },
+        { key: "mailbox", render: function (r) { return r.mailbox || "—"; } },
+        { key: "groups", render: function (r) { return (r.groups || []).join(", "); } },
+        { key: "type", render: function (r) {
+          return (r.rights && r.rights.right_admin) ? "Administrator" : "Manager";
+        }}
+      ]
+    });
+  </script>
+</body>
+</html>

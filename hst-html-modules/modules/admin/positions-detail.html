@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Position</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-trade-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" onclick="history.back()">← Back</button>
+    <button type="button" class="tb-btn" data-reload>↻ Reload</button>
+  </div>
+  <div class="module-content trade-module-content">
+    <div class="trade-window">
+      <div class="trade-title-bar" data-trade-title>Position …</div>
+      <div class="trade-account-bar" data-trade-account>…</div>
+      <div class="trade-chain-wrap">
+        <table class="data-table trade-chain-table" data-trade-chain></table>
+      </div>
+      <div class="config-tabs trade-tabs">
+        <button type="button" class="active" data-trade-tab="details">Details</button>
+        <button type="button" data-trade-tab="visualization">Visualization</button>
+        <button type="button" data-trade-tab="ticks">Ticks</button>
+        <button type="button" data-trade-tab="ultency">Ultency Ticks</button>
+        <button type="button" data-trade-tab="book">Ultency Book</button>
+        <button type="button" data-trade-tab="journal">Journal</button>
+      </div>
+      <div class="trade-panel active" data-trade-panel="details">
+        <div class="trade-details" data-trade-details></div>
+      </div>
+      <div class="trade-panel" data-trade-panel="visualization">
+        <p class="module-note">Position chart — not implemented (MT5 admin_positions.htm#visualization).</p>
+      </div>
+      <div class="trade-panel" data-trade-panel="ticks">
+        <p class="module-note">Tick history — not implemented.</p>
+      </div>
+      <div class="trade-panel" data-trade-panel="ultency">
+        <p class="module-note">Ultency tick data — not implemented.</p>
+      </div>
+      <div class="trade-panel" data-trade-panel="book">
+        <p class="module-note">Ultency order book — not implemented.</p>
+      </div>
+      <div class="trade-panel" data-trade-panel="journal">
+        <p class="module-note">Server journal — not implemented.</p>
+      </div>
+      <div class="config-actions trade-actions">
+        <button type="button" class="trade-btn-left">Report…</button>
+        <span class="trade-actions-right">
+          <button type="button">Update</button>
+          <button type="button" onclick="history.back()">Cancel</button>
+          <button type="button">Help</button>
+        </span>
+      </div>
+    </div>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script src="../../assets/js/icons.js"></script>
+  <script src="../../assets/js/trade-ui.js"></script>
+  <script>
+    HSTTradeUI.boot({ type: "position", title: "Position", endpoint: "/api/v1/positions", idParam: "id" });
+  </script>
+</body>
+</html>

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Holidays</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar"><button type="button" class="tb-btn" data-reload>↻ Reload</button></div>
+  <div class="filter-bar"><label>Search</label><input type="search" data-search placeholder="Description…"></div>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>ID</th><th>Date</th><th>From</th><th>To</th><th>Mode</th><th>Description</th><th>Symbols</th></tr>
+      </thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Holidays",
+      menu: "admin.holidays",
+      endpoint: "/api/v1/holidays",
+      query: { limit: "500" },
+      idKey: "holiday_id",
+      columns: [
+        { key: "holiday_id" },
+        { key: "date", render: function (r) {
+          var y = r.year ? r.year : "****";
+          return y + "." + String(r.month).padStart(2, "0") + "." + String(r.day).padStart(2, "0");
+        }},
+        { key: "from" }, { key: "to" }, { key: "mode" }, { key: "description" },
+        { key: "symbols", render: function (r) { return (r.symbols || []).join(", "); } }
+      ]
+    });
+  </script>
+</body>
+</html>

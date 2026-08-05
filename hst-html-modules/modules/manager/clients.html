@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Clients</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" data-reload>↻ Reload</button>
+    <button type="button" class="tb-btn" data-edit>✎ Client profile…</button>
+  </div>
+  <p class="module-note"><strong>Client</strong> = CRM identity (person/company). Each client owns one or more <strong>trading accounts</strong> (logins) in a <strong>group</strong>. Double-click a row to open the full profile.</p>
+  <div class="filter-bar"><label>Search</label><input type="search" data-search placeholder="Name, email…"></div>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Country</th><th>Status</th><th>KYC</th><th>Accounts</th></tr>
+      </thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Clients",
+      menu: "manager.clients",
+      endpoint: "/api/v1/clients",
+      query: { limit: "500" },
+      idKey: "client_id",
+      configPage: "clients-detail.html?id=",
+      columns: [
+        { key: "client_id" },
+        { key: "person_name", render: function (r) { return [r.person_name, r.person_last_name].filter(Boolean).join(" "); } },
+        { key: "contact_email" }, { key: "contact_phone" }, { key: "address_country" },
+        { key: "client_status", render: function (r) { return HSTModule.fmtClientStatus(r.client_status); } },
+        { key: "kyc_status", render: function (r) { return HSTModule.fmtKycStatus(r.kyc_status); } },
+        { key: "accounts", render: function (r) { return HSTMock.accountsForClient(r.client_id).length; } }
+      ]
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Positions</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" data-reload>↻ Request</button>
+    <button type="button" class="tb-btn" data-edit>✎ Edit</button>
+  </div>
+  <div class="trade-request-bar">
+    <label>Request</label>
+    <select data-req-mode><option>By groups</option><option>By logins</option></select>
+    <input type="text" data-req-target placeholder="Group or login…" value="*">
+    <label>Symbol</label>
+    <input type="text" placeholder="All symbols" style="width:100px">
+    <label>Database</label>
+    <select><option>Current database</option></select>
+  </div>
+  <div class="filter-bar"><label>Search</label><input type="search" data-search placeholder="Symbol, login…"></div>
+  <p class="module-note">Double-click a position for related orders/deals chain and full details (<em>admin_positions.htm#view</em>).</p>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th></th><th>Position</th><th>Login</th><th>Symbol</th><th>Type</th><th>Volume</th>
+          <th>Price</th><th>Current</th><th>SL</th><th>TP</th><th>Reason</th><th>Profit</th><th>Created</th>
+        </tr>
+      </thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/icons.js"></script>
+  <script src="../../assets/js/trade-ui.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Positions",
+      menu: "admin.positions",
+      endpoint: "/api/v1/positions",
+      query: { limit: "500" },
+      idKey: "position_id",
+      configPage: "positions-detail.html?id=",
+      columns: [
+        { key: "icon", html: true, render: function (r) { return HSTTradeUI.actionIcon(r.action); } },
+        { key: "position_id" }, { key: "login" }, { key: "symbol" },
+        { key: "action", render: function (r) { return HSTTradeUI.labelPosAction(r.action); } },
+        { key: "volume", render: function (r) { return HSTTradeUI.fmtVol(r.volume); } },
+        { key: "price_open" }, { key: "price_current" }, { key: "price_sl" }, { key: "price_tp" },
+        { key: "reason", render: function (r) { return HSTTradeUI.labelReason(r.reason); } },
+        { key: "profit" },
+        { key: "time_create", render: function (r) { return HSTTradeUI.fmtTs(r.time_create, r.time_create_ms); } }
+      ]
+    });
+  </script>
+</body>
+</html>

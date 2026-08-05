@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Dealing</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar"><button type="button" class="tb-btn" data-reload>↻ Reload</button></div>
+  <p class="module-note">Dealer queue — <code>GET /api/v1/dealing</code> (pending trade requests).</p>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>Order</th><th>Login</th><th>Symbol</th><th>Type</th><th>State</th><th>Volume</th><th>Price</th></tr>
+      </thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Dealing queue",
+      menu: "manager.dealing",
+      endpoint: "/api/v1/dealing",
+      idKey: "order_id",
+      columns: [
+        { key: "order_id" }, { key: "login" }, { key: "symbol" }, { key: "type" },
+        { key: "state" }, { key: "volume" }, { key: "price_order" }
+      ]
+    });
+  </script>
+</body>
+</html>

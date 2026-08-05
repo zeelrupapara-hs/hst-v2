@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Deals</title>
+  <link rel="stylesheet" href="../../assets/css/terminal.css">
+</head>
+<body class="module-root" data-module>
+  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
+  <div class="module-toolbar">
+    <button type="button" class="tb-btn" data-reload>↻ Request</button>
+    <button type="button" class="tb-btn" data-edit>✎ Edit</button>
+  </div>
+  <div class="trade-request-bar">
+    <label>Request</label>
+    <select data-req-mode><option>By groups</option><option>By logins</option><option>By tickets</option></select>
+    <input type="text" data-req-target placeholder="Group, login or #ticket…" value="*">
+    <label>Symbol</label>
+    <input type="text" placeholder="All symbols" style="width:100px">
+    <select data-req-period><option>Today</option><option>Last 3 days</option><option>Last week</option><option>All history</option></select>
+    <input type="datetime-local" data-req-from>
+    <span>—</span>
+    <input type="datetime-local" data-req-to>
+    <label>Database</label>
+    <select><option>Current database</option></select>
+  </div>
+  <div class="filter-bar"><label>Search</label><input type="search" data-search placeholder="Symbol, login…"></div>
+  <p class="module-note">Double-click a deal to open the trading operation dialog (MT5 <em>admin_deals.htm#view</em>).</p>
+  <div class="module-content table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th></th><th>Time</th><th>Deal</th><th>Login</th><th>Order</th><th>Position</th>
+          <th>Symbol</th><th>Action</th><th>Entry</th><th>Volume</th><th>Price</th><th>Reason</th><th>Profit</th>
+        </tr>
+      </thead>
+      <tbody data-tbody></tbody>
+    </table>
+  </div>
+  <script src="../../assets/js/mock-data.js"></script>
+  <script src="../../assets/js/api.js"></script>
+  <script src="../../assets/js/context-menu.js"></script>
+  <script src="../../assets/js/context-menus.js"></script>
+  <script src="../../assets/js/icons.js"></script>
+  <script src="../../assets/js/trade-ui.js"></script>
+  <script src="../../assets/js/module.js"></script>
+  <script>
+    HSTModule.bootList({
+      title: "Deals",
+      menu: "admin.deals",
+      endpoint: "/api/v1/deals",
+      query: { limit: "500" },
+      idKey: "deal_id",
+      configPage: "deals-detail.html?id=",
+      columns: [
+        { key: "icon", html: true, render: function (r) { return HSTTradeUI.actionIcon(r.action, r.entry); } },
+        { key: "time", render: function (r) { return HSTTradeUI.fmtTs(r.time, r.time_ms); } },
+        { key: "deal_id" }, { key: "login" }, { key: "order_id" }, { key: "position_id" }, { key: "symbol" },
+        { key: "action", render: function (r) { return HSTTradeUI.labelDealAction(r.action); } },
+        { key: "entry", render: function (r) { return HSTTradeUI.labelDealEntry(r.entry); } },
+        { key: "volume", render: function (r) { return HSTTradeUI.fmtVol(r.volume); } },
+        { key: "price" }, { key: "reason", render: function (r) { return HSTTradeUI.labelReason(r.reason); } },
+        { key: "profit" }
+      ]
+    });
+  </script>
+</body>
+</html>
