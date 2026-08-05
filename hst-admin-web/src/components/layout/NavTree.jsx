@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { navIcon } from "@/lib/icons.js";
 import { useSymbols } from "@/hooks/useSymbols.js";
+import { useDatafeeds } from "@/hooks/useDatafeeds.js";
 import { annotateTreeCounts, buildFolderTree, sortedTreeChildKeys } from "@/lib/symbolTree.js";
 
 /** Symbol folder tree hangs under the Symbols node; a folder link narrows the list. */
@@ -25,11 +26,25 @@ function symbolFolderChildren(folderNode) {
  * Servers > Trade Server and groups the feed modules under Integrations; the backend does
  * not know that spine yet, so it is applied here (prompt §13-A).
  */
-function shapeTree(nav, symbols) {
+function shapeTree(nav, symbols = [], datafeeds = []) {
   const nodes = (nav?.nodes ?? []).map((n) => {
-    if (n.key !== "symbols") return n;
-    const root = annotateTreeCounts(buildFolderTree(symbols), symbols);
-    return { ...n, count: root.count, children: symbolFolderChildren(root) };
+    if (n.key === "symbols") {
+      const root = annotateTreeCounts(buildFolderTree(symbols), symbols);
+      return { ...n, count: root.count, children: symbolFolderChildren(root) };
+    }
+    if (n.key === "datafeeds" && datafeeds?.length) {
+      return {
+        ...n,
+        count: datafeeds.length,
+        children: datafeeds.map((f) => ({
+          key: `feed:${f.datafeed_id}`,
+          label: f.name,
+          route: `/datafeeds?feed=${f.datafeed_id}`,
+          offline: f.enable !== 1 || f.sys_connection !== 1,
+        })),
+      };
+    }
+    return n;
   });
   const feeds = nodes.filter((n) => n.section === "feeds");
   const rest = nodes.filter((n) => n.section !== "feeds");
@@ -85,7 +100,7 @@ function NavNode({ node, panel, depth }) {
           {hasChildren ? (open ? "▼" : "▶") : "▶"}
         </span>
         <Icon id={navIcon(node.key)} title={node.label} />
-        <span className="label">{node.label}</span>
+        <span className={`label${node.offline ? " nav-feed-disabled" : ""}`}>{node.label}</span>
         {node.count != null && <span className="count">({node.count})</span>}
       </div>
       {hasChildren && open && (
@@ -101,12 +116,13 @@ function NavNode({ node, panel, depth }) {
 
 export function NavTree({ nav, panel }) {
   const { symbols } = useSymbols();
+  const { datafeeds } = useDatafeeds();
 
   return (
     <aside className="navigator">
       <div className="nav-header">Navigator</div>
       <ul className="nav-tree">
-        {shapeTree(nav, symbols).map((node) => (
+        {shapeTree(nav, symbols, datafeeds).map((node) => (
           <NavNode key={node.key} node={node} panel={panel} depth={0} />
         ))}
       </ul>

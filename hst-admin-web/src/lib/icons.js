@@ -35,5 +35,6 @@ export const navIcon = (key) => {
   if (NAV_ICON[key]) return NAV_ICON[key];
   if (key?.startsWith("group:")) return "groups-folder";
   if (key?.startsWith("symfolder:")) return "symbols-tree";
+  if (key?.startsWith("feed:")) return "datafeeds";
   return null;
 };
