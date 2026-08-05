@@ -429,9 +429,17 @@ func (s *Server) DeleteRouting(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	// routing_index is unique, so closing the gap in one pass can collide with a row that has
+	// not moved yet; parking the tail on negative indexes first keeps every step unique.
 	if _, err := tx.Exec(ctx,
-		`UPDATE hst.routing SET routing_index = routing_index - 1
+		`UPDATE hst.routing SET routing_index = -routing_index - 1
 		  WHERE routing_index > $1`, gone); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE hst.routing SET routing_index = -routing_index - 2
+		  WHERE routing_index < 0`); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
