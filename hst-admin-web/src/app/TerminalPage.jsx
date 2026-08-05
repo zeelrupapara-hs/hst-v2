@@ -7,6 +7,8 @@ import { AccountsModule } from "@/modules/accounts/AccountsModule.jsx";
 import { ClientsModule } from "@/modules/clients/ClientsModule.jsx";
 import { LeveragesModule } from "@/modules/leverages/LeveragesModule.jsx";
 import { RoutingModule } from "@/modules/routing/RoutingModule.jsx";
+import { HolidaysModule } from "@/modules/holidays/HolidaysModule.jsx";
+import { EndOfDayModule } from "@/modules/system/EndOfDayModule.jsx";
 import { useSession } from "@/hooks/useSession.js";
 
 function ModulePlaceholder() {
@@ -39,6 +41,8 @@ export function TerminalPage({ panel }) {
         <Route path="clients" element={<ClientsModule />} />
         <Route path="leverage-profiles" element={<LeveragesModule />} />
         <Route path="routing" element={<RoutingModule />} />
+        <Route path="holidays" element={<HolidaysModule />} />
+        <Route path="system/end-of-day" element={<EndOfDayModule />} />
         <Route path="*" element={<ModulePlaceholder />} />
       </Route>
     </Routes>

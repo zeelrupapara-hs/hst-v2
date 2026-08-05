@@ -2835,3 +2835,8 @@ select {
   padding: 3px 0;
   min-width: 150px;
 }
+
+/* end of day — a small settings card in the workspace */
+.eod-module { padding: 12px; max-width: 480px; }
+.eod-grid { padding: 8px 0; }
+.eod-actions { border-top: none; background: transparent; justify-content: flex-start; padding-left: 0; }
