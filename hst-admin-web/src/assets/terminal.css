@@ -2840,3 +2840,5 @@ select {
 .eod-module { padding: 12px; max-width: 480px; }
 .eod-grid { padding: 8px 0; }
 .eod-actions { border-top: none; background: transparent; justify-content: flex-start; padding-left: 0; }
+
+.mgr-rights-grid { grid-template-columns: 1fr 1fr; max-height: 300px; overflow: auto; }
