@@ -49,6 +49,7 @@ export function BalanceDialog({ user, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
+          onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           width={420}
           className="balance-dialog"

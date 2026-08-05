@@ -13,6 +13,14 @@ export function DatafeedTabIntro({ children }) {
   );
 }
 
+export function DfRowIcon() {
+  return (
+    <span className="df-row-icon" aria-hidden="true">
+      $
+    </span>
+  );
+}
+
 export function ParamTypeIcon({ type = 0 }) {
   return (
     <span className="df-param-type" title={type === 1 ? "Integer" : "String"}>
@@ -76,6 +84,10 @@ export function DfListPanel({
   beforeTable,
   emptyLabel = "No items",
   renderCellPrefix,
+  showMove = true,
+  headless = false,
+  showAddRow = false,
+  onDefault,
 }) {
   const [selected, setSelected] = useState(rows.length ? 0 : -1);
   const [editing, setEditing] = useState(null);
@@ -124,16 +136,21 @@ export function DfListPanel({
       {beforeTable}
       <div className="df-table-panel">
         <div className="df-table-toolbar">
-          <button type="button" disabled={!canEdit || selected <= 0} onClick={() => move(-1)}>
-            Up
-          </button>
-          <button
-            type="button"
-            disabled={!canEdit || !hasSelection || selected >= rows.length - 1}
-            onClick={() => move(1)}
-          >
-            Down
-          </button>
+          {showMove && (
+            <>
+              <button type="button" disabled={!canEdit || selected <= 0} onClick={() => move(-1)}>
+                Up
+              </button>
+              <button
+                type="button"
+                disabled={!canEdit || !hasSelection || selected >= rows.length - 1}
+                onClick={() => move(1)}
+              >
+                Down
+              </button>
+              <span className="df-toolbar-gap" aria-hidden="true" />
+            </>
+          )}
           <button type="button" disabled={!canEdit} onClick={addRow}>
             Add
           </button>
@@ -147,18 +164,27 @@ export function DfListPanel({
           <button type="button" disabled={!canEdit || !hasSelection} onClick={removeSelected}>
             Delete
           </button>
+          {onDefault && (
+            <button type="button" disabled={!canEdit} onClick={onDefault}>
+              Default
+            </button>
+          )}
         </div>
         <div className="df-table-main">
           <table className="data-table data-table-grid df-sub-table">
-            <thead>
-              <tr>
-                {columns.map((col) => (
-                  <th key={col.id}>{col.label}</th>
-                ))}
-              </tr>
-            </thead>
+            {!headless && (
+              <thead>
+                <tr>
+                  {columns.map((col) => (
+                    <th key={col.id} className={col.align}>
+                      {col.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+            )}
             <tbody>
-              {rows.length ? (
+              {rows.length || showAddRow ? (
                 rows.map((row, i) => (
                   <tr
                     key={rowKey(row, i)}
@@ -168,7 +194,7 @@ export function DfListPanel({
                     {columns.map((col) => (
                       <td
                         key={col.id}
-                        className={canEdit ? "df-cell-editable" : undefined}
+                        className={[canEdit && "df-cell-editable", col.align].filter(Boolean).join(" ")}
                         onDoubleClick={() => canEdit && setEditing({ row: i, col: col.id })}
                       >
                         {editing?.row === i && editing?.col === col.id ? (
@@ -195,6 +221,16 @@ export function DfListPanel({
                 <tr>
                   <td colSpan={columns.length} className="df-empty">
                     {emptyLabel}
+                  </td>
+                </tr>
+              )}
+              {showAddRow && (
+                <tr className="df-add-row" onClick={() => canEdit && addRow()}>
+                  <td colSpan={columns.length}>
+                    <span className="df-add-plus" aria-hidden="true">
+                      +
+                    </span>
+                    click to add...
                   </td>
                 </tr>
               )}

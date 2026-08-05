@@ -15,37 +15,68 @@ export const CalcMode_name = {
   3: "CFD Index",
   4: "CFD Leverage",
   5: "Forex No Leverage",
+  32: "Exchange Stocks",
+  33: "Exchange Futures",
+  34: "Exchange FORTS Futures",
+  35: "Exchange Option",
+  36: "Exchange Option Margin",
+  37: "Exchange Bonds",
+  64: "Collateral",
 };
 
+// The reference lists calculation modes by meaning, not by wire value.
+export const CalcMode_order = [0, 5, 2, 1, 3, 4, 32, 37, 33, 34, 35, 36, 64];
+
 export const ExecMode_name = {
-  0: "Request Execution",
-  1: "Instant Execution",
-  2: "Market Execution",
-  3: "Exchange Execution",
+  0: "Request",
+  1: "Instant",
+  2: "Market",
+  3: "Exchange",
 };
 
 export const GTCMode_name = {
-  0: "Good till cancelled",
-  1: "Orders daily",
-  2: "Orders & Stops daily",
+  0: "Good till canceled",
+  1: "Good till today including SL/TP",
+  2: "Good till today excluding SL/TP",
 };
 
 export const SwapMode_name = {
   0: "Disabled",
   1: "In points",
-  2: "By symbol currency",
-  3: "By margin currency",
-  4: "By group currency",
-  5: "In percent (current price)",
-  6: "In percent (open price)",
-  7: "Reopen by close price",
-  8: "Reopen by bid price",
-  9: "In percent annual",
+  2: "Using base currency",
+  3: "Using margin currency",
+  4: "Using group currency",
+  5: "In percentage terms using current price",
+  6: "In percentage terms using open price",
+  7: "In points reopen position by close price",
+  8: "In points reopen position by bid price",
+  9: "Using profit currency",
 };
 
 export const SwapDays_options = [360, 365, 366];
 
-export const SymbolSector_name = { 0: "Undefined", 12: "Currency" };
+export const SymbolSector_name = {
+  0: "Undefined",
+  1: "Basic Materials",
+  2: "Communication Services",
+  3: "Consumer Cyclical",
+  4: "Consumer Defensive",
+  5: "Energy",
+  6: "Financial",
+  7: "Healthcare",
+  8: "Industrials",
+  9: "Real Estate",
+  10: "Technology",
+  11: "Utilities",
+  12: "Currency",
+  13: "Currency Crypto",
+  14: "Indexes",
+  15: "Commodities",
+};
+
+export const SymbolIndustry_name = { 0: "Undefined" };
+
+export const ChartMode_name = { 0: "by bid price", 1: "by last price" };
 
 export const FillFlag_labels = [
   { bit: 1, label: "Fill or Kill" },
@@ -53,21 +84,88 @@ export const FillFlag_labels = [
 ];
 
 export const ExpirFlag_labels = [
-  { bit: 1, label: "Good till cancelled" },
-  { bit: 2, label: "Good till today" },
-  { bit: 4, label: "Good till specified date" },
-  { bit: 8, label: "Good till specified day" },
+  { bit: 1, label: "Good till canceled" },
+  { bit: 2, label: "Day" },
+  { bit: 4, label: "Specified time" },
+  { bit: 8, label: "Specified day" },
 ];
 
 export const OrderFlag_labels = [
-  { bit: 1, label: "Market orders" },
-  { bit: 2, label: "Limit orders" },
-  { bit: 4, label: "Stop orders" },
-  { bit: 8, label: "Stop limit orders" },
-  { bit: 16, label: "Stop loss" },
-  { bit: 32, label: "Take profit" },
-  { bit: 64, label: "Close by" },
+  { bit: 1, label: "Market" },
+  { bit: 2, label: "Limit" },
+  { bit: 4, label: "Stop" },
+  { bit: 8, label: "Stop Limit" },
+  { bit: 16, label: "Stop Loss" },
+  { bit: 32, label: "Take Profit" },
+  { bit: 64, label: "Close By" },
 ];
+
+// tick_flags bits (TickFlags in the model).
+export const TICK_REALTIME = 1;
+export const TICK_COLLECT_RAW = 2;
+export const TICK_FEED_STATS = 4;
+
+// trade_flags bits (SymbolTradeFlags).
+export const TRADE_PROFIT_BY_MARKET = 1;
+export const TRADE_ALLOW_SIGNALS = 2;
+
+// margin_flags bits (SymbolMarginFlags).
+export const MARGIN_CHECK_PROCESS = 1;
+export const MARGIN_CHECK_SLTP = 2;
+export const MARGIN_HEDGE_LARGE_LEG = 4;
+export const MARGIN_EXCLUDE_PL = 8;
+export const MARGIN_RECALC_RATES = 16;
+
+export const MarginCheck_name = {
+  0: "None",
+  1: "Check before executing orders",
+  2: "Check on SL/TP trigger",
+};
+
+// swap_flags bits (SwapFlags).
+export const SWAP_CONSIDER_HOLIDAYS = 1;
+
+// re_flags bits (RequestFlags).
+export const REQUEST_ORDER = 1;
+
+// color_background is a wire int; the reference calls the unset value "None".
+export const COLOR_NONE = 4294967295;
+
+export const BackgroundColor_options = [
+  { value: COLOR_NONE, label: "None" },
+  { value: 0xffffff, label: "White" },
+  { value: 0xc0c0c0, label: "Silver" },
+  { value: 0x00ffff, label: "Yellow" },
+  { value: 0x00a5ff, label: "Orange" },
+  { value: 0x8080f0, label: "Salmon" },
+  { value: 0x90ee90, label: "Light Green" },
+  { value: 0xe6d8ad, label: "Light Blue" },
+  { value: 0xd8bfd8, label: "Thistle" },
+];
+
+/** The wire colour is BGR, CSS wants RGB. */
+export const colorToCss = (v) => {
+  const n = Number(v) >>> 0;
+  return `#${(n & 0xff).toString(16).padStart(2, "0")}${((n >> 8) & 0xff).toString(16).padStart(2, "0")}${((n >> 16) & 0xff).toString(16).padStart(2, "0")}`;
+};
+
+export const CURRENCY_options = [
+  "AUD", "CAD", "CHF", "CNH", "CNY", "CZK", "DKK", "EUR", "GBP", "HKD", "HUF",
+  "JPY", "MXN", "NOK", "NZD", "PLN", "RUB", "SEK", "SGD", "TRY", "USD", "ZAR",
+];
+
+export const DIGITS_options = [0, 1, 2, 3, 4, 5, 6, 7, 8];
+
+export const MarketDepth_options = [
+  { value: 0, label: "off" },
+  ...Array.from({ length: 32 }, (_, i) => ({ value: i + 1, label: String(i + 1) })),
+];
+
+export const FilterTicks_options = Array.from({ length: 10 }, (_, i) => i + 1);
+
+export const SubscriptionDelay_options = [0, 1, 5, 10, 15, 30, 60];
+
+export const Deviation_options = Array.from({ length: 21 }, (_, i) => i);
 
 // Internal volume units per lot on the admin symbol wire.
 export const VOLUME_UNITS = 10000;

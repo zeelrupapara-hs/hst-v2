@@ -1,53 +1,62 @@
+import { useState } from "react";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
-import { DatafeedTabIntro, DfListPanel, ParamTypeIcon } from "./DfListPanel.jsx";
+import { DatafeedTabIntro, DfListPanel, DfRowIcon, ParamTypeIcon } from "./DfListPanel.jsx";
 
 const MODE_OPTIONS = [
   { value: 1, label: "Quotes" },
   { value: 2, label: "News" },
+  { value: 3, label: "Quotes and News" },
 ];
 
-function Field({ label, value, onChange, type = "text", wide }) {
+const RECONNECT_OPTIONS = [1, 2, 3, 5, 10, 15, 30, 60];
+
+function Field({ label, value, onChange, type = "text", width, suffix }) {
   return (
     <>
       <label>{label}</label>
       <input
         type={type}
         value={value ?? ""}
-        className={wide ? "df-input-wide" : ""}
+        className={width ? `df-input-${width}` : ""}
         onChange={(e) => onChange(e.target.value)}
       />
+      {suffix && <span className="df-suffix">{suffix}</span>}
     </>
   );
 }
 
 export function DatafeedCommonTab({ d, set, modules }) {
+  const [showNetwork, setShowNetwork] = useState(false);
   const moduleOptions = (modules || []).map((m) => ({ value: m.module, label: m.label || m.module }));
   if (d.module && !moduleOptions.some((o) => o.value === d.module)) {
     moduleOptions.push({ value: d.module, label: d.module });
   }
+  const selected = (modules || []).find((m) => m.module === d.module);
 
   return (
     <>
       <DatafeedTabIntro>
-        The main information about the data feed server is specified on this tab.
+        {selected?.description ||
+          "The main information about the data feed server is specified on this tab."}
       </DatafeedTabIntro>
       <div className="form-grid sym-form-two-col df-common-form">
-        <label>Enable</label>
-        <input
-          type="checkbox"
-          className="df-checkbox"
-          checked={d.enable === 1}
-          onChange={(e) => set("enable", e.target.checked ? 1 : 0)}
-        />
         <span className="df-form-pad" aria-hidden="true" />
-        <Field label="Name" value={d.name} onChange={(v) => set("name", v)} wide />
-        <span className="df-form-pad" aria-hidden="true" />
+        <label className="no-colon df-check-cell">
+          <input
+            type="checkbox"
+            className="df-checkbox"
+            checked={d.enable === 1}
+            onChange={(e) => set("enable", e.target.checked ? 1 : 0)}
+          />
+          Enable
+        </label>
+        <Field label="Name" value={d.name} onChange={(v) => set("name", v)} width="wide" />
         <label>Module</label>
         <div className="df-module-pair">
           <PropSelect fill value={d.module ?? ""} options={moduleOptions} onChange={(v) => set("module", v)} />
           <PropSelect fill value={d.mode ?? 1} options={MODE_OPTIONS} onChange={(v) => set("mode", Number(v))} />
         </div>
-        <Field label="Feed server" value={d.feed_server} onChange={(v) => set("feed_server", v)} wide />
+        <Field label="Feed server" value={d.feed_server} onChange={(v) => set("feed_server", v)} width="med" />
         <Field label="Feed login" value={d.feed_login} onChange={(v) => set("feed_login", Number(v) || 0)} />
         <Field
           label="Password"
@@ -55,18 +64,31 @@ export function DatafeedCommonTab({ d, set, modules }) {
           value={d.feed_password ?? ""}
           onChange={(v) => set("feed_password", v)}
         />
-        <Field label="Gateway server" value={d.gateway_server} onChange={(v) => set("gateway_server", v)} wide />
-        <Field label="Gateway login" value={d.gateway_login} onChange={(v) => set("gateway_login", Number(v) || 0)} />
-        <Field
-          label="Gateway password"
-          type="password"
-          value={d.gateway_password ?? ""}
-          onChange={(v) => set("gateway_password", v)}
-        />
-        <p className="df-attention df-attention-full">
-          When you change any of the parameters, the data feed automatically restarts to apply the
-          changes.
-        </p>
+        <span className="df-form-pad" aria-hidden="true" />
+        <button type="button" className="df-link" onClick={() => setShowNetwork((v) => !v)}>
+          Show additional network settings
+        </button>
+        {showNetwork && (
+          <>
+            <Field
+              label="Gateway server"
+              value={d.gateway_server}
+              onChange={(v) => set("gateway_server", v)}
+              width="med"
+            />
+            <Field
+              label="Gateway login"
+              value={d.gateway_login}
+              onChange={(v) => set("gateway_login", Number(v) || 0)}
+            />
+            <Field
+              label="Gateway password"
+              type="password"
+              value={d.gateway_password ?? ""}
+              onChange={(v) => set("gateway_password", v)}
+            />
+          </>
+        )}
       </div>
     </>
   );
@@ -75,16 +97,17 @@ export function DatafeedCommonTab({ d, set, modules }) {
 export function DatafeedSymbolsTab({ d, set }) {
   return (
     <DfListPanel
-      intro="Specify symbols and groups available to this data feed. Use masks (*, !)."
-      columns={[
-        { id: "scope", label: "Symbol / Group", defaultValue: "*" },
-        { id: "exclude", label: "Exclude", defaultValue: false, editor: "yesno" },
-      ]}
+      intro="Please specify the symbols for which the data feed will translate quotes."
+      columns={[{ id: "scope", label: "", defaultValue: "*" }]}
       rows={d.feed_symbols || []}
       rowKey={(row, i) => row.feed_symbol_id ?? `new-${i}`}
       canEdit
+      showMove={false}
+      headless
+      showAddRow
       onChangeRows={(next) => set("feed_symbols", next)}
-      emptyLabel="No symbols configured"
+      emptyLabel=""
+      renderCellPrefix={() => <DfRowIcon />}
     />
   );
 }
@@ -92,18 +115,23 @@ export function DatafeedSymbolsTab({ d, set }) {
 export function DatafeedTranslationsTab({ d, set }) {
   return (
     <DfListPanel
-      intro="Map external source symbol names to platform symbols. The first matching rule wins."
+      intro={
+        "If necessary, please specify parameters for converting data transmitted through the data feed: " +
+        "name of the source symbol in the external system and value of correction of incoming prices. " +
+        "If any of the parameters is not set, its source values will be used."
+      }
       columns={[
         { id: "symbol", label: "Symbol", defaultValue: "" },
         { id: "source", label: "Source", defaultValue: "" },
-        { id: "bid_markup", label: "Bid", defaultValue: 0, editor: "number" },
-        { id: "ask_markup", label: "Ask", defaultValue: 0, editor: "number" },
+        { id: "bid_markup", label: "Bid", defaultValue: 0, editor: "number", align: "num" },
+        { id: "ask_markup", label: "Ask", defaultValue: 0, editor: "number", align: "num" },
       ]}
       rows={d.translates || []}
       rowKey={(row, i) => row.translate_id ?? `new-${i}`}
       canEdit
       onChangeRows={(next) => set("translates", next)}
       emptyLabel="No translations"
+      renderCellPrefix={(row, col) => (col.id === "symbol" ? <DfRowIcon /> : null)}
     />
   );
 }
@@ -111,7 +139,10 @@ export function DatafeedTranslationsTab({ d, set }) {
 export function DatafeedParametersTab({ d, set }) {
   return (
     <DfListPanel
-      intro="Please specify parameters of the data feed. These parameters are specific for each type of data feed."
+      intro={
+        "Please specify parameters of the data feed. These parameters are specific for each type of " +
+        'data feed. They allow using additional settings that were not available in the "Server" tab.'
+      }
       columns={[
         { id: "param_key", label: "Parameter", defaultValue: "New Parameter" },
         { id: "value", label: "Value", defaultValue: "" },
@@ -121,6 +152,7 @@ export function DatafeedParametersTab({ d, set }) {
       canEdit
       onChangeRows={(next) => set("params", next)}
       emptyLabel="No parameters"
+      onDefault={() => set("params", [])}
       renderCellPrefix={(row, col) =>
         col.id === "param_key" ? <ParamTypeIcon type={row.type} /> : null
       }
@@ -132,12 +164,32 @@ export function DatafeedTimeoutsTab({ d, set }) {
   const num = (key) => (v) => set(key, Number(v) || 0);
   return (
     <>
-      <DatafeedTabIntro>Reconnection timeout settings for the data feed.</DatafeedTabIntro>
+      <DatafeedTabIntro>
+        Please set up data feed timeout parameters for connection errors. These parameters allow quick
+        restoring of a lost network connection and limiting the frequency of reconnections in case of
+        continuous network problems.
+      </DatafeedTabIntro>
       <div className="form-grid df-timeouts-form">
-        <Field label="Interval between reconnections" value={d.timeout_reconnect} onChange={num("timeout_reconnect")} />
-        <Field label="Number of reconnection attempts" value={d.attempts_sleep} onChange={num("attempts_sleep")} />
-        <Field label="Interval between series of reconnections" value={d.timeout_sleep} onChange={num("timeout_sleep")} />
-        <Field label="Connection timeout" value={d.timeout} onChange={num("timeout")} />
+        <label>Interval between reconnections</label>
+        <PropSelect
+          fill
+          value={d.timeout_reconnect ?? 1}
+          options={RECONNECT_OPTIONS}
+          onChange={(v) => set("timeout_reconnect", Number(v) || 0)}
+        />
+        <span className="df-suffix">seconds</span>
+        <Field
+          label="Number of reconnection attempts"
+          value={d.attempts_sleep}
+          onChange={num("attempts_sleep")}
+        />
+        <span className="df-suffix" aria-hidden="true" />
+        <Field
+          label="Interval between series of reconnections"
+          value={d.timeout_sleep}
+          onChange={num("timeout_sleep")}
+          suffix="seconds"
+        />
       </div>
     </>
   );

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
-import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
+import { ContextMenu, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
@@ -8,6 +8,7 @@ import {
   createHoliday,
   deleteHoliday,
   fetchHolidays,
+  reorderHolidays,
   updateHoliday,
 } from "@/api/endpoints/holidays.js";
 import { minutesToTime } from "@/lib/symbolSessions.js";
@@ -19,21 +20,59 @@ const parseTime = (s) => {
   return m ? Math.min(1439, Number(m[1]) * 60 + Number(m[2])) : 0;
 };
 
+function TimeSpin({ value, onChange }) {
+  const step = (d) => onChange(Math.min(1439, Math.max(0, value + d)));
+  return (
+    <span className="hol-spin">
+      <input type="text" value={minutesToTime(value)} onChange={(e) => onChange(parseTime(e.target.value))} />
+      <span className="hol-spin-btns">
+        <button type="button" onClick={() => step(1)} tabIndex={-1} aria-label="up">▲</button>
+        <button type="button" onClick={() => step(-1)} tabIndex={-1} aria-label="down">▼</button>
+      </span>
+    </span>
+  );
+}
+
 function HolidayDialog({ holiday, onClose, onSaved }) {
   const isNew = !holiday;
   const [tab, setTab] = useState("Common");
   const [draft, setDraft] = useState(
     holiday
-      ? { ...holiday, symbols: (holiday.symbols || []).join("; ") }
-      : { mode: 1, year: 0, month: 1, day: 1, from: 0, to: 0, description: "", symbols: "*" },
+      ? { ...holiday, symbols: [...(holiday.symbols || [])] }
+      : { mode: 1, year: 0, month: 1, day: 1, from: 0, to: 0, description: "", symbols: ["*"] },
   );
+  const [picking, setPicking] = useState(false);
+  const [pickedSymbol, setPickedSymbol] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(holiday?.holiday_id ?? "new");
 
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
+  const everyYear = !draft.year;
+
+  const dateText = everyYear
+    ? `${pad(draft.month)}.${pad(draft.day)}`
+    : `${draft.year}.${pad(draft.month)}.${pad(draft.day)}`;
+
+  function onDateText(text) {
+    const m = text.match(/^(?:(\d{4})\.)?(\d{1,2})\.(\d{1,2})$/);
+    if (!m) return;
+    setDraft((prev) => ({
+      ...prev,
+      year: m[1] ? Number(m[1]) : prev.year,
+      month: Math.min(12, Math.max(1, Number(m[2]))),
+      day: Math.min(31, Math.max(1, Number(m[3]))),
+    }));
+  }
+
+  function editSymbols(mask, index) {
+    const next = [...draft.symbols];
+    if (index == null) next.push(mask);
+    else next[index] = mask;
+    set("symbols", next);
+  }
 
   async function handleOk() {
-    const symbols = draft.symbols.split(";").map((s) => s.trim()).filter(Boolean);
+    const symbols = draft.symbols.map((s) => s.trim()).filter(Boolean);
     if (!symbols.length) {
       setError("At least one symbol mask is required");
       return;
@@ -66,8 +105,9 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
+          onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
-          width={480}
+          width={531}
           title="Holiday"
           tabs={
             <div className="config-tabs">
@@ -88,17 +128,17 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
           }
         >
           <div className="config-panel active">
-            <div className="sym-sessions-intro">
-              <span className="sym-tab-intro-icon" aria-hidden="true">
-                <Icon id="holidays" size={48} />
-              </span>
-              <p>
-                Holidays are used for limitation of trading time at the server. Please specify the
-                settings and description of day.
-              </p>
-            </div>
             {tab === "Common" ? (
               <>
+                <div className="sym-sessions-intro">
+                  <span className="sym-tab-intro-icon" aria-hidden="true">
+                    <Icon id="holidays" size={48} />
+                  </span>
+                  <p>
+                    Holidays are used for limitation of trading time at the server. Please specify
+                    the settings and description of day.
+                  </p>
+                </div>
                 <div className="form-grid grp-check-stack">
                   <label className="sym-check">
                     <input
@@ -111,48 +151,50 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
                   <label className="sym-check">
                     <input
                       type="checkbox"
-                      checked={!draft.year}
+                      checked={everyYear}
                       onChange={(e) => set("year", e.target.checked ? 0 : new Date().getFullYear())}
                     />{" "}
                     Every year
                   </label>
                 </div>
                 <div className="form-grid">
-                  {draft.year ? (
-                    <>
-                      <label>Year</label>
-                      <input type="text" value={draft.year} onChange={(e) => set("year", Number(e.target.value) || 0)} />
-                    </>
-                  ) : null}
                   <label>Date</label>
-                  <span className="grp-suffixed">
-                    <input
-                      type="text"
-                      value={`${pad(draft.month)}.${pad(draft.day)}`}
-                      onChange={(e) => {
-                        const m = e.target.value.match(/^(\d{1,2})\.(\d{1,2})$/);
-                        if (m) {
-                          set("month", Math.min(12, Math.max(1, Number(m[1]))));
-                          set("day", Math.min(31, Math.max(1, Number(m[2]))));
-                        }
-                      }}
-                    />
-                    <span className="grp-suffix">MM.DD</span>
+                  <span className="hol-date-row">
+                    <span className="hol-date">
+                      <input type="text" value={dateText} onChange={(e) => onDateText(e.target.value)} />
+                      <button
+                        type="button"
+                        className="hol-date-btn"
+                        title="Calendar"
+                        onClick={() => setPicking((p) => !p)}
+                      >
+                        <Icon id="holidays" /> ▼
+                      </button>
+                      {picking && (
+                        <input
+                          type="date"
+                          className="hol-date-picker"
+                          value={`${draft.year || new Date().getFullYear()}-${pad(draft.month)}-${pad(draft.day)}`}
+                          onChange={(e) => {
+                            const [y, m, d] = e.target.value.split("-").map(Number);
+                            setDraft((prev) => ({
+                              ...prev,
+                              year: prev.year ? y : 0,
+                              month: m,
+                              day: d,
+                            }));
+                            setPicking(false);
+                          }}
+                        />
+                      )}
+                    </span>
+                    <label className="hol-inline-label">Work time</label>
+                    <TimeSpin value={draft.from} onChange={(v) => set("from", v)} />
+                    <span className="hol-dash">-</span>
+                    <TimeSpin value={draft.to} onChange={(v) => set("to", v)} />
                   </span>
-                  <label>Work time</label>
-                  <span className="grp-suffixed">
-                    <input
-                      type="text"
-                      value={minutesToTime(draft.from)}
-                      onChange={(e) => set("from", parseTime(e.target.value))}
-                    />
-                    <span className="grp-suffix">—</span>
-                    <input
-                      type="text"
-                      value={minutesToTime(draft.to)}
-                      onChange={(e) => set("to", parseTime(e.target.value))}
-                    />
-                  </span>
+                  <span />
+                  <span className="hol-hint">Leave 00:00 - 00:00 to close the whole day.</span>
                   <label>Description</label>
                   <input
                     type="text"
@@ -163,16 +205,58 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
                 </div>
               </>
             ) : (
-              <div className="form-grid">
-                <label>Symbols</label>
-                <input
-                  type="text"
-                  className="wide"
-                  placeholder={String.raw`Forex\*; CFD\*; !EURUSD`}
-                  value={draft.symbols}
-                  onChange={(e) => set("symbols", e.target.value)}
-                />
-              </div>
+              <>
+                <div className="sym-sessions-intro">
+                  <span className="sym-tab-intro-icon" aria-hidden="true">
+                    <Icon id="holidays" size={48} />
+                  </span>
+                  <p>Please specify symbols which will be affected by the holiday.</p>
+                </div>
+                <div className="hol-symbols">
+                  <div className="hol-symbol-btns">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const mask = window.prompt("Symbol or group mask", "*");
+                        if (mask) editSymbols(mask.trim(), null);
+                      }}
+                    >
+                      Add
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pickedSymbol == null}
+                      onClick={() => {
+                        const mask = window.prompt("Symbol or group mask", draft.symbols[pickedSymbol]);
+                        if (mask) editSymbols(mask.trim(), pickedSymbol);
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={pickedSymbol == null}
+                      onClick={() => {
+                        set("symbols", draft.symbols.filter((_, i) => i !== pickedSymbol));
+                        setPickedSymbol(null);
+                      }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                  <ul className="hol-symbol-list">
+                    {draft.symbols.map((mask, i) => (
+                      <li
+                        key={`${mask}-${i}`}
+                        className={pickedSymbol === i ? "selected" : ""}
+                        onClick={() => setPickedSymbol(i)}
+                      >
+                        <Icon id="symbols" /> {mask}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
             )}
           </div>
         </SettingsDialog>
@@ -208,6 +292,32 @@ export function HolidaysModule() {
     session.refreshNav?.();
   }
 
+  // holiday rules are evaluated top-down, so list order is a setting, not a view preference
+  async function applyOrder(next, keepIndex) {
+    const res = await reorderHolidays(next.map((r) => r.holiday_id));
+    if (!res.ok) {
+      window.alert(res.message || "reorder failed");
+      return;
+    }
+    setRows(next);
+    setSelected(keepIndex);
+  }
+
+  function move(delta) {
+    const i = selected;
+    const j = i + delta;
+    if (rows == null || i == null || j < 0 || j >= rows.length) return;
+    const next = [...rows];
+    [next[i], next[j]] = [next[j], next[i]];
+    applyOrder(next, j);
+  }
+
+  function sortAlphabetically() {
+    if (!rows?.length) return;
+    const next = [...rows].sort((a, b) => dayLabel(a).localeCompare(dayLabel(b)));
+    applyOrder(next, null);
+  }
+
   return (
     <div className="module-root">
       <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
@@ -225,7 +335,7 @@ export function HolidaysModule() {
             {(rows || []).map((row, i) => (
               <tr
                 key={row.holiday_id}
-                className={selected === i ? "selected" : ""}
+                className={`${selected === i ? "selected" : ""}${row.mode === 1 ? "" : " nav-feed-disabled"}`.trim()}
                 onClick={() => setSelected(i)}
                 onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ holiday: row })}
@@ -238,7 +348,7 @@ export function HolidaysModule() {
                 </td>
                 <td>{minutesToTime(row.from)}</td>
                 <td>{minutesToTime(row.to)}</td>
-                <td className={row.mode === 1 ? "" : "nav-feed-disabled"}>{row.description}</td>
+                <td>{row.description}</td>
                 <td>{(row.symbols || []).join("; ")}</td>
               </tr>
             ))}
@@ -256,10 +366,19 @@ export function HolidaysModule() {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: "Add", onClick: () => setDialog({ holiday: null }) },
-            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ holiday: rows[selected] }) },
-            "sep",
-            { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
+            ...listMenuHead({
+              onAdd: () => setDialog({ holiday: null }),
+              onEdit: () => setDialog({ holiday: rows[selected] }),
+              onDelete: () => onDelete(rows[selected]),
+              hasSelection: selected != null,
+            }),
+            ...listMenuTail({
+              on: {
+                moveUp: selected != null ? () => move(-1) : undefined,
+                moveDown: selected != null ? () => move(1) : undefined,
+                sort: sortAlphabetically,
+              },
+            }),
           ]}
         />
       )}

@@ -179,9 +179,11 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
+          onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           className="df-config-window"
-          title={isNew ? "Data Feed: New" : `Data Feed: ${draft?.name ?? "…"}`}
+          width={570}
+          title="Data Feed"
           tabs={
             <div className="config-tabs df-config-tabs">
               {TABS.map((tab) => (
@@ -204,6 +206,9 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
               </button>
               <button type="button" onClick={onClose}>
                 Cancel
+              </button>
+              <button type="button" className="config-help" disabled>
+                Help
               </button>
             </div>
           }

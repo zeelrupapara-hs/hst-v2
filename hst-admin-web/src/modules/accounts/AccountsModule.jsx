@@ -17,6 +17,7 @@ export function AccountsModule() {
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
   const [balance, setBalance] = useState(null);
+  const [view, setView] = useState({ grid: true, autoArrange: true });
   const canEdit = session.can?.right_acc_manager !== false;
 
   const load = () => fetchUsers().then((res) => res.ok && setRows(res.data || []));
@@ -40,7 +41,7 @@ export function AccountsModule() {
   return (
     <div className="module-root">
       <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
-        <table className="data-table data-table-grid data-table-auto">
+        <table className={`data-table${view.grid ? " data-table-grid" : ""}${view.autoArrange ? " data-table-auto" : ""}`}>
           <thead>
             <tr>
               <th>Login</th>
@@ -86,11 +87,40 @@ export function AccountsModule() {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: "Add", onClick: () => setDialog({ login: "new" }) },
-            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ login: rows[selected]?.login }) },
-            { label: "Balance…", disabled: selected == null, onClick: () => setBalance(rows[selected]) },
+            { label: "New", icon: "add", shortcut: "Ctrl+N", onClick: () => setDialog({ login: "new" }) },
+            { label: "Edit", icon: "edit", shortcut: "Ctrl+U", disabled: selected == null, onClick: () => setDialog({ login: rows[selected]?.login }) },
+            { label: "Edit group", disabled: true },
+            { label: "Edit manager", disabled: true },
+            { label: "Delete", icon: "delete", shortcut: "Ctrl+D", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
             "sep",
-            { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
+            { label: "Request", disabled: true },
+            { label: "Move to Archive", disabled: true },
+            {
+              label: "Balance",
+              items: [
+                { label: "Check Balance", disabled: true },
+                { label: "Fix Balance", disabled: selected == null, onClick: () => setBalance(rows[selected]) },
+              ],
+            },
+            {
+              label: "Copy As",
+              items: [
+                { label: "Lines", disabled: true },
+                { label: "List of Logins", disabled: true },
+              ],
+            },
+            "sep",
+            { label: "Export", disabled: true },
+            { label: "Import from File", disabled: true },
+            { label: "Import from Server", disabled: true },
+            "sep",
+            { label: "E-Mail", disabled: true },
+            { label: "Journal", disabled: true },
+            { label: "Find", shortcut: "Ctrl+F", disabled: true },
+            "sep",
+            { label: "Enabled only", disabled: true },
+            { label: "Auto Arrange", checked: view.autoArrange, onClick: () => setView((v) => ({ ...v, autoArrange: !v.autoArrange })) },
+            { label: "Grid", checked: view.grid, onClick: () => setView((v) => ({ ...v, grid: !v.grid })) },
           ]}
         />
       )}

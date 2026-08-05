@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import {
-  createGroupSymbol,
   deleteGroupCommission,
   deleteGroupSymbol,
   fetchGroupCommissions,
   fetchGroupSymbols,
+  updateGroupSymbol,
 } from "@/api/endpoints/groups.js";
+import { ContextMenu, listMenuHead } from "@/components/ui/ContextMenu.jsx";
+import { Icon } from "@/components/ui/Icon.jsx";
 import { TradeMode_name } from "@/constants/symbols.js";
 import { GroupTabIntro } from "./GroupTabs.jsx";
 import { GroupSymbolDialog } from "./GroupSymbolDialog.jsx";
@@ -15,8 +17,8 @@ import { CommissionDialog } from "./CommissionDialog.jsx";
 export function GroupSymbolsTab({ groupId }) {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(0);
-  const [adding, setAdding] = useState("");
   const [editing, setEditing] = useState(null);
+  const [menu, setMenu] = useState(null);
   const isNew = groupId === "new";
 
   const load = () =>
@@ -26,15 +28,14 @@ export function GroupSymbolsTab({ groupId }) {
     if (!isNew) load();
   }, [groupId]);
 
-  async function add() {
-    const path = adding.trim();
-    if (!path) return;
-    const res = await createGroupSymbol(groupId, { path });
-    if (!res.ok) {
-      window.alert(res.message || "add failed");
-      return;
-    }
-    setAdding("");
+  // Order decides which rule wins, so a move swaps the two rows' config_index.
+  async function move(delta) {
+    const a = rows?.[selected];
+    const b = rows?.[selected + delta];
+    if (!a || !b) return;
+    await updateGroupSymbol(groupId, a.symbol_id, { config_index: b.config_index });
+    await updateGroupSymbol(groupId, b.symbol_id, { config_index: a.config_index });
+    setSelected(selected + delta);
     load();
   }
 
@@ -54,26 +55,32 @@ export function GroupSymbolsTab({ groupId }) {
   return (
     <>
       <GroupTabIntro>
-        Please specify the list of symbol groups with the individual trading settings available for
-        the clients of this group. Rules apply top-down; the first match wins.
+        Please set up individual parameters of symbols trade for the group.
       </GroupTabIntro>
       <div className="df-table-panel">
-        <div className="df-table-toolbar">
-          <input
-            type="text"
-            className="df-cell-input grp-symbol-add"
-            placeholder={String.raw`Forex\* or !EURUSD`}
-            value={adding}
-            onChange={(e) => setAdding(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && add()}
-          />
-          <button type="button" onClick={add}>Add</button>
-          <button type="button" disabled={!rows?.length} onClick={() => setEditing(rows[selected])}>
+        <div className="df-table-toolbar grp-sym-buttons">
+          <button type="button" disabled={selected <= 0} onClick={() => move(-1)}>Up</button>
+          <button
+            type="button"
+            disabled={!rows?.length || selected >= rows.length - 1}
+            onClick={() => move(1)}
+          >
+            Down
+          </button>
+          <span className="grp-sym-buttons-gap" />
+          <button type="button" onClick={() => setEditing({ row: null })}>Add</button>
+          <button type="button" disabled={!rows?.length} onClick={() => setEditing({ row: rows[selected] })}>
             Edit
           </button>
           <button type="button" disabled={!rows?.length} onClick={remove}>Delete</button>
         </div>
-        <div className="df-table-main">
+        <div
+          className="df-table-main"
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenu({ x: e.clientX, y: e.clientY });
+          }}
+        >
           <table className="data-table data-table-grid df-sub-table">
             <thead>
               <tr>
@@ -88,26 +95,43 @@ export function GroupSymbolsTab({ groupId }) {
                   key={row.symbol_id}
                   className={i === selected ? "selected" : ""}
                   onClick={() => setSelected(i)}
-                  onDoubleClick={() => setEditing(row)}
+                  onDoubleClick={() => setEditing({ row })}
                 >
-                  <td>{row.path}</td>
-                  <td>{row.spread_diff == null ? "Default" : row.spread_diff}</td>
+                  <td>
+                    <span className="grp-sym-cell">
+                      <Icon id="symbols-tree" /> {row.path}
+                    </span>
+                  </td>
+                  <td>{row.spread_diff == null ? "Default" : `${row.spread_diff} pt`}</td>
                   <td>{row.trade_mode == null ? "Default" : TradeMode_name[row.trade_mode]}</td>
                 </tr>
               ))}
-              {rows && !rows.length && (
-                <tr>
-                  <td colSpan={3} className="df-empty">No symbol rules — everything inherits defaults</td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
       </div>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            ...listMenuHead({
+              onAdd: () => setEditing({ row: null }),
+              onEdit: () => setEditing({ row: rows[selected] }),
+              onDelete: remove,
+              hasSelection: !!rows?.length,
+            }),
+            "sep",
+            { label: "Up", disabled: selected <= 0, onClick: () => move(-1) },
+            { label: "Down", disabled: !rows?.length || selected >= rows.length - 1, onClick: () => move(1) },
+          ]}
+        />
+      )}
       {editing && (
         <GroupSymbolDialog
           groupId={groupId}
-          row={editing}
+          row={editing.row}
           onClose={() => setEditing(null)}
           onSaved={load}
         />

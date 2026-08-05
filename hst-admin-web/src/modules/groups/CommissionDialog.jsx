@@ -92,6 +92,7 @@ export function CommissionDialog({ groupId, commission, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
+          onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title={`Commission: ${draft.name || "New"}`}
           footer={

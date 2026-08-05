@@ -1,20 +1,28 @@
+import { useState } from "react";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import {
   AuthMode_name,
+  Currency_options,
   FreeMarginMode_name,
+  groupKind,
   HistoryLimit_name,
-  MailMode_name,
   MarginFreeProfitMode_name,
   MarginMode_name,
+  MarginMode_order,
   NewsMode_name,
+  NotifyMode_options,
   PermissionFlag_forceOtp,
   PermissionFlag_labels,
-  PermissionFlag_notify,
-  ReportsFlag_labels,
+  PermissionFlag_notifyMask,
+  ReportsFlag_email,
+  ReportsFlag_statements,
+  ReportsFlag_support,
   ReportsMode_name,
+  SignalsMode_options,
   StopOutMode_name,
   TradeFlag_labels,
+  TradeFlag_signalsMask,
   TradeFlag_soCompensation,
   TradeFlag_soCompensationCredit,
   TradeFlag_soFullyHedged,
@@ -32,10 +40,12 @@ export function GroupTabIntro({ children }) {
   );
 }
 
-const enumOptions = (names) =>
-  Object.entries(names).map(([value, label]) => ({ value: Number(value), label }));
+const enumOptions = (names, order) =>
+  (order ?? Object.keys(names)).map((value) => ({ value: Number(value), label: names[value] }));
 
-function Field({ label, value, onChange, wide, readOnly, suffix }) {
+const decimals = (v, n) => (v == null || v === "" ? "" : Number(v).toFixed(n));
+
+function Field({ label, value, onChange, onBlur, wide, readOnly, suffix }) {
   return (
     <>
       <label>{label}</label>
@@ -45,11 +55,29 @@ function Field({ label, value, onChange, wide, readOnly, suffix }) {
           readOnly={readOnly || !onChange}
           value={value ?? ""}
           className={wide ? "wide" : ""}
+          onBlur={onBlur}
           onChange={onChange ? (e) => onChange(e.target.value) : undefined}
         />
         {suffix && <span className="grp-suffix">{suffix}</span>}
       </span>
     </>
+  );
+}
+
+/** Fixed-decimal display without fighting the caret: the raw text wins until blur. */
+function DecField({ label, value, digits, onChange, suffix }) {
+  const [text, setText] = useState(null);
+  return (
+    <Field
+      label={label}
+      suffix={suffix}
+      value={text ?? decimals(value ?? 0, digits)}
+      onBlur={() => setText(null)}
+      onChange={(v) => {
+        setText(v);
+        onChange(Number(v) || 0);
+      }}
+    />
   );
 }
 
@@ -65,11 +93,17 @@ function NumField({ label, value, onChange, suffix, readOnly }) {
   );
 }
 
-function SelectField({ label, value, names, onChange }) {
+function SelectField({ label, value, names, order, options, onChange, disabled }) {
   return (
     <>
       <label>{label}</label>
-      <PropSelect fill value={value ?? 0} options={enumOptions(names)} onChange={onChange} />
+      <PropSelect
+        fill
+        disabled={disabled}
+        value={value ?? 0}
+        options={options ?? enumOptions(names, order)}
+        onChange={onChange}
+      />
     </>
   );
 }
@@ -88,7 +122,25 @@ function FlagCheck({ flags, bit, label, onChange, disabled }) {
   );
 }
 
+/** The reference right-aligns the caption and puts the box after it in the two-column blocks. */
+function TrailingCheck({ flags, bit, label, onChange }) {
+  return (
+    <label className="sym-check grp-check-trailing">
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        checked={((flags ?? 0) & bit) !== 0}
+        onChange={() => onChange((flags ?? 0) ^ bit)}
+      />
+    </label>
+  );
+}
+
 export function GroupCommonTab({ g, set, isNew }) {
+  const notify = (g.permission_flags ?? 0) & PermissionFlag_notifyMask;
+  const setNotify = (v) =>
+    set("permission_flags", ((g.permission_flags ?? 0) & ~PermissionFlag_notifyMask) | v);
+
   return (
     <>
       <GroupTabIntro>
@@ -96,14 +148,39 @@ export function GroupCommonTab({ g, set, isNew }) {
         Please specify name of group, deposit currency, trade server, and authentication type.
       </GroupTabIntro>
       <div className="form-grid sym-form-two-col">
-        <Field label="Name" value={g.group} onChange={isNew ? (v) => set("group", v) : undefined} wide />
-        <Field label="Currency" value={g.currency} onChange={(v) => set("currency", v.toUpperCase())} />
-        <Field label="Trade server" value="Trade Server (Live)" readOnly />
-        <NumField label="Digits" value={g.currency_digits} onChange={(v) => set("currency_digits", v)} />
+        <Field label="Name" value={g.group} onChange={isNew ? (v) => set("group", v) : undefined} />
+        <SelectField
+          label="Currency"
+          value={g.currency || "USD"}
+          options={Currency_options}
+          onChange={(v) => set("currency", v)}
+        />
+        <SelectField label="Trade server" value="main" options={[{ value: "main", label: "Trade Main, 1" }]} disabled />
+        <SelectField
+          label="Digits"
+          value={g.currency_digits ?? 2}
+          options={[0, 1, 2, 3, 4, 5, 6, 7, 8]}
+          onChange={(v) => set("currency_digits", Number(v))}
+        />
         <SelectField label="Authentication" value={g.auth_mode} names={AuthMode_name} onChange={(v) => set("auth_mode", v)} />
         <NumField label="Minimum password length" value={g.auth_password_min} onChange={(v) => set("auth_password_min", v)} />
       </div>
+      <div className="form-grid">
+        <label>Push notifications</label>
+        <span className="grp-suffixed">
+          <span className="grp-notify-select">
+            <PropSelect fill value={notify} options={NotifyMode_options} onChange={setNotify} />
+          </span>
+          <span className="grp-suffix">sent from the trade server</span>
+        </span>
+      </div>
       <div className="form-grid grp-check-stack">
+        <FlagCheck
+          flags={g.permission_flags}
+          bit={PermissionFlag_forceOtp}
+          label="Force one-time password usage"
+          onChange={(v) => set("permission_flags", v)}
+        />
         {PermissionFlag_labels.map(({ bit, label }) => (
           <FlagCheck
             key={bit}
@@ -113,25 +190,7 @@ export function GroupCommonTab({ g, set, isNew }) {
             onChange={(v) => set("permission_flags", v)}
           />
         ))}
-        <FlagCheck
-          flags={g.permission_flags}
-          bit={PermissionFlag_forceOtp}
-          label="Force one-time password usage"
-          onChange={(v) => set("permission_flags", v)}
-        />
       </div>
-      <fieldset className="fieldset">
-        <legend>Push notifications sent from the trade server</legend>
-        {PermissionFlag_notify.map(({ bit, label }) => (
-          <FlagCheck
-            key={bit}
-            flags={g.permission_flags}
-            bit={bit}
-            label={label}
-            onChange={(v) => set("permission_flags", v)}
-          />
-        ))}
-      </fieldset>
     </>
   );
 }
@@ -165,7 +224,21 @@ export function GroupNewsMailTab({ g, set }) {
       <div className="form-grid">
         <SelectField label="News" value={g.news_mode} names={NewsMode_name} onChange={(v) => set("news_mode", v)} />
         <Field label="News categories" value={g.news_category} onChange={(v) => set("news_category", v)} wide />
-        <SelectField label="Internal mail" value={g.mail_mode} names={MailMode_name} onChange={(v) => set("mail_mode", v)} />
+        <label>News languages</label>
+        <span className="grp-suffixed">
+          <input type="text" className="wide" readOnly value={g.news_langs?.length ? g.news_langs.join(", ") : "Auto select"} />
+          <button type="button" className="grp-change-btn" disabled>Change</button>
+        </span>
+      </div>
+      <div className="form-grid grp-check-stack">
+        <label className="sym-check">
+          <input
+            type="checkbox"
+            checked={(g.mail_mode ?? 0) === 1}
+            onChange={(e) => set("mail_mode", e.target.checked ? 1 : 0)}
+          />{" "}
+          Enable internal mail system
+        </label>
       </div>
     </>
   );
@@ -175,6 +248,10 @@ const unlimited = (v) => (v === 0 || v == null ? "unlimited" : String(v));
 const fromUnlimited = (v) => (v === "unlimited" || v === "" ? 0 : Number(v) || 0);
 
 export function GroupPermissionsTab({ g, set }) {
+  const isDemo = groupKind(g.group ?? "") === "demo";
+  const signals = (g.trade_flags ?? 0) & TradeFlag_signalsMask;
+  const setSignals = (v) => set("trade_flags", ((g.trade_flags ?? 0) & ~TradeFlag_signalsMask) | v);
+
   return (
     <>
       <GroupTabIntro>
@@ -185,14 +262,23 @@ export function GroupPermissionsTab({ g, set }) {
         <SelectField label="Available history" value={g.limit_history} names={HistoryLimit_name} onChange={(v) => set("limit_history", v)} />
         <Field label="Maximum positions" value={unlimited(g.limit_positions)} onChange={(v) => set("limit_positions", fromUnlimited(v))} />
         <Field label="Maximum orders" value={unlimited(g.limit_orders)} onChange={(v) => set("limit_orders", fromUnlimited(v))} />
-        <NumField label="Deposit by default" value={g.demo_deposit ?? 0} onChange={(v) => set("demo_deposit", v)} />
-        <NumField label="Leverage by default" value={g.demo_leverage ?? 0} onChange={(v) => set("demo_leverage", v)} />
-        <NumField label="Annual interest rate" value={g.trade_interest_rate} suffix="%" onChange={(v) => set("trade_interest_rate", v)} />
+        <NumField label="Deposit by default" value={g.demo_deposit ?? 0} readOnly={!isDemo} onChange={isDemo ? (v) => set("demo_deposit", v) : undefined} />
+        <NumField label="Leverage by default" value={g.demo_leverage ?? 0} readOnly={!isDemo} onChange={isDemo ? (v) => set("demo_leverage", v) : undefined} />
+      </div>
+      <div className="form-grid">
+        <DecField
+          label="Annual interest rate"
+          value={g.trade_interest_rate}
+          digits={4}
+          suffix="%"
+          onChange={(v) => set("trade_interest_rate", v)}
+        />
+        <SelectField label="Trading Signals" value={signals} options={SignalsMode_options} onChange={setSignals} />
         <SelectField label="Transfer of funds" value={g.trade_transfer_mode} names={TransferMode_name} onChange={(v) => set("trade_transfer_mode", v)} />
       </div>
-      <div className="form-grid grp-check-stack">
+      <div className="form-grid grp-check-cols">
         {TradeFlag_labels.map(({ bit, label }) => (
-          <FlagCheck key={bit} flags={g.trade_flags} bit={bit} label={label} onChange={(v) => set("trade_flags", v)} />
+          <TrailingCheck key={bit} flags={g.trade_flags} bit={bit} label={label} onChange={(v) => set("trade_flags", v)} />
         ))}
       </div>
     </>
@@ -208,10 +294,13 @@ export function GroupMarginTab({ g, set }) {
         calculation and margin requirements.
       </GroupTabIntro>
       <div className="form-grid">
-        <SelectField label="Risk management" value={g.margin_mode} names={MarginMode_name} onChange={(v) => set("margin_mode", v)} />
-        <NumField label="Margin call level" value={g.margin_call} onChange={(v) => set("margin_call", v)} />
-        <NumField label="Stop out level" value={g.margin_stop_out} onChange={(v) => set("margin_stop_out", v)} />
-        <SelectField label="in" value={g.margin_so_mode} names={StopOutMode_name} onChange={(v) => set("margin_so_mode", v)} />
+        <SelectField label="Risk management" value={g.margin_mode} names={MarginMode_name} order={MarginMode_order} onChange={(v) => set("margin_mode", v)} />
+      </div>
+      <div className="form-grid grp-margin-levels">
+        <DecField label="Margin call level" value={g.margin_call} digits={2} onChange={(v) => set("margin_call", v)} />
+        <DecField label="Stop out level" value={g.margin_stop_out} digits={2} onChange={(v) => set("margin_stop_out", v)} />
+        <label>in</label>
+        <PropSelect fill value={g.margin_so_mode ?? 0} options={enumOptions(StopOutMode_name)} onChange={(v) => set("margin_so_mode", v)} />
       </div>
       <div className="form-grid grp-check-stack">
         <FlagCheck
@@ -229,7 +318,7 @@ export function GroupMarginTab({ g, set }) {
         <FlagCheck
           flags={g.trade_flags}
           bit={TradeFlag_soCompensationCredit}
-          label="Withdraw credit when compensating negative balance"
+          label="Withdraw credit after negative balance compensation"
           disabled={!compensates}
           onChange={(v) => set("trade_flags", v)}
         />
@@ -239,39 +328,49 @@ export function GroupMarginTab({ g, set }) {
         <div className="form-grid">
           <SelectField label="Unrealized profit" value={g.margin_free_mode} names={FreeMarginMode_name} onChange={(v) => set("margin_free_mode", v)} />
           <SelectField label="Daily fixed profit" value={g.margin_free_profit_mode} names={MarginFreeProfitMode_name} onChange={(v) => set("margin_free_profit_mode", v)} />
-          <NumField label="Virtual credit" value={g.trade_virtual_credit} onChange={(v) => set("trade_virtual_credit", v)} />
         </div>
       </fieldset>
+      <div className="form-grid">
+        <NumField label="Virtual credit" value={g.trade_virtual_credit} suffix="(applies only to opening new positions)" onChange={(v) => set("trade_virtual_credit", v)} />
+      </div>
     </>
   );
 }
 
 export function GroupReportsTab({ g, set }) {
   const disabled = (g.reports_mode ?? 0) === 0;
+  const flags = g.reports_flags ?? 0;
+  const toggle = (bit) => set("reports_flags", flags ^ bit);
+  const check = (bit, label) => (
+    <label className={`sym-check${disabled ? " grp-check-disabled" : ""}`}>
+      <input type="checkbox" disabled={disabled} checked={(flags & bit) !== 0} onChange={() => toggle(bit)} />{" "}
+      {label}
+    </label>
+  );
+
   return (
     <>
       <GroupTabIntro>
-        Please specify the settings of daily and monthly reports generated for the group.
+        The platform can daily save the end-of-day state of accounts to a special database. That
+        data is used for generating daily statements and various reports for managers.
       </GroupTabIntro>
       <div className="form-grid">
         <SelectField label="Generate report data" value={g.reports_mode} names={ReportsMode_name} onChange={(v) => set("reports_mode", v)} />
-        <Field label="Mail server" value={g.reports_smtp} onChange={disabled ? undefined : (v) => set("reports_smtp", v)} readOnly={disabled} />
-        <Field label="SMTP login" value={g.reports_smtp_login} onChange={disabled ? undefined : (v) => set("reports_smtp_login", v)} readOnly={disabled} />
-        <Field label="Reports email" value={g.reports_email} onChange={disabled ? undefined : (v) => set("reports_email", v)} readOnly={disabled} />
       </div>
       <div className="form-grid grp-check-stack">
-        {ReportsFlag_labels.map(({ bit, label }) => (
-          <label key={bit} className={`sym-check${disabled ? " grp-check-disabled" : ""}`}>
-            <input
-              type="checkbox"
-              disabled={disabled}
-              checked={((g.reports_flags ?? 0) & bit) !== 0}
-              onChange={() => set("reports_flags", (g.reports_flags ?? 0) ^ bit)}
-            />{" "}
-            {label}
-          </label>
-        ))}
+        {check(ReportsFlag_statements, "Generate statements for clients")}
+        {check(ReportsFlag_email, "Send statements by email")}
       </div>
+      <div className="form-grid">
+        <SelectField
+          label="Mail server"
+          value={g.reports_smtp || ""}
+          disabled={disabled}
+          options={[{ value: "", label: "Default" }, ...(g.reports_smtp ? [{ value: g.reports_smtp, label: g.reports_smtp }] : [])]}
+          onChange={(v) => set("reports_smtp", v)}
+        />
+      </div>
+      <div className="form-grid grp-check-stack">{check(ReportsFlag_support, "Send copies to support email")}</div>
     </>
   );
 }

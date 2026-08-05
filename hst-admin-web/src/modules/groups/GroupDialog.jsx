@@ -157,7 +157,9 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
         onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
+          width={613}
           draggable
+          onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title={title}
           tabs={

@@ -136,6 +136,7 @@ function ClientDialog({ clientId, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
+          onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Client: New" : `Client: ${draft?.person_name ?? clientId}`}
           tabs={
@@ -178,6 +179,7 @@ export function ClientsModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const [view, setView] = useState({ grid: true, autoArrange: true });
   const canEdit = session.can?.right_clients_edit !== false;
 
   const load = () => fetchClients().then((res) => res.ok && setRows(res.data || []));
@@ -201,7 +203,7 @@ export function ClientsModule() {
   return (
     <div className="module-root">
       <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
-        <table className="data-table data-table-grid data-table-auto">
+        <table className={`data-table${view.grid ? " data-table-grid" : ""}${view.autoArrange ? " data-table-auto" : ""}`}>
           <thead>
             <tr>
               <th>ID</th>
@@ -240,10 +242,15 @@ export function ClientsModule() {
           y={menu.y}
           onClose={() => setMenu(null)}
           items={[
-            { label: "Add", onClick: () => setDialog({ id: "new" }) },
-            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ id: rows[selected]?.client_id }) },
+            { label: "New Client", icon: "add", shortcut: "Ctrl+N", onClick: () => setDialog({ id: "new" }) },
+            { label: "Edit", icon: "edit", shortcut: "Ctrl+U", disabled: selected == null, onClick: () => setDialog({ id: rows[selected]?.client_id }) },
+            { label: "Delete", icon: "delete", shortcut: "Ctrl+D", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
             "sep",
-            { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
+            { label: "Export", disabled: true },
+            { label: "Find", shortcut: "Ctrl+F", disabled: true },
+            "sep",
+            { label: "Auto Arrange", checked: view.autoArrange, onClick: () => setView((v) => ({ ...v, autoArrange: !v.autoArrange })) },
+            { label: "Grid", checked: view.grid, onClick: () => setView((v) => ({ ...v, grid: !v.grid })) },
           ]}
         />
       )}

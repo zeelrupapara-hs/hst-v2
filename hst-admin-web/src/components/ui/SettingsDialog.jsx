@@ -1,6 +1,7 @@
 /**
- * Settings dialog shell — fixed 656px, tab strip under the title, OK/Cancel footer.
- * @param {{title: string, tabs?: any, children: any, footer?: any, className?: string, width?: number, draggable?: boolean, onTitlePointerDown?: Function}} props
+ * Settings dialog shell: title bar with the help and close glyphs, tab strip, body, footer.
+ * Width is per dialog — the reference sizes each one to its content.
+ * @param {{title: string, tabs?: any, children: any, footer?: any, className?: string, width?: number, draggable?: boolean, onTitlePointerDown?: Function, onClose?: Function}} props
  */
 export function SettingsDialog({
   title,
@@ -8,9 +9,10 @@ export function SettingsDialog({
   children,
   footer,
   className = "",
-  width = 656,
+  width = 613,
   draggable = false,
   onTitlePointerDown,
+  onClose,
 }) {
   return (
     <div
@@ -24,7 +26,13 @@ export function SettingsDialog({
         className={`config-title${draggable ? " config-title-draggable" : ""}`}
         onMouseDown={draggable ? onTitlePointerDown : undefined}
       >
-        {title}
+        <span className="config-title-text">{title}</span>
+        <span className="config-title-btns">
+          <button type="button" className="config-title-btn" title="Help" disabled>?</button>
+          <button type="button" className="config-title-btn" title="Close" onClick={onClose}>
+            ✕
+          </button>
+        </span>
       </div>
       {tabs}
       <div className="config-body">{children}</div>
