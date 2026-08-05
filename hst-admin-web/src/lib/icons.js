@@ -33,8 +33,8 @@ export const spriteRef = (id) => `${spriteUrl}#icon-${id}`;
 
 export const navIcon = (key) => {
   if (NAV_ICON[key]) return NAV_ICON[key];
-  if (key?.startsWith("group:") || key?.startsWith("groupfolder:")) return "groups-folder";
-  if (key?.startsWith("symfolder:")) return "symbols-tree";
+  if (key?.startsWith("group:") || key?.startsWith("groupfolder:")) return "folder";
+  if (key?.startsWith("symfolder:")) return "folder";
   if (key?.startsWith("feed:")) return "datafeeds";
   return null;
 };

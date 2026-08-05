@@ -3,6 +3,10 @@ import { getToken } from "@/api/client.js";
 import { signOut } from "@/api/endpoints/auth.js";
 import { fetchNavigation } from "@/api/endpoints/navigation.js";
 import { SessionContext } from "@/hooks/useSession.js";
+import { onEvent, startSocket, stopSocket } from "@/api/socket.js";
+import { reloadSymbols } from "@/hooks/useSymbols.js";
+import { reloadGroups } from "@/hooks/useGroups.js";
+import { reloadDatafeeds } from "@/hooks/useDatafeeds.js";
 
 /**
  * Session = the token plus what the navigator answered: who this is, which panel,
@@ -33,6 +37,7 @@ export function SessionProvider({ children }) {
   }, [loadNav]);
 
   const logout = useCallback(async () => {
+    stopSocket();
     await signOut();
     setState({ status: "signed_out", nav: null });
   }, []);
@@ -41,6 +46,29 @@ export function SessionProvider({ children }) {
     loadNav();
     return () => clearTimeout(debounce.current);
   }, [loadNav]);
+
+  // every admin action lands in the journal, so journal_create is the config-change signal
+  useEffect(() => {
+    if (state.status !== "ready") {
+      stopSocket();
+      return;
+    }
+    startSocket();
+    const offConfig = onEvent("*", (event) => {
+      if (!/_created$|_updated$|_deleted$/.test(event.type)) return;
+      if (event.type.startsWith("symbol")) reloadSymbols();
+      else if (event.type.startsWith("group")) reloadGroups();
+      else if (event.type.startsWith("datafeed")) reloadDatafeeds();
+      refreshNav();
+    });
+    const offBalance = onEvent("balance_create", refreshNav);
+    const offRevoked = onEvent("session.revoked", logout);
+    return () => {
+      offConfig();
+      offBalance();
+      offRevoked();
+    };
+  }, [state.status, refreshNav, logout]);
 
   const nav = state.nav;
 

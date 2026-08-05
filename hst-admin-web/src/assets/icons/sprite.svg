@@ -718,4 +718,8 @@
 <path d="M0,0 L5,0 L5,2 L3,2 L2,4 L2,2 L0,2 Z " fill="#84B4D5" transform="translate(21,12)"/>
 <path d="M0,0 L4,0 L4,2 L2,2 L2,4 L0,4 Z " fill="#5492BD" transform="translate(15,3)"/>
   </symbol>
+<symbol id="icon-folder" viewBox="0 0 32 32">
+<path d="M3 7 h9 l3 4 h14 v15 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z" fill="#F5C044" stroke="#B8860B" stroke-width="1.5"/>
+<path d="M3 13 h26 v11 a2 2 0 0 1-2 2 H5 a2 2 0 0 1-2-2 Z" fill="#FFDD80" stroke="#B8860B" stroke-width="1.5"/>
+</symbol>
 </svg>

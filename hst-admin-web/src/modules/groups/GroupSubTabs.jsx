@@ -9,12 +9,14 @@ import {
 } from "@/api/endpoints/groups.js";
 import { TradeMode_name } from "@/constants/symbols.js";
 import { GroupTabIntro } from "./GroupTabs.jsx";
+import { GroupSymbolDialog } from "./GroupSymbolDialog.jsx";
 
 /** Symbols tab: the group's scope rows, applied top-down; `*` is the default row. */
-export function GroupSymbolsTab({ groupId, onOpenRow }) {
+export function GroupSymbolsTab({ groupId }) {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(0);
   const [adding, setAdding] = useState("");
+  const [editing, setEditing] = useState(null);
   const isNew = groupId === "new";
 
   const load = () =>
@@ -66,7 +68,7 @@ export function GroupSymbolsTab({ groupId, onOpenRow }) {
             onKeyDown={(e) => e.key === "Enter" && add()}
           />
           <button type="button" onClick={add}>Add</button>
-          <button type="button" disabled={!rows?.length} onClick={() => onOpenRow?.(rows[selected])}>
+          <button type="button" disabled={!rows?.length} onClick={() => setEditing(rows[selected])}>
             Edit
           </button>
           <button type="button" disabled={!rows?.length} onClick={remove}>Delete</button>
@@ -86,7 +88,7 @@ export function GroupSymbolsTab({ groupId, onOpenRow }) {
                   key={row.symbol_id}
                   className={i === selected ? "selected" : ""}
                   onClick={() => setSelected(i)}
-                  onDoubleClick={() => onOpenRow?.(row)}
+                  onDoubleClick={() => setEditing(row)}
                 >
                   <td>{row.path}</td>
                   <td>{row.spread_diff == null ? "Default" : row.spread_diff}</td>
@@ -102,6 +104,14 @@ export function GroupSymbolsTab({ groupId, onOpenRow }) {
           </table>
         </div>
       </div>
+      {editing && (
+        <GroupSymbolDialog
+          groupId={groupId}
+          row={editing}
+          onClose={() => setEditing(null)}
+          onSaved={load}
+        />
+      )}
     </>
   );
 }
