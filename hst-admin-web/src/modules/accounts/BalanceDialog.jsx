@@ -58,6 +58,7 @@ export function BalanceDialog({ user, onClose, onSaved }) {
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
               <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
         >

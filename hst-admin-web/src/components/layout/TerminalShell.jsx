@@ -8,6 +8,7 @@ import { useSession } from "@/hooks/useSession.js";
 
 const MENUS = ["File", "Edit", "View", "Services", "Help"];
 
+/** The window chrome: light title bar, menu bar, the standard toolbar, then the split body. */
 export function TerminalShell({ panel }) {
   const session = useSession();
   const { fullscreen, toggle } = useFullscreen();
@@ -20,11 +21,8 @@ export function TerminalShell({ panel }) {
   return (
     <>
       <div className="terminal-title">
-        <span>{title}</span>
+        <span className="terminal-title-text">{title}</span>
         <div className="title-actions">
-          <button type="button" className="panel-switch" onClick={session.logout}>
-            Disconnect
-          </button>
           <button
             type="button"
             className="title-btn"
@@ -43,17 +41,19 @@ export function TerminalShell({ panel }) {
       </nav>
 
       <div className="toolbar" aria-label="Standard toolbar">
+        <button type="button" className="tb-btn tb-disconnect" onClick={session.logout}>
+          <span className="tb-x">✕</span> Disconnect
+        </button>
+        <ToolbarButton icon="refresh" title="Refresh" onClick={session.reload}>
+          Refresh
+        </ToolbarButton>
+        <span className="toolbar-sep" />
         <ToolbarButton icon="add" title="Add">Add</ToolbarButton>
         <ToolbarButton icon="edit" title="Edit">Edit</ToolbarButton>
         <ToolbarButton icon="delete" title="Delete">Delete</ToolbarButton>
         <span className="toolbar-sep" />
         <button type="button" className="tb-btn" title="Move Up">↑</button>
         <button type="button" className="tb-btn" title="Move Down">↓</button>
-        <span className="toolbar-sep" />
-        <button type="button" className="tb-btn" title="Apply Changes">Apply</button>
-        <ToolbarButton icon="refresh" title="Refresh" onClick={session.reload}>
-          Refresh
-        </ToolbarButton>
         <div className="toolbar-search">
           <label>Search</label>
           <input type="text" placeholder="Find configuration…" disabled />

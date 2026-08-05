@@ -2861,3 +2861,95 @@ select {
 }
 .dealing-bar button:hover { background: #e5f1fb; border-color: #0078d7; }
 .dealing-action { width: 380px; }
+
+/* ── chrome: the reference title bar is light with dark text, not a blue band ── */
+.terminal-title {
+  background: #fff;
+  color: #000;
+  border-bottom: 1px solid #d8d8d8;
+  font-weight: 400;
+  height: 26px;
+  padding-left: 10px;
+}
+.terminal-title-text { font-weight: 600; }
+.terminal-title .title-btn { color: #444; }
+.terminal-title .title-btn:hover { background: #e5f1fb; border-color: #0078d7; }
+
+.menu-bar { border-bottom: 1px solid #e0e0e0; background: #fff; }
+.toolbar { background: #fff; border-bottom: 1px solid #d8d8d8; gap: 4px; }
+.tb-btn { height: 24px; gap: 5px; color: #1a1a1a; }
+.tb-btn:hover { background: #e5f1fb; border-color: #0078d7; }
+.tb-disconnect { color: #c62828; font-weight: 600; }
+.tb-x { font-weight: 700; }
+.toolbar-search label { color: #444; }
+.toolbar-search input { height: 22px; border-color: #adadad; }
+
+/* ── alignment: labels right, controls left on one baseline grid ── */
+.form-grid {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  gap: 6px 10px;
+  align-items: center;
+  padding: 6px 12px;
+}
+
+.form-grid > label {
+  text-align: right;
+  color: #1a1a1a;
+  white-space: nowrap;
+}
+
+.form-grid input[type="text"],
+.form-grid input[type="password"] {
+  width: 190px;
+  height: 22px;
+}
+
+.form-grid input.wide { width: 100%; max-width: 420px; }
+
+.form-grid input[type="checkbox"] { justify-self: start; margin: 0; }
+
+/* two-column dialogs keep both label columns right-aligned and both fields aligned */
+.sym-form-two-col {
+  grid-template-columns: 150px 190px 150px minmax(0, 1fr);
+}
+
+.sym-form-two-col input[type="text"],
+.sym-form-two-col input[type="password"] { width: 100%; }
+
+/* checkbox stacks line up under the field column, not under the labels */
+.grp-check-stack {
+  grid-template-columns: 1fr;
+  padding: 4px 12px 4px 162px;
+}
+
+.sym-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.sym-check input[type="checkbox"] { margin: 0; }
+
+.fieldset { margin: 8px 12px; padding: 6px 10px; }
+.fieldset .form-grid { padding: 4px 0; }
+
+/* the icon + description header block sits above the fields, indented to the field column */
+.sym-sessions-intro {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 12px 12px 10px;
+}
+.sym-sessions-intro p { margin: 0; line-height: 1.45; color: #222; }
+
+/* table cells: text left, numbers right, one padding everywhere */
+.data-table th, .data-table td { padding: 4px 8px; vertical-align: middle; }
+.data-table .num, .data-table td.num { text-align: right; }
+
+/* the reference labels every field with a trailing colon */
+.form-grid > label::after { content: ":"; }
+.form-grid > label.no-colon::after { content: ""; }
+.config-help { min-width: 78px; }
+.config-help:disabled { color: #a0a0a0; }
