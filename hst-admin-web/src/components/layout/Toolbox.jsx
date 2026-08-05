@@ -1,6 +1,95 @@
 import { useEffect, useState } from "react";
-import { fetchJournal } from "@/api/endpoints/journal.js";
+import { fetchJournal, searchJournal } from "@/api/endpoints/journal.js";
 import { formatNs } from "@/lib/time.js";
+
+const toNs = (local) => (local ? new Date(local).getTime() * 1e6 : undefined);
+
+function JournalRows({ rows, message }) {
+  return (
+    <table className="journal-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Channel</th>
+          <th>IP</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {(rows ?? []).map((r) => (
+          <tr key={r.journal_id}>
+            <td>{formatNs(r.created_at)}</td>
+            <td>{r.channel}</td>
+            <td>{r.ip}</td>
+            <td>{r.message}</td>
+          </tr>
+        ))}
+        {rows !== null && rows.length === 0 && (
+          <tr>
+            <td colSpan={4}>{message || "No journal entries."}</td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function SearchPanel() {
+  const [query, setQuery] = useState({ search: "", from: "", to: "", errorsOnly: false });
+  const [rows, setRows] = useState(null);
+  const [message, setMessage] = useState("");
+
+  async function run() {
+    const res = await searchJournal({
+      search: query.search.trim(),
+      from: toNs(query.from),
+      to: toNs(query.to),
+      errorsOnly: query.errorsOnly,
+    });
+    if (res.ok) {
+      setRows(res.data ?? []);
+      setMessage("");
+    } else {
+      setRows([]);
+      setMessage(res.message || "search failed");
+    }
+  }
+
+  return (
+    <>
+      <div className="toolbox-search-bar">
+        <input
+          type="text"
+          placeholder="Message text…"
+          value={query.search}
+          onChange={(e) => setQuery({ ...query, search: e.target.value })}
+          onKeyDown={(e) => e.key === "Enter" && run()}
+        />
+        <input
+          type="datetime-local"
+          value={query.from}
+          onChange={(e) => setQuery({ ...query, from: e.target.value })}
+        />
+        <input
+          type="datetime-local"
+          value={query.to}
+          onChange={(e) => setQuery({ ...query, to: e.target.value })}
+        />
+        <label>
+          <input
+            type="checkbox"
+            checked={query.errorsOnly}
+            onChange={(e) => setQuery({ ...query, errorsOnly: e.target.checked })}
+          />{" "}
+          Errors only
+        </label>
+        <button type="button" onClick={run}>Request</button>
+        {rows !== null && <span className="module-note">{rows.length} entries</span>}
+      </div>
+      <JournalRows rows={rows} message={message || "Enter a query and press Request."} />
+    </>
+  );
+}
 
 /** Bottom service panel: Journal live from the server, Search lands with the modules. */
 export function Toolbox() {
@@ -37,39 +126,13 @@ export function Toolbox() {
 
       {tab === "journal" && (
         <div className="toolbox-panel active">
-          <table className="journal-table">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Channel</th>
-                <th>IP</th>
-                <th>Message</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(rows ?? []).map((r) => (
-                <tr key={r.journal_id}>
-                  <td>{formatNs(r.created_at)}</td>
-                  <td>{r.channel}</td>
-                  <td>{r.ip}</td>
-                  <td>{r.message}</td>
-                </tr>
-              ))}
-              {rows !== null && rows.length === 0 && (
-                <tr>
-                  <td colSpan={4}>{message || "No journal entries."}</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <JournalRows rows={rows} message={message} />
         </div>
       )}
 
       {tab === "search" && (
         <div className="toolbox-panel active">
-          <p style={{ padding: 8, color: "#666" }}>
-            Search covers loaded module lists; it lands with the modules.
-          </p>
+          <SearchPanel />
         </div>
       )}
     </div>

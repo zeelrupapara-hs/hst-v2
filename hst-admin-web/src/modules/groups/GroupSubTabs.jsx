@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import {
-  createGroupCommission,
   createGroupSymbol,
   deleteGroupCommission,
   deleteGroupSymbol,
@@ -10,6 +9,7 @@ import {
 import { TradeMode_name } from "@/constants/symbols.js";
 import { GroupTabIntro } from "./GroupTabs.jsx";
 import { GroupSymbolDialog } from "./GroupSymbolDialog.jsx";
+import { CommissionDialog } from "./CommissionDialog.jsx";
 
 /** Symbols tab: the group's scope rows, applied top-down; `*` is the default row. */
 export function GroupSymbolsTab({ groupId }) {
@@ -124,7 +124,7 @@ const CHARGE_MODE = { 0: "Instant", 1: "Daily", 2: "Monthly" };
 export function GroupCommissionsTab({ groupId }) {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(0);
-  const [adding, setAdding] = useState(null);
+  const [editing, setEditing] = useState(null);
   const isNew = groupId === "new";
 
   const load = () =>
@@ -133,21 +133,6 @@ export function GroupCommissionsTab({ groupId }) {
   useEffect(() => {
     if (!isNew) load();
   }, [groupId]);
-
-  async function add() {
-    if (!adding?.name?.trim()) return;
-    const res = await createGroupCommission(groupId, {
-      name: adding.name.trim(),
-      path: adding.path || "*",
-      tiers: [],
-    });
-    if (!res.ok) {
-      window.alert(res.message || "add failed");
-      return;
-    }
-    setAdding(null);
-    load();
-  }
 
   async function remove() {
     const row = rows?.[selected];
@@ -167,29 +152,16 @@ export function GroupCommissionsTab({ groupId }) {
       </GroupTabIntro>
       <div className="df-table-panel">
         <div className="df-table-toolbar">
-          <button type="button" onClick={() => setAdding({ name: "", path: "*" })}>Add</button>
+          <button type="button" onClick={() => setEditing({ commission: null })}>Add</button>
+          <button
+            type="button"
+            disabled={!rows?.length}
+            onClick={() => setEditing({ commission: rows[selected] })}
+          >
+            Edit
+          </button>
           <button type="button" disabled={!rows?.length} onClick={remove}>Delete</button>
         </div>
-        {adding && (
-          <div className="df-table-toolbar">
-            <input
-              type="text"
-              className="df-cell-input"
-              placeholder="Name"
-              value={adding.name}
-              onChange={(e) => setAdding({ ...adding, name: e.target.value })}
-            />
-            <input
-              type="text"
-              className="df-cell-input"
-              placeholder="Symbol mask"
-              value={adding.path}
-              onChange={(e) => setAdding({ ...adding, path: e.target.value })}
-            />
-            <button type="button" onClick={add}>OK</button>
-            <button type="button" onClick={() => setAdding(null)}>Cancel</button>
-          </div>
-        )}
         <div className="df-table-main">
           <table className="data-table data-table-grid df-sub-table">
             <thead>
@@ -203,7 +175,12 @@ export function GroupCommissionsTab({ groupId }) {
             </thead>
             <tbody>
               {(rows || []).map((row, i) => (
-                <tr key={row.commission_id} className={i === selected ? "selected" : ""} onClick={() => setSelected(i)}>
+                <tr
+                  key={row.commission_id}
+                  className={i === selected ? "selected" : ""}
+                  onClick={() => setSelected(i)}
+                  onDoubleClick={() => setEditing({ commission: row })}
+                >
                   <td>{row.name}</td>
                   <td>{row.path}</td>
                   <td>{COMMISSION_MODE[row.mode] ?? row.mode}</td>
@@ -220,6 +197,14 @@ export function GroupCommissionsTab({ groupId }) {
           </table>
         </div>
       </div>
+      {editing && (
+        <CommissionDialog
+          groupId={groupId}
+          commission={editing.commission}
+          onClose={() => setEditing(null)}
+          onSaved={load}
+        />
+      )}
     </>
   );
 }

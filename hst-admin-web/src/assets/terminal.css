@@ -2666,3 +2666,15 @@ html, body {
   padding: 4px 8px;
 }
 .lev-rule-dialog { width: 520px; }
+
+/* toolbox — journal search bar */
+.toolbox-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--chrome-border);
+  background: var(--menu-bg);
+}
+.toolbox-search-bar input[type="text"] { flex: 1; min-width: 120px; padding: 2px 5px; border: 1px solid var(--chrome-border); }
+.toolbox-search-bar input[type="datetime-local"] { border: 1px solid var(--chrome-border); padding: 1px 3px; font-size: 11px; }
