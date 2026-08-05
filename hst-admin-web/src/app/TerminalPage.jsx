@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 import { TerminalShell } from "@/components/layout/TerminalShell.jsx";
-import { useSession } from "@/app/session.jsx";
+import { SymbolsModule } from "@/modules/symbols/SymbolsModule.jsx";
+import { useSession } from "@/hooks/useSession.js";
 
 function ModulePlaceholder() {
   return (
@@ -25,6 +26,7 @@ export function TerminalPage({ panel }) {
     <Routes>
       <Route element={<TerminalShell panel={panel} />}>
         <Route index element={<ModulePlaceholder />} />
+        <Route path="symbols" element={<SymbolsModule />} />
         <Route path="*" element={<ModulePlaceholder />} />
       </Route>
     </Routes>

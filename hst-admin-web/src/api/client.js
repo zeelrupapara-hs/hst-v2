@@ -57,7 +57,16 @@ export async function request(path, { method = "GET", body, retry = true } = {})
   };
 }
 
-async function refreshSession() {
+let refreshing = null;
+
+// The server rotates refresh tokens and revokes the family on reuse, so
+// concurrent 401s must share one refresh call.
+function refreshSession() {
+  refreshing ??= doRefresh().finally(() => (refreshing = null));
+  return refreshing;
+}
+
+async function doRefresh() {
   const refresh = localStorage.getItem(STORAGE.refresh);
   if (!refresh) return clearSession(), false;
 

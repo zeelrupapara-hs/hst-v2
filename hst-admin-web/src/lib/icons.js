@@ -31,5 +31,9 @@ export const NAV_ICON = {
 
 export const spriteRef = (id) => `${spriteUrl}#icon-${id}`;
 
-export const navIcon = (key) =>
-  NAV_ICON[key] ?? (key?.startsWith("group:") ? "groups-folder" : null);
+export const navIcon = (key) => {
+  if (NAV_ICON[key]) return NAV_ICON[key];
+  if (key?.startsWith("group:")) return "groups-folder";
+  if (key?.startsWith("symfolder:")) return "symbols-tree";
+  return null;
+};

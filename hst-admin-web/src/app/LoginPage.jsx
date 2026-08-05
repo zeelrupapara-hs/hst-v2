@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signIn } from "@/api/endpoints/auth.js";
-import { useSession } from "@/app/session.jsx";
+import { useSession } from "@/hooks/useSession.js";
 
 /** The sign-in window, drawn as a settings dialog because that is the platform's one dialog. */
 export function LoginPage() {

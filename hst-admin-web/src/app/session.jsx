@@ -1,9 +1,8 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getToken } from "@/api/client.js";
 import { signOut } from "@/api/endpoints/auth.js";
 import { fetchNavigation } from "@/api/endpoints/navigation.js";
-
-const SessionContext = createContext(null);
+import { SessionContext } from "@/hooks/useSession.js";
 
 /**
  * Session = the token plus what the navigator answered: who this is, which panel,
@@ -62,5 +61,3 @@ export function SessionProvider({ children }) {
     </SessionContext.Provider>
   );
 }
-
-export const useSession = () => useContext(SessionContext);

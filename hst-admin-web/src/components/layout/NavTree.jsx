@@ -2,14 +2,35 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { navIcon } from "@/lib/icons.js";
+import { useSymbols } from "@/hooks/useSymbols.js";
+import { annotateTreeCounts, buildFolderTree, sortedTreeChildKeys } from "@/lib/symbolTree.js";
+
+/** Symbol folder tree hangs under the Symbols node; a folder link narrows the list. */
+function symbolFolderChildren(folderNode) {
+  return sortedTreeChildKeys(folderNode).map((key) => {
+    const child = folderNode.children[key];
+    const node = {
+      key: `symfolder:${child.path}`,
+      label: child.name,
+      route: `/symbols?folder=${encodeURIComponent(child.path)}`,
+      count: child.count || undefined,
+    };
+    if (sortedTreeChildKeys(child).length) node.children = symbolFolderChildren(child);
+    return node;
+  });
+}
 
 /**
  * The navigator, built from GET /api/v1/navigation. The reference nests everything under
  * Servers > Trade Server and groups the feed modules under Integrations; the backend does
  * not know that spine yet, so it is applied here (prompt §13-A).
  */
-function shapeTree(nav) {
-  const nodes = nav?.nodes ?? [];
+function shapeTree(nav, symbols) {
+  const nodes = (nav?.nodes ?? []).map((n) => {
+    if (n.key !== "symbols") return n;
+    const root = annotateTreeCounts(buildFolderTree(symbols), symbols);
+    return { ...n, count: root.count, children: symbolFolderChildren(root) };
+  });
   const feeds = nodes.filter((n) => n.section === "feeds");
   const rest = nodes.filter((n) => n.section !== "feeds");
 
@@ -40,7 +61,7 @@ function NavNode({ node, panel, depth }) {
 
   const hasChildren = node.children?.length > 0;
   const to = node.route ? `/${panel}${node.route}` : null;
-  const isActive = to !== null && location.pathname === to;
+  const isActive = to !== null && location.pathname + location.search === to;
 
   function onRowClick() {
     if (to) navigate(to);
@@ -79,11 +100,13 @@ function NavNode({ node, panel, depth }) {
 }
 
 export function NavTree({ nav, panel }) {
+  const { symbols } = useSymbols();
+
   return (
     <aside className="navigator">
       <div className="nav-header">Navigator</div>
       <ul className="nav-tree">
-        {shapeTree(nav).map((node) => (
+        {shapeTree(nav, symbols).map((node) => (
           <NavNode key={node.key} node={node} panel={panel} depth={0} />
         ))}
       </ul>

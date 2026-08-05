@@ -4,7 +4,7 @@ import { StatusBar } from "@/components/layout/StatusBar.jsx";
 import { Toolbox } from "@/components/layout/Toolbox.jsx";
 import { ToolbarButton } from "@/components/ui/ToolbarButton.jsx";
 import { useFullscreen } from "@/hooks/useFullscreen.js";
-import { useSession } from "@/app/session.jsx";
+import { useSession } from "@/hooks/useSession.js";
 
 const MENUS = ["File", "Edit", "View", "Services", "Help"];
 
