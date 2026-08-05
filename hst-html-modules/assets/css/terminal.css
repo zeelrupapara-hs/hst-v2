@@ -1726,8 +1726,8 @@ html, body {
 .config-panel { display: none; padding: 12px; }
 .config-panel.active { display: block; }
 
-.config-window.full {
-  max-width: none;
+/* a settings window that fills the height it is given and scrolls, at the width of every other one */
+.config-window.tall {
   margin: 8px;
   flex: 1;
   min-height: 0;
@@ -1735,14 +1735,14 @@ html, body {
   flex-direction: column;
 }
 
-.config-window.full .config-body {
+.config-window.tall .config-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 0;
 }
 
-.config-window.full .config-panel {
+.config-window.tall .config-panel {
   padding: 12px;
 }
 
