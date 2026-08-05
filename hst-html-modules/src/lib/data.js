@@ -72,3 +72,32 @@ export async function saveTimeSettings(patch) {
   const data = mock?.updateTimeSettings?.(patch) ?? patch;
   return { ok: true, data, elapsed: 0, demo: true };
 }
+
+export async function fetchSymbol(id) {
+  const mock = getMock();
+  if (isDemoMode() || !mock) {
+    return { ok: true, data: mock?.getSymbol?.(id) ?? null, elapsed: 0, demo: true };
+  }
+  const res = await get("/api/v1/symbols/" + encodeURIComponent(id));
+  if (!res.ok) {
+    return {
+      ok: true,
+      data: mock.getSymbol(id),
+      elapsed: res.elapsed,
+      demo: true,
+      fallback: res.status,
+    };
+  }
+  return res;
+}
+
+export async function saveSymbol(id, patch) {
+  const mock = getMock();
+  const data = mock?.updateSymbol?.(id, patch) ?? patch;
+  return { ok: true, data, elapsed: 0, demo: true };
+}
+
+export function getSymbolSessionsForList(symbolId) {
+  const mock = getMock();
+  return mock?.getSymbolSessions?.(symbolId) ?? [];
+}

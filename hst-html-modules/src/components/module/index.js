@@ -1,4 +1,5 @@
 export { ModuleView } from "./ModuleView.jsx";
+export { SplitModule } from "./SplitModule.jsx";
 export { ListModule } from "./ListModule.jsx";
 export { LegacyModuleFrame } from "./LegacyModuleFrame.jsx";
 export { SettingsModule } from "./SettingsModule.jsx";

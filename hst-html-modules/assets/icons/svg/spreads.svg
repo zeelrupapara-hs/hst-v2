@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?><title>Spreads</title>
-<!-- Generator: visioncortex VTracer 0.6.4 -->
-<svg role="img" aria-label="Spreads" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<?xml version="1.0" encoding="UTF-8"?><!-- Generator: visioncortex VTracer 0.6.4 -->
+<svg role="img" aria-label="Spreads" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><title>Spreads</title>
 <path d="M0,0 L3,0 L4,3 L5,2 L17,2 L17,17 L7,18 L5,22 L2,21 L1,19 L0,20 L-11,20 L-11,5 L-2,4 Z " fill="#AFF0FD" transform="translate(13,5)"/>
 <path d="M0,0 L3,0 L4,3 L5,2 L17,2 L17,9 L-11,9 L-11,5 L-2,4 Z " fill="#A4ECFA" transform="translate(13,5)"/>
 <path d="M0,0 L20,0 L20,4 L10,5 L8,9 L5,8 L4,6 L3,7 L-8,7 L-8,5 L2,4 L3,1 Z " fill="#95DFF6" transform="translate(10,18)"/>

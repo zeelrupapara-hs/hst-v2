@@ -162,8 +162,3 @@
   align-items: center;
   cursor: pointer;
 }
-
-.nav-tree a.nav-item.active {
-  background: #316ac5;
-  color: #fff;
-}

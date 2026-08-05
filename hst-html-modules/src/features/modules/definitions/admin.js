@@ -195,8 +195,13 @@ export const adminModules = {
     ],
   },
   symbols: {
-    type: "legacy",
+    type: "split",
     title: "Symbols",
-    legacySrc: "/modules/admin/symbols.html",
+    endpoint: "/api/v1/symbols",
+    query: { limit: "500" },
+    idKey: "symbol_id",
+    editLabel: "✎ Symbol Settings…",
+    detailKind: "symbol",
+    searchPlaceholder: "Symbol, path, description…",
   },
 };

@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?><title>Datafeeds</title>
-<!-- Generator: visioncortex VTracer 0.6.4 -->
-<svg role="img" aria-label="Datafeeds" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<?xml version="1.0" encoding="UTF-8"?><!-- Generator: visioncortex VTracer 0.6.4 -->
+<svg role="img" aria-label="Datafeeds" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><title>Datafeeds</title>
 <path d="M0,0 L11,0 L19,5 L26,13 L28,17 L28,28 L2,28 L0,27 Z " fill="#026FC5" transform="translate(2,2)"/>
 <path d="M0,0 L9,0 L15,4 L18,9 L18,18 L2,18 L0,17 Z " fill="#2BB2EA" transform="translate(2,12)"/>
 <path d="M0,0 L4,4 L6,8 L6,19 L-4,19 L-5,7 L1,7 L1,3 L-1,2 Z M-2,3 Z " fill="#005BA4" transform="translate(24,11)"/>

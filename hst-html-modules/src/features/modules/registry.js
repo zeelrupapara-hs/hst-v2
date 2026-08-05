@@ -3,7 +3,7 @@ import { managerModules } from "./definitions/manager.js";
 
 /**
  * @typedef {Object} ModuleDef
- * @property {'list'|'legacy'|'settings'} type
+ * @property {'list'|'legacy'|'settings'|'split'} type
  * @property {string} title
  * @property {string} [endpoint]
  * @property {Record<string, string>} [query]
@@ -13,6 +13,7 @@ import { managerModules } from "./definitions/manager.js";
  * @property {string} [legacyDetailPanel]
  * @property {string} [legacySrc]
  * @property {string} [settingsId]
+ * @property {string} [detailKind]
  * @property {string} [editLabel]
  * @property {string} [note]
  * @property {string} [searchPlaceholder]

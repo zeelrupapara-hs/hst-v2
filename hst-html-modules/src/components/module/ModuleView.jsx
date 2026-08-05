@@ -5,6 +5,8 @@ import {
 import { LegacyModuleFrame } from "./LegacyModuleFrame.jsx";
 import { ListModule } from "./ListModule.jsx";
 import { SettingsModule } from "./SettingsModule.jsx";
+import { SplitModule } from "./SplitModule.jsx";
+import { SymbolSettingsModule } from "../symbols/SymbolSettingsModule.jsx";
 
 export function ModuleView({ panel, moduleId, recordId }) {
   const def = getModuleDef(panel, moduleId);
@@ -15,6 +17,14 @@ export function ModuleView({ panel, moduleId, recordId }) {
         <p className="module-note">Unknown module: {moduleId}</p>
       </div>
     );
+  }
+
+  if (recordId && def.detailKind === "symbol" && def.type === "split") {
+    return <SplitModule config={def} panel={panel} moduleId={moduleId} />;
+  }
+
+  if (recordId && def.detailKind === "symbol") {
+    return <SymbolSettingsModule symbolId={recordId} />;
   }
 
   if (recordId) {
@@ -34,11 +44,15 @@ export function ModuleView({ panel, moduleId, recordId }) {
     return <SettingsModule config={def} />;
   }
 
+  if (def.type === "split") {
+    return <SplitModule config={def} panel={panel} moduleId={moduleId} />;
+  }
+
   return (
     <ListModule
       config={def}
       detailPath={
-        def.legacyDetail
+        def.detailKind === "symbol" || def.legacyDetail
           ? (id) => `/${panel}/${moduleId}/${encodeURIComponent(id)}`
           : null
       }

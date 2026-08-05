@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?><title>Server</title>
-<!-- Generator: visioncortex VTracer 0.6.4 -->
-<svg role="img" aria-label="Server" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<?xml version="1.0" encoding="UTF-8"?><!-- Generator: visioncortex VTracer 0.6.4 -->
+<svg role="img" aria-label="Server" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><title>Server</title>
 <path d="M0,0 L28,0 L28,28 L0,28 Z " fill="#F7F7F6" transform="translate(2,2)"/>
 <path d="M0,0 L7,0 L6,7 L0,8 Z " fill="#E8B704" transform="translate(2,19)"/>
 <path d="M0,0 L3,0 L2,5 L0,5 L0,9 L5,9 L6,7 L6,13 L5,10 L-1,10 L-1,13 L-4,13 L-4,10 L-2,10 Z " fill="#5D4B41" transform="translate(24,10)"/>

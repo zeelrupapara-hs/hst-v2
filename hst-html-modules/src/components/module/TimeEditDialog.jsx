@@ -107,11 +107,11 @@ export function TimeEditDialog({ dayIndex, hours, onSave, onClose }) {
             </div>
           ))}
         </div>
-        <div className="time-edit-footer">
-          <button type="button" className="tb-btn" onClick={handleOk}>
+        <div className="config-actions time-edit-footer">
+          <button type="button" className="config-ok" onClick={handleOk}>
             OK
           </button>
-          <button type="button" className="tb-btn" onClick={onClose}>
+          <button type="button" onClick={onClose}>
             Cancel
           </button>
         </div>

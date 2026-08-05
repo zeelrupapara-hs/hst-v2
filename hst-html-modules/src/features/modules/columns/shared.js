@@ -4,6 +4,7 @@ import {
   fmtKycStatus,
   fmtTs,
 } from "../../../lib/formatters.js";
+import { iconImgHtml, resolveEntityIcon } from "../../../lib/icons.js";
 import { getMock } from "../../../lib/legacy.js";
 
 export function personNameCol() {
@@ -134,8 +135,10 @@ export function managerRoleIconCol() {
     label: "",
     html: true,
     render: (r) => {
-      const icon = r.rights?.right_admin ? "administrator" : "manager";
-      return `<img class="hst-icon" src="/assets/icons/svg/${icon}.svg?v=3" alt="">`;
+      const icon = resolveEntityIcon(
+        r.rights?.right_admin ? "administrator" : "manager"
+      );
+      return iconImgHtml(icon);
     },
   };
 }

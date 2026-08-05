@@ -1,31 +1,87 @@
 import { useState } from "react";
-import { NavLink, useParams } from "react-router-dom";
-import { Icon } from "../ui/Icon.jsx";
+import { NavLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { NavIcon } from "../ui/Icon.jsx";
+import { resolveNavIcon } from "../../lib/icons.js";
+import { symbolNavLink } from "../../lib/symbolNavTree.js";
+
+function isNodeActive(node, activeModule, currentFolder) {
+  if (node.moduleId !== activeModule) return false;
+  if (node.folderPath !== undefined) {
+    return currentFolder === node.folderPath;
+  }
+  return true;
+}
+
+function nodeLink(panel, node) {
+  if (node.folderPath !== undefined) {
+    return symbolNavLink(panel, node.folderPath);
+  }
+  if (node.moduleId) {
+    return `/${panel}/${node.moduleId}`;
+  }
+  return null;
+}
+
+function navClass(node, isActive) {
+  return `nav-item nav-indent-${node.indent}${isActive ? " active" : ""}`;
+}
+
+function NavItemContent({ node, open, onToggleOpen }) {
+  const hasChildren = node.children?.length > 0;
+  return (
+    <>
+      <span
+        className={`chevron${hasChildren ? "" : " empty"}`}
+        onClick={hasChildren ? onToggleOpen : undefined}
+      >
+        {hasChildren ? (open ? "▼" : "▶") : "▶"}
+      </span>
+      <NavIcon name={resolveNavIcon(node)} title={node.label} />
+      <span className="label">{node.label}</span>
+      {node.count && <span className="count">{node.count}</span>}
+    </>
+  );
+}
 
 function NavItem({ panel, node }) {
+  const navigate = useNavigate();
   const { moduleId: activeModule } = useParams();
+  const [searchParams] = useSearchParams();
+  const currentFolder = searchParams.get("folder") || "";
   const [open, setOpen] = useState(node.open !== false);
-  const hasChildren = node.children?.length;
-  const isBranch = hasChildren && !node.moduleId;
+  const hasChildren = node.children?.length > 0;
+  const isNavigable = !!node.moduleId;
+  const isActive = isNavigable && isNodeActive(node, activeModule, currentFolder);
+  const linkTo = nodeLink(panel, node);
+  const isSymbolFolder = node.folderPath !== undefined;
 
-  if (isBranch) {
+  function toggleOpen(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(!open);
+  }
+
+  function goTo(e) {
+    if (isSymbolFolder && linkTo) {
+      e.preventDefault();
+      navigate(linkTo);
+    }
+  }
+
+  if (hasChildren && !isNavigable) {
     return (
       <li className="nav-branch">
-        <div
-          className={`nav-item nav-indent-${node.indent}`}
-          onClick={() => setOpen(!open)}
-        >
-          <span className="chevron">{open ? "▼" : "▶"}</span>
-          <span className="ico">
-            <Icon name={node.icon} />
-          </span>
-          <span className="label">{node.label}</span>
-          {node.count && <span className="count">{node.count}</span>}
+        <div className={navClass(node, false)} onClick={() => setOpen(!open)}>
+          <NavItemContent node={node} open={open} />
         </div>
         {open && (
           <ul>
             {node.children.map((child, i) => (
-              <NavItem key={child.moduleId || child.label || i} panel={panel} node={child} />
+              <NavItem
+                key={child.moduleId || child.folderPath || child.label || i}
+                panel={panel}
+                node={child}
+              />
             ))}
           </ul>
         )}
@@ -33,21 +89,62 @@ function NavItem({ panel, node }) {
     );
   }
 
-  if (node.moduleId) {
-    const active = activeModule === node.moduleId;
+  if (hasChildren && isNavigable) {
+    const RowTag = isSymbolFolder ? "div" : NavLink;
+    const rowProps = isSymbolFolder
+      ? { className: navClass(node, isActive), onClick: goTo, role: "button" }
+      : {
+          to: linkTo,
+          className: ({ isActive: on }) => navClass(node, on),
+        };
+
+    return (
+      <li className="nav-branch">
+        <RowTag {...rowProps}>
+          <NavItemContent
+            node={node}
+            open={open}
+            onToggleOpen={toggleOpen}
+          />
+        </RowTag>
+        {open && (
+          <ul>
+            {node.children.map((child, i) => (
+              <NavItem
+                key={child.moduleId || child.folderPath || child.label || i}
+                panel={panel}
+                node={child}
+              />
+            ))}
+          </ul>
+        )}
+      </li>
+    );
+  }
+
+  if (isNavigable) {
+    if (isSymbolFolder) {
+      return (
+        <li>
+          <div
+            className={navClass(node, isActive)}
+            onClick={goTo}
+            role="button"
+          >
+            <NavItemContent node={node} open={open} />
+          </div>
+        </li>
+      );
+    }
+
     return (
       <li>
         <NavLink
-          to={`/${panel}/${node.moduleId}`}
-          className={`nav-item nav-indent-${node.indent}${active ? " active" : ""}`}
+          to={linkTo}
+          className={({ isActive: on }) => navClass(node, on)}
           onClick={(e) => e.stopPropagation()}
         >
-          <span className="chevron empty">▶</span>
-          <span className="ico">
-            <Icon name={node.icon} />
-          </span>
-          <span className="label">{node.label}</span>
-          {node.count && <span className="count">{node.count}</span>}
+          <NavItemContent node={node} open={open} />
         </NavLink>
       </li>
     );
@@ -55,13 +152,10 @@ function NavItem({ panel, node }) {
 
   return (
     <li>
-      <div className={`nav-item nav-indent-${node.indent}${node.disabled ? " disabled" : ""}`}>
-        <span className="chevron empty">▶</span>
-        <span className="ico">
-          <Icon name={node.icon} />
-        </span>
-        <span className="label">{node.label}</span>
-        {node.count && <span className="count">{node.count}</span>}
+      <div
+        className={`${navClass(node, false)}${node.disabled ? " disabled" : ""}`}
+      >
+        <NavItemContent node={node} open={open} />
       </div>
     </li>
   );
@@ -73,7 +167,7 @@ export function NavTree({ panel, tree }) {
       <div className="nav-header">Navigator</div>
       <ul className="nav-tree">
         {tree.map((node, i) => (
-          <NavItem key={node.label || i} panel={panel} node={node} />
+          <NavItem key={node.label || node.moduleId || i} panel={panel} node={node} />
         ))}
       </ul>
     </aside>

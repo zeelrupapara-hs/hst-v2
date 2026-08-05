@@ -17,7 +17,7 @@
   }
 
   var base = detectBase();
-  var version = "3";
+  var version = "4";
 
   function url(id) {
     return base + id + ".svg?v=" + version;

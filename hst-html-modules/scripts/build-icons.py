@@ -128,12 +128,19 @@ def normalize_svg(svg: Path) -> None:
         )
     title = svg.stem.replace("-", " ").title()
     if "<title>" not in text:
-        text = text.replace(
-            "<svg",
-            f'<svg role="img" aria-label="{title}"',
-            1,
+        text = re.sub(
+            r"(<svg[^>]*>)",
+            rf'\1<title>{title}</title>',
+            text,
+            count=1,
         )
-        text = text.replace(">", f"><title>{title}</title>", 1)
+        if 'role="img"' not in text:
+            text = re.sub(
+                r"<svg",
+                f'<svg role="img" aria-label="{title}"',
+                text,
+                count=1,
+            )
     svg.write_text(text, encoding="utf-8")
 
 

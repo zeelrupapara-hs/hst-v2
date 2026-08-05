@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?><title>Network Cluster</title>
-<!-- Generator: visioncortex VTracer 0.6.4 -->
-<svg role="img" aria-label="Network Cluster" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<?xml version="1.0" encoding="UTF-8"?><!-- Generator: visioncortex VTracer 0.6.4 -->
+<svg role="img" aria-label="Network Cluster" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><title>Network Cluster</title>
 <path d="M0,0 L28,0 L28,28 L0,28 Z " fill="#FAFCFA" transform="translate(2,2)"/>
 <path d="M0,0 L6,0 L6,13 L0,13 Z " fill="#989999" transform="translate(2,13)"/>
 <path d="M0,0 L8,0 L8,7 L0,7 Z " fill="#77D686" transform="translate(22,16)"/>

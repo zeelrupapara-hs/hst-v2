@@ -1,4 +1,5 @@
-export { Icon } from "./Icon.jsx";
+export { Icon, NavIcon } from "./Icon.jsx";
+export { Mt5ConfigDialog } from "./Mt5ConfigDialog.jsx";
 export { ApiBar } from "./ApiBar.jsx";
 export { SearchField } from "./SearchField.jsx";
 export { ToolbarButton } from "./ToolbarButton.jsx";

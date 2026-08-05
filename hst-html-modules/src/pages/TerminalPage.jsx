@@ -1,12 +1,11 @@
-import { Navigate, useParams } from "react-router-dom";
+import { Navigate, useParams, useSearchParams } from "react-router-dom";
 import { TerminalShell } from "../components/layout/TerminalShell.jsx";
-import { adminNav } from "../features/navigation/adminNav.js";
-import { managerNav } from "../features/navigation/managerNav.js";
 import {
   DEFAULT_MODULE,
   getModuleLabel,
 } from "../features/modules/registry.js";
 import { useDemo } from "../hooks/useDemo.js";
+import { useAdminNavTree } from "../hooks/useAdminNavTree.js";
 
 const TITLES = {
   admin: "HST Administrator — MetaTrader Server (Live)",
@@ -15,8 +14,13 @@ const TITLES = {
 
 export function TerminalPage({ panel }) {
   const { moduleId, recordId } = useParams();
+  const [searchParams] = useSearchParams();
   const demo = useDemo();
-  const nav = panel === "admin" ? adminNav : managerNav;
+  const activeFolder =
+    panel === "admin" && moduleId === "symbols"
+      ? searchParams.get("folder") || ""
+      : "";
+  const nav = useAdminNavTree(panel, activeFolder);
 
   if (!moduleId) {
     return <Navigate to={`/${panel}/${DEFAULT_MODULE[panel]}`} replace />;

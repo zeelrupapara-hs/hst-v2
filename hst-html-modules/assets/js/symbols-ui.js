@@ -43,7 +43,11 @@
   function buildPathTree(rows) {
     var root = { name: "All symbols", path: "", children: {}, isRoot: true };
     (rows || []).forEach(function (r) {
-      var parts = (r.path || "").split("\\").filter(Boolean);
+      // Stored path is folder\symbol — tree shows folders only (admin MT5).
+      var full = r.path || "";
+      var folder = full.lastIndexOf("\\") >= 0 ? full.slice(0, full.lastIndexOf("\\")) : "";
+      if (!folder) return;
+      var parts = folder.split("\\").filter(Boolean);
       var node = root;
       var acc = "";
       parts.forEach(function (p) {

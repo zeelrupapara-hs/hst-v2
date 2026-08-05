@@ -3,6 +3,36 @@
  */
 (function (global) {
   var NOW = Math.floor(Date.now() / 1000);
+  var NOW_NS = Date.now() * 1000000;
+  var sessionIdSeq = 100;
+
+  function symbolPath(folder, name) {
+    return folder + "\\" + name;
+  }
+
+  function assignSessionIds(symbolId, rows) {
+    return (rows || []).map(function (r) {
+      return {
+        session_id: sessionIdSeq++,
+        symbol_id: symbolId,
+        type: r.type,
+        day: r.day,
+        open: r.open,
+        close: r.close
+      };
+    });
+  }
+
+  function forexWeekSessions() {
+    var s = [];
+    for (var day = 1; day <= 4; day++) {
+      s.push({ type: 0, day: day, open: 0, close: 1440 });
+      s.push({ type: 1, day: day, open: 5, close: 1440 });
+    }
+    s.push({ type: 0, day: 5, open: 0, close: 1439 });
+    s.push({ type: 1, day: 5, open: 5, close: 1439 });
+    return s;
+  }
 
   var groups = [
     { group_id: 1, group: "demo\\forex-usd", name: "forex-usd", exists: true, status: "Enabled", auth_mode: 0, currency: "USD", margin_call: 100, margin_stop_out: 50, limit_orders: 200, permission_flags: 0, auth_password_min: 8, currency_digits: 2, company: "Demo Broker Ltd", company_page: "https://demo.example.com", company_email: "info@demo.example.com", company_support_page: "https://support.demo.example.com", company_support_email: "support@demo.example.com", company_catalog: "Forex", reports_mode: 0, reports_flags: 0, reports_email: "reports@demo.example.com", reports_smtp: "smtp.demo.example.com", reports_smtp_login: "reports", news_mode: 0, news_category: "Forex", news_langs: [9, 12], mail_mode: 0, trade_flags: 0, trade_interest_rate: 0, trade_virtual_credit: 0, trade_transfer_mode: 0, demo_leverage: 100, demo_deposit: 10000, margin_free_mode: 0, margin_so_mode: 0, margin_mode: 0, margin_flags: 0, limit_symbols: 0, limit_positions: 1000, limit_positions_volume: 0, limit_history: 0 },
@@ -16,24 +46,15 @@
   ];
 
   var symbols = [
-    { symbol_id: 1, symbol: "EURUSD", path: "Forex\\Majors", description: "Euro vs US Dollar", digits: 5, exec_mode: 2, spread: 12, contract_size: 100000, trade_mode: 4, calc_mode: 0, session_trade: true, session_quote: true, date_modified: NOW - 86400 },
-    { symbol_id: 2, symbol: "GBPUSD", path: "Forex\\Majors", description: "British Pound vs US Dollar", digits: 5, exec_mode: 2, spread: 15, contract_size: 100000, trade_mode: 4, calc_mode: 0, session_trade: true, session_quote: true, date_modified: NOW - 86400 },
-    { symbol_id: 3, symbol: "USDJPY", path: "Forex\\Majors", description: "US Dollar vs Yen", digits: 3, exec_mode: 2, spread: 10, contract_size: 100000, trade_mode: 1, calc_mode: 0, session_trade: true, session_quote: true, date_modified: NOW - 172800 },
-    { symbol_id: 4, symbol: "XAUUSD", path: "Metals\\Gold", description: "Gold vs US Dollar", digits: 2, exec_mode: 1, spread: 30, contract_size: 100, trade_mode: 4, calc_mode: 1, session_trade: true, session_quote: true, date_modified: NOW - 3600 },
-    { symbol_id: 5, symbol: "XAGUSD", path: "Metals\\Silver", description: "Silver vs US Dollar", digits: 3, exec_mode: 1, spread: 25, contract_size: 5000, trade_mode: 3, calc_mode: 1, session_trade: false, session_quote: true, date_modified: NOW - 7200 },
-    { symbol_id: 6, symbol: "US500", path: "Indices\\US", description: "S&P 500 Index", digits: 2, exec_mode: 0, spread: 40, contract_size: 1, trade_mode: 4, calc_mode: 2, session_trade: false, session_quote: false, date_modified: NOW - 43200 },
-    { symbol_id: 7, symbol: "BTCUSD", path: "Crypto\\Major", description: "Bitcoin vs US Dollar", digits: 2, exec_mode: 2, spread: 80, contract_size: 1, trade_mode: 4, calc_mode: 0, session_trade: true, session_quote: true, date_modified: NOW - 900 },
-    { symbol_id: 8, symbol: "ETHUSD", path: "Crypto\\Major", description: "Ethereum vs US Dollar", digits: 2, exec_mode: 2, spread: 60, contract_size: 1, trade_mode: 0, calc_mode: 0, session_trade: false, session_quote: false, date_modified: NOW - 900 }
+    { symbol_id: 1, symbol: "EURUSD", path: symbolPath("Forex\\Majors", "EURUSD"), description: "Euro vs US Dollar", digits: 5, exec_mode: 3, spread: 0, contract_size: 100000, trade_mode: 4, calc_mode: 0, date_modified: NOW_NS - 86400000000000 },
+    { symbol_id: 2, symbol: "GBPUSD", path: symbolPath("Forex\\Majors", "GBPUSD"), description: "British Pound vs US Dollar", digits: 5, exec_mode: 3, spread: 0, contract_size: 100000, trade_mode: 4, calc_mode: 0, date_modified: NOW_NS - 86400000000000 },
+    { symbol_id: 3, symbol: "USDJPY", path: symbolPath("Forex\\Majors", "USDJPY"), description: "US Dollar vs Yen", digits: 3, exec_mode: 3, spread: 0, contract_size: 100000, trade_mode: 1, calc_mode: 0, date_modified: NOW_NS - 172800000000000 },
+    { symbol_id: 4, symbol: "XAUUSD", path: symbolPath("Metals\\Gold", "XAUUSD"), description: "Gold vs US Dollar", digits: 2, exec_mode: 1, spread: 30, contract_size: 100, trade_mode: 4, calc_mode: 1, date_modified: NOW_NS - 3600000000000 },
+    { symbol_id: 5, symbol: "XAGUSD", path: symbolPath("Metals\\Silver", "XAGUSD"), description: "Silver vs US Dollar", digits: 3, exec_mode: 1, spread: 25, contract_size: 5000, trade_mode: 3, calc_mode: 1, date_modified: NOW_NS - 7200000000000 },
+    { symbol_id: 6, symbol: "US500", path: symbolPath("Indices\\US", "US500"), description: "S&P 500 Index", digits: 2, exec_mode: 0, spread: 40, contract_size: 1, trade_mode: 4, calc_mode: 2, date_modified: NOW_NS - 43200000000000 },
+    { symbol_id: 7, symbol: "BTCUSD", path: symbolPath("Crypto\\Major", "BTCUSD"), description: "Bitcoin vs US Dollar", digits: 2, exec_mode: 2, spread: 80, contract_size: 1, trade_mode: 4, calc_mode: 0, date_modified: NOW_NS - 900000000000 },
+    { symbol_id: 8, symbol: "ETHUSD", path: symbolPath("Crypto\\Major", "ETHUSD"), description: "Ethereum vs US Dollar", digits: 2, exec_mode: 2, spread: 60, contract_size: 1, trade_mode: 0, calc_mode: 0, date_modified: NOW_NS - 900000000000 }
   ];
-
-  function forexWeekSessions() {
-    var s = [];
-    for (var day = 1; day <= 5; day++) {
-      s.push({ type: 0, day: day, open: 0, close: 1440 });
-      s.push({ type: 1, day: day, open: 0, close: 1440 });
-    }
-    return s;
-  }
 
   function cryptoWeekSessions() {
     var s = [];
@@ -45,42 +66,149 @@
   }
 
   var symbolSessions = {
-    1: forexWeekSessions(),
-    2: forexWeekSessions(),
-    3: forexWeekSessions(),
-    4: (function () {
+    1: assignSessionIds(1, forexWeekSessions()),
+    2: assignSessionIds(2, forexWeekSessions()),
+    3: assignSessionIds(3, forexWeekSessions()),
+    4: assignSessionIds(4, (function () {
       var s = forexWeekSessions();
       s.push({ type: 0, day: 6, open: 0, close: 1440 }, { type: 1, day: 6, open: 0, close: 1200 });
       return s;
-    })(),
-    5: (function () {
+    })()),
+    5: assignSessionIds(5, (function () {
       var s = [];
       for (var day = 1; day <= 5; day++) {
         s.push({ type: 0, day: day, open: 60, close: 1380 });
         s.push({ type: 1, day: day, open: 120, close: 1320 });
       }
       return s;
-    })(),
-    6: (function () {
+    })()),
+    6: assignSessionIds(6, (function () {
       var s = [];
       for (var day = 1; day <= 5; day++) {
         s.push({ type: 0, day: day, open: 540, close: 1260 });
         s.push({ type: 1, day: day, open: 570, close: 1230 });
       }
       return s;
-    })(),
-    7: cryptoWeekSessions(),
-    8: []
+    })()),
+    7: assignSessionIds(7, cryptoWeekSessions()),
+    8: assignSessionIds(8, cryptoWeekSessions())
+  };
+
+  var symbolDetails = {
+    1: {
+      exchange: "XCCY", isin: "", international: "", category: "", cfi: "",
+      sector: 12, industry: 0, country: "", basis: "", source: "", page: "",
+      currency_base: "EUR", currency_base_digits: 2,
+      currency_profit: "USD", currency_profit_digits: 2,
+      currency_margin: "EUR", currency_margin_digits: 2,
+      spread_balance: 0, tick_book_depth: 0, tick_flags: 1,
+      filter_soft: 0, filter_soft_ticks: 5, filter_hard: 0, filter_hard_ticks: 5,
+      filter_discard: 0, filter_spread_max: 0, filter_spread_min: 0, subscriptions_delay: 15,
+      gtc_mode: 0, fill_flags: 3, expir_flags: 15, order_flags: 127,
+      stops_level: 1, freeze_level: 0, quotes_timeout: 0,
+      volume_min: 100, volume_step: 100, volume_max: 1000000, volume_limit: 0,
+      margin_initial: 0, margin_hedged: 0, margin_maintenance: 0, margin_flags: 0,
+      margin_rate_liquidity: 1, margin_rate_currency: 0,
+      margin_initial_buy: 1, margin_initial_sell: 1,
+      margin_maintenance_buy: 1, margin_maintenance_sell: 1,
+      swap_mode: 1, swap_long: -4.231, swap_short: -5.206, swap_year_day: 360, swap_flags: 0,
+      swap_rate_sunday: 0, swap_rate_monday: 1, swap_rate_tuesday: 1, swap_rate_wednesday: 3,
+      swap_rate_thursday: 1, swap_rate_friday: 1, swap_rate_saturday: 0,
+      time_start: 0, time_expiration: 0
+    },
+    2: {
+      exchange: "XCCY", sector: 12, industry: 0,
+      currency_base: "GBP", currency_base_digits: 2,
+      currency_profit: "USD", currency_profit_digits: 2,
+      currency_margin: "GBP", currency_margin_digits: 2,
+      spread_balance: 0, tick_book_depth: 0, tick_flags: 1,
+      filter_soft: 0, filter_soft_ticks: 5, filter_hard: 0, filter_hard_ticks: 5,
+      filter_discard: 0, filter_spread_max: 0, filter_spread_min: 0, subscriptions_delay: 15,
+      gtc_mode: 0, fill_flags: 3, expir_flags: 15, order_flags: 127,
+      stops_level: 1, freeze_level: 0, quotes_timeout: 0,
+      volume_min: 100, volume_step: 100, volume_max: 1000000, volume_limit: 0,
+      margin_initial: 0, margin_hedged: 0, margin_maintenance: 0, margin_flags: 0,
+      margin_rate_liquidity: 1, margin_rate_currency: 0,
+      swap_mode: 1, swap_long: -4.5, swap_short: -5.1, swap_year_day: 360,
+      swap_rate_monday: 1, swap_rate_tuesday: 1, swap_rate_wednesday: 3,
+      swap_rate_thursday: 1, swap_rate_friday: 1,
+      time_start: 0, time_expiration: 0
+    },
+    4: {
+      exchange: "", sector: 0,
+      currency_base: "XAU", currency_profit: "USD", currency_margin: "XAU",
+      currency_base_digits: 2, currency_profit_digits: 2, currency_margin_digits: 2,
+      spread_balance: 0, tick_flags: 1,
+      filter_soft: 0, filter_soft_ticks: 5, filter_hard: 0, filter_hard_ticks: 5,
+      gtc_mode: 0, fill_flags: 1, expir_flags: 15, order_flags: 127,
+      stops_level: 5, freeze_level: 0, quotes_timeout: 0,
+      volume_min: 100, volume_step: 100, volume_max: 100000, volume_limit: 0,
+      margin_initial: 0, margin_hedged: 0, margin_maintenance: 0,
+      swap_mode: 1, swap_long: -2.1, swap_short: -1.8, swap_year_day: 360,
+      swap_rate_monday: 1, swap_rate_wednesday: 3,
+      time_start: NOW - 86400 * 30, time_expiration: NOW + 86400 * 365
+    }
   };
 
   function symbolDetail(id) {
     var base = findById(symbols, "symbol_id", id) || symbols[0];
     if (!base) return null;
-    var detail = Object.assign({}, base);
+    var detail = Object.assign({}, symbolDetails[base.symbol_id] || {}, base);
     detail.sessions = (symbolSessions[base.symbol_id] || []).slice();
-    detail.time_start = 0;
-    detail.time_expiration = 0;
+    if (detail.time_start == null) detail.time_start = 0;
+    if (detail.time_expiration == null) detail.time_expiration = 0;
     return detail;
+  }
+
+  function getSymbol(id) {
+    return symbolDetail(id);
+  }
+
+  function getSymbolSessions(symbolId) {
+    return (symbolSessions[symbolId] || []).slice();
+  }
+
+  function updateSymbol(id, patch) {
+    if (!patch) return symbolDetail(id);
+    var num = Number(id);
+    var base = findById(symbols, "symbol_id", id);
+    if (!base) return null;
+
+    var listKeys = ["symbol", "path", "description", "digits", "trade_mode", "calc_mode", "exec_mode", "spread", "contract_size"];
+    listKeys.forEach(function (k) {
+      if (patch[k] !== undefined) base[k] = patch[k];
+    });
+    if (patch.date_modified !== undefined) base.date_modified = patch.date_modified;
+
+    if (!symbolDetails[num]) symbolDetails[num] = {};
+    Object.keys(patch).forEach(function (k) {
+      if (k === "sessions") return;
+      symbolDetails[num][k] = patch[k];
+    });
+
+    if (patch.sessions) {
+      symbolSessions[num] = patch.sessions.map(function (s) {
+        return {
+          session_id: s.session_id || sessionIdSeq++,
+          symbol_id: num,
+          type: s.type,
+          day: s.day,
+          open: s.open,
+          close: s.close
+        };
+      });
+    }
+    if (patch.time_start !== undefined) {
+      if (!symbolDetails[num]) symbolDetails[num] = {};
+      symbolDetails[num].time_start = patch.time_start;
+    }
+    if (patch.time_expiration !== undefined) {
+      if (!symbolDetails[num]) symbolDetails[num] = {};
+      symbolDetails[num].time_expiration = patch.time_expiration;
+    }
+
+    base.date_modified = Date.now() * 1000000;
+    return symbolDetail(id);
   }
 
   var routing = [
@@ -503,6 +631,10 @@
     getTimeSettings: getTimeSettings,
     updateTimeSettings: updateTimeSettings,
     formatDayRange: formatDayRange,
+    getSymbol: getSymbol,
+    getSymbolSessions: getSymbolSessions,
+    updateSymbol: updateSymbol,
+    symbolDetail: symbolDetail,
     managers: managers,
     clients: clients,
     users: users,

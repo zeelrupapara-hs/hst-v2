@@ -17,9 +17,14 @@
       });
     });
 
-    root.querySelectorAll(".nav-item[data-module]").forEach(function (el) {
+    root.querySelectorAll(".nav-item[data-module], .nav-item[data-react]").forEach(function (el) {
       el.addEventListener("click", function () {
         if (el.classList.contains("disabled")) return;
+        var reactRoute = el.getAttribute("data-react");
+        if (reactRoute) {
+          window.location.href = reactRoute;
+          return;
+        }
         root.querySelectorAll(".nav-item.active").forEach(function (a) {
           a.classList.remove("active");
         });

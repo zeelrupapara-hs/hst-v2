@@ -3,127 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <title>Symbols</title>
-  <link rel="stylesheet" href="../../assets/css/terminal.css">
-</head>
-<body class="module-root" data-module>
-  <div class="api-bar" data-api-bar><span class="api-dot" data-api-dot></span><span data-api-msg>…</span></div>
-  <div class="module-toolbar">
-    <button type="button" class="tb-btn" data-reload>↻ Reload</button>
-    <button type="button" class="tb-btn" data-edit>✎ Symbol Settings…</button>
-  </div>
-  <div class="filter-bar">
-    <label>Search</label>
-    <input type="search" data-search placeholder="Symbol, path, description…">
-  </div>
-  <div class="module-split">
-    <div class="module-split-nav symbol-tree" id="symbolTree"></div>
-    <div class="module-split-main" data-symbol-pane>
-      <div class="symbols-path-bar" id="symbolPathBar">All symbols</div>
-      <div class="table-wrap">
-        <table class="data-table symbols-table">
-          <thead>
-            <tr>
-              <th class="col-icon" title="Trade mode &amp; session"></th>
-              <th>Symbol</th>
-              <th>Type</th>
-              <th>Execution</th>
-              <th>Digits</th>
-            </tr>
-          </thead>
-          <tbody data-tbody></tbody>
-        </table>
-      </div>
-    </div>
-  </div>
-  <script src="../../assets/js/mock-data.js"></script>
-  <script src="../../assets/js/api.js"></script>
-  <script src="../../assets/js/context-menu.js"></script>
-  <script src="../../assets/js/context-menus.js"></script>
-  <script src="../../assets/js/symbols-ui.js"></script>
-  <script src="../../assets/js/module.js"></script>
   <script>
     (function () {
-      var allRows = [];
-      var filterPath = "";
-      var treeEl = document.getElementById("symbolTree");
-      var pathBar = document.getElementById("symbolPathBar");
-
-      var state = { rows: [], selected: -1 };
-      var cols = [
-        { key: "icon", html: true, render: function (r) { return HSTSymbolsUI.iconCell(r); } },
-        { key: "symbol" },
-        { key: "type", render: function (r) { return HSTSymbolsUI.topType(r.path); } },
-        { key: "exec_mode", render: function (r) { return HSTModule.fmtExecMode(r.exec_mode); } },
-        { key: "digits" }
-      ];
-      var cfg = {
-        title: "Symbols",
-        columns: cols,
-        menu: "admin.symbols",
-        contextMenuRoot: "[data-symbol-pane]",
-        resolveMenu: function (c, e) {
-          if (e.target.closest("#symbolTree") || e.target.closest(".symbols-path-bar")) {
-            return "admin.symbols.tree";
-          }
-          return "admin.symbols";
-        },
-        idKey: "symbol_id",
-        configPage: "symbols-config.html?id="
-      };
-
-      function selectPath(path) {
-        filterPath = path || "";
-        HSTSymbolsUI.renderPathBar(pathBar, filterPath);
-        HSTSymbolsUI.renderTree(treeEl, HSTSymbolsUI.buildPathTree(allRows), {
-          selectedPath: filterPath,
-          onSelect: selectPath,
-          onContextMenu: function (e, path) {
-            selectPath(path);
-            HSTContextMenu.show("admin.symbols.tree", controller, e.clientX, e.clientY);
-          }
-        });
-        renderTable();
-      }
-
-      function renderTable() {
-        state.rows = filterPath
-          ? allRows.filter(function (r) {
-            var p = r.path || "";
-            return p === filterPath || p.indexOf(filterPath + "\\") === 0;
-          })
-          : allRows.slice();
-        if (controller) {
-          controller.redraw();
-          if (state.rows.length) {
-            controller.clearSelection();
-            controller.selectIndex(0, true);
-          }
+      var target = "/admin/symbols";
+      try {
+        if (window.top !== window.self) {
+          window.top.location.href = target;
+        } else {
+          window.location.replace(target);
         }
+      } catch (e) {
+        window.location.replace(target);
       }
-
-      var root = document.querySelector("[data-module]");
-      var tbody = document.querySelector("[data-tbody]");
-      var reloadBtn = root.querySelector("[data-reload]");
-      var searchInput = root.querySelector("[data-search]");
-
-      async function load() {
-        HSTModule.setApiBar(root, { loading: true });
-        var q = { limit: "500" };
-        if (searchInput.value.trim()) q.search = searchInput.value.trim();
-        var res = await HSTModule.fetchList({ endpoint: "/api/v1/symbols", query: q });
-        allRows = res.data || [];
-        selectPath(filterPath);
-        HSTModule.setApiBar(root, {
-          demo: res.demo,
-          message: HSTModule.statusMessage({ title: "Symbols" }, res, allRows.length)
-        });
-      }
-
-      var controller = HSTModule.createListController(root, tbody, cfg, state, load);
-      HSTModule.applyTableView(controller);
-      searchInput.addEventListener("keydown", function (e) { if (e.key === "Enter") load(); });
-      load();
     })();
   </script>
+</head>
+<body>
+  <p>Redirecting to <a href="/admin/symbols">Symbols</a>…</p>
 </body>
 </html>

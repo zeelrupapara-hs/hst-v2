@@ -34,6 +34,16 @@ export function fmtTs(sec) {
   return d.toISOString().replace("T", " ").slice(0, 19);
 }
 
+/** Unix nanoseconds (API symbol date_modified). */
+export function fmtNsTs(ns) {
+  if (ns == null || ns === 0) return "—";
+  const ms = Number(ns) / 1_000_000;
+  const d = new Date(ms);
+  if (isNaN(d.getTime())) return String(ns);
+  const pad = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
 export function buildQuery(params) {
   const parts = [];
   Object.keys(params || {}).forEach((k) => {

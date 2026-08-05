@@ -27,6 +27,10 @@ export function useRowSelection(rows) {
     });
   }, []);
 
+  const selectRow = useCallback((index) => {
+    setSelected(new Set([index]));
+  }, []);
+
   const selectedRows = useMemo(
     () =>
       [...selected]
@@ -36,5 +40,5 @@ export function useRowSelection(rows) {
     [selected, rows]
   );
 
-  return { selected, toggleSelect, resetSelection, selectedRows };
+  return { selected, toggleSelect, resetSelection, selectedRows, selectRow };
 }

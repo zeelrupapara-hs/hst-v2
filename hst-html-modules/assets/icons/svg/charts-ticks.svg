@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?><title>Charts Ticks</title>
-<!-- Generator: visioncortex VTracer 0.6.4 -->
-<svg role="img" aria-label="Charts Ticks" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<?xml version="1.0" encoding="UTF-8"?><!-- Generator: visioncortex VTracer 0.6.4 -->
+<svg role="img" aria-label="Charts Ticks" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><title>Charts Ticks</title>
 <path d="M0,0 L3,0 L4,3 L5,2 L17,2 L17,4 L7,5 L5,9 L3,9 L1,6 L0,7 L-11,7 L-11,5 L-1,5 Z " fill="#993A28" transform="translate(13,5)"/>
 <path d="M0,0 L2,1 L2,4 L4,4 L4,2 L16,2 L16,4 L6,5 L4,9 L1,8 L0,6 L-1,7 L-12,7 L-12,5 L-2,5 Z " fill="#004277" transform="translate(14,18)"/>
 <path d="M0,0 L12,0 L12,2 L2,3 L0,7 L-2,7 L-2,3 L0,3 Z " fill="#A24F0F" transform="translate(18,7)"/>

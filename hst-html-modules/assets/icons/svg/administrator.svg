@@ -1,6 +1,5 @@
-<?xml version="1.0" encoding="UTF-8"?><title>Administrator</title>
-<!-- Generator: visioncortex VTracer 0.6.4 -->
-<svg role="img" aria-label="Administrator" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg">
+<?xml version="1.0" encoding="UTF-8"?><!-- Generator: visioncortex VTracer 0.6.4 -->
+<svg role="img" aria-label="Administrator" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><title>Administrator</title>
 <path d="M0,0 L5,1 L10,5 L12,11 L15,13 L16,16 L16,24 L10,27 L-6,27 L-12,24 L-12,15 L-8,10 L-6,5 Z " fill="#47773C" transform="translate(14,2)"/>
 <path d="M0,0 L2,2 L3,6 L6,8 L7,11 L7,19 L1,22 L-7,22 L-12,17 L-11,15 L-10,16 L0,15 Z " fill="#195F82" transform="translate(23,7)"/>
 <path d="M0,0 L5,2 L7,4 L8,12 L3,14 L-2,14 L-7,11 L-5,10 L-4,3 L0,2 Z " fill="#ECEAE3" transform="translate(15,10)"/>
