@@ -254,7 +254,7 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 func (h *Handler) RequoteRequest(ctx context.Context, ev *model.DealingEvent) *model.TradeResult {
 	h.dealingMu.Lock()
 
-	p, ok := h.dealing[ev.RequestId]
+	p, ok := h.dealing[h.dealingKey(ev.RequestId)]
 	if !ok {
 		h.dealingMu.Unlock()
 		return h.refuse(&model.TradeResult{RequestId: ev.RequestId, Login: ev.Login},
@@ -298,7 +298,7 @@ func (h *Handler) RequoteRequest(ctx context.Context, ev *model.DealingEvent) *m
 // taking sits inside the deviation they themselves allowed.
 func (h *Handler) AcceptRequote(ctx context.Context, ev *model.DealingEvent) *model.TradeResult {
 	h.dealingMu.Lock()
-	p, ok := h.dealing[ev.RequestId]
+	p, ok := h.dealing[h.dealingKey(ev.RequestId)]
 	h.dealingMu.Unlock()
 
 	res := &model.TradeResult{RequestId: ev.RequestId, Login: ev.Login}
@@ -422,7 +422,7 @@ func (h *Handler) ReturnRequest(ev *model.DealingEvent) *model.TradeResult {
 
 	h.dealingMu.Lock()
 
-	p, ok := h.dealing[ev.RequestId]
+	p, ok := h.dealing[h.dealingKey(ev.RequestId)]
 	if !ok {
 		h.dealingMu.Unlock()
 		return h.refuse(res, model.RetNotFound, "")
@@ -581,9 +581,33 @@ func (h *Handler) done(p *Pending, dealer int64) {
 }
 
 // takeRequest lifts a request out of the queue. Whoever gets it settles it.
+
+// dealingKey resolves the queue key: the engine's request id, or the order id a client can see.
+// Called with the dealing lock held.
+func (h *Handler) dealingKey(id string) string {
+	if _, ok := h.dealing[id]; ok {
+		return id
+	}
+
+	orderId, err := strconv.ParseInt(id, 10, 64)
+	if err != nil {
+		return id
+	}
+
+	for key, p := range h.dealing {
+		if p.Order != nil && p.Order.OrderId == orderId {
+			return key
+		}
+	}
+
+	return id
+}
+
 func (h *Handler) takeRequest(id string) *Pending {
 	h.dealingMu.Lock()
 	defer h.dealingMu.Unlock()
+
+	id = h.dealingKey(id)
 
 	p, ok := h.dealing[id]
 	if !ok {
