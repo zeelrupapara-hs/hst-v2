@@ -935,7 +935,7 @@ html, body {
 }
 
 .dialog-overlay {
-  position: absolute;
+  position: fixed;
   inset: 0;
   z-index: 200;
   display: flex;

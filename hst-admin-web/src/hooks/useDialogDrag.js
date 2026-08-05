@@ -13,24 +13,33 @@ export function useDialogDrag(resetKey) {
     (e) => {
       if (e.button !== 0) return;
       e.preventDefault();
+      const title = e.currentTarget.getBoundingClientRect();
       dragRef.current = {
         active: true,
         startX: e.clientX,
         startY: e.clientY,
         origX: offset.x,
         origY: offset.y,
+        title,
       };
     },
     [offset.x, offset.y],
   );
 
   useEffect(() => {
+    // the title bar must stay reachable: never above the top, never fully off any edge
     function onMove(e) {
-      if (!dragRef.current.active) return;
-      setOffset({
-        x: dragRef.current.origX + (e.clientX - dragRef.current.startX),
-        y: dragRef.current.origY + (e.clientY - dragRef.current.startY),
-      });
+      const d = dragRef.current;
+      if (!d.active) return;
+      let x = d.origX + (e.clientX - d.startX);
+      let y = d.origY + (e.clientY - d.startY);
+      const dx = x - d.origX;
+      const dy = y - d.origY;
+      if (d.title.top + dy < 0) y = d.origY - d.title.top;
+      if (d.title.top + dy > window.innerHeight - 40) y = d.origY + (window.innerHeight - 40 - d.title.top);
+      if (d.title.right + dx < 80) x = d.origX + (80 - d.title.right);
+      if (d.title.left + dx > window.innerWidth - 80) x = d.origX + (window.innerWidth - 80 - d.title.left);
+      setOffset({ x, y });
     }
     const onUp = () => (dragRef.current.active = false);
     window.addEventListener("mousemove", onMove);
