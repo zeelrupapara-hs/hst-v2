@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?><!-- Generator: visioncortex VTracer 0.6.4 -->
+<svg role="img" aria-label="Server" viewBox="0 0 32 32" version="1.1" xmlns="http://www.w3.org/2000/svg"><title>Server</title>
+<path d="M0,0 L28,0 L28,28 L0,28 Z " fill="#F7F7F6" transform="translate(2,2)"/>
+<path d="M0,0 L7,0 L6,7 L0,8 Z " fill="#E8B704" transform="translate(2,19)"/>
+<path d="M0,0 L3,0 L2,5 L0,5 L0,9 L5,9 L6,7 L6,13 L5,10 L-1,10 L-1,13 L-4,13 L-4,10 L-2,10 Z " fill="#5D4B41" transform="translate(24,10)"/>
+<path d="M0,0 L4,0 L4,6 L6,7 L4,7 L3,10 L0,11 Z " fill="#C68C15" transform="translate(2,6)"/>
+<path d="M0,0 L3,0 L3,6 L-2,6 L-2,2 L0,2 Z " fill="#99867C" transform="translate(26,13)"/>
+<path d="M0,0 L3,0 L2,5 L0,5 L0,9 L-2,9 Z " fill="#768191" transform="translate(24,10)"/>
+<path d="M0,0 L5,0 L5,2 L-1,3 Z " fill="#D5A117" transform="translate(3,24)"/>
+<path d="M0,0 L3,0 L3,4 L0,4 Z " fill="#F8CC00" transform="translate(2,8)"/>
+<path d="M0,0 L2,0 L3,4 L0,4 Z " fill="#E1F7FF" transform="translate(24,15)"/>
+<path d="M0,0 L3,0 L3,3 L0,4 Z " fill="#E3B00B" transform="translate(2,13)"/>
+<path d="M0,0 L3,0 L3,3 L0,3 Z " fill="#695745" transform="translate(24,10)"/>
+</svg>

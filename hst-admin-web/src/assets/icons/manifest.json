@@ -1,0 +1,334 @@
+{
+  "helpDir": "~/Documents/MetaTrader5/Meta Document - SQL",
+  "viewBox": 16,
+  "prepScale": 4,
+  "icons": [
+    {
+      "id": "servers",
+      "category": "nav",
+      "source": "network.png",
+      "crop": [
+        18,
+        59,
+        34,
+        75
+      ]
+    },
+    {
+      "id": "server",
+      "category": "nav",
+      "source": "network.png",
+      "crop": [
+        18,
+        85,
+        34,
+        101
+      ]
+    },
+    {
+      "id": "network-cluster",
+      "category": "nav",
+      "source": "network.png",
+      "crop": [
+        18,
+        104,
+        34,
+        120
+      ]
+    },
+    {
+      "id": "integrations",
+      "category": "nav",
+      "source": "start_page_integration.png",
+      "stripBg": true
+    },
+    {
+      "id": "automations",
+      "category": "nav",
+      "source": "start_page_automation.png",
+      "stripBg": true
+    },
+    {
+      "id": "security",
+      "category": "nav",
+      "source": "start_page_firewall.png",
+      "stripBg": true
+    },
+    {
+      "id": "time",
+      "category": "nav",
+      "source": "start_page_time.png",
+      "stripBg": true
+    },
+    {
+      "id": "holidays",
+      "category": "nav",
+      "source": "start_page_holidays.png",
+      "stripBg": true
+    },
+    {
+      "id": "leverages",
+      "category": "nav",
+      "source": "sort_symbols_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "groups",
+      "category": "nav",
+      "source": "start_page_groups.png",
+      "stripBg": true
+    },
+    {
+      "id": "clients-accounts",
+      "category": "nav",
+      "source": "accounts_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "clients",
+      "category": "nav",
+      "source": "start_page_clients.png",
+      "stripBg": true
+    },
+    {
+      "id": "clients-tree",
+      "category": "nav",
+      "source": "accounts_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "managers",
+      "category": "nav",
+      "source": "start_page_manager.png",
+      "stripBg": true
+    },
+    {
+      "id": "managers-tree",
+      "category": "nav",
+      "source": "managers_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "accounts",
+      "category": "nav",
+      "source": "start_page_account.png",
+      "stripBg": true
+    },
+    {
+      "id": "accounts-tree",
+      "category": "nav",
+      "source": "real_account_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "orders-deals",
+      "category": "nav",
+      "source": "list_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "positions",
+      "category": "nav",
+      "source": "start_page_positions.png",
+      "stripBg": true
+    },
+    {
+      "id": "orders",
+      "category": "nav",
+      "source": "start_page_orders.png",
+      "stripBg": true
+    },
+    {
+      "id": "orders-tree",
+      "category": "nav",
+      "source": "orders_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "deals",
+      "category": "nav",
+      "source": "start_page_deals.png",
+      "stripBg": true
+    },
+    {
+      "id": "deals-tree",
+      "category": "nav",
+      "source": "deals_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "payments",
+      "category": "nav",
+      "source": "start_page_funds.png",
+      "stripBg": true
+    },
+    {
+      "id": "gateways",
+      "category": "nav",
+      "source": "start_page_gateway.png",
+      "stripBg": true
+    },
+    {
+      "id": "datafeeds",
+      "category": "nav",
+      "source": "start_page_datafeed.png",
+      "stripBg": true
+    },
+    {
+      "id": "plugins",
+      "category": "nav",
+      "source": "start_page_plugin.png",
+      "stripBg": true
+    },
+    {
+      "id": "reports",
+      "category": "nav",
+      "source": "start_page_report.png",
+      "stripBg": true
+    },
+    {
+      "id": "routing",
+      "category": "nav",
+      "source": "start_page_routing.png",
+      "stripBg": true
+    },
+    {
+      "id": "symbols",
+      "category": "nav",
+      "source": "start_page_symbol.png",
+      "stripBg": true
+    },
+    {
+      "id": "symbols-tree",
+      "category": "nav",
+      "source": "symbols_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "spreads",
+      "category": "nav",
+      "source": "start_page_spread.png",
+      "stripBg": true
+    },
+    {
+      "id": "charts-ticks",
+      "category": "nav",
+      "source": "start_page_ticks.png",
+      "stripBg": true
+    },
+    {
+      "id": "subscriptions",
+      "category": "nav",
+      "source": "start_page_subscription.png",
+      "stripBg": true
+    },
+    {
+      "id": "mailbox",
+      "category": "nav",
+      "source": "outgoing_mail_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "support-center",
+      "category": "nav",
+      "source": "about_icon.png",
+      "stripBg": true
+    },
+    {
+      "id": "dealing",
+      "category": "nav",
+      "source": "start_page_trade.png",
+      "stripBg": true
+    },
+    {
+      "id": "balance",
+      "category": "nav",
+      "source": "start_page_funds.png",
+      "stripBg": true
+    },
+    {
+      "id": "journal",
+      "category": "nav",
+      "source": "journal_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "manager",
+      "category": "entity",
+      "source": "start_page_manager.png",
+      "stripBg": true
+    },
+    {
+      "id": "administrator",
+      "category": "entity",
+      "source": "start_page_admin.png",
+      "stripBg": true
+    },
+    {
+      "id": "client",
+      "category": "entity",
+      "source": "start_page_clients.png",
+      "stripBg": true
+    },
+    {
+      "id": "account",
+      "category": "entity",
+      "source": "real_account_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "order",
+      "category": "trade",
+      "source": "orders_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "deal",
+      "category": "trade",
+      "source": "deals_icon.png",
+      "upscale": 4
+    },
+    {
+      "id": "deal-out",
+      "category": "trade",
+      "source": "deals_icon.png",
+      "upscale": 4,
+      "flipH": true
+    },
+    {
+      "id": "add",
+      "category": "action",
+      "source": "add_button.png",
+      "upscale": 4,
+      "nearest": true
+    },
+    {
+      "id": "edit",
+      "category": "action",
+      "source": "toolbar_edit_button.png",
+      "upscale": 4,
+      "nearest": true
+    },
+    {
+      "id": "delete",
+      "category": "action",
+      "source": "delete_button.png",
+      "upscale": 4,
+      "nearest": true
+    },
+    {
+      "id": "refresh",
+      "category": "action",
+      "source": "toolbar_refresh_button.png",
+      "upscale": 4,
+      "nearest": true
+    },
+    {
+      "id": "groups-folder",
+      "category": "action",
+      "source": "edit_group_button.png",
+      "upscale": 4,
+      "nearest": true
+    }
+  ]
+}
