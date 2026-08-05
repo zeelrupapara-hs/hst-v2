@@ -6,8 +6,10 @@ import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { useGroups } from "@/hooks/useGroups.js";
 import { createUser, fetchUser, updateUser } from "@/api/endpoints/users.js";
 import { AccountRight_checks, LimitRight_checks } from "@/constants/users.js";
+import { AccountOverviewTab } from "./AccountOverviewTab.jsx";
 
-const TABS = ["Personal", "Account", "Limits", "Security"];
+const EDIT_TABS = ["Overview", "Personal", "Account", "Limits", "Security"];
+const NEW_TABS = ["Personal", "Account", "Limits", "Security"];
 
 function Intro({ children }) {
   return (
@@ -68,7 +70,8 @@ const newDraft = (group) => ({
 export function AccountDialog({ login, onClose, onSaved }) {
   const isNew = login === "new";
   const { groups } = useGroups();
-  const [activeTab, setActiveTab] = useState(isNew ? "Personal" : "Personal");
+  const [activeTab, setActiveTab] = useState(isNew ? "Personal" : "Overview");
+  const TABS = isNew ? NEW_TABS : EDIT_TABS;
   const [draft, setDraft] = useState(isNew ? newDraft(groups[0]?.group) : null);
   const [original, setOriginal] = useState(null);
   const [error, setError] = useState("");
@@ -137,6 +140,8 @@ export function AccountDialog({ login, onClose, onSaved }) {
   function panel(tab) {
     if (!draft) return null;
     switch (tab) {
+      case "Overview":
+        return <AccountOverviewTab login={login} user={draft} />;
       case "Personal":
         return (
           <>

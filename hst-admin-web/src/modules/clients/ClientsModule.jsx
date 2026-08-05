@@ -233,6 +233,19 @@ export function ClientsModule() {
           </tbody>
         </table>
       </div>
+      {menu && canEdit && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Add", onClick: () => setDialog({ id: "new" }) },
+            { label: "Edit", disabled: selected == null, onClick: () => setDialog({ id: rows[selected]?.client_id }) },
+            "sep",
+            { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
+          ]}
+        />
+      )}
       {dialog && <ClientDialog clientId={dialog.id} onClose={() => setDialog(null)} onSaved={saved} />}
     </div>
   );

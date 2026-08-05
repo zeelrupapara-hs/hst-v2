@@ -5,6 +5,7 @@ import { deleteUser, fetchUsers } from "@/api/endpoints/users.js";
 import { formatNs } from "@/lib/time.js";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { AccountDialog } from "./AccountDialog.jsx";
+import { BalanceDialog } from "./BalanceDialog.jsx";
 
 const money = (v) => (v ?? 0).toFixed(2);
 
@@ -15,6 +16,7 @@ export function AccountsModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const [balance, setBalance] = useState(null);
   const canEdit = session.can?.right_acc_manager !== false;
 
   const load = () => fetchUsers().then((res) => res.ok && setRows(res.data || []));
@@ -86,6 +88,7 @@ export function AccountsModule() {
           items={[
             { label: "Add", onClick: () => setDialog({ login: "new" }) },
             { label: "Edit", disabled: selected == null, onClick: () => setDialog({ login: rows[selected]?.login }) },
+            { label: "Balance…", disabled: selected == null, onClick: () => setBalance(rows[selected]) },
             "sep",
             { label: "Delete", disabled: selected == null, onClick: () => onDelete(rows[selected]) },
           ]}
@@ -93,6 +96,9 @@ export function AccountsModule() {
       )}
       {dialog && (
         <AccountDialog login={dialog.login} onClose={() => setDialog(null)} onSaved={saved} />
+      )}
+      {balance && (
+        <BalanceDialog user={balance} onClose={() => setBalance(null)} onSaved={saved} />
       )}
     </div>
   );
