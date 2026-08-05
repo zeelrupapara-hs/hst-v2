@@ -2657,3 +2657,12 @@ html, body {
 .grp-check-stack { grid-template-columns: 1fr; padding: 4px 12px; }
 .grp-check-disabled { color: var(--muted); }
 .grp-symbol-add { flex: 1; min-width: 160px; }
+
+/* routing — flag checkbox grid */
+.routing-flag-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 2px 10px;
+  padding: 4px 8px;
+}
+.lev-rule-dialog { width: 520px; }

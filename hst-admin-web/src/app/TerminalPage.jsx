@@ -3,6 +3,10 @@ import { TerminalShell } from "@/components/layout/TerminalShell.jsx";
 import { SymbolsModule } from "@/modules/symbols/SymbolsModule.jsx";
 import { DatafeedsModule } from "@/modules/datafeeds/DatafeedsModule.jsx";
 import { GroupsModule } from "@/modules/groups/GroupsModule.jsx";
+import { AccountsModule } from "@/modules/accounts/AccountsModule.jsx";
+import { ClientsModule } from "@/modules/clients/ClientsModule.jsx";
+import { LeveragesModule } from "@/modules/leverages/LeveragesModule.jsx";
+import { RoutingModule } from "@/modules/routing/RoutingModule.jsx";
 import { useSession } from "@/hooks/useSession.js";
 
 function ModulePlaceholder() {
@@ -31,6 +35,10 @@ export function TerminalPage({ panel }) {
         <Route path="symbols" element={<SymbolsModule />} />
         <Route path="datafeeds" element={<DatafeedsModule />} />
         <Route path="groups" element={<GroupsModule />} />
+        <Route path="users" element={<AccountsModule />} />
+        <Route path="clients" element={<ClientsModule />} />
+        <Route path="leverage-profiles" element={<LeveragesModule />} />
+        <Route path="routing" element={<RoutingModule />} />
         <Route path="*" element={<ModulePlaceholder />} />
       </Route>
     </Routes>
