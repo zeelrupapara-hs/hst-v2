@@ -2842,3 +2842,22 @@ select {
 .eod-actions { border-top: none; background: transparent; justify-content: flex-start; padding-left: 0; }
 
 .mgr-rights-grid { grid-template-columns: 1fr 1fr; max-height: 300px; overflow: auto; }
+
+/* dealing — the desk bar over the queue */
+.dealing-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--chrome-border);
+  background: var(--menu-bg);
+}
+.dealing-bar button {
+  height: 22px;
+  padding: 0 12px;
+  border: 1px solid #adadad;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+.dealing-bar button:hover { background: #e5f1fb; border-color: #0078d7; }
+.dealing-action { width: 380px; }
