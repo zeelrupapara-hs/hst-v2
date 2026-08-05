@@ -1591,12 +1591,13 @@ html, body {
 }
 
 .config-title {
-  padding: 6px 10px;
-  background: linear-gradient(180deg, #0054e3 0%, #0039a6 100%);
-  color: #fff;
-  font-weight: normal;
+  padding: 7px 10px;
+  background: #fff;
+  color: #000;
+  border-bottom: 1px solid #e0e0e0;
+  font-weight: 600;
   flex-shrink: 0;
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .config-tabs {
@@ -2604,7 +2605,33 @@ html, body {
   justify-content: center;
   background: var(--workspace-bg);
 }
-.login-window { width: 360px; }
+.login-window {
+  width: 400px;
+  min-height: 0;
+}
+.login-window .config-body { padding: 4px 8px 0; }
+.login-intro {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 8px 4px;
+}
+.login-intro p { margin: 0; color: #444; }
+.login-intro .hst-icon { width: 40px; height: 40px; }
+.login-window .config-actions {
+  justify-content: center;
+  border-top: none;
+  padding-bottom: 14px;
+}
+.login-window .config-actions button { min-width: 84px; }
+.login-grid input:focus,
+.login-grid select:focus,
+.settings-dialog input:focus,
+.settings-dialog select:focus {
+  outline: 1px solid #7eb4ea;
+  outline-offset: -1px;
+  border-radius: 0;
+}
 .login-grid {
   display: grid;
   grid-template-columns: 90px 1fr;

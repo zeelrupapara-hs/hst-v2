@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { signIn } from "@/api/endpoints/auth.js";
 import { useSession } from "@/hooks/useSession.js";
+import { Icon } from "@/components/ui/Icon.jsx";
 
 /** The sign-in window, drawn as a settings dialog because that is the platform's one dialog. */
 export function LoginPage() {
@@ -33,9 +34,13 @@ export function LoginPage() {
   return (
     <div className="login-host">
       <form className="config-window settings-dialog login-window" onSubmit={submit}>
-        <div className="config-title">Connect to Trade Server</div>
+        <div className="config-title">Authorization</div>
         <div className="config-body">
           <div className="config-panel active">
+            <div className="login-intro">
+              <Icon id="security" size={40} />
+              <p>Please specify your login, password, and the terminal to connect to.</p>
+            </div>
             <div className="login-grid">
               <label htmlFor="login">Login</label>
               <input id="login" autoFocus value={form.login} onChange={set("login")} />
@@ -52,7 +57,7 @@ export function LoginPage() {
         </div>
         <div className="config-actions">
           <button type="submit" className="config-ok" disabled={busy}>
-            {busy ? "Connecting…" : "OK"}
+            {busy ? "Connecting…" : "Login"}
           </button>
         </div>
       </form>
