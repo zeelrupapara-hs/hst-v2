@@ -1609,6 +1609,18 @@ func (s *HttpServer) resolveFeedSymbolTarget(ctx context.Context, body CrtDatafe
 }
 
 // ListDatafeedSymbols lists Symbols tab rows for one data feed.
+//
+//	@Id			ListDatafeedSymbols
+//	@Tags		Datafeeds
+//	@Produce	json
+//	@Param		id	path		int	true	"datafeed id"
+//	@Success	200	{object}	Response{data=[]ViewDatafeedSymbol}
+//	@Failure	400	{object}	Response
+//	@Failure	403	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/datafeeds/{id}/symbols [get]
 func (s *HttpServer) ListDatafeedSymbols(c *fiber.Ctx) error {
 	datafeedID, err := c.ParamsInt("id")
 	if err != nil {
@@ -1629,6 +1641,20 @@ func (s *HttpServer) ListDatafeedSymbols(c *fiber.Ctx) error {
 }
 
 // CreateDatafeedSymbol adds a symbol scope row (explicit symbol or path mask).
+//
+//	@Id			CreateDatafeedSymbol
+//	@Tags		Datafeeds
+//	@Accept		json
+//	@Produce	json
+//	@Param		id		path		int					true	"datafeed id"
+//	@Param		body	body		CrtDatafeedSymbol	true	"the symbol scope to add"
+//	@Success	201		{object}	Response{data=ViewDatafeedSymbol}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/datafeeds/{id}/symbols [post]
 func (s *HttpServer) CreateDatafeedSymbol(c *fiber.Ctx) error {
 	datafeedID, err := c.ParamsInt("id")
 	if err != nil {
@@ -1687,6 +1713,19 @@ func (s *HttpServer) CreateDatafeedSymbol(c *fiber.Ctx) error {
 }
 
 // GetDatafeedSymbol returns one Symbols tab row.
+//
+//	@Id			GetDatafeedSymbol
+//	@Tags		Datafeeds
+//	@Produce	json
+//	@Param		id				path		int	true	"datafeed id"
+//	@Param		feedSymbolId	path		int	true	"feed symbol id"
+//	@Success	200				{object}	Response{data=ViewDatafeedSymbol}
+//	@Failure	400				{object}	Response
+//	@Failure	403				{object}	Response
+//	@Failure	404				{object}	Response
+//	@Failure	500				{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/datafeeds/{id}/symbols/{feedSymbolId} [get]
 func (s *HttpServer) GetDatafeedSymbol(c *fiber.Ctx) error {
 	datafeedID, err := c.ParamsInt("id")
 	if err != nil {
@@ -1710,6 +1749,19 @@ func (s *HttpServer) GetDatafeedSymbol(c *fiber.Ctx) error {
 }
 
 // DeleteDatafeedSymbol removes one Symbols tab row.
+//
+//	@Id			DeleteDatafeedSymbol
+//	@Tags		Datafeeds
+//	@Produce	json
+//	@Param		id				path		int	true	"datafeed id"
+//	@Param		feedSymbolId	path		int	true	"feed symbol id"
+//	@Success	204				{object}	Response
+//	@Failure	400				{object}	Response
+//	@Failure	403				{object}	Response
+//	@Failure	404				{object}	Response
+//	@Failure	500				{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/datafeeds/{id}/symbols/{feedSymbolId} [delete]
 func (s *HttpServer) DeleteDatafeedSymbol(c *fiber.Ctx) error {
 	datafeedID, err := c.ParamsInt("id")
 	if err != nil {
@@ -1739,6 +1791,18 @@ func (s *HttpServer) DeleteDatafeedSymbol(c *fiber.Ctx) error {
 }
 
 // ResolveDatafeedSymbols returns the effective symbol scope after feed_symbols expansion.
+//
+//	@Id			ResolveDatafeedSymbols
+//	@Tags		Datafeeds
+//	@Produce	json
+//	@Param		id	path		int	true	"datafeed id"
+//	@Success	200	{object}	Response
+//	@Failure	400	{object}	Response
+//	@Failure	403	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/datafeeds/{id}/symbols/resolve [get]
 func (s *HttpServer) ResolveDatafeedSymbols(c *fiber.Ctx) error {
 	datafeedID, err := c.ParamsInt("id")
 	if err != nil {

@@ -297,6 +297,14 @@ type WSStats struct {
 }
 
 // WSStats reports the live websocket connections.
+//
+//	@Id			WSStats
+//	@Tags		System
+//	@Produce	json
+//	@Success	200	{object}	Response{data=WSStats}
+//	@Failure	403	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/system/monitor/ws [get]
 func (s *HttpServer) WSStats(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, WSStats{
 		Connections: s.Hub.Count(),
