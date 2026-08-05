@@ -84,6 +84,7 @@ export const managerModules = {
     endpoint: "/api/v1/groups",
     query: { flat: "1", limit: "500" },
     idKey: "group_id",
+    pathKey: "group",
     columns: groupColumns(),
   },
   journal: {

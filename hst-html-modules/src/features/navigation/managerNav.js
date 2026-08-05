@@ -27,7 +27,7 @@ export const managerNav = [
           },
           { moduleId: "dealing", label: "Dealing", icon: "dealing", indent: 2 },
           { moduleId: "balance", label: "Balance Operations", icon: "balance", indent: 2 },
-          { moduleId: "groups", label: "Groups", icon: "groups", indent: 2, count: "(39)" },
+          { moduleId: "groups", label: "Groups", icon: "groups", indent: 2 },
           { moduleId: "journal", label: "Journal", icon: "journal", indent: 2 },
         ],
       },

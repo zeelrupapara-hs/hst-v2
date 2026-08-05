@@ -67,6 +67,7 @@ export const adminModules = {
     endpoint: "/api/v1/groups",
     query: { flat: "1", limit: "500" },
     idKey: "group_id",
+    pathKey: "group",
     editLabel: "✎ Group Settings…",
     legacyDetail: "groups-config.html",
     searchPlaceholder: "Group name…",

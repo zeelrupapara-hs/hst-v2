@@ -19,7 +19,7 @@ export const adminNav = [
           { moduleId: "time", label: "Time", icon: "time", indent: 2 },
           { moduleId: "holidays", label: "Holidays", icon: "holidays", indent: 2 },
           { moduleId: "leverages", label: "Leverages", icon: "leverages", indent: 2 },
-          { moduleId: "groups", label: "Groups", icon: "groups", indent: 2, count: "(39)" },
+          { moduleId: "groups", label: "Groups", icon: "groups", indent: 2 },
           {
             label: "Clients & Accounts",
             icon: "clients-accounts",

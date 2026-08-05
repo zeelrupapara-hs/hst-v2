@@ -61,6 +61,7 @@ export function spriteRef(id) {
 /** Resolve the generated icon for a navigator tree node. */
 export function resolveNavIcon(node) {
   if (node?.icon && isGeneratedIcon(node.icon)) return node.icon;
+  if (node?.groupPath !== undefined) return "groups";
   if (node?.folderPath !== undefined) return SYMBOL_FOLDER_ICON;
   if (node?.moduleId && MODULE_NAV_ICON[node.moduleId]) {
     return MODULE_NAV_ICON[node.moduleId];

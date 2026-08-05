@@ -5,6 +5,7 @@ import { ContextMenu, useContextMenu } from "../ui/ContextMenu.jsx";
 import { Mt5InputDialog } from "../ui/Mt5InputDialog.jsx";
 import { resolveNavIcon } from "../../lib/icons.js";
 import { symbolNavLink } from "../../lib/symbolNavTree.js";
+import { groupNavLink } from "../../lib/groupNavTree.js";
 import { datafeedNavLink } from "../../lib/datafeedNavTree.js";
 import { buildSymbolFolderMenu } from "../../lib/symbolContextMenu.js";
 import { createSymbolGroup } from "../../lib/data.js";
@@ -17,6 +18,9 @@ function isNodeActive(node, activeModule, currentFolder, activeRecordId) {
   if (node.folderPath !== undefined) {
     return currentFolder === node.folderPath;
   }
+  if (node.groupPath !== undefined) {
+    return currentFolder === node.groupPath;
+  }
   if (activeRecordId) return false;
   return true;
 }
@@ -27,6 +31,9 @@ function nodeLink(panel, node) {
   }
   if (node.folderPath !== undefined) {
     return symbolNavLink(panel, node.folderPath);
+  }
+  if (node.groupPath !== undefined) {
+    return groupNavLink(panel, node.groupPath);
   }
   if (node.moduleId) {
     return `/${panel}/${node.moduleId}`;
@@ -71,6 +78,10 @@ function NavItem({ panel, node, onSymbolFolderContextMenu }) {
     isNodeActive(node, activeModule, currentFolder, activeRecordId);
   const linkTo = nodeLink(panel, node);
   const isSymbolFolder = node.folderPath !== undefined;
+  const isGroupFolder = node.groupPath !== undefined;
+  // both are addressed by a query string, which a NavLink does not look at when it decides
+  // whether it is active: left to it, selecting one folder would select the whole tree
+  const isFolderRow = isSymbolFolder || isGroupFolder;
   const linkEnd = hasChildren && node.moduleId === "datafeeds";
 
   function toggleOpen(e) {
@@ -80,7 +91,7 @@ function NavItem({ panel, node, onSymbolFolderContextMenu }) {
   }
 
   function goTo(e) {
-    if (isSymbolFolder && linkTo) {
+    if (isFolderRow && linkTo) {
       e.preventDefault();
       navigate(linkTo);
     }
@@ -109,8 +120,9 @@ function NavItem({ panel, node, onSymbolFolderContextMenu }) {
               <NavItem
                 key={
                   child.datafeedId ??
-                  child.moduleId ??
+                  child.groupPath ??
                   child.folderPath ??
+                  child.moduleId ??
                   child.label ??
                   i
                 }
@@ -126,8 +138,8 @@ function NavItem({ panel, node, onSymbolFolderContextMenu }) {
   }
 
   if (hasChildren && isNavigable) {
-    const RowTag = isSymbolFolder ? "div" : NavLink;
-    const rowProps = isSymbolFolder
+    const RowTag = isFolderRow ? "div" : NavLink;
+    const rowProps = isFolderRow
       ? {
           className: navClass(node, isActive),
           onClick: goTo,
@@ -155,8 +167,9 @@ function NavItem({ panel, node, onSymbolFolderContextMenu }) {
               <NavItem
                 key={
                   child.datafeedId ??
-                  child.moduleId ??
+                  child.groupPath ??
                   child.folderPath ??
+                  child.moduleId ??
                   child.label ??
                   i
                 }
@@ -172,7 +185,7 @@ function NavItem({ panel, node, onSymbolFolderContextMenu }) {
   }
 
   if (isNavigable) {
-    if (isSymbolFolder) {
+    if (isFolderRow) {
       return (
         <li>
           <div

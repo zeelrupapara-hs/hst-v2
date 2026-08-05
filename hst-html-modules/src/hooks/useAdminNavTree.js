@@ -4,6 +4,7 @@ import { managerNav } from "../features/navigation/managerNav.js";
 import { fetchList, fetchSymbolGroups } from "../lib/data.js";
 import { cloneNav, injectSymbolFolders } from "../lib/symbolNavTree.js";
 import { injectDatafeedItems } from "../lib/datafeedNavTree.js";
+import { injectGroupFolders } from "../lib/groupNavTree.js";
 
 /**
  * Admin navigator with symbol folders and data feed rows (MT5 style).
@@ -29,7 +30,7 @@ export function useAdminNavTree(panel, activeFolder = "", activeDatafeedId = "")
     let cancelled = false;
 
     (async () => {
-      const [symRes, groupRes, dfRes] = await Promise.all([
+      const [symRes, groupRes, dfRes, grpRes] = await Promise.all([
         fetchList({
           endpoint: "/api/v1/symbols",
           query: { limit: "500" },
@@ -38,6 +39,10 @@ export function useAdminNavTree(panel, activeFolder = "", activeDatafeedId = "")
         fetchList({
           endpoint: "/api/v1/datafeeds",
           query: { limit: "500" },
+        }),
+        fetchList({
+          endpoint: "/api/v1/groups",
+          query: { flat: "1", limit: "500" },
         }),
       ]);
       if (cancelled) return;
@@ -48,6 +53,7 @@ export function useAdminNavTree(panel, activeFolder = "", activeDatafeedId = "")
         groupRes.data || []
       );
       tree = injectDatafeedItems(tree, dfRes.data || [], activeDatafeedId);
+      tree = injectGroupFolders(tree, grpRes.data || [], activeFolder);
       setNav(tree);
     })();
 
