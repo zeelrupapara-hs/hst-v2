@@ -8,7 +8,7 @@ function normalizeOptions(options) {
 }
 
 /**
- * MT5-style select: white field + arrow; list opens downward as overlay.
+ * platform select: white field + arrow; list opens downward as overlay.
  * Options: string[] or { value, label, description? }[]
  */
 export function PropSelect({

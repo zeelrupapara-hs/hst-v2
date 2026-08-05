@@ -8,8 +8,8 @@ import { useDemo } from "../hooks/useDemo.js";
 import { useAdminNavTree } from "../hooks/useAdminNavTree.js";
 
 const TITLES = {
-  admin: "HST Administrator — MetaTrader Server (Live)",
-  manager: "HST Manager — MetaTrader Server (Live)",
+  admin: "HST Administrator — Trade Server (Live)",
+  manager: "HST Manager — Trade Server (Live)",
 };
 
 export function TerminalPage({ panel }) {

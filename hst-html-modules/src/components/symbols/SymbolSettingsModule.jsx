@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Mt5ConfigDialog } from "../ui/Mt5ConfigDialog.jsx";
+import { SettingsDialog } from "../ui/SettingsDialog.jsx";
 import { useSymbolSettings } from "../../hooks/useSymbolSettings.js";
 import { useDialogDrag } from "../../hooks/useDialogDrag.js";
 import { symbolNavLink } from "../../lib/symbolNavTree.js";
@@ -9,7 +9,7 @@ import { isNewSymbolId } from "../../lib/symbolDraft.js";
 import { SYMBOL_TABS } from "./SymbolTabPanels.jsx";
 import { SymbolSessionsTab } from "./SymbolSessionsTab.jsx";
 
-/** MT5-style Symbol properties — draggable modal over the symbols list. */
+/** Symbol properties — draggable modal over the symbols list. */
 export function SymbolSettingsModule({ symbolId, onClose }) {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -54,18 +54,18 @@ export function SymbolSettingsModule({ symbolId, onClose }) {
 
   return (
     <div
-      className="mt5-dialog-overlay"
+      className="dialog-overlay"
       onClick={close}
       role="presentation"
     >
       <div
-        className="mt5-dialog-positioner"
+        className="dialog-positioner"
         style={{
           transform: `translate(${offset.x}px, ${offset.y}px)`,
         }}
         onClick={(e) => e.stopPropagation()}
       >
-        <Mt5ConfigDialog
+        <SettingsDialog
           mode="overlay"
           draggable
           onTitlePointerDown={onTitlePointerDown}
@@ -97,7 +97,7 @@ export function SymbolSettingsModule({ symbolId, onClose }) {
                 type="button"
                 onClick={() =>
                   alert(
-                    "Symbol settings help — see MT5 Administrator documentation."
+                    "Symbol settings help — see the administrator documentation."
                   )
                 }
               >
@@ -132,7 +132,7 @@ export function SymbolSettingsModule({ symbolId, onClose }) {
               )}
             </div>
           ))}
-        </Mt5ConfigDialog>
+        </SettingsDialog>
         {toast && <div className="module-toast sym-settings-toast">{toast}</div>}
       </div>
     </div>

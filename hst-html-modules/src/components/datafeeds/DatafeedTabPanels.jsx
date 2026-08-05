@@ -223,7 +223,7 @@ export function DatafeedTranslationsTab({ d, onFieldChange }) {
 
   return (
     <DfListPanel
-      intro="Map external source symbol names to MT5 server symbols."
+      intro="Map external source symbol names to platform symbols."
       columns={[
         {
           id: "symbol",

@@ -1,5 +1,5 @@
 /**
- * MT5 SVG icon helper — use across nav, tables, and detail headers.
+ * SVG icon helper — use across nav, tables, and detail headers.
  */
 (function (global) {
   function detectBase() {

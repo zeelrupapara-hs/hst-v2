@@ -19,7 +19,7 @@ export function minutesToTime(m) {
   return `${h < 10 ? "0" : ""}${h}:${min < 10 ? "0" : ""}${min}`;
 }
 
-export function fmtMt5DateTime(sec) {
+export function fmtServerDateTime(sec) {
   if (sec == null || sec === 0) return "1970.01.01 00:00";
   const d = new Date(Number(sec) * (String(sec).length > 10 ? 1 : 1000));
   if (isNaN(d.getTime())) return "1970.01.01 00:00";
@@ -27,7 +27,7 @@ export function fmtMt5DateTime(sec) {
   return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-export function parseMt5DateTime(str) {
+export function parseServerDateTime(str) {
   if (!str || str === "1970.01.01 00:00") return 0;
   const m = str.match(/^(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2})$/);
   if (!m) return 0;

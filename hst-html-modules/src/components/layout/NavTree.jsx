@@ -2,7 +2,7 @@ import { useState } from "react";
 import { NavLink, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { NavIcon } from "../ui/Icon.jsx";
 import { ContextMenu, useContextMenu } from "../ui/ContextMenu.jsx";
-import { Mt5InputDialog } from "../ui/Mt5InputDialog.jsx";
+import { InputDialog } from "../ui/InputDialog.jsx";
 import { resolveNavIcon } from "../../lib/icons.js";
 import { symbolNavLink } from "../../lib/symbolNavTree.js";
 import { groupNavLink } from "../../lib/groupNavTree.js";
@@ -321,7 +321,7 @@ export function NavTree({ panel, tree, onNavRefresh }) {
         />
       )}
       {groupDialog && (
-        <Mt5InputDialog
+        <InputDialog
           title={groupDialog.title}
           label={groupDialog.label}
           value={groupName}

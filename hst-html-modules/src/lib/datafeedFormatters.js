@@ -1,6 +1,6 @@
 import { fmtTs } from "./formatters.js";
 
-/** mode: 1=quotes, 2=news, etc. — show N or Q per MT5 list. */
+/** mode: 1=quotes, 2=news, etc. — show N or Q per list. */
 export function fmtDatafeedSource(row) {
   const mode = row.mode ?? 1;
   if (mode & 2 || row.news_count > 0 && !row.ticks_count) return "N";

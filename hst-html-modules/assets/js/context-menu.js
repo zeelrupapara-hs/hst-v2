@@ -1,5 +1,5 @@
 /**
- * MT5-style right-click context menus for list modules.
+ *  right-click context menus for list modules.
  */
 (function (global) {
   var registry = {};

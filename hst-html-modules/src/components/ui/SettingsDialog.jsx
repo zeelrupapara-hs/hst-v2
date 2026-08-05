@@ -1,8 +1,8 @@
 /**
- * MT5 Administrator config dialog shell — fixed width/height.
+ * Settings dialog shell — fixed width/height.
  * @param {"inline"|"overlay"} mode inline = centered host; overlay = dialog only (inside overlay wrapper)
  */
-export function Mt5ConfigDialog({
+export function SettingsDialog({
   title,
   tabs,
   children,
@@ -16,7 +16,7 @@ export function Mt5ConfigDialog({
 }) {
   const dialog = (
     <div
-      className={`config-window mt5-config-dialog ${className}`.trim()}
+      className={`config-window settings-dialog ${className}`.trim()}
       style={{ width: `${width}px` }}
       role="dialog"
       aria-modal={mode === "overlay" ? "true" : undefined}
@@ -38,5 +38,5 @@ export function Mt5ConfigDialog({
     return dialog;
   }
 
-  return <div className="mt5-dialog-host">{dialog}</div>;
+  return <div className="dialog-host">{dialog}</div>;
 }

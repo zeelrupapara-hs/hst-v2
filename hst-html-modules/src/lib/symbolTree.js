@@ -1,5 +1,5 @@
 /**
- * Admin Symbols navigation tree — folders only (MT5 Administrator).
+ * Admin Symbols navigation tree — folders only (Administrator).
  *
  * API stores path as `folder\subfolder\SYMBOL`. There is no admin tree endpoint;
  * build the left nav from flat GET /api/v1/symbols, matching symbolFolder() in
@@ -27,7 +27,7 @@ export function topType(path) {
 
 /**
  * Build folder-only tree from a flat symbol list.
- * Does NOT add symbol names as nodes (admin MT5: symbols appear in the table only).
+ * Does NOT add symbol names as nodes (the administrator shows symbols in the table only).
  *
  * @param {Array<{ path?: string }>} symbols
  * @param {string[]} [extraFolderPaths] empty groups persisted without symbols yet
@@ -97,7 +97,7 @@ export function sortedTreeChildKeys(node) {
 }
 
 /**
- * Annotate each folder node with direct+nested symbol count (MT5 shows counts).
+ * Annotate each folder node with direct+nested symbol count (the navigator shows counts).
  * @param {SymbolTreeNode} node
  * @param {Array<{ path?: string }>} symbols
  */

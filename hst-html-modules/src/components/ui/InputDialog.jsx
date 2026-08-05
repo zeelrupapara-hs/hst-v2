@@ -1,8 +1,8 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 
-/** Small MT5-style text input dialog (replaces window.prompt). */
-export function Mt5InputDialog({
+/** Small text input dialog (replaces window.prompt). */
+export function InputDialog({
   title,
   label,
   value,
@@ -32,29 +32,29 @@ export function Mt5InputDialog({
 
   return createPortal(
     <div
-      className="mt5-dialog-overlay mt5-input-overlay"
+      className="dialog-overlay input-dialog-overlay"
       onClick={onCancel}
       role="presentation"
     >
       <div
-        className="mt5-input-dialog"
+        className="input-dialog"
         role="dialog"
         aria-modal="true"
         aria-label={title}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="config-title">{title}</div>
-        <div className="mt5-input-body">
-          <label htmlFor="mt5-input-field">{label}</label>
+        <div className="input-dialog-body">
+          <label htmlFor="input-dialog-field">{label}</label>
           <input
-            id="mt5-input-field"
+            id="input-dialog-field"
             ref={inputRef}
             type="text"
             value={value}
             onChange={(e) => onChange?.(e.target.value)}
             onKeyDown={onKeyDown}
           />
-          {error ? <p className="mt5-input-error">{error}</p> : null}
+          {error ? <p className="input-dialog-error">{error}</p> : null}
         </div>
         <div className="config-actions">
           <button type="button" className="config-ok" onClick={onOk}>

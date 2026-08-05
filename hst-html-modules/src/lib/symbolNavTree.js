@@ -49,7 +49,7 @@ function markOpenAlongPath(node, activeFolder) {
 }
 
 /**
- * Inject symbol folder hierarchy under the Symbols nav node (MT5 Administrator).
+ * Inject symbol folder hierarchy under the Symbols nav node (Administrator).
  * @param {Array} nav
  * @param {Array<{ path?: string }>} symbols
  * @param {string} [activeFolder]

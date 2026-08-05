@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
-/** Drag MT5 config dialogs by the title bar; offset resets when resetKey changes. */
+/** Drag settings dialogs by the title bar; offset resets when resetKey changes. */
 export function useDialogDrag(resetKey) {
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const dragRef = useRef({

@@ -1,5 +1,5 @@
 /**
- * Per-module context menu definitions (MT5 admin_managers.htm#context, etc.)
+ * Per-module context menu definitions (administrator_managers.htm#context, etc.)
  */
 (function () {
   if (!window.HSTContextMenu) return;
@@ -190,12 +190,12 @@
           }
         },
         {
-          label: "MetaTrader Server",
+          label: "Trade Server",
           check: true,
           checked: function (c) { return c.view.serverFilter === "main"; },
           action: function (c) {
             c.view.serverFilter = "main";
-            toast("Filter by MetaTrader Server — not implemented");
+            toast("Filter by trade server — not implemented");
           }
         }
       ]

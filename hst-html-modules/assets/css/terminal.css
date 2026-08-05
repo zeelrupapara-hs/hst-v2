@@ -1,4 +1,4 @@
-/* HST Terminal — MT5 Administrator layout (static HTML prototype) */
+/* HST Terminal — administrator layout (static HTML prototype) */
 
 :root {
   --chrome-bg: #ece9d8;
@@ -226,7 +226,7 @@ html, body {
   padding: 0;
 }
 
-/* MT5-style dotted tree connectors on nested navigator levels */
+/*  dotted tree connectors on nested navigator levels */
 .nav-tree .nav-branch > ul {
   margin: 0 0 0 7px;
   padding: 0 0 0 9px;
@@ -587,7 +587,7 @@ html, body {
   min-height: 280px;
 }
 
-/* MT5 data feed properties dialog — fixed 656×455 like MT5 Administrator */
+/* data feed properties dialog — fixed 656×455 like Administrator */
 .df-config-window {
   background: #fff;
   border: 1px solid #0054e3;
@@ -890,12 +890,12 @@ html, body {
   background: #fff;
 }
 
-.mt5-input-overlay {
+.input-dialog-overlay {
   position: fixed;
   z-index: 500;
 }
 
-.mt5-input-dialog {
+.input-dialog {
   width: 360px;
   max-width: calc(100vw - 32px);
   border: 1px solid var(--chrome-border);
@@ -903,18 +903,18 @@ html, body {
   box-shadow: 2px 2px 8px rgba(0, 0, 0, 0.2);
 }
 
-.mt5-input-body {
+.input-dialog-body {
   padding: 12px 14px 8px;
   display: grid;
   gap: 6px;
 }
 
-.mt5-input-body label {
+.input-dialog-body label {
   font-size: 11px;
   color: #333;
 }
 
-.mt5-input-body input {
+.input-dialog-body input {
   width: 100%;
   box-sizing: border-box;
   height: 22px;
@@ -923,18 +923,18 @@ html, body {
   font-size: 11px;
 }
 
-.mt5-input-error {
+.input-dialog-error {
   margin: 0;
   font-size: 11px;
   color: #b00020;
 }
 
-.mt5-input-dialog .config-actions {
+.input-dialog .config-actions {
   padding: 8px 10px 10px;
   justify-content: flex-end;
 }
 
-.mt5-dialog-overlay {
+.dialog-overlay {
   position: absolute;
   inset: 0;
   z-index: 200;
@@ -947,16 +947,16 @@ html, body {
   box-sizing: border-box;
 }
 
-.mt5-dialog-overlay .mt5-config-dialog {
+.dialog-overlay .settings-dialog {
   min-height: 0;
   max-height: calc(100% - 8px);
 }
 
-.mt5-dialog-overlay .df-config-window {
+.dialog-overlay .df-config-window {
   max-height: calc(100% - 8px);
 }
 
-.mt5-dialog-positioner {
+.dialog-positioner {
   flex-shrink: 0;
   margin: auto;
 }
@@ -1160,10 +1160,10 @@ html, body {
   box-shadow: 0 0 0 1px rgba(255,255,255,0.5);
 }
 
-/* Symbol settings — dimensions via .mt5-config-dialog */
+/* Symbol settings — dimensions via .settings-dialog */
 
-/* MT5 config dialog — Symbol properties, Time edit, etc. (~656×455) */
-.mt5-dialog-host {
+/* settings dialog — Symbol properties, Time edit, etc. (~656×455) */
+.dialog-host {
   flex: 1;
   min-height: 0;
   display: flex;
@@ -1180,14 +1180,14 @@ html, body {
   min-height: 0;
 }
 
-.mt5-config-dialog .config-body {
+.settings-dialog .config-body {
   flex: 1;
   min-height: 0;
   overflow: auto;
   padding: 0;
 }
 
-.mt5-config-dialog .config-panel {
+.settings-dialog .config-panel {
   padding: 10px 12px 12px;
 }
 
@@ -1570,7 +1570,7 @@ html, body {
 .module-split-nav .tree-item:hover { background: #e8f0fe; }
 .module-split-nav .tree-item.sel { background: var(--select-bg); color: #fff; }
 
-/* Config window — base + MT5 fixed-size dialog variant */
+/* Config window — base + fixed-size dialog variant */
 .config-window {
   border: 1px solid var(--chrome-border);
   margin: 12px;
@@ -1579,7 +1579,7 @@ html, body {
   max-width: 640px;
 }
 
-.mt5-config-dialog {
+.settings-dialog {
   width: 656px;
   max-width: calc(100vw - 32px);
   min-height: 455px;
@@ -1883,7 +1883,7 @@ html, body {
 
 .perm-tree-check input { cursor: pointer; }
 
-/* Context menu (MT5-style) */
+/* Context menu () */
 .ctx-menu {
   position: fixed;
   z-index: 10000;
@@ -2211,7 +2211,7 @@ html, body {
   max-width: 320px;
 }
 
-/* MT5-style select — white box, arrow opens overlay list downward */
+/* platform select — white box, arrow opens overlay list downward */
 .prop-select {
   display: inline-block;
   vertical-align: middle;
@@ -2505,14 +2505,14 @@ html, body {
   font-weight: normal;
 }
 
-.mt5-config-dialog .form-grid label,
-.mt5-config-dialog .sym-form-two-col label,
-.mt5-config-dialog .sym-sessions-limits label,
-.mt5-config-dialog fieldset legend {
+.settings-dialog .form-grid label,
+.settings-dialog .sym-form-two-col label,
+.settings-dialog .sym-sessions-limits label,
+.settings-dialog fieldset legend {
   font-weight: normal;
 }
 
-.mt5-config-dialog .config-tabs button.active {
+.settings-dialog .config-tabs button.active {
   font-weight: normal;
 }
 
@@ -2522,13 +2522,13 @@ html, body {
   max-width: 100%;
 }
 
-.mt5-config-dialog .form-grid,
-.mt5-config-dialog .sym-form-two-col {
+.settings-dialog .form-grid,
+.settings-dialog .sym-form-two-col {
   font-size: 11px;
 }
 
-.mt5-config-dialog .form-grid input,
-.mt5-config-dialog .form-grid select {
+.settings-dialog .form-grid input,
+.settings-dialog .form-grid select {
   font-weight: normal;
 }
 

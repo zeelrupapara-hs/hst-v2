@@ -1,4 +1,4 @@
-/** MT5 Administrator — Time zone dropdown options */
+/** Administrator — Time zone dropdown options */
 export const TIME_ZONE_OPTIONS = [
   "UTC-10:00",
   "UTC-09:00",

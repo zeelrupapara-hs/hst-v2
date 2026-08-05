@@ -1,4 +1,4 @@
-/** Format 24 boolean hour flags as MT5 day range string */
+/** Format 24 boolean hour flags as day range string */
 export function formatDayRange(hours) {
   if (!hours?.length) return "";
   if (hours.every(Boolean) && hours.length === 24) return "00:00-24:00";

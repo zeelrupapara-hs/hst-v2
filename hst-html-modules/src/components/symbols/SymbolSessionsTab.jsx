@@ -5,15 +5,15 @@ import {
   DAY_NAMES,
   SESSION_QUOTE,
   SESSION_TRADE,
-  fmtMt5DateTime,
+  fmtServerDateTime,
   formatDaySessions,
-  parseMt5DateTime,
+  parseServerDateTime,
 } from "../../lib/symbolSessions.js";
 import { SessionEditorDialog } from "./SessionEditorDialog.jsx";
 
 function emptyLimitValue(enabled, sec) {
   if (!enabled || sec == null || sec === 0) return "";
-  return fmtMt5DateTime(sec);
+  return fmtServerDateTime(sec);
 }
 
 export function SymbolSessionsTab({ symbol, onUpdateSessions, onUpdateTimeLimits }) {
@@ -58,7 +58,7 @@ export function SymbolSessionsTab({ symbol, onUpdateSessions, onUpdateTimeLimits
 
   async function applyLimits(enabled, from, to) {
     setLimitsEnabled(enabled);
-    await onUpdateTimeLimits(enabled, parseMt5DateTime(from), parseMt5DateTime(to));
+    await onUpdateTimeLimits(enabled, parseServerDateTime(from), parseServerDateTime(to));
   }
 
   return (
@@ -128,11 +128,11 @@ export function SymbolSessionsTab({ symbol, onUpdateSessions, onUpdateTimeLimits
               let from = fromStr;
               let to = toStr;
               if (en && !from) {
-                from = fmtMt5DateTime(Math.floor(Date.now() / 1000));
+                from = fmtServerDateTime(Math.floor(Date.now() / 1000));
                 setFromStr(from);
               }
               if (en && !to) {
-                to = fmtMt5DateTime(Math.floor(Date.now() / 1000) + 86400 * 365);
+                to = fmtServerDateTime(Math.floor(Date.now() / 1000) + 86400 * 365);
                 setToStr(to);
               }
               applyLimits(en, from, to);

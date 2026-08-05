@@ -1,5 +1,5 @@
 /**
- * MT5-style trading operation dialog (admin_deals.htm#view, admin_orders.htm#view, admin_positions.htm#view).
+ *  trading operation dialog (admin_deals.htm#view, admin_orders.htm#view, admin_positions.htm#view).
  */
 (function (global) {
   var ORDER_TYPE = {

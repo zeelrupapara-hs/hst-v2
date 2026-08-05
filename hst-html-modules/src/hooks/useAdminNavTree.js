@@ -7,7 +7,7 @@ import { injectDatafeedItems } from "../lib/datafeedNavTree.js";
 import { injectGroupFolders } from "../lib/groupNavTree.js";
 
 /**
- * Admin navigator with symbol folders and data feed rows (MT5 style).
+ * Admin navigator with symbol folders and data feed rows (style).
  * @param {"admin"|"manager"} panel
  * @param {string} activeFolder selected folder path when on symbols module
  * @param {string|number} activeDatafeedId selected feed when on datafeeds module

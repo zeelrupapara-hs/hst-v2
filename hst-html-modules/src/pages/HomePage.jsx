@@ -5,7 +5,7 @@ export function HomePage() {
   return (
     <CenteredCard
       title="HST Admin / Manager — React Prototype"
-      description="MT5-style terminal with demo data pre-loaded. Edit React components under src/ and see changes instantly with hot reload."
+      description="Administrator terminal with demo data pre-loaded. Edit React components under src/ and see changes instantly with hot reload."
     >
       <div className="picker-links">
         <Link to="/login">

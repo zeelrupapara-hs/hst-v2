@@ -4,7 +4,7 @@ export function datafeedNavLink(panel, datafeedId) {
 }
 
 /**
- * Inject individual data feed rows under the Data Feeds nav node (MT5 Administrator).
+ * Inject individual data feed rows under the Data Feeds nav node (Administrator).
  * @param {Array} nav
  * @param {Array<{ datafeed_id?: number, name?: string, enable?: number }>} datafeeds
  * @param {string|number} [activeDatafeedId]

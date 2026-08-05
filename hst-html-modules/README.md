@@ -1,8 +1,8 @@
-# HST HTML Modules (MT5-style prototype)
+# HST HTML Modules ( prototype)
 
-Static HTML frontend for **Administrator** and **Manager** panels, modeled on the MT5 Administrator help docs.
+Static HTML frontend for **Administrator** and **Manager** panels, modeled on the Administrator help docs.
 
-**Phase 2:** Modules load live data from the HST API when signed in. **Demo mode** (default) shows MT5-style sample data without a backend.
+**Phase 2:** Modules load live data from the HST API when signed in. **Demo mode** (default) shows  sample data without a backend.
 
 ## Architecture (React 19 + Vite)
 
@@ -63,8 +63,8 @@ src/                React components, routes, module configs
 admin.html          Legacy static terminal shell (admin)
 manager.html        Legacy static terminal shell (manager)
 assets/
-  css/terminal.css  MT5 chrome styling
-  icons/svg/        MT5 SVG navigation & entity icons (see build-icons)
+  css/terminal.css  chrome styling
+  icons/svg/        SVG navigation & entity icons (see build-icons)
   icons/sprite.svg  Combined icon sprite
   js/terminal.js    Nav + toolbox tabs
   js/icons.js       HSTIcons helper for SVG icons
@@ -102,11 +102,11 @@ modules/
 | manager/balance | `POST /api/v1/balance/{deposit\|withdrawal\|credit\|correction}` |
 | manager/journal | `GET /api/v1/journal` |
 
-Navigator items marked *disabled* in HTML are MT5 parity placeholders (future phases).
+Navigator items marked *disabled* in HTML are parity placeholders (future phases).
 
 ## Icons
 
-MT5-style SVG icons live in `assets/icons/svg/`. Rebuild from MT5 help-doc sources:
+ SVG icons live in `assets/icons/svg/`. Rebuild from help-doc sources:
 
 ```bash
 # Requires Pillow; vtracer binary in scripts/.tools/; svgo via npm install

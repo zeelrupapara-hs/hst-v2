@@ -1,4 +1,4 @@
-/** MT5 Symbols context menus — admin_symbols.htm#context */
+/** symbol context menus — admin_symbols.htm#context */
 import {
   AUTOMATION_ITEMS,
   buildContextMenu,

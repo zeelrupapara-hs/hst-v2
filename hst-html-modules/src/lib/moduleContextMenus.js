@@ -54,7 +54,7 @@ const DATAFEED_LIST_MENU_DEF = [
   ...VIEW_TOGGLE_ITEMS(DATAFEED_TABLE_COLUMNS),
 ];
 
-/** MT5 Data Feeds list context menu — admin_feeds.htm#context */
+/** data feed list context menu — admin_feeds.htm#context */
 export function buildDatafeedTableMenu(ctx) {
   return buildContextMenu(DATAFEED_LIST_MENU_DEF, ctx);
 }

@@ -1,5 +1,5 @@
 /**
- * Minimal UI behaviour for static MT5-style terminal HTML.
+ * Minimal UI behaviour for static Administrator terminal HTML.
  * No API calls — navigation and toolbox tabs only.
  */
 (function () {

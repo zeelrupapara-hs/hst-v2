@@ -7,7 +7,7 @@ export const adminNav = [
     open: true,
     children: [
       {
-        label: "MetaTrader Server",
+        label: "Trade Server",
         icon: "server",
         indent: 1,
         open: true,

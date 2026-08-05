@@ -1,5 +1,5 @@
 /**
- * MT5-style Symbols tree, icons, path bar (admin_symbols.htm).
+ *  Symbols tree, icons, path bar (admin_symbols.htm).
  */
 (function (global) {
   function topType(path) {
@@ -43,7 +43,7 @@
   function buildPathTree(rows) {
     var root = { name: "All symbols", path: "", children: {}, isRoot: true };
     (rows || []).forEach(function (r) {
-      // Stored path is folder\symbol — tree shows folders only (admin MT5).
+      // Stored path is folder\symbol — tree shows folders only (admin the platform).
       var full = r.path || "";
       var folder = full.lastIndexOf("\\") >= 0 ? full.slice(0, full.lastIndexOf("\\")) : "";
       if (!folder) return;
@@ -160,7 +160,7 @@
     return (h < 10 ? "0" : "") + h + ":" + (min < 10 ? "0" : "") + min;
   }
 
-  function fmtMt5DateTime(sec) {
+  function fmtServerDateTime(sec) {
     if (sec == null || sec === 0) return "1970.01.01 00:00";
     var d = new Date(Number(sec) * (String(sec).length > 10 ? 1 : 1000));
     if (isNaN(d.getTime())) return "1970.01.01 00:00";
@@ -322,8 +322,8 @@
       '<div class="sym-sessions-toolbar"><button type="button" class="sym-sessions-edit" disabled>Edit</button></div>' +
       '<div class="sym-sessions-limits">' +
       '<label><input type="checkbox" data-sym-use-limits' + (useLimits ? " checked" : "") + " disabled> Use time limits</label>" +
-      '<label>From:</label><input type="text" readonly value="' + fmtMt5DateTime(data.time_start) + '">' +
-      '<label>To:</label><input type="text" readonly value="' + fmtMt5DateTime(data.time_expiration) + '">' +
+      '<label>From:</label><input type="text" readonly value="' + fmtServerDateTime(data.time_start) + '">' +
+      '<label>To:</label><input type="text" readonly value="' + fmtServerDateTime(data.time_expiration) + '">' +
       "</div>";
 
     var tbody = panel.querySelector("[data-sym-sessions-tbody]");
@@ -364,7 +364,7 @@
     renderPathBar: renderPathBar,
     renderTree: renderTree,
     DAY_NAMES: DAY_NAMES,
-    fmtMt5DateTime: fmtMt5DateTime,
+    fmtServerDateTime: fmtServerDateTime,
     formatDaySessions: formatDaySessions,
     renderSessionsPanel: renderSessionsPanel
   };

@@ -5,7 +5,7 @@ import {
 } from "../../lib/icons.js";
 
 /**
- * MT5-generated icon (from assets/icons/manifest.json + build-icons.py).
+ * generated icon (from assets/icons/manifest.json + build-icons.py).
  * Prefers the combined sprite; falls back to individual SVG files.
  */
 export function Icon({ name, title, size = 16, className = "hst-icon", useSprite = true }) {

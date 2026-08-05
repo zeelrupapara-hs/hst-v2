@@ -1,5 +1,5 @@
 /**
- * MT5-style manager permissions tree + role presets (admin_managers.htm#permissions).
+ *  manager permissions tree + role presets (admin_managers.htm#permissions).
  */
 (function (global) {
   var LIMIT_OPTIONS = [
@@ -35,10 +35,10 @@
 
   var PERMISSION_TREE = [
     {
-      label: "Connect using MetaTrader 5 Administrator", key: "right_admin"
+      label: "Connect using the Administrator", key: "right_admin"
     },
     {
-      label: "Connect using MetaTrader 5 Manager", key: "right_manager"
+      label: "Connect using the Manager", key: "right_manager"
     },
     {
       label: "Configuration setup",

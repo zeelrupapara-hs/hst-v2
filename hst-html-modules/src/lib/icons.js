@@ -5,7 +5,7 @@ export const ICON_VERSION = 4;
 
 const ICON_IDS = new Set(manifest.icons.map((entry) => entry.id));
 
-/** MT5 Administrator / Manager module → generated icon id. */
+/** Administrator / Manager module → generated icon id. */
 export const MODULE_NAV_ICON = {
   time: "time",
   holidays: "holidays",
@@ -25,7 +25,7 @@ export const MODULE_NAV_ICON = {
   journal: "journal",
 };
 
-/** MT5 nav: all symbol folder nodes use the tree folder icon. */
+/** navigator: all symbol folder nodes use the tree folder icon. */
 export const SYMBOL_FOLDER_ICON = "symbols-tree";
 
 /** Entity / table row icons from manifest. */

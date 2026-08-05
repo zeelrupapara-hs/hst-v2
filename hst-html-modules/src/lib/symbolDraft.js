@@ -1,4 +1,4 @@
-/** Default draft for Add → Symbol settings (MT5 opens settings dialog on Add). */
+/** Default draft for Add → Symbol settings (opens the settings dialog on Add). */
 export function newSymbolDraft(folderPath = "") {
   const prefix = folderPath ? `${folderPath}\\` : "";
   return {

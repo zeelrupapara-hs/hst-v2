@@ -1,5 +1,5 @@
 /**
- * MT5-style demo datasets — used when not signed in or API unavailable.
+ *  demo datasets — used when not signed in or API unavailable.
  */
 (function (global) {
   var NOW = Math.floor(Date.now() / 1000);
@@ -596,7 +596,7 @@
     { journal_id: 2, created_at: NOW - 300, channel: "Trade", ip: "127.0.0.1", message: "Manager login 1000 connected" },
     { journal_id: 3, created_at: NOW - 600, channel: "Trade", ip: "10.0.0.5", message: "20001: order #900001 placed buy 1.00 EURUSD at 1.08542" },
     { journal_id: 4, created_at: NOW - 900, channel: "Trade", ip: "10.0.0.5", message: "20004: position #800003 opened buy 0.50 XAUUSD at 2330.00" },
-    { journal_id: 5, created_at: NOW - 1800, channel: "Gateway", ip: "127.0.0.1", message: "Data feed MetaQuotes Demo connected" }
+    { journal_id: 5, created_at: NOW - 1800, channel: "Gateway", ip: "127.0.0.1", message: "Data feed Simulator connected" }
   ];
 
   var endOfDay = { at: "23:59", updated_at: NOW - 604800 };
