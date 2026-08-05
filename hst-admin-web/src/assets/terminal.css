@@ -2650,3 +2650,10 @@ html, body {
 
 /* status-bar — a dead session must not read as connected */
 .status-bar .disconnected { color: #b00020; }
+
+/* groups — suffix inputs, checkbox stacks, symbol-rule add field */
+.grp-suffixed { display: flex; align-items: center; gap: 6px; }
+.grp-suffix { color: var(--muted); font-size: 11px; }
+.grp-check-stack { grid-template-columns: 1fr; padding: 4px 12px; }
+.grp-check-disabled { color: var(--muted); }
+.grp-symbol-add { flex: 1; min-width: 160px; }
