@@ -2595,3 +2595,31 @@ html, body {
   border-bottom: 1px solid #a5d6a7;
   font-size: 11px;
 }
+
+/* login — the sign-in window, drawn as a settings dialog centered on the chrome */
+.login-host {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--workspace-bg);
+}
+.login-window { width: 360px; }
+.login-grid {
+  display: grid;
+  grid-template-columns: 90px 1fr;
+  gap: 8px 10px;
+  align-items: center;
+  padding: 14px 12px;
+}
+.login-grid label { text-align: right; }
+.login-grid input, .login-grid select {
+  border: 1px solid var(--chrome-border);
+  padding: 3px 5px;
+  font: inherit;
+  background: #fff;
+}
+.login-error { color: #b00020; padding: 0 12px 10px; margin: 0; }
+
+/* status-bar — a dead session must not read as connected */
+.status-bar .disconnected { color: #b00020; }

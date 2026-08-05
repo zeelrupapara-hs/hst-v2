@@ -1,9 +1,32 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import { TerminalShell } from "@/components/layout/TerminalShell.jsx";
+import { useSession } from "@/app/session.jsx";
+
+function ModulePlaceholder() {
+  return (
+    <div style={{ padding: 16, color: "#666" }}>
+      <p>Select a module in the Navigator. Modules land phase by phase.</p>
+    </div>
+  );
+}
+
 /** @param {{panel: "admin"|"manager"}} props */
 export function TerminalPage({ panel }) {
+  const session = useSession();
+
+  if (session.status === "loading") return null;
+  if (session.status !== "ready") return <Navigate to="/login" replace />;
+
+  // the session's terminal decides the panel; the URL cannot claim the other one
+  const owned = session.terminal === "administrator" ? "admin" : "manager";
+  if (panel !== owned) return <Navigate to={`/${owned}`} replace />;
+
   return (
-    <div style={{ padding: 24 }}>
-      <h3>{panel === "admin" ? "HST Administrator" : "HST Manager"} — Trade Server</h3>
-      <p>The shell is the first build phase; see ../ADMIN_FRONTEND_PROMPT.md §5.</p>
-    </div>
+    <Routes>
+      <Route element={<TerminalShell panel={panel} />}>
+        <Route index element={<ModulePlaceholder />} />
+        <Route path="*" element={<ModulePlaceholder />} />
+      </Route>
+    </Routes>
   );
 }
