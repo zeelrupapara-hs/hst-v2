@@ -3576,3 +3576,41 @@ html, body {
   border: 1px solid #c99a1f;
   border-radius: 2px;
 }
+
+/* ── cleanliness pass: checkbox labels carry no colon, tabs never wrap,
+      selects never truncate, and the stacks tighten to the reference ── */
+
+/* the colon belongs to field labels only */
+.form-grid > label.sym-check::after,
+.sym-check::after,
+.form-grid .sym-check label::after,
+label.sym-check::after { content: none; }
+
+.sym-check { gap: 7px; line-height: 20px; }
+
+/* the reference stacks checkboxes tightly under the field column */
+.settings-dialog .grp-check-stack { gap: 5px 0; padding-top: 2px; padding-bottom: 2px; }
+
+/* tabs stay on one line and the strip scrolls if it must */
+.config-tabs { flex-wrap: nowrap; overflow-x: auto; }
+.config-tabs button { white-space: nowrap; flex: 0 0 auto; }
+
+/* a combo fills its grid cell and shows its value */
+.form-grid .prop-select { width: 100%; min-width: 90px; }
+.prop-select-box { height: 22px; display: flex; align-items: center; }
+.prop-select-value {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 6px;
+}
+
+/* one rhythm for the field rows, as the reference */
+.settings-dialog .form-grid { row-gap: 7px; }
+.settings-dialog .sym-sessions-intro { padding-bottom: 6px; }
+
+/* the menu bar is gone; the body reclaims its height */
+.terminal-body { height: calc(100vh - var(--title-h) - var(--toolbar-h)); }
+/* the body scrollbar must not overlap the right field column */
+.settings-dialog .form-grid { padding-right: 22px; }

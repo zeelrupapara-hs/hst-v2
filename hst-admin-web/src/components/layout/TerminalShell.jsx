@@ -6,8 +6,6 @@ import { ToolbarButton } from "@/components/ui/ToolbarButton.jsx";
 import { useFullscreen } from "@/hooks/useFullscreen.js";
 import { useSession } from "@/hooks/useSession.js";
 
-const MENUS = ["File", "Edit", "View", "Services", "Help"];
-
 /** The window chrome: light title bar, menu bar, the standard toolbar, then the split body. */
 export function TerminalShell({ panel }) {
   const session = useSession();
@@ -33,12 +31,6 @@ export function TerminalShell({ panel }) {
           </button>
         </div>
       </div>
-
-      <nav className="menu-bar" aria-label="Main menu">
-        {MENUS.map((m) => (
-          <span key={m}>{m}</span>
-        ))}
-      </nav>
 
       <div className="toolbar" aria-label="Standard toolbar">
         <button type="button" className="tb-btn tb-disconnect" onClick={session.logout}>

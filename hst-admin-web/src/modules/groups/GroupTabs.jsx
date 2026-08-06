@@ -176,12 +176,6 @@ export function GroupCommonTab({ g, set }) {
         </span>
       </div>
       <div className="form-grid grp-check-stack">
-        <FlagCheck
-          flags={g.permission_flags}
-          bit={PermissionFlag_forceOtp}
-          label="Force one-time password usage"
-          onChange={(v) => set("permission_flags", v)}
-        />
         {PermissionFlag_labels.map(({ bit, label }) => (
           <FlagCheck
             key={bit}
@@ -191,6 +185,13 @@ export function GroupCommonTab({ g, set }) {
             onChange={(v) => set("permission_flags", v)}
           />
         ))}
+        <FlagCheck
+          flags={g.permission_flags}
+          bit={PermissionFlag_forceOtp}
+          label="Force one-time password usage"
+          onChange={(v) => set("permission_flags", v)}
+        />
+
       </div>
     </>
   );
