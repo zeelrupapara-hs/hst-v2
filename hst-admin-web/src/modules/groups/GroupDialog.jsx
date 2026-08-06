@@ -25,17 +25,18 @@ const TABS = [
   "Reports",
 ];
 
+// margin_leverage_id, demo_leverage and demo_deposit stay absent: 0 is a leverage/FK, not "unset".
 const newDraft = (folderPath) => ({
   group: folderPath ? `${folderPath}\\` : "",
   currency: "USD",
   currency_digits: 2,
   auth_mode: 0,
   auth_password_min: 8,
-  permission_flags: 2 | 16,
+  permission_flags: 2 | 16 | 64 | 128 | 256,
   company: "",
   news_mode: 2,
   mail_mode: 1,
-  trade_flags: 1 | 2 | 4,
+  trade_flags: 1 | 2 | 4 | 16,
   trade_transfer_mode: 0,
   trade_interest_rate: 0,
   trade_virtual_credit: 0,
@@ -45,13 +46,12 @@ const newDraft = (folderPath) => ({
   margin_so_mode: 0,
   margin_free_mode: 1,
   margin_free_profit_mode: 0,
-  margin_leverage_id: 0,
+  margin_flags: 0,
   limit_history: 0,
   limit_orders: 0,
   limit_symbols: 0,
   limit_positions: 0,
-  demo_deposit: 0,
-  demo_leverage: 0,
+  limit_positions_volume: 0,
   reports_mode: 0,
   reports_flags: 0,
 });
@@ -66,8 +66,10 @@ const PATCH_FIELDS = [
   "reports_smtp", "reports_smtp_login", "news_mode", "news_category", "mail_mode",
   "trade_flags", "trade_interest_rate", "trade_virtual_credit", "trade_transfer_mode",
   "margin_free_mode", "margin_so_mode", "margin_call", "margin_stop_out",
-  "margin_free_profit_mode", "margin_mode", "margin_leverage_id", "limit_history", "limit_orders",
+  "margin_free_profit_mode", "margin_mode", "margin_flags", "margin_leverage_id",
+  "limit_history", "limit_orders",
   "limit_symbols", "limit_positions", "limit_positions_volume", "demo_leverage", "demo_deposit",
+  "news_langs",
 ];
 
 /** The 8-tab group dialog. groupId "new" creates; an existing group renames in place. */

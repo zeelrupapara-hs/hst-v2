@@ -28,7 +28,7 @@ function sameValue(a, b) {
   return JSON.stringify(a) === JSON.stringify(b);
 }
 
-/** Fields that differ across the selection cannot be bulk-edited (MT5 group-work rule). */
+/** Fields that differ across the selection cannot be bulk-edited the platform bulk-edit rule. */
 function buildLockField(rows) {
   const locked = new Set(BULK_LOCKED);
   if (rows.length < 2) return (key) => locked.has(key);

@@ -61,7 +61,7 @@ const enumOptions = (names, order) =>
 
 const plain = (values) => values.map((v) => ({ value: v, label: String(v) }));
 
-/** MT5 SpreadBalance → bid/ask point shifts shown under the slider. */
+/** Spread balance as the bid/ask point shifts shown under the slider. */
 function spreadBalanceShifts(spread, balance) {
   const s = Number(spread) || 0;
   const b = Number(balance) || 0;
@@ -191,7 +191,7 @@ function parseMarketDepth(text) {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
-/** MT5-style combo: presets in the list, any number may be typed. */
+/** Combo with presets in the list, where any number may also be typed. */
 function EditableSelectField({ label, value, options, onChange, format, parse, lockField, fieldKey }) {
   const locked = lockField?.(fieldKey);
   const [open, setOpen] = useState(false);

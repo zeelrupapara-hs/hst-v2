@@ -89,7 +89,7 @@ function FolderTreeRow({ node, depth, value, onSelect, openPaths, togglePath }) 
 }
 
 /**
- * MT5-style folder tree picker for symbol paths (backslash-separated, no symbol name).
+ * Folder tree picker for symbol paths (backslash-separated, no symbol name).
  * @param {{value: string, onChange: Function, disabled?: boolean, className?: string}} props
  */
 export function SymbolFolderSelect({ value, onChange, disabled, className = "" }) {

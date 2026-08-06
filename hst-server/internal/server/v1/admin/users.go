@@ -99,6 +99,16 @@ func (s *Server) CreateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
+	// every slot the account opens with answers to the group it opens in
+	for _, password := range []string{body.PasswordMain, body.PasswordInvestor, body.PasswordApi} {
+		if password == "" {
+			continue
+		}
+		if err := s.RequirePasswordLength(c.UserContext(), 0, body.Group, password); err != nil {
+			return s.App.HttpResponseBadRequest(c, err)
+		}
+	}
+
 	// the request and the core carry the same fields, so the body is the argument
 	login, status, err := s.OpenLogin(c.UserContext(), v1.NewLogin(body))
 	if err != nil {

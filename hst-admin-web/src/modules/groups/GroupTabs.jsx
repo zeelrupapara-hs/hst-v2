@@ -8,6 +8,7 @@ import {
   FreeMarginMode_name,
   groupKind,
   HistoryLimit_name,
+  MarginFlag_clearAcc,
   MarginFreeProfitMode_name,
   MarginMode_name,
   MarginMode_order,
@@ -251,6 +252,9 @@ export function GroupNewsMailTab({ g, set }) {
 const unlimited = (v) => (v === 0 || v == null ? "unlimited" : String(v));
 const fromUnlimited = (v) => (v === "unlimited" || v === "" ? 0 : Number(v) || 0);
 
+// Blank means "the trader chooses", which is absent on the wire — not zero.
+const unset = (v) => (v.trim() === "" ? undefined : Number(v) || 0);
+
 export function GroupPermissionsTab({ g, set }) {
   const isDemo = groupKind(g.group ?? "") === "demo";
   const signals = (g.trade_flags ?? 0) & TradeFlag_signalsMask;
@@ -266,8 +270,8 @@ export function GroupPermissionsTab({ g, set }) {
         <SelectField label="Available history" value={g.limit_history} names={HistoryLimit_name} onChange={(v) => set("limit_history", v)} />
         <Field label="Maximum positions" value={unlimited(g.limit_positions)} onChange={(v) => set("limit_positions", fromUnlimited(v))} />
         <Field label="Maximum orders" value={unlimited(g.limit_orders)} onChange={(v) => set("limit_orders", fromUnlimited(v))} />
-        <NumField label="Deposit by default" value={g.demo_deposit ?? 0} readOnly={!isDemo} onChange={isDemo ? (v) => set("demo_deposit", v) : undefined} />
-        <NumField label="Leverage by default" value={g.demo_leverage ?? 0} readOnly={!isDemo} onChange={isDemo ? (v) => set("demo_leverage", v) : undefined} />
+        <Field label="Deposit by default" value={g.demo_deposit} readOnly={!isDemo} onChange={isDemo ? (v) => set("demo_deposit", unset(v)) : undefined} />
+        <Field label="Leverage by default" value={g.demo_leverage} readOnly={!isDemo} onChange={isDemo ? (v) => set("demo_leverage", unset(v)) : undefined} />
       </div>
       <div className="form-grid">
         <DecField
@@ -332,16 +336,22 @@ export function GroupMarginTab({ g, set }) {
           disabled={!compensates}
           onChange={(v) => set("trade_flags", v)}
         />
+        <FlagCheck
+          flags={g.margin_flags}
+          bit={MarginFlag_clearAcc}
+          label="Clear accumulated values at the end of day"
+          onChange={(v) => set("margin_flags", v)}
+        />
       </div>
       <div className="form-grid">
         <SelectField
           label="Floating leverage profile"
-          value={g.margin_leverage_id ?? 0}
+          value={g.margin_leverage_id ?? ""}
           options={[
-            { value: 0, label: "None" },
+            { value: "", label: "None" },
             ...profiles.map((p) => ({ value: p.leverage_id, label: p.name })),
           ]}
-          onChange={(v) => set("margin_leverage_id", Number(v))}
+          onChange={(v) => set("margin_leverage_id", v === "" ? undefined : Number(v))}
         />
       </div>
       <fieldset className="fieldset">

@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -45,6 +46,40 @@ type RefreshRequest struct {
 type ChangePasswordRequest struct {
 	OldPassword string `json:"old_password" validate:"required"`
 	NewPassword string `json:"new_password" validate:"required,min=8,max=128"`
+}
+
+// PasswordFloor is what the request tags already demand; a group may raise the bar, never lower it.
+const PasswordFloor int32 = 8
+
+// GroupPasswordMin is the shortest password a group accepts. A blank group is read from the login.
+func (s *HttpServer) GroupPasswordMin(ctx context.Context, login int64, group string) int32 {
+	min := PasswordFloor
+
+	if group == "" {
+		_ = s.DB.DB.QueryRow(ctx,
+			`SELECT g.auth_password_min
+			   FROM hst.users u
+			   JOIN hst.groups g ON g."group" = u."group"
+			  WHERE u.login = $1`, login).Scan(&min)
+	} else {
+		_ = s.DB.DB.QueryRow(ctx,
+			`SELECT auth_password_min FROM hst.groups WHERE "group" = $1`, group).Scan(&min)
+	}
+
+	if min < PasswordFloor {
+		return PasswordFloor
+	}
+
+	return min
+}
+
+// RequirePasswordLength refuses a password shorter than the group demands, the way validation does.
+func (s *HttpServer) RequirePasswordLength(ctx context.Context, login int64, group, password string) error {
+	if min := s.GroupPasswordMin(ctx, login, group); int32(len(password)) < min {
+		return fmt.Errorf("password must be at least %d characters", min)
+	}
+
+	return nil
 }
 
 // loginDenied is a refusal with the status and the platform code it should carry.
@@ -509,6 +544,10 @@ func (s *HttpServer) SetPassword(c *fiber.Ctx) error {
 	}
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	if err := s.RequirePasswordLength(ctx, snap.Login, snap.Group, body.NewPassword); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
 	}
 
 	var current string

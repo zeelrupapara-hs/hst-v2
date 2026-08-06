@@ -102,6 +102,8 @@ export const TradeFlag_soFullyHedged = 128;
 export const TradeFlag_soCompensation = 64;
 export const TradeFlag_soCompensationCredit = 2048;
 
+export const MarginFlag_clearAcc = 1;
+
 export const ReportsFlag_statements = 4;
 export const ReportsFlag_email = 1;
 export const ReportsFlag_support = 2;

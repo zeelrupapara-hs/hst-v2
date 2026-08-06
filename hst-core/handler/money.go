@@ -43,11 +43,20 @@ func marginBase(r *settings.Rules, lots float64, price float64, leverage int32, 
 		leverage = 1
 	}
 
+	// a floating leverage tier states the fraction of the notional to reserve, which is the flat
+	// leverage the other way up, so it stands in for it wherever the formula divides
+	divisor := float64(leverage)
+	if r.Group != nil && r.Symbol != nil {
+		if rate, ok := r.Group.MarginRateFor(r.Symbol.Symbol, r.Symbol.Path, lots); ok && rate > 0 {
+			divisor = 1 / rate
+		}
+	}
+
 	var base float64
 
 	switch r.CalcMode {
 	case model.CalcMode_forex:
-		base = lots * r.ContractSize / float64(leverage)
+		base = lots * r.ContractSize / divisor
 
 	case model.CalcMode_forex_no_leverage:
 		base = lots * r.ContractSize
@@ -56,7 +65,7 @@ func marginBase(r *settings.Rules, lots float64, price float64, leverage int32, 
 		base = lots * r.ContractSize * price
 
 	case model.CalcMode_cfd_leverage:
-		base = lots * r.ContractSize * price / float64(leverage)
+		base = lots * r.ContractSize * price / divisor
 
 	case model.CalcMode_cfd_index, model.CalcMode_futures, model.CalcMode_exch_futures, model.CalcMode_exch_forts:
 		// futures reserve a fixed amount per lot rather than a slice of the notional

@@ -12,15 +12,15 @@ import { SessionEditorDialog } from "./SessionEditorDialog.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 
-const MT5_EPOCH = "1970.01.01 00:00";
+const EPOCH_STAMP = "1970.01.01 00:00";
 
-const formatMt5DateTime = (ns) => {
-  if (!ns) return MT5_EPOCH;
+const formatStamp = (ns) => {
+  if (!ns) return EPOCH_STAMP;
   const d = fromNs(ns);
   return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-const parseMt5DateTime = (raw) => {
+const parseStamp = (raw) => {
   const s = raw.trim();
   const m = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2})$/);
   if (!m) return null;
@@ -127,13 +127,13 @@ export function SymbolSessionsTab({ s, set }) {
             type="text"
             className="sym-sessions-datetime"
             disabled={!useLimits}
-            defaultValue={formatMt5DateTime(s.time_start)}
+            defaultValue={formatStamp(s.time_start)}
             key={`from-${s.time_start}-${useLimits}`}
-            placeholder={MT5_EPOCH}
+            placeholder={EPOCH_STAMP}
             onBlur={(e) => {
-              const ns = parseMt5DateTime(e.target.value);
+              const ns = parseStamp(e.target.value);
               if (ns != null) set("time_start", ns);
-              else e.target.value = formatMt5DateTime(s.time_start);
+              else e.target.value = formatStamp(s.time_start);
             }}
           />
           <label className="sym-sessions-limits-label">To:</label>
@@ -141,13 +141,13 @@ export function SymbolSessionsTab({ s, set }) {
             type="text"
             className="sym-sessions-datetime"
             disabled={!useLimits}
-            defaultValue={formatMt5DateTime(s.time_expiration)}
+            defaultValue={formatStamp(s.time_expiration)}
             key={`to-${s.time_expiration}-${useLimits}`}
-            placeholder={MT5_EPOCH}
+            placeholder={EPOCH_STAMP}
             onBlur={(e) => {
-              const ns = parseMt5DateTime(e.target.value);
+              const ns = parseStamp(e.target.value);
               if (ns != null) set("time_expiration", ns);
-              else e.target.value = formatMt5DateTime(s.time_expiration);
+              else e.target.value = formatStamp(s.time_expiration);
             }}
           />
         </div>

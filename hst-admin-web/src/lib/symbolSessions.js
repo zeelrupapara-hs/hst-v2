@@ -74,7 +74,7 @@ export function tradeWithinQuote(quoteWins, tradeWins) {
   return tradeWins.every((t) => quoteWins.some((q) => t.open >= q.open && t.close <= q.close));
 }
 
-/** Classify window as primary day or post-midnight extension (MT5 overnight layout). */
+/** Classify window as primary day or post-midnight extension as the overnight layout requires. */
 export function classifySessionZone(w, windows, index) {
   const hasOvernight = windows.some((o, i) => i !== index && o.close === 1440);
   if (!hasOvernight) return "primary";
