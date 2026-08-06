@@ -142,6 +142,7 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
           onTitlePointerDown={onTitlePointerDown}
           className="sym-config-window"
           width={787}
+          height={503}
           title={title}
           tabs={
             <div className="config-tabs sym-config-tabs">

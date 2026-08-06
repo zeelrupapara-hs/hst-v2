@@ -3402,3 +3402,122 @@ select {
 .settings-dialog .fieldset > .form-grid { padding-left: 0; padding-right: 0; grid-template-columns: 139px minmax(0, 1fr); }
 .settings-dialog .fieldset > .sym-form-two-col { grid-template-columns: 139px 175px 150px minmax(0, 1fr); }
 .settings-dialog .fieldset > .grp-check-stack { padding-left: 151px; }
+
+/* ── fixed dialog size: the body scrolls, the window never resizes on tab switch ── */
+.settings-dialog {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 60px);
+}
+.settings-dialog .config-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding: 0;
+}
+.settings-dialog .config-tabs,
+.settings-dialog .config-title,
+.settings-dialog .config-actions { flex: 0 0 auto; }
+.settings-dialog .df-table-panel { max-height: 260px; }
+.settings-dialog .df-table-main { max-height: 220px; overflow: auto; }
+
+/* ── palette pass: the reference is Segoe UI on white with one accent blue ── */
+:root {
+  --chrome-bg: #ffffff;
+  --chrome-border: #d8d8d8;
+  --menu-bg: #ffffff;
+  --toolbar-bg: #ffffff;
+  --table-head: #f5f5f5;
+  --table-border: #e6e6e6;
+  --select-bg: #0078d7;
+  --select-fg: #ffffff;
+  --tree-line: #c8c8c8;
+  --muted: #6b6b6b;
+}
+
+html, body {
+  font-family: "Segoe UI", "Segoe UI Variable", Tahoma, Arial, sans-serif;
+  font-size: 12px;
+  background: #ffffff;
+}
+
+/* lists */
+.data-table { font-size: 12px; }
+.data-table th {
+  background: #f5f5f5;
+  border-color: #e6e6e6;
+  border-bottom: 1px solid #cfcfcf;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+.data-table td { border-color: #ededed; }
+.data-table tbody tr:hover:not(.selected) { background: #f0f7fd; }
+.data-table tbody tr.selected { background: var(--select-bg); color: #fff; }
+.data-table tbody tr.selected a { color: #fff; }
+
+/* navigator */
+.navigator { border-right: 1px solid #e0e0e0; }
+.nav-header {
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+  color: #1a1a1a;
+  height: 22px;
+  line-height: 22px;
+}
+.nav-item:hover { background: #f0f7fd; }
+.nav-item.active { background: var(--select-bg); color: #fff; }
+.nav-item.active .count { color: #d6e9fb; }
+.nav-item .count { color: var(--muted); font-size: 11px; }
+
+/* toolbox: the beige tabs were XP leftovers */
+.toolbox { border-top: 1px solid #e0e0e0; }
+.toolbox-tabs {
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 0 4px;
+}
+.toolbox-tabs button {
+  border: none;
+  background: transparent;
+  padding: 6px 12px 5px;
+  font-size: 12px;
+  color: #333;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.toolbox-tabs button:hover { color: #0078d7; }
+.toolbox-tabs button.active {
+  background: transparent;
+  color: #0060b8;
+  font-weight: 600;
+  border-bottom-color: #0078d7;
+}
+.journal-table { font-size: 12px; }
+.journal-table th {
+  background: #f5f5f5;
+  border-color: #e6e6e6;
+  border-bottom: 1px solid #cfcfcf;
+  color: #1a1a1a;
+}
+.journal-table td { border-color: #ededed; }
+
+/* status bar */
+.status-bar {
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+  color: #333;
+  font-size: 12px;
+}
+.status-bar .connected { color: #107c10; }
+.status-bar .disconnected { color: #c62828; }
+
+/* module chrome */
+.filter-bar {
+  background: #f5f5f5;
+  border-top: 1px solid #e0e0e0;
+  padding: 5px 8px;
+  gap: 8px;
+}
+.filter-bar input { border: 1px solid #adadad; padding: 3px 6px; font-size: 12px; }
+.module-note { color: var(--muted); background: transparent; border: none; margin: 0; padding: 0 6px; }
+.df-empty { color: var(--muted); text-align: center; padding: 14px; }

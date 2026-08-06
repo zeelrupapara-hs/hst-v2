@@ -158,6 +158,7 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
       >
         <SettingsDialog
           width={613}
+          height={441}
           draggable
           onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}

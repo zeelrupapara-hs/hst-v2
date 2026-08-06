@@ -1,6 +1,6 @@
 /**
  * Settings dialog shell: title bar with the help and close glyphs, tab strip, body, footer.
- * Width is per dialog — the reference sizes each one to its content.
+ * Width and height are fixed per dialog: switching tabs must never resize the window.
  * @param {{title: string, tabs?: any, children: any, footer?: any, className?: string, width?: number, draggable?: boolean, onTitlePointerDown?: Function, onClose?: Function}} props
  */
 export function SettingsDialog({
@@ -10,6 +10,7 @@ export function SettingsDialog({
   footer,
   className = "",
   width = 613,
+  height = 441,
   draggable = false,
   onTitlePointerDown,
   onClose,
@@ -17,7 +18,7 @@ export function SettingsDialog({
   return (
     <div
       className={`config-window settings-dialog ${className}`.trim()}
-      style={{ width: `${width}px` }}
+      style={{ width: `${width}px`, height: `${height}px` }}
       role="dialog"
       aria-modal="true"
       aria-label={title}

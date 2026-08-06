@@ -220,6 +220,7 @@ export function AccountDialog({ login, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
+          height={470}
           onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Account: New" : `Account: ${login} — ${draft?.name ?? "…"}`}
