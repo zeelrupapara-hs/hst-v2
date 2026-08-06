@@ -93,33 +93,35 @@ const (
 
 // Datafeed is MT5 data feed configuration plus runtime session counters.
 type Datafeed struct {
-	DatafeedID       int64                 `db:"datafeed_id" json:"datafeed_id"`
-	Name             string                `db:"name" json:"name"`
-	Module           string                `db:"module" json:"module"`
-	Enable           DatafeedEnable        `db:"enable" json:"enable"`
-	Mode             FeederFlags           `db:"mode" json:"mode"`
-	GatewayServer    string                `db:"gateway_server" json:"gateway_server"`
-	FeedServer       string                `db:"feed_server" json:"feed_server"`
-	FeedLogin        int64                 `db:"feed_login" json:"feed_login"`
-	FeedPassword     string                `db:"feed_password" json:"-"`
-	GatewayLogin     int64                 `db:"gateway_login" json:"gateway_login"`
-	GatewayPassword  string                `db:"gateway_password" json:"-"`
-	Timeout          int32                 `db:"timeout" json:"timeout"`
-	TimeoutReconnect int32                 `db:"timeout_reconnect" json:"timeout_reconnect"`
-	TimeoutSleep     int32                 `db:"timeout_sleep" json:"timeout_sleep"`
-	AttemptsSleep    int32                 `db:"attempts_sleep" json:"attempts_sleep"`
-	UpdatedAt        int64                 `db:"updated_at" json:"updated_at"`
-	Company          string                `db:"company" json:"company"`
-	Issuer           string                `db:"issuer" json:"issuer"`
-	SysConnection    DatafeedSysConnection `db:"sys_connection" json:"sys_connection"`
-	SysLastTime      int64                 `db:"sys_last_time" json:"sys_last_time"`
-	TickStatsCount   int64                 `db:"tick_stats_count" json:"tick_stats_count"`
-	TicksCount       int64                 `db:"ticks_count" json:"ticks_count"`
-	BooksCount       int64                 `db:"books_count" json:"books_count"`
-	NewsCount        int64                 `db:"news_count" json:"news_count"`
-	BytesReceived    int64                 `db:"bytes_received" json:"bytes_received"`
-	BytesSent        int64                 `db:"bytes_sent" json:"bytes_sent"`
-	StateFlags       int32                 `db:"state_flags" json:"state_flags"`
+	DatafeedID         int64                 `db:"datafeed_id" json:"datafeed_id"`
+	Name               string                `db:"name" json:"name"`
+	Module             string                `db:"module" json:"module"`
+	Enable             DatafeedEnable        `db:"enable" json:"enable"`
+	FeedIndex          int32                 `db:"feed_index" json:"feed_index"`
+	AllowImportSymbols int16                 `db:"allow_import_symbols" json:"allow_import_symbols"`
+	Mode               FeederFlags           `db:"mode" json:"mode"`
+	GatewayServer      string                `db:"gateway_server" json:"gateway_server"`
+	FeedServer         string                `db:"feed_server" json:"feed_server"`
+	FeedLogin          int64                 `db:"feed_login" json:"feed_login"`
+	FeedPassword       string                `db:"feed_password" json:"-"`
+	GatewayLogin       int64                 `db:"gateway_login" json:"gateway_login"`
+	GatewayPassword    string                `db:"gateway_password" json:"-"`
+	Timeout            int32                 `db:"timeout" json:"timeout"`
+	TimeoutReconnect   int32                 `db:"timeout_reconnect" json:"timeout_reconnect"`
+	TimeoutSleep       int32                 `db:"timeout_sleep" json:"timeout_sleep"`
+	AttemptsSleep      int32                 `db:"attempts_sleep" json:"attempts_sleep"`
+	UpdatedAt          int64                 `db:"updated_at" json:"updated_at"`
+	Company            string                `db:"company" json:"company"`
+	Issuer             string                `db:"issuer" json:"issuer"`
+	SysConnection      DatafeedSysConnection `db:"sys_connection" json:"sys_connection"`
+	SysLastTime        int64                 `db:"sys_last_time" json:"sys_last_time"`
+	TickStatsCount     int64                 `db:"tick_stats_count" json:"tick_stats_count"`
+	TicksCount         int64                 `db:"ticks_count" json:"ticks_count"`
+	BooksCount         int64                 `db:"books_count" json:"books_count"`
+	NewsCount          int64                 `db:"news_count" json:"news_count"`
+	BytesReceived      int64                 `db:"bytes_received" json:"bytes_received"`
+	BytesSent          int64                 `db:"bytes_sent" json:"bytes_sent"`
+	StateFlags         int32                 `db:"state_flags" json:"state_flags"`
 }
 
 // DatafeedParam is an additional data feed setting.

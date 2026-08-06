@@ -36,71 +36,75 @@ var (
 
 // CrtDatafeed creates a data feed configuration.
 type CrtDatafeed struct {
-	Name             string                `json:"name" validate:"required,max=64"`
-	Module           string                `json:"module" validate:"required,max=128"`
-	Enable           *model.DatafeedEnable `json:"enable"`
-	Mode             *model.FeederFlags    `json:"mode"`
-	GatewayServer    string                `json:"gateway_server" validate:"max=255"`
-	FeedServer       string                `json:"feed_server" validate:"max=255"`
-	FeedLogin        int64                 `json:"feed_login"`
-	FeedPassword     string                `json:"feed_password"`
-	GatewayLogin     int64                 `json:"gateway_login"`
-	GatewayPassword  string                `json:"gateway_password"`
-	Timeout          *int32                `json:"timeout"`
-	TimeoutReconnect *int32                `json:"timeout_reconnect"`
-	TimeoutSleep     *int32                `json:"timeout_sleep"`
-	AttemptsSleep    *int32                `json:"attempts_sleep"`
-	Company          string                `json:"company" validate:"max=255"`
-	Issuer           string                `json:"issuer" validate:"max=255"`
+	Name               string                `json:"name" validate:"required,max=64"`
+	Module             string                `json:"module" validate:"required,max=128"`
+	Enable             *model.DatafeedEnable `json:"enable"`
+	AllowImportSymbols *int16                `json:"allow_import_symbols"`
+	Mode               *model.FeederFlags    `json:"mode"`
+	GatewayServer      string                `json:"gateway_server" validate:"max=255"`
+	FeedServer         string                `json:"feed_server" validate:"max=255"`
+	FeedLogin          int64                 `json:"feed_login"`
+	FeedPassword       string                `json:"feed_password"`
+	GatewayLogin       int64                 `json:"gateway_login"`
+	GatewayPassword    string                `json:"gateway_password"`
+	Timeout            *int32                `json:"timeout"`
+	TimeoutReconnect   *int32                `json:"timeout_reconnect"`
+	TimeoutSleep       *int32                `json:"timeout_sleep"`
+	AttemptsSleep      *int32                `json:"attempts_sleep"`
+	Company            string                `json:"company" validate:"max=255"`
+	Issuer             string                `json:"issuer" validate:"max=255"`
 }
 
 // UptDatafeed patches a data feed. Passwords update only when sent.
 type UptDatafeed struct {
-	Name             *string               `json:"name" validate:"omitempty,max=64"`
-	Module           *string               `json:"module" validate:"omitempty,max=128"`
-	Enable           *model.DatafeedEnable `json:"enable"`
-	Mode             *model.FeederFlags    `json:"mode"`
-	GatewayServer    *string               `json:"gateway_server" validate:"omitempty,max=255"`
-	FeedServer       *string               `json:"feed_server" validate:"omitempty,max=255"`
-	FeedLogin        *int64                `json:"feed_login"`
-	FeedPassword     *string               `json:"feed_password"`
-	GatewayLogin     *int64                `json:"gateway_login"`
-	GatewayPassword  *string               `json:"gateway_password"`
-	Timeout          *int32                `json:"timeout"`
-	TimeoutReconnect *int32                `json:"timeout_reconnect"`
-	TimeoutSleep     *int32                `json:"timeout_sleep"`
-	AttemptsSleep    *int32                `json:"attempts_sleep"`
-	Company          *string               `json:"company" validate:"omitempty,max=255"`
-	Issuer           *string               `json:"issuer" validate:"omitempty,max=255"`
+	Name               *string               `json:"name" validate:"omitempty,max=64"`
+	Module             *string               `json:"module" validate:"omitempty,max=128"`
+	Enable             *model.DatafeedEnable `json:"enable"`
+	AllowImportSymbols *int16                `json:"allow_import_symbols"`
+	Mode               *model.FeederFlags    `json:"mode"`
+	GatewayServer      *string               `json:"gateway_server" validate:"omitempty,max=255"`
+	FeedServer         *string               `json:"feed_server" validate:"omitempty,max=255"`
+	FeedLogin          *int64                `json:"feed_login"`
+	FeedPassword       *string               `json:"feed_password"`
+	GatewayLogin       *int64                `json:"gateway_login"`
+	GatewayPassword    *string               `json:"gateway_password"`
+	Timeout            *int32                `json:"timeout"`
+	TimeoutReconnect   *int32                `json:"timeout_reconnect"`
+	TimeoutSleep       *int32                `json:"timeout_sleep"`
+	AttemptsSleep      *int32                `json:"attempts_sleep"`
+	Company            *string               `json:"company" validate:"omitempty,max=255"`
+	Issuer             *string               `json:"issuer" validate:"omitempty,max=255"`
 }
 
 // ViewDatafeed is a list row without nested children or passwords.
 type ViewDatafeed struct {
-	DatafeedID       int64                       `json:"datafeed_id"`
-	Name             string                      `json:"name"`
-	Module           string                      `json:"module"`
-	Enable           model.DatafeedEnable        `json:"enable"`
-	Mode             model.FeederFlags           `json:"mode"`
-	GatewayServer    string                      `json:"gateway_server"`
-	FeedServer       string                      `json:"feed_server"`
-	FeedLogin        int64                       `json:"feed_login"`
-	GatewayLogin     int64                       `json:"gateway_login"`
-	Timeout          int32                       `json:"timeout"`
-	TimeoutReconnect int32                       `json:"timeout_reconnect"`
-	TimeoutSleep     int32                       `json:"timeout_sleep"`
-	AttemptsSleep    int32                       `json:"attempts_sleep"`
-	UpdatedAt        int64                       `json:"updated_at"`
-	Company          string                      `json:"company"`
-	Issuer           string                      `json:"issuer"`
-	SysConnection    model.DatafeedSysConnection `json:"sys_connection"`
-	SysLastTime      int64                       `json:"sys_last_time"`
-	TickStatsCount   int64                       `json:"tick_stats_count"`
-	TicksCount       int64                       `json:"ticks_count"`
-	BooksCount       int64                       `json:"books_count"`
-	NewsCount        int64                       `json:"news_count"`
-	BytesReceived    int64                       `json:"bytes_received"`
-	BytesSent        int64                       `json:"bytes_sent"`
-	StateFlags       int32                       `json:"state_flags"`
+	DatafeedID         int64                       `json:"datafeed_id"`
+	Name               string                      `json:"name"`
+	Module             string                      `json:"module"`
+	Enable             model.DatafeedEnable        `json:"enable"`
+	FeedIndex          int32                       `json:"feed_index"`
+	AllowImportSymbols int16                       `json:"allow_import_symbols"`
+	Mode               model.FeederFlags           `json:"mode"`
+	GatewayServer      string                      `json:"gateway_server"`
+	FeedServer         string                      `json:"feed_server"`
+	FeedLogin          int64                       `json:"feed_login"`
+	GatewayLogin       int64                       `json:"gateway_login"`
+	Timeout            int32                       `json:"timeout"`
+	TimeoutReconnect   int32                       `json:"timeout_reconnect"`
+	TimeoutSleep       int32                       `json:"timeout_sleep"`
+	AttemptsSleep      int32                       `json:"attempts_sleep"`
+	UpdatedAt          int64                       `json:"updated_at"`
+	Company            string                      `json:"company"`
+	Issuer             string                      `json:"issuer"`
+	SysConnection      model.DatafeedSysConnection `json:"sys_connection"`
+	SysLastTime        int64                       `json:"sys_last_time"`
+	TickStatsCount     int64                       `json:"tick_stats_count"`
+	TicksCount         int64                       `json:"ticks_count"`
+	BooksCount         int64                       `json:"books_count"`
+	NewsCount          int64                       `json:"news_count"`
+	BytesReceived      int64                       `json:"bytes_received"`
+	BytesSent          int64                       `json:"bytes_sent"`
+	StateFlags         int32                       `json:"state_flags"`
 }
 
 // ViewDatafeedDetail includes nested params, symbol scope rows, and translations.
@@ -200,7 +204,7 @@ type ViewResolvedDatafeedSymbol struct {
 	Path     string `json:"path"`
 }
 
-const datafeedColumns = `datafeed_id, name, module, enable, mode,
+const datafeedColumns = `datafeed_id, name, module, enable, feed_index, allow_import_symbols, mode,
 	gateway_server, feed_server, feed_login, gateway_login,
 	timeout, timeout_reconnect, timeout_sleep, attempts_sleep, updated_at,
 	company, issuer, sys_connection, sys_last_time,
@@ -214,7 +218,7 @@ const datafeedTranslateColumns = `translate_id, datafeed_id, symbol_id, symbol, 
 func scanViewDatafeed(row pgx.Row) (*ViewDatafeed, error) {
 	v := &ViewDatafeed{}
 	err := row.Scan(
-		&v.DatafeedID, &v.Name, &v.Module, &v.Enable, &v.Mode,
+		&v.DatafeedID, &v.Name, &v.Module, &v.Enable, &v.FeedIndex, &v.AllowImportSymbols, &v.Mode,
 		&v.GatewayServer, &v.FeedServer, &v.FeedLogin, &v.GatewayLogin,
 		&v.Timeout, &v.TimeoutReconnect, &v.TimeoutSleep, &v.AttemptsSleep, &v.UpdatedAt,
 		&v.Company, &v.Issuer, &v.SysConnection, &v.SysLastTime,
@@ -587,8 +591,10 @@ func (s *HttpServer) CreateDatafeed(c *fiber.Ctx) error {
 		    gateway_server, feed_server, feed_login, feed_password,
 		    gateway_login, gateway_password,
 		    timeout, timeout_reconnect, timeout_sleep, attempts_sleep,
-		    updated_at, company, issuer
-		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+		    updated_at, company, issuer, allow_import_symbols,
+		    feed_index
+		 ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+		    (SELECT COALESCE(MAX(feed_index) + 1, 0) FROM hst.datafeeds))
 		 RETURNING datafeed_id`,
 		name, module,
 		ptrOr(body.Enable, model.DatafeedEnable_enabled),
@@ -600,7 +606,7 @@ func (s *HttpServer) CreateDatafeed(c *fiber.Ctx) error {
 		ptrOr(body.TimeoutReconnect, 5),
 		ptrOr(body.TimeoutSleep, 60),
 		ptrOr(body.AttemptsSleep, 10),
-		now, body.Company, body.Issuer,
+		now, body.Company, body.Issuer, ptrOr(body.AllowImportSymbols, int16(0)),
 	).Scan(&id)
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
@@ -747,12 +753,13 @@ func (s *HttpServer) UpdateDatafeed(c *fiber.Ctx) error {
 		    attempts_sleep     = COALESCE($13, attempts_sleep),
 		    company            = COALESCE($14, company),
 		    issuer             = COALESCE($15, issuer),
+		    allow_import_symbols = COALESCE($17, allow_import_symbols),
 		    updated_at         = $16
 		  WHERE datafeed_id = $1`,
 		id, body.Name, modulePatch, body.Enable, body.Mode,
 		body.GatewayServer, body.FeedServer, body.FeedLogin, body.GatewayLogin,
 		body.Timeout, body.TimeoutReconnect, body.TimeoutSleep, body.AttemptsSleep,
-		body.Company, body.Issuer, time.Now().UnixNano(),
+		body.Company, body.Issuer, time.Now().UnixNano(), body.AllowImportSymbols,
 	)
 	if err != nil {
 		if utils.IsUniqueViolation(err) {

@@ -39,6 +39,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	users.Get("/:login", s.Middleware.Authorization(model.MgrRightAccRead), s.GetUser)
 	users.Patch("/:login", s.Middleware.Authorization(model.MgrRightAccManager), s.UpdateUser)
 	users.Delete("/:login", s.Middleware.Authorization(model.MgrRightAccManager, model.MgrRightAccDelete), s.DeleteUser)
+	users.Post("/:login/password", s.Middleware.Authorization(model.MgrRightAccManager), s.ResetUserPassword)
 
 	// managers
 	managers := v1.Group("/managers", s.Middleware.Protect, s.Middleware.RequireManager)
@@ -85,6 +86,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	symbols := v1.Group("/symbols", s.Middleware.Protect, s.Middleware.RequireManager)
 	symbols.Get("/", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.ListSymbols)
 	symbols.Post("/", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.CreateSymbol)
+	symbols.Post("/clone", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.CloneSymbol)
 	symbols.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.GetSymbol)
 	symbols.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.UpdateSymbol)
 	symbols.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.DeleteSymbol)
@@ -157,6 +159,12 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	eod.Put("/", s.Middleware.Authorization(model.MgrRightCfgTime), s.UpdateEndOfDay)
 	eod.Post("/run", s.Middleware.Authorization(model.MgrRightCfgTime), s.RunEndOfDay)
 
+	// the server clock: zone, daylight saving and where the time comes from
+	v1.Get("/system/time", s.Middleware.Protect, s.Middleware.RequireManager,
+		s.Middleware.Authorization(model.MgrRightCfgTime), s.GetTimeSettings)
+	v1.Put("/system/time", s.Middleware.Protect, s.Middleware.RequireManager,
+		s.Middleware.Authorization(model.MgrRightCfgTime), s.UpdateTimeSettings)
+
 	// chart history, for the manager panel
 	v1.Get("/history", s.Middleware.Protect, s.Middleware.RequireManager,
 		s.Middleware.Authorization(model.MgrRightSymbolDetails), s.GetHistory)
@@ -193,6 +201,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	datafeeds.Get("/", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeeds)
 	datafeeds.Get("/modules", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ListDatafeedModules)
 	datafeeds.Post("/", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.CreateDatafeed)
+	datafeeds.Put("/order", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.ReorderDatafeed)
 	datafeeds.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.GetDatafeed)
 	datafeeds.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.UpdateDatafeed)
 	datafeeds.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgDatafeeds), s.DeleteDatafeed)

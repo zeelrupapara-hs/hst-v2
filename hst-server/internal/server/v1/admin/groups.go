@@ -32,6 +32,8 @@ type CrtGroup struct {
 	CompanySupportPage  string `json:"company_support_page"`
 	CompanySupportEmail string `json:"company_support_email" validate:"max=255"`
 	CompanyCatalog      string `json:"company_catalog" validate:"max=255"`
+	CompanyDeposit      string `json:"company_deposit" validate:"max=255"`
+	CompanyWithdrawal   string `json:"company_withdrawal" validate:"max=255"`
 
 	Currency       string `json:"currency" validate:"omitempty,max=16"`
 	CurrencyDigits *int32 `json:"currency_digits"`
@@ -59,6 +61,7 @@ type CrtGroup struct {
 	MarginFreeProfitMode *model.MarginFreeProfitMode `json:"margin_free_profit_mode"`
 	MarginMode           *model.MarginMode           `json:"margin_mode"`
 	MarginFlags          *model.GroupMarginFlags     `json:"margin_flags"`
+	MarginLeverageId     *int64                      `json:"margin_leverage_id"`
 
 	DemoLeverage *int32   `json:"demo_leverage"`
 	DemoDeposit  *float64 `json:"demo_deposit"`
@@ -72,6 +75,8 @@ type CrtGroup struct {
 
 // UptGroup patches mutable group fields. Pointers + COALESCE keep absent fields.
 type UptGroup struct {
+	// Group renames in place; the sections above it are created as needed, as on create.
+	Group  *string `json:"group" validate:"omitempty,max=255"`
 	Status *string `json:"status" validate:"omitempty,oneof=active inactive enabled disabled"`
 
 	PermissionFlags *model.PermissionsFlags `json:"permission_flags"`
@@ -84,6 +89,8 @@ type UptGroup struct {
 	CompanySupportPage  *string `json:"company_support_page"`
 	CompanySupportEmail *string `json:"company_support_email" validate:"omitempty,max=255"`
 	CompanyCatalog      *string `json:"company_catalog" validate:"omitempty,max=255"`
+	CompanyDeposit      *string `json:"company_deposit" validate:"omitempty,max=255"`
+	CompanyWithdrawal   *string `json:"company_withdrawal" validate:"omitempty,max=255"`
 
 	Currency       *string `json:"currency" validate:"omitempty,max=16"`
 	CurrencyDigits *int32  `json:"currency_digits"`
@@ -111,6 +118,7 @@ type UptGroup struct {
 	MarginFreeProfitMode *model.MarginFreeProfitMode `json:"margin_free_profit_mode"`
 	MarginMode           *model.MarginMode           `json:"margin_mode"`
 	MarginFlags          *model.GroupMarginFlags     `json:"margin_flags"`
+	MarginLeverageId     *int64                      `json:"margin_leverage_id"`
 
 	DemoLeverage *int32   `json:"demo_leverage"`
 	DemoDeposit  *float64 `json:"demo_deposit"`
@@ -143,6 +151,8 @@ type ViewGroup struct {
 	CompanySupportPage  string `json:"company_support_page"`
 	CompanySupportEmail string `json:"company_support_email"`
 	CompanyCatalog      string `json:"company_catalog"`
+	CompanyDeposit      string `json:"company_deposit"`
+	CompanyWithdrawal   string `json:"company_withdrawal"`
 
 	Currency       string `json:"currency"`
 	CurrencyDigits int32  `json:"currency_digits"`
@@ -170,6 +180,7 @@ type ViewGroup struct {
 	MarginFreeProfitMode model.MarginFreeProfitMode `json:"margin_free_profit_mode"`
 	MarginMode           model.MarginMode           `json:"margin_mode"`
 	MarginFlags          model.GroupMarginFlags     `json:"margin_flags"`
+	MarginLeverageId     *int64                     `json:"margin_leverage_id"`
 
 	DemoLeverage *int32   `json:"demo_leverage"`
 	DemoDeposit  *float64 `json:"demo_deposit"`
@@ -186,14 +197,25 @@ type ViewGroup struct {
 const groupColumns = `group_id, updated_at, "group",
 	permission_flags, auth_mode, auth_password_min,
 	company, company_page, company_email, company_support_page, company_support_email, company_catalog,
+	company_deposit, company_withdrawal,
 	currency, currency_digits,
 	reports_mode, reports_flags, reports_email, reports_smtp, reports_smtp_login,
 	news_mode, news_category, news_langs, mail_mode,
 	trade_flags, trade_interest_rate, trade_virtual_credit, trade_transfer_mode,
 	margin_free_mode, margin_so_mode, margin_call, margin_stop_out,
-	margin_free_profit_mode, margin_mode, margin_flags,
+	margin_free_profit_mode, margin_mode, margin_flags, margin_leverage_id,
 	demo_leverage, demo_deposit,
 	limit_history, limit_orders, limit_symbols, limit_positions, limit_positions_volume`
+
+// groupPath is the name as stored: trimmed, and refused when empty or ending on a separator.
+func groupPath(name string) (string, error) {
+	path := strings.TrimSpace(name)
+	if path == "" || strings.HasSuffix(path, `\`) {
+		return "", errs.ErrRequiredParams
+	}
+
+	return path, nil
+}
 
 func scanViewGroup(row pgx.Row) (*ViewGroup, error) {
 	v := &ViewGroup{}
@@ -201,12 +223,13 @@ func scanViewGroup(row pgx.Row) (*ViewGroup, error) {
 		&v.GroupID, &v.UpdatedAt, &v.Group,
 		&v.PermissionFlags, &v.AuthMode, &v.AuthPasswordMin,
 		&v.Company, &v.CompanyPage, &v.CompanyEmail, &v.CompanySupportPage, &v.CompanySupportEmail, &v.CompanyCatalog,
+		&v.CompanyDeposit, &v.CompanyWithdrawal,
 		&v.Currency, &v.CurrencyDigits,
 		&v.ReportsMode, &v.ReportsFlags, &v.ReportsEmail, &v.ReportsSMTP, &v.ReportsSMTPLogin,
 		&v.NewsMode, &v.NewsCategory, &v.NewsLangs, &v.MailMode,
 		&v.TradeFlags, &v.TradeInterestRate, &v.TradeVirtualCredit, &v.TradeTransferMode,
 		&v.MarginFreeMode, &v.MarginSOMode, &v.MarginCall, &v.MarginStopOut,
-		&v.MarginFreeProfitMode, &v.MarginMode, &v.MarginFlags,
+		&v.MarginFreeProfitMode, &v.MarginMode, &v.MarginFlags, &v.MarginLeverageId,
 		&v.DemoLeverage, &v.DemoDeposit,
 		&v.LimitHistory, &v.LimitOrders, &v.LimitSymbols, &v.LimitPositions, &v.LimitPositionsVolume,
 	)
@@ -361,9 +384,9 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
-	path := strings.TrimSpace(body.Group)
-	if path == "" {
-		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	path, err := groupPath(body.Group)
+	if err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
 	}
 
 	flags := model.PermissionFlagsFromStatus("active")
@@ -390,27 +413,27 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 		    "group",
 		    permission_flags, auth_mode, auth_password_min,
 		    company, company_page, company_email, company_support_page, company_support_email, company_catalog,
+		    company_deposit, company_withdrawal,
 		    currency, currency_digits,
 		    reports_mode, reports_flags, reports_email, reports_smtp, reports_smtp_login,
 		    news_mode, news_category, news_langs, mail_mode,
 		    trade_flags, trade_interest_rate, trade_virtual_credit, trade_transfer_mode,
 		    margin_free_mode, margin_so_mode, margin_call, margin_stop_out,
-		    margin_free_profit_mode, margin_mode, margin_flags,
+		    margin_free_profit_mode, margin_mode, margin_flags, margin_leverage_id,
 		    demo_leverage, demo_deposit,
 		    limit_history, limit_orders, limit_symbols, limit_positions, limit_positions_volume,
 		    updated_at
 		 ) VALUES (
-		    $1,$2,$3,$4,$5,$6,
-		    $7,$8,$9,$10,$11,$12,
-		    $13,$14,$15,$16,$17,$18,
-		    $19,$20,$21,$22,$23,$24,
-		    $25,$26,$27,$28,$29,$30,
-		    $31,$32,$33,$34,$35,$36,
-		    $37,$38,$39,$40
+		    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
+		    $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
+		    $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
+		    $31,$32,$33,$34,$35,$36,$37,$38,$39,$40,
+		    $41,$42,$43
 		 ) RETURNING `+groupColumns,
 		path,
 		flags, v1.PtrOr(body.AuthMode, model.AuthMode_standard), v1.PtrOr(body.AuthPasswordMin, int32(0)),
 		body.Company, body.CompanyPage, body.CompanyEmail, body.CompanySupportPage, body.CompanySupportEmail, body.CompanyCatalog,
+		body.CompanyDeposit, body.CompanyWithdrawal,
 		currency, v1.PtrOr(body.CurrencyDigits, int32(2)),
 		v1.PtrOr(body.ReportsMode, model.ReportsMode_disabled), v1.PtrOr(body.ReportsFlags, model.ReportsFlags_none),
 		body.ReportsEmail, body.ReportsSMTP, body.ReportsSMTPLogin,
@@ -421,6 +444,7 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 		v1.PtrOr(body.MarginCall, 0.0), v1.PtrOr(body.MarginStopOut, 0.0),
 		v1.PtrOr(body.MarginFreeProfitMode, model.MarginFreeProfitMode_pl),
 		v1.PtrOr(body.MarginMode, model.MarginMode_retail_netting), v1.PtrOr(body.MarginFlags, model.GroupMarginFlags_none),
+		body.MarginLeverageId,
 		body.DemoLeverage, body.DemoDeposit,
 		v1.PtrOr(body.LimitHistory, model.HistoryLimit_all), v1.PtrOr(body.LimitOrders, int32(0)),
 		v1.PtrOr(body.LimitSymbols, int32(0)), v1.PtrOr(body.LimitPositions, int32(0)), v1.PtrOr(body.LimitPositionsVolume, 0.0),
@@ -483,6 +507,15 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	now := time.Now().UnixNano()
 
+	var renamed *string
+	if body.Group != nil {
+		path, err := groupPath(*body.Group)
+		if err != nil {
+			return s.App.HttpResponseBadRequest(c, err)
+		}
+		renamed = &path
+	}
+
 	v, err := scanViewGroup(s.DB.DB.QueryRow(c.UserContext(),
 		`UPDATE hst.groups SET
 		    permission_flags         = COALESCE($2, permission_flags),
@@ -523,6 +556,12 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 		    limit_symbols            = COALESCE($37, limit_symbols),
 		    limit_positions          = COALESCE($38, limit_positions),
 		    limit_positions_volume   = COALESCE($39, limit_positions_volume),
+		    "group"                  = COALESCE($41, "group"),
+		    company_deposit          = COALESCE($42, company_deposit),
+		    company_withdrawal       = COALESCE($43, company_withdrawal),
+		    -- zero clears the profile, which COALESCE alone cannot express
+		    margin_leverage_id       = CASE WHEN $44::bigint IS NULL THEN margin_leverage_id
+		                                   WHEN $44::bigint = 0 THEN NULL ELSE $44::bigint END,
 		    updated_at               = $40
 		  WHERE group_id = $1
 		  RETURNING `+groupColumns,
@@ -536,7 +575,7 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 		body.MarginFreeProfitMode, body.MarginMode, body.MarginFlags,
 		body.DemoLeverage, body.DemoDeposit,
 		body.LimitHistory, body.LimitOrders, body.LimitSymbols, body.LimitPositions, body.LimitPositionsVolume,
-		now))
+		now, renamed, body.CompanyDeposit, body.CompanyWithdrawal, body.MarginLeverageId))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}

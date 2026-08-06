@@ -94,6 +94,7 @@ const (
 	FillingFlags_none FillingFlags = 0
 	FillingFlags_fok  FillingFlags = 1
 	FillingFlags_ioc  FillingFlags = 2
+	FillingFlags_boc  FillingFlags = 4
 )
 
 var (
@@ -101,11 +102,13 @@ var (
 		0: "none",
 		1: "fok",
 		2: "ioc",
+		4: "boc",
 	}
 	FillingFlags_value = map[string]int32{
 		"none": 0,
 		"fok":  1,
 		"ioc":  2,
+		"boc":  4,
 	}
 )
 
@@ -322,12 +325,14 @@ var (
 		1: "realtime",
 		2: "collectraw",
 		4: "feed_stats",
+		8: "negative_prices",
 	}
 	TickFlags_value = map[string]int32{
-		"none":       0,
-		"realtime":   1,
-		"collectraw": 2,
-		"feed_stats": 4,
+		"none":            0,
+		"realtime":        1,
+		"collectraw":      2,
+		"feed_stats":      4,
+		"negative_prices": 8,
 	}
 )
 
@@ -601,6 +606,7 @@ type Symbol struct {
 	Multiply                       float64           `db:"multiply" json:"multiply"`
 	TickFlags                      TickFlags         `db:"tick_flags" json:"tick_flags"`
 	TickBookDepth                  int32             `db:"tick_book_depth" json:"tick_book_depth"`
+	TickBookVolume                 int32             `db:"tick_book_volume" json:"tick_book_volume"`
 	FilterSoft                     int32             `db:"filter_soft" json:"filter_soft"`
 	FilterSoftTicks                int32             `db:"filter_soft_ticks" json:"filter_soft_ticks"`
 	FilterHard                     int32             `db:"filter_hard" json:"filter_hard"`
@@ -672,6 +678,7 @@ type Symbol struct {
 	IeCheckMode                    InstantMode       `db:"ie_check_mode" json:"ie_check_mode"`
 	IeTimeout                      int32             `db:"ie_timeout" json:"ie_timeout"`
 	IeSlipProfit                   int32             `db:"ie_slip_profit" json:"ie_slip_profit"`
+	IeFlags                        InstantFlags      `db:"ie_flags" json:"ie_flags"`
 	IeSlipLosing                   int32             `db:"ie_slip_losing" json:"ie_slip_losing"`
 	IeVolumeMax                    int64             `db:"ie_volume_max" json:"ie_volume_max"`
 	IeVolumeMaxExt                 int64             `db:"ie_volume_max_ext" json:"ie_volume_max_ext"`

@@ -383,6 +383,8 @@ type Group struct {
 	CompanySupportPage  string `db:"company_support_page" json:"company_support_page"`
 	CompanySupportEmail string `db:"company_support_email" json:"company_support_email"`
 	CompanyCatalog      string `db:"company_catalog" json:"company_catalog"`
+	CompanyDeposit      string `db:"company_deposit" json:"company_deposit"`
+	CompanyWithdrawal   string `db:"company_withdrawal" json:"company_withdrawal"`
 
 	Currency       string `db:"currency" json:"currency"`
 	CurrencyDigits int32  `db:"currency_digits" json:"currency_digits"`
@@ -410,6 +412,7 @@ type Group struct {
 	MarginFreeProfitMode MarginFreeProfitMode `db:"margin_free_profit_mode" json:"margin_free_profit_mode"`
 	MarginMode           MarginMode           `db:"margin_mode" json:"margin_mode"`
 	MarginFlags          GroupMarginFlags     `db:"margin_flags" json:"margin_flags"`
+	MarginLeverageId     *int64               `db:"margin_leverage_id" json:"margin_leverage_id"`
 
 	DemoLeverage *int32   `db:"demo_leverage" json:"demo_leverage"`
 	DemoDeposit  *float64 `db:"demo_deposit" json:"demo_deposit"`
