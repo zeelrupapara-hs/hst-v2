@@ -3644,3 +3644,8 @@ label.sym-check::after { content: none; }
 .time-module .form-grid select,
 .time-module .form-grid input { width: 100%; height: 22px; border: 1px solid #adadad; font-size: 12px; }
 .time-clock { font-weight: 600; }
+/* the time screen's buttons and notes start on the field column, like the fields */
+.time-actions { padding-left: 192px; }
+.time-module > .module-note { margin-left: 192px; }
+.time-actions { padding-left: 180px; }
+.time-module > .module-note { margin-left: 180px; }
