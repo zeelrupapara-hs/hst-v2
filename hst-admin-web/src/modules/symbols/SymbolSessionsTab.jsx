@@ -12,13 +12,22 @@ import { SessionEditorDialog } from "./SessionEditorDialog.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 
-const toLocal = (ns) => {
-  if (!ns) return "";
+const MT5_EPOCH = "1970.01.01 00:00";
+
+const formatMt5DateTime = (ns) => {
+  if (!ns) return MT5_EPOCH;
   const d = fromNs(ns);
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
-const toNs = (local) => (local ? new Date(local).getTime() * 1e6 : 0);
+const parseMt5DateTime = (raw) => {
+  const s = raw.trim();
+  const m = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.getTime() * 1e6;
+};
 
 /** Sessions grid: select days (Ctrl/Shift), Edit or double-click opens the timeline editor. */
 export function SymbolSessionsTab({ s, set }) {
@@ -49,56 +58,56 @@ export function SymbolSessionsTab({ s, set }) {
     <>
       <div className="sym-sessions-intro">
         <span className="sym-tab-intro-icon" aria-hidden="true">
-          <Icon id="symbols-tree" size={48} />
+          <Icon id="symbols" size={48} />
         </span>
         <p>
           The setting up of trade and quotation sessions of the symbol by days. During the
           quotation session it is possible to view the price dynamics but trading is prohibited.
         </p>
       </div>
-      <div className="sym-sessions-table-wrap sym-sessions-row">
-        <div className="sym-sessions-gutter">
-          <button
-            type="button"
-            className="sym-sessions-edit"
-            disabled={!selectedDays.length}
-            onClick={() => setEditorOpen(true)}
-          >
-            Edit
-          </button>
-        </div>
-        <table className="sym-sessions-table">
-          <thead>
-            <tr>
-              <th>Day</th>
-              <th>Quotes</th>
-              <th>Trade</th>
-            </tr>
-          </thead>
-          <tbody>
-            {DAY_NAMES.map((name, day) => (
-              <tr
-                key={name}
-                className={selectedDays.includes(day) ? "selected" : ""}
-                onClick={(e) => toggleDay(day, e)}
-                onDoubleClick={() => {
-                  setSelectedDays([day]);
-                  setEditorOpen(true);
-                }}
-              >
-                <td>
-                  <span className="sym-day-icon" aria-hidden="true" />
-                  {name}
-                </td>
-                <td>{formatDaySessions(sessions, SESSION_QUOTE, day) || " "}</td>
-                <td>{formatDaySessions(sessions, SESSION_TRADE, day) || " "}</td>
+      <div className="sym-sessions-main">
+        <div className="sym-sessions-table-wrap">
+          <table className="sym-sessions-table">
+            <thead>
+              <tr>
+                <th>Day</th>
+                <th>Quotes</th>
+                <th>Trade</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {DAY_NAMES.map((name, day) => (
+                <tr
+                  key={name}
+                  className={selectedDays.includes(day) ? "selected" : ""}
+                  onClick={(e) => toggleDay(day, e)}
+                  onDoubleClick={() => {
+                    setSelectedDays([day]);
+                    setEditorOpen(true);
+                  }}
+                >
+                  <td>
+                    <span className="sym-day-icon" aria-hidden="true" />
+                    {name}
+                  </td>
+                  <td>{formatDaySessions(sessions, SESSION_QUOTE, day) || " "}</td>
+                  <td>{formatDaySessions(sessions, SESSION_TRADE, day) || " "}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <button
+          type="button"
+          className="sym-sessions-edit"
+          disabled={!selectedDays.length}
+          onClick={() => setEditorOpen(true)}
+        >
+          Edit
+        </button>
       </div>
       <div className="sym-sessions-limits">
-        <label className="sym-check">
+        <label className="sym-check sym-sessions-limits-check">
           <input
             type="checkbox"
             checked={useLimits}
@@ -112,20 +121,36 @@ export function SymbolSessionsTab({ s, set }) {
           />
           <span>Use time limits</span>
         </label>
-        <label>From</label>
-        <input
-          type="datetime-local"
-          disabled={!useLimits}
-          value={toLocal(s.time_start)}
-          onChange={(e) => set("time_start", toNs(e.target.value))}
-        />
-        <label>To</label>
-        <input
-          type="datetime-local"
-          disabled={!useLimits}
-          value={toLocal(s.time_expiration)}
-          onChange={(e) => set("time_expiration", toNs(e.target.value))}
-        />
+        <div className="sym-sessions-limits-fields">
+          <label className="sym-sessions-limits-label">From:</label>
+          <input
+            type="text"
+            className="sym-sessions-datetime"
+            disabled={!useLimits}
+            defaultValue={formatMt5DateTime(s.time_start)}
+            key={`from-${s.time_start}-${useLimits}`}
+            placeholder={MT5_EPOCH}
+            onBlur={(e) => {
+              const ns = parseMt5DateTime(e.target.value);
+              if (ns != null) set("time_start", ns);
+              else e.target.value = formatMt5DateTime(s.time_start);
+            }}
+          />
+          <label className="sym-sessions-limits-label">To:</label>
+          <input
+            type="text"
+            className="sym-sessions-datetime"
+            disabled={!useLimits}
+            defaultValue={formatMt5DateTime(s.time_expiration)}
+            key={`to-${s.time_expiration}-${useLimits}`}
+            placeholder={MT5_EPOCH}
+            onBlur={(e) => {
+              const ns = parseMt5DateTime(e.target.value);
+              if (ns != null) set("time_expiration", ns);
+              else e.target.value = formatMt5DateTime(s.time_expiration);
+            }}
+          />
+        </div>
       </div>
       {editorOpen && (
         <SessionEditorDialog

@@ -662,7 +662,7 @@ type Symbol struct {
 	SwapMode                       SwapMode          `db:"swap_mode" json:"swap_mode"`
 	SwapLong                       float64           `db:"swap_long" json:"swap_long"`
 	SwapShort                      float64           `db:"swap_short" json:"swap_short"`
-	SwapYearDay                    SwapDays          `db:"swap_year_day" json:"swap_year_day"`
+	SwapYearDay                    int32             `db:"swap_year_day" json:"swap_year_day"`
 	SwapFlags                      SwapFlags         `db:"swap_flags" json:"swap_flags"`
 	SwapRateSunday                 float64           `db:"swap_rate_sunday" json:"swap_rate_sunday"`
 	SwapRateMonday                 float64           `db:"swap_rate_monday" json:"swap_rate_monday"`

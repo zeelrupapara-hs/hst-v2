@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import {
@@ -45,6 +47,7 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
   const [pickedSymbol, setPickedSymbol] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(holiday?.holiday_id ?? "new");
+  const close = useDialogStack(onClose);
 
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
   const everyYear = !draft.year;
@@ -93,19 +96,18 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
       return;
     }
     onSaved();
-    onClose();
+    close();
   }
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           width={531}
           height={360}
@@ -123,7 +125,7 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -262,7 +264,7 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
           </div>
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

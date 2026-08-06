@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { createGroup, fetchGroup, updateGroup } from "@/api/endpoints/groups.js";
 import {
@@ -76,6 +78,7 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
   const [original, setOriginal] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(groupId);
+  const close = useDialogStack(onClose);
 
   useEffect(() => {
     if (isNew) return;
@@ -122,7 +125,7 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
       }
     }
     onSaved();
-    onClose();
+    close();
   }
 
   const title = `Group: ${isNew ? draft.group || "New" : draft?.group ?? "…"}`;
@@ -150,17 +153,16 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
   }
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           width={613}
           height={620}
           draggable
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={title}
           tabs={
@@ -181,7 +183,7 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -193,6 +195,6 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
           ))}
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }

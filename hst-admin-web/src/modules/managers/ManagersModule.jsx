@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import {
@@ -25,6 +27,7 @@ function ManagerDialog({ manager, onClose, onSaved }) {
   const [rights, setRights] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(manager?.login ?? "new");
+  const close = useDialogStack(onClose);
 
   useEffect(() => {
     if (isNew) {
@@ -55,22 +58,21 @@ function ManagerDialog({ manager, onClose, onSaved }) {
       return;
     }
     onSaved();
-    onClose();
+    close();
   }
 
   const rightKeys = Object.keys(rights || {}).sort();
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
           height={560}
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Manager: New" : `Manager: ${manager.login} — ${manager.name}`}
           tabs={
@@ -86,7 +88,7 @@ function ManagerDialog({ manager, onClose, onSaved }) {
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -143,7 +145,7 @@ function ManagerDialog({ manager, onClose, onSaved }) {
           </div>
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

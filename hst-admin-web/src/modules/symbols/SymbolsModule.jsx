@@ -1,12 +1,18 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSymbols } from "@/hooks/useSymbols.js";
 import { useSession } from "@/hooks/useSession.js";
+import { useToolbox } from "@/hooks/useToolbox.jsx";
+import { useListShortcuts } from "@/hooks/useListShortcuts.js";
 import { ContextMenu, listMenuHead } from "@/components/ui/ContextMenu.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { ExecMode_name } from "@/constants/symbols.js";
 import { filterSymbolsByFolder, topType } from "@/lib/symbolTree.js";
+import { filterSymbolsByMasks, maskFilterLabel } from "@/lib/symbolMasks.js";
 import { deleteSymbol } from "@/api/endpoints/symbols.js";
 import { SymbolDialog } from "./SymbolDialog.jsx";
+import { SymbolBulkDialog } from "./SymbolBulkDialog.jsx";
 import { CloneSymbolsDialog } from "./CloneSymbolsDialog.jsx";
 
 const COLUMNS = [
@@ -20,10 +26,36 @@ const COLUMNS = [
 const cellValue = (row, key) =>
   key === "type" ? topType(row.path) : key === "exec_mode" ? ExecMode_name[row.exec_mode] : row[key];
 
-/** Symbols list: table filtered by ?folder, search box, dialog on double-click. */
+function DeleteConfirm({ selectedRows, selected, onConfirm, onClose }) {
+  const close = useDialogStack(onClose);
+  return (
+    <div className="config-window sym-confirm">
+      <div className="config-title">
+        <span className="config-title-text">Delete</span>
+      </div>
+      <div className="config-body">
+        <p>
+          Delete {selected.length > 1 ? `${selected.length} symbols` : `symbol '${selectedRows[0]?.symbol}'`}?
+        </p>
+      </div>
+      <div className="config-actions">
+        <button type="button" className="config-ok" onClick={() => { onConfirm(); close(); }}>
+          OK
+        </button>
+        <button type="button" onClick={close}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Symbols list: table filtered by ?folder, mask search, dialog on double-click. */
 export function SymbolsModule() {
   const { symbols, loading, reload } = useSymbols();
   const session = useSession();
+  const toolbox = useToolbox();
+  const rootRef = useRef(null);
   const [params] = useSearchParams();
   const folder = params.get("folder") || "";
   const [search, setSearch] = useState("");
@@ -31,6 +63,7 @@ export function SymbolsModule() {
   const [sort, setSort] = useState(null);
   const [selected, setSelected] = useState([]);
   const [dialog, setDialog] = useState(null);
+  const [bulk, setBulk] = useState(null);
   const [menu, setMenu] = useState(null);
   const [confirm, setConfirm] = useState(null);
   const [clone, setClone] = useState(null);
@@ -39,15 +72,9 @@ export function SymbolsModule() {
   const all = useMemo(() => filterSymbolsByFolder(symbols, folder), [symbols, folder]);
 
   const rows = useMemo(() => {
-    const needle = applied.trim().toLowerCase();
-    const list = needle
-      ? all.filter(
-          (r) =>
-            r.symbol?.toLowerCase().includes(needle) ||
-            r.description?.toLowerCase().includes(needle),
-        )
+    const list = applied.trim()
+      ? filterSymbolsByMasks(all, applied)
       : all.slice();
-    // server order is the default; a header click sorts temporarily
     if (sort) {
       list.sort((a, b) => {
         const x = cellValue(a, sort.key) ?? "";
@@ -58,6 +85,11 @@ export function SymbolsModule() {
     }
     return list;
   }, [all, applied, sort]);
+
+  const selectedRows = useMemo(
+    () => selected.map((i) => rows[i]).filter(Boolean),
+    [selected, rows],
+  );
 
   function pick(i, e) {
     if (e.ctrlKey || e.metaKey) {
@@ -71,9 +103,17 @@ export function SymbolsModule() {
     }
   }
 
+  function openEdit() {
+    if (!selectedRows.length) return;
+    if (selectedRows.length === 1) {
+      setDialog({ id: selectedRows[0].symbol_id });
+    } else {
+      setBulk(selectedRows.map((r) => r.symbol_id));
+    }
+  }
+
   async function doDelete() {
-    const targets = selected.map((i) => rows[i]).filter(Boolean);
-    setConfirm(null);
+    const targets = selectedRows;
     for (const row of targets) {
       const res = await deleteSymbol(row.symbol_id);
       if (!res.ok) window.alert(res.message || "delete failed");
@@ -88,12 +128,25 @@ export function SymbolsModule() {
     session.refreshNav?.();
   }
 
+  function openJournal() {
+    const row = selectedRows[0];
+    if (!row) return;
+    toolbox?.openJournal?.(row.symbol);
+  }
+
   const hasSelection = selected.length > 0;
   const head = listMenuHead({
     onAdd: () => setDialog({ id: "new" }),
-    onEdit: () => setDialog({ id: rows[selected[0]]?.symbol_id }),
+    onEdit: openEdit,
     onDelete: () => setConfirm(true),
     hasSelection,
+  });
+
+  useListShortcuts(rootRef, {
+    onAdd: canEdit ? () => setDialog({ id: "new" }) : undefined,
+    onEdit: canEdit && hasSelection ? openEdit : undefined,
+    onDelete: canEdit && hasSelection ? () => setConfirm(true) : undefined,
+    onFind: () => rootRef.current?.querySelector(".sym-search-bar input")?.focus(),
   });
 
   const items = [
@@ -101,7 +154,7 @@ export function SymbolsModule() {
     {
       label: "Add Copy",
       shortcut: "Ctrl+M",
-      onClick: () => setClone(selected.map((i) => rows[i]).filter(Boolean)),
+      onClick: () => setClone(selectedRows),
     },
     head[1],
     head[2],
@@ -115,18 +168,24 @@ export function SymbolsModule() {
     { label: "Import from File", disabled: true },
     { label: "Import from Server", disabled: true },
     "sep",
-    { label: "Journal", disabled: true },
+    {
+      label: "Journal",
+      disabled: !hasSelection || selected.length > 1,
+      onClick: openJournal,
+    },
     { label: "Charts", disabled: !hasSelection || selected.length > 1 },
     { label: "Ticks", disabled: !hasSelection || selected.length > 1 },
     "sep",
-    { label: "Find", shortcut: "Ctrl+F", onClick: () => setApplied(search) },
+    { label: "Find", shortcut: "Ctrl+F", onClick: () => rootRef.current?.querySelector(".sym-search-bar input")?.focus() },
     { label: "Auto Arrange", checked: true },
     { label: "Grid", checked: true },
     { label: "Columns", disabled: true, items: COLUMNS.map((c) => ({ label: c.label, checked: true })) },
   ];
 
+  const filterLabel = applied ? maskFilterLabel(applied) : null;
+
   return (
-    <div className="module-root">
+    <div className="module-root" ref={rootRef} tabIndex={-1}>
       <div
         className="table-wrap"
         onContextMenu={(e) => {
@@ -177,16 +236,12 @@ export function SymbolsModule() {
         </table>
       </div>
       <div className="sym-list-tabs">
-        <button
-          type="button"
-          className={applied ? "" : "active"}
-          onClick={() => setApplied("")}
-        >
+        <button type="button" className={applied ? "" : "active"} onClick={() => setApplied("")}>
           Symbols ({all.length})
         </button>
         {applied && (
           <button type="button" className="active">
-            Symbols containing &apos;{applied}&apos; ({rows.length} of {all.length})
+            Symbols {filterLabel} ({rows.length} of {all.length})
           </button>
         )}
       </div>
@@ -194,6 +249,7 @@ export function SymbolsModule() {
         <span className="sym-search-glyph" aria-hidden="true" />
         <input
           type="text"
+          placeholder="EURUSD, EUR*, !GBPUSD"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => {
@@ -205,37 +261,23 @@ export function SymbolsModule() {
         />
       </div>
       {confirm && (
-        <div className="dialog-overlay" role="presentation" onClick={() => setConfirm(null)}>
-          <div className="config-window sym-confirm" onClick={(e) => e.stopPropagation()}>
-            <div className="config-title">
-              <span className="config-title-text">Delete</span>
-            </div>
-            <div className="config-body">
-              <p>
-                Delete {selected.length > 1 ? `${selected.length} symbols` : `symbol '${rows[selected[0]]?.symbol}'`}?
-              </p>
-            </div>
-            <div className="config-actions">
-              <button type="button" className="config-ok" onClick={doDelete}>
-                OK
-              </button>
-              <button type="button" onClick={() => setConfirm(null)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+        <DialogOverlay>
+          <DeleteConfirm
+            selectedRows={selectedRows}
+            selected={selected}
+            onConfirm={doDelete}
+            onClose={() => setConfirm(null)}
+          />
+        </DialogOverlay>
       )}
       {menu && canEdit && (
         <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={items} />
       )}
       {clone && (
-        <CloneSymbolsDialog
-          symbols={clone}
-          folder={folder}
-          onClose={() => setClone(null)}
-          onDone={saved}
-        />
+        <CloneSymbolsDialog symbols={clone} folder={folder} onClose={() => setClone(null)} onDone={saved} />
+      )}
+      {bulk && (
+        <SymbolBulkDialog symbolIds={bulk} onClose={() => setBulk(null)} onSaved={saved} />
       )}
       {dialog && (
         <SymbolDialog

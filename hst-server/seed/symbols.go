@@ -147,7 +147,7 @@ func (s *Seeder) SeedSymbols(ctx context.Context) error {
 				model.OrderFlags_stop_limit|model.OrderFlags_sl|model.OrderFlags_tp|
 				model.OrderFlags_closeby,
 			seedContractSize, seedVolumeMin, seedVolumeMax, seedVolumeStep,
-			model.SwapMode_by_points, model.SwapDays_wednesday,
+			model.SwapMode_by_points, int32(360),
 			seedMarginRate,
 			now).
 			Scan(&symbolID); err != nil {

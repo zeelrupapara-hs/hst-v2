@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { createGroupCommission, updateGroupCommission } from "@/api/endpoints/groups.js";
@@ -44,6 +46,7 @@ export function CommissionDialog({ groupId, commission, onClose, onSaved }) {
   const [selected, setSelected] = useState(0);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(commission?.commission_id ?? "new");
+  const close = useDialogStack(onClose);
 
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
   const setTier = (i, key, value) =>
@@ -80,27 +83,26 @@ export function CommissionDialog({ groupId, commission, onClose, onSaved }) {
       return;
     }
     onSaved();
-    onClose();
+    close();
   }
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
           height={540}
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={`Commission: ${draft.name || "New"}`}
           footer={
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -190,6 +192,6 @@ export function CommissionDialog({ groupId, commission, onClose, onSaved }) {
           </div>
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }

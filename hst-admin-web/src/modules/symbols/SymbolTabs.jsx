@@ -1,4 +1,5 @@
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import {
@@ -27,7 +28,7 @@ import {
   REQUEST_ORDER,
   SWAP_CONSIDER_HOLIDAYS,
   SubscriptionDelay_options,
-  SwapDays_options,
+  SwapYearDays_options,
   SwapMode_name,
   SymbolIndustry_name,
   SymbolSector_name,
@@ -60,14 +61,30 @@ const enumOptions = (names, order) =>
 
 const plain = (values) => values.map((v) => ({ value: v, label: String(v) }));
 
+/** MT5 SpreadBalance → bid/ask point shifts shown under the slider. */
+function spreadBalanceShifts(spread, balance) {
+  const s = Number(spread) || 0;
+  const b = Number(balance) || 0;
+  if (s === 0) return { bid: b, ask: b };
+  const lo = Math.floor(s / 2);
+  const hi = s - lo;
+  return { bid: -lo + b, ask: hi + b };
+}
+
+function spreadBalanceCaption(spread, balance) {
+  const { bid, ask } = spreadBalanceShifts(spread, balance);
+  return `${bid} bid / ${ask} ask`;
+}
+
 const fmt = (v, digits) => (v == null ? "" : Number(v).toFixed(digits));
 
-function Field({ label, value, onChange, wide, readOnly, combo, suffix, disabled }) {
+function Field({ label, value, onChange, wide, readOnly, combo, suffix, disabled, lockField, fieldKey }) {
+  const locked = lockField?.(fieldKey);
   const input = (
     <input
       type="text"
-      readOnly={readOnly || !onChange}
-      disabled={disabled}
+      readOnly={readOnly || locked || !onChange}
+      disabled={disabled || locked}
       value={value ?? ""}
       className={wide ? "wide" : ""}
       onChange={onChange ? (e) => onChange(e.target.value) : undefined}
@@ -106,7 +123,13 @@ function FmtInput({ value, digits, onChange, className = "" }) {
   );
 }
 
-function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZero }) {
+function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZero, lockField, fieldKey }) {
+  const locked = lockField?.(fieldKey);
+  if (locked) {
+    return (
+      <Field label={label} suffix={suffix} value={offWhenZero && !value ? "off" : value} readOnly />
+    );
+  }
   if (digits != null && onChange) {
     return (
       <>
@@ -131,14 +154,15 @@ function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZer
   );
 }
 
-function SelectField({ label, value, names, order, options, onChange, disabled, suffix, fallback }) {
+function SelectField({ label, value, names, order, options, onChange, disabled, suffix, fallback, lockField, fieldKey }) {
+  const locked = lockField?.(fieldKey);
   const opts = options ?? enumOptions(names, order);
   const list =
     fallback != null && !opts.some((o) => String(o.value) === String(value))
       ? [{ value, label: String(value ?? "") }, ...opts]
       : opts;
   const select = (
-    <PropSelect fill value={value ?? 0} options={list} onChange={onChange} disabled={disabled} />
+    <PropSelect fill value={value ?? 0} options={list} onChange={onChange} disabled={disabled || locked} />
   );
   return (
     <>
@@ -155,13 +179,130 @@ function SelectField({ label, value, names, order, options, onChange, disabled, 
   );
 }
 
-function CheckField({ label, checked, onChange, disabled }) {
+function formatMarketDepth(value) {
+  const n = Number(value);
+  return !n ? "off" : String(n);
+}
+
+function parseMarketDepth(text) {
+  const t = String(text ?? "").trim().toLowerCase();
+  if (t === "" || t === "off") return 0;
+  const n = Number.parseInt(t, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+/** MT5-style combo: presets in the list, any number may be typed. */
+function EditableSelectField({ label, value, options, onChange, format, parse, lockField, fieldKey }) {
+  const locked = lockField?.(fieldKey);
+  const [open, setOpen] = useState(false);
+  const [raw, setRaw] = useState(null);
+  const [pos, setPos] = useState(null);
+  const rootRef = useRef(null);
+  const fmt = format ?? String;
+  const par = parse ?? ((text) => Number(text) || 0);
+  const items = options ?? [];
+  const display = raw ?? fmt(value);
+
+  useEffect(() => {
+    if (!open) return;
+    function close(e) {
+      if (rootRef.current?.contains(e.target)) return;
+      if (e.target.closest?.(".prop-select-menu")) return;
+      setOpen(false);
+    }
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    const t = setTimeout(() => document.addEventListener("mousedown", close), 0);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  function commit(text) {
+    onChange?.(par(text));
+    setRaw(null);
+  }
+
+  function openMenu(e) {
+    if (locked) return;
+    e.stopPropagation();
+    const r = rootRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom, left: r.left, width: r.width });
+    setOpen(true);
+  }
+
   return (
-    <label className="sym-check">
+    <>
+      <label>{label}</label>
+      <div
+        ref={rootRef}
+        className={`prop-select prop-select-fill editable-select${locked ? " prop-select-disabled" : ""}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="prop-select-box editable-select-box">
+          <input
+            type="text"
+            className="editable-select-input"
+            value={display}
+            disabled={locked}
+            onFocus={() => setRaw(fmt(value))}
+            onBlur={(e) => commit(e.target.value)}
+            onChange={(e) => setRaw(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                commit(e.currentTarget.value);
+                e.currentTarget.blur();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="prop-select-btn"
+            aria-label="Open list"
+            disabled={locked}
+            onClick={openMenu}
+          />
+        </div>
+      </div>
+      {open &&
+        pos &&
+        createPortal(
+          <ul
+            className="prop-select-menu"
+            style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
+          >
+            {items.map((opt) => (
+              <li
+                key={String(opt.value)}
+                className={String(opt.value) === String(value) ? "sel" : undefined}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange?.(opt.value);
+                  setRaw(null);
+                  setOpen(false);
+                }}
+              >
+                {opt.label}
+              </li>
+            ))}
+          </ul>,
+          document.body,
+        )}
+    </>
+  );
+}
+
+function CheckField({ label, checked, onChange, disabled, lockField, fieldKey }) {
+  const locked = lockField?.(fieldKey);
+  return (
+    <label className={`sym-check${locked ? " sym-field-locked" : ""}`}>
       <input
         type="checkbox"
         checked={!!checked}
-        disabled={disabled}
+        disabled={disabled || locked}
         onChange={(e) => onChange(e.target.checked)}
       />
       <span>{label}</span>
@@ -173,24 +314,66 @@ const hasBit = (v, bit) => ((v ?? 0) & bit) !== 0;
 const setBit = (v, bit, on) => (on ? (v ?? 0) | bit : (v ?? 0) & ~bit);
 
 /** The reference shows order/filling/expiration sets as one combo summarising the selection. */
-function FlagCombo({ label, labels, value, onChange }) {
+function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
+  const locked = lockField?.(fieldKey);
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const rootRef = useRef(null);
   const all = labels.reduce((a, l) => a | l.bit, 0);
   const picked = labels.filter((l) => hasBit(value, l.bit));
   const summary =
-    picked.length === labels.length ? "All" : picked.map((l) => l.label).join(", ");
+    picked.length === labels.length
+      ? "All"
+      : picked.length
+        ? picked.map((l) => l.label).join(", ")
+        : "None";
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e) => {
+      if (rootRef.current?.contains(e.target)) return;
+      if (e.target.closest?.(".sym-flag-combo-menu")) return;
+      setOpen(false);
+    };
+    const onKey = (e) => e.key === "Escape" && setOpen(false);
+    const t = setTimeout(() => document.addEventListener("mousedown", close), 0);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      clearTimeout(t);
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  function toggle(e) {
+    if (locked) return;
+    e.stopPropagation();
+    if (!open) {
+      const r = rootRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom, left: r.left, width: r.width });
+    }
+    setOpen((v) => !v);
+  }
+
   return (
     <>
       <label>{label}</label>
-      <span className="sym-flag-combo">
-        <button type="button" className="sym-flag-combo-box" onClick={() => setOpen(!open)}>
+      <span className="sym-flag-combo" ref={rootRef}>
+        <button type="button" className="sym-flag-combo-box" disabled={locked} onClick={toggle}>
           <span className="sym-flag-combo-value">{summary}</span>
           <span className="sym-flag-combo-arrow" />
         </button>
-        {open && (
-          <span className="sym-flag-combo-menu">
+      </span>
+      {open &&
+        pos &&
+        createPortal(
+          <div
+            className="sym-flag-combo-menu"
+            style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             {labels.map((l) => (
-              <label key={l.bit} className="sym-check">
+              <label key={l.bit} className="sym-flag-combo-item">
                 <input
                   type="checkbox"
                   checked={hasBit(value, l.bit)}
@@ -199,14 +382,17 @@ function FlagCombo({ label, labels, value, onChange }) {
                 <span>{l.label}</span>
               </label>
             ))}
-          </span>
+          </div>,
+          document.body,
         )}
-      </span>
     </>
   );
 }
 
-export function CommonTab({ s, set, isNew }) {
+export function CommonTab({ s, set, isNew, lockField }) {
+  const domActive = Number(s.tick_book_depth) > 0;
+  const spreadLocked = domActive || lockField?.("spread");
+  const balanceLocked = domActive || lockField?.("spread_balance");
   return (
     <>
       <TabIntro>
@@ -214,18 +400,18 @@ export function CommonTab({ s, set, isNew }) {
         other parameters.
       </TabIntro>
       <div className="form-grid sym-form-two-col">
-        <Field label="Symbol" value={s.symbol} onChange={isNew ? (v) => set("symbol", v) : undefined} />
-        <Field label="Description" value={s.description} onChange={(v) => set("description", v)} />
-        <Field label="Exchange" value={s.exchange} onChange={(v) => set("exchange", v)} />
-        <Field label="International" value={s.international} onChange={(v) => set("international", v)} />
-        <Field label="ISIN" value={s.isin} onChange={(v) => set("isin", v)} />
-        <SelectField label="Sector" value={s.sector} names={SymbolSector_name} onChange={(v) => set("sector", v)} />
-        <Field label="CFI" value={s.cfi} onChange={(v) => set("cfi", v)} />
+        <Field label="Symbol" fieldKey="symbol" lockField={lockField} value={s.symbol} onChange={isNew ? (v) => set("symbol", v) : undefined} />
+        <Field label="Description" fieldKey="description" lockField={lockField} value={s.description} onChange={(v) => set("description", v)} />
+        <Field label="Exchange" fieldKey="exchange" lockField={lockField} value={s.exchange} onChange={(v) => set("exchange", v)} />
+        <Field label="International" fieldKey="international" lockField={lockField} value={s.international} onChange={(v) => set("international", v)} />
+        <Field label="ISIN" fieldKey="isin" lockField={lockField} value={s.isin} onChange={(v) => set("isin", v)} />
+        <SelectField label="Sector" fieldKey="sector" lockField={lockField} value={s.sector} names={SymbolSector_name} onChange={(v) => set("sector", v)} />
+        <Field label="CFI" fieldKey="cfi" lockField={lockField} value={s.cfi} onChange={(v) => set("cfi", v)} />
         <SelectField label="Industry" value={s.industry} names={SymbolIndustry_name} disabled />
-        <Field label="Basis" value={s.basis} onChange={(v) => set("basis", v)} combo />
-        <Field label="Country" value={s.country} onChange={(v) => set("country", v)} combo />
-        <Field label="Source" value={s.source} onChange={(v) => set("source", v)} combo />
-        <Field label="Category" value={s.category} onChange={(v) => set("category", v)} />
+        <Field label="Basis" fieldKey="basis" lockField={lockField} value={s.basis} onChange={(v) => set("basis", v)} combo />
+        <Field label="Country" fieldKey="country" lockField={lockField} value={s.country} onChange={(v) => set("country", v)} combo />
+        <Field label="Source" fieldKey="source" lockField={lockField} value={s.source} onChange={(v) => set("source", v)} combo />
+        <Field label="Category" fieldKey="category" lockField={lockField} value={s.category} onChange={(v) => set("category", v)} />
         <label>Background</label>
         <span className="sym-color-select">
           <span
@@ -245,45 +431,60 @@ export function CommonTab({ s, set, isNew }) {
           />
         </span>
         <Field label="Page" value={s.page} onChange={(v) => set("page", v)} />
-        <SelectField label="Digits" value={s.digits} options={plain(DIGITS_options)} onChange={(v) => set("digits", v)} />
-        <SelectField
+        <SelectField label="Digits" fieldKey="digits" lockField={lockField} value={s.digits} options={plain(DIGITS_options)} onChange={(v) => set("digits", v)} />
+        <EditableSelectField
           label="Market depth"
+          fieldKey="tick_book_depth"
+          lockField={lockField}
           value={s.tick_book_depth ?? 0}
           options={MarketDepth_options}
+          format={formatMarketDepth}
+          parse={parseMarketDepth}
           onChange={(v) => set("tick_book_depth", v)}
         />
-        <NumField label="Spread" value={s.spread} offWhenZero onChange={(v) => set("spread", v)} />
+        <NumField
+          label="Spread"
+          fieldKey="spread"
+          lockField={lockField}
+          value={s.spread}
+          offWhenZero
+          readOnly={spreadLocked}
+          onChange={spreadLocked ? undefined : (v) => set("spread", v)}
+        />
         <SelectField
           label="Market depth volume"
           value={s.tick_book_volume ?? 0}
           options={BookVolume_options}
           onChange={(v) => set("tick_book_volume", v)}
         />
+        <label className="sym-spread-balance-label">Spread balance</label>
+        <span className={`sym-spread-balance${balanceLocked ? " sym-spread-balance-disabled" : ""}`}>
+          <span className="sym-spread-balance-track">
+            <input
+              type="range"
+              min={-100}
+              max={100}
+              disabled={balanceLocked}
+              value={s.spread_balance ?? 0}
+              onChange={(e) => set("spread_balance", Number(e.target.value))}
+            />
+          </span>
+          <span className="sym-spread-balance-caption">
+            {spreadBalanceCaption(s.spread, s.spread_balance)}
+          </span>
+        </span>
         <SelectField
           label="Chart mode"
           value={s.tick_chart_mode}
           names={ChartMode_name}
           onChange={(v) => set("tick_chart_mode", v)}
         />
-        <label>Spread balance</label>
-        <span className="sym-slider">
-          <input
-            type="range"
-            min="-100"
-            max="100"
-            value={s.spread_balance ?? 0}
-            onChange={(e) => set("spread_balance", Number(e.target.value))}
-          />
-          <span className="sym-slider-caption">
-            {s.spread_balance ?? 0} bid / {s.spread_diff_balance ?? 0} ask
-          </span>
-        </span>
       </div>
     </>
   );
 }
 
-export function CurrencyTab({ s, set }) {
+export function CurrencyTab({ s, set, lockField }) {
   const derived = Number(s.calc_mode) === 0;
   const cur = (v) => plain(CURRENCY_options).concat(
     CURRENCY_options.includes(v) || !v ? [] : [{ value: v, label: v }],
@@ -292,7 +493,7 @@ export function CurrencyTab({ s, set }) {
     <>
       <TabIntro>The setting up of base, profit, and margin currencies of the symbol.</TabIntro>
       <div className="form-grid sym-currency-block">
-        <SelectField label="Base currency" value={s.currency_base} options={cur(s.currency_base)} disabled={derived} onChange={(v) => set("currency_base", v)} />
+        <SelectField label="Base currency" fieldKey="currency_base" lockField={lockField} value={s.currency_base} options={cur(s.currency_base)} disabled={derived} onChange={(v) => set("currency_base", v)} />
         <SelectField label="Base currency digits" value={s.currency_base_digits} options={plain(DIGITS_options)} onChange={(v) => set("currency_base_digits", v)} />
       </div>
       <div className="form-grid sym-currency-block">
@@ -307,8 +508,11 @@ export function CurrencyTab({ s, set }) {
   );
 }
 
-export function QuotesTab({ s, set }) {
-  const tick = (bit, on) => set("tick_flags", setBit(s.tick_flags, bit, on));
+export function QuotesTab({ s, set, lockField }) {
+  const tick = (bit, on) => {
+    if (lockField?.("tick_flags")) return;
+    set("tick_flags", setBit(s.tick_flags, bit, on));
+  };
   return (
     <>
       <TabIntro>
@@ -393,7 +597,7 @@ export function QuotesTab({ s, set }) {
   );
 }
 
-export function TradeTab({ s, set }) {
+export function TradeTab({ s, set, lockField }) {
   const exchangeFutures = [33, 34].includes(Number(s.calc_mode));
   return (
     <>
@@ -402,15 +606,17 @@ export function TradeTab({ s, set }) {
         placed orders, allowed trade volumes, etc.
       </TabIntro>
       <div className="form-grid sym-form-two-col sym-trade-grid">
-        <NumField label="Contract size" value={s.contract_size} onChange={(v) => set("contract_size", v)} />
-        <NumField label="Limit & stop level" value={s.stops_level} suffix="pt" onChange={(v) => set("stops_level", v)} />
-        <SelectField label="Calculation" value={s.calc_mode} names={CalcMode_name} order={CalcMode_order} onChange={(v) => set("calc_mode", v)} />
-        <NumField label="Freeze level" value={s.freeze_level} suffix="pt" onChange={(v) => set("freeze_level", v)} />
-        <SelectField label="Trade" value={s.trade_mode} names={TradeMode_name} onChange={(v) => set("trade_mode", v)} />
-        <NumField label="Max quote delay" value={s.quotes_timeout} offWhenZero suffix="sec" onChange={(v) => set("quotes_timeout", v)} />
-        <SelectField label="GTC" value={s.gtc_mode} names={GTCMode_name} onChange={(v) => set("gtc_mode", v)} />
+        <NumField label="Contract size" fieldKey="contract_size" lockField={lockField} value={s.contract_size} onChange={(v) => set("contract_size", v)} />
+        <NumField label="Limit & stop level" fieldKey="stops_level" lockField={lockField} value={s.stops_level} suffix="pt" onChange={(v) => set("stops_level", v)} />
+        <SelectField label="Calculation" fieldKey="calc_mode" lockField={lockField} value={s.calc_mode} names={CalcMode_name} order={CalcMode_order} onChange={(v) => set("calc_mode", v)} />
+        <NumField label="Freeze level" fieldKey="freeze_level" lockField={lockField} value={s.freeze_level} suffix="pt" onChange={(v) => set("freeze_level", v)} />
+        <SelectField label="Trade" fieldKey="trade_mode" lockField={lockField} value={s.trade_mode} names={TradeMode_name} onChange={(v) => set("trade_mode", v)} />
+        <NumField label="Max quote delay" fieldKey="quotes_timeout" lockField={lockField} value={s.quotes_timeout} offWhenZero suffix="sec" onChange={(v) => set("quotes_timeout", v)} />
+        <SelectField label="GTC" fieldKey="gtc_mode" lockField={lockField} value={s.gtc_mode} names={GTCMode_name} onChange={(v) => set("gtc_mode", v)} />
         <SelectField
           label="Convert profit"
+          fieldKey="trade_flags"
+          lockField={lockField}
           value={hasBit(s.trade_flags, TRADE_PROFIT_BY_MARKET) ? 1 : 0}
           options={[
             { value: 0, label: "by deal" },
@@ -418,26 +624,30 @@ export function TradeTab({ s, set }) {
           ]}
           onChange={(v) => set("trade_flags", setBit(s.trade_flags, TRADE_PROFIT_BY_MARKET, v === 1))}
         />
-        <FlagCombo label="Filling" labels={FillFlag_labels} value={s.fill_flags} onChange={(v) => set("fill_flags", v)} />
+        <FlagCombo label="Filling" fieldKey="fill_flags" lockField={lockField} labels={FillFlag_labels} value={s.fill_flags} onChange={(v) => set("fill_flags", v)} />
         <label className="sym-signals-label">Enable Trading Signals</label>
         <input
           type="checkbox"
+          className="sym-trade-signal-check"
+          disabled={lockField?.("trade_flags")}
           checked={hasBit(s.trade_flags, TRADE_ALLOW_SIGNALS)}
           onChange={(e) => set("trade_flags", setBit(s.trade_flags, TRADE_ALLOW_SIGNALS, e.target.checked))}
         />
-        <FlagCombo label="Expiration" labels={ExpirFlag_labels} value={s.expir_flags} onChange={(v) => set("expir_flags", v)} />
-        <NumField label="Tick size" value={s.tick_size} onChange={(v) => set("tick_size", v)} />
-        <FlagCombo label="Orders" labels={OrderFlag_labels} value={s.order_flags} onChange={(v) => set("order_flags", v)} />
-        <NumField label="Tick value" value={s.tick_value} onChange={(v) => set("tick_value", v)} />
+        <FlagCombo label="Expiration" fieldKey="expir_flags" lockField={lockField} labels={ExpirFlag_labels} value={s.expir_flags} onChange={(v) => set("expir_flags", v)} />
+        <NumField label="Tick size" fieldKey="tick_size" lockField={lockField} value={s.tick_size} onChange={(v) => set("tick_size", v)} />
+        <FlagCombo label="Orders" fieldKey="order_flags" lockField={lockField} labels={OrderFlag_labels} value={s.order_flags} onChange={(v) => set("order_flags", v)} />
+        <NumField label="Tick value" fieldKey="tick_value" lockField={lockField} value={s.tick_value} onChange={(v) => set("tick_value", v)} />
       </div>
       <fieldset className="fieldset sym-volumes">
         <legend>Volumes</legend>
         <div className="form-grid sym-volumes-grid">
-          <NumField label="Minimum" value={toLots(s.volume_min)} digits={2} onChange={(v) => set("volume_min", fromLots(v))} />
-          <NumField label="Step" value={toLots(s.volume_step)} digits={2} onChange={(v) => set("volume_step", fromLots(v))} />
-          <NumField label="Maximum" value={toLots(s.volume_max)} digits={2} onChange={(v) => set("volume_max", fromLots(v))} />
+          <NumField label="Minimum" fieldKey="volume_min" lockField={lockField} value={toLots(s.volume_min)} digits={2} onChange={(v) => set("volume_min", fromLots(v))} />
+          <NumField label="Step" fieldKey="volume_step" lockField={lockField} value={toLots(s.volume_step)} digits={2} onChange={(v) => set("volume_step", fromLots(v))} />
+          <NumField label="Maximum" fieldKey="volume_max" lockField={lockField} value={toLots(s.volume_max)} digits={2} onChange={(v) => set("volume_max", fromLots(v))} />
           <NumField
             label="Limit"
+            fieldKey="volume_limit"
+            lockField={lockField}
             value={s.volume_limit ? toLots(s.volume_limit) : ""}
             onChange={(v) => set("volume_limit", fromLots(v))}
           />
@@ -457,7 +667,7 @@ export function TradeTab({ s, set }) {
   );
 }
 
-export function ExecutionTab({ s, set }) {
+export function ExecutionTab({ s, set, lockField }) {
   const mode = Number(s.exec_mode);
   return (
     <>
@@ -466,7 +676,7 @@ export function ExecutionTab({ s, set }) {
         its parameters.
       </TabIntro>
       <div className="form-grid sym-exec-grid">
-        <SelectField label="Execution" value={s.exec_mode} names={ExecMode_name} onChange={(v) => set("exec_mode", v)} />
+        <SelectField label="Execution" fieldKey="exec_mode" lockField={lockField} value={s.exec_mode} names={ExecMode_name} onChange={(v) => set("exec_mode", v)} />
         {mode === 1 && (
           <>
             <NumField label="Max time deviation" value={s.ie_timeout} suffix="seconds" onChange={(v) => set("ie_timeout", v)} />
@@ -643,8 +853,14 @@ const SWAP_RATE_KEYS = [
 
 const FOREX_MULTIPLIERS = [0, 1, 1, 3, 1, 1, 0];
 
-export function SwapsTab({ s, set }) {
+function swapYearDayValue(v) {
+  const n = Number(v);
+  return SwapYearDays_options.includes(n) ? n : 360;
+}
+
+export function SwapsTab({ s, set, lockField }) {
   const enabled = Number(s.swap_mode) !== 0;
+  const [selectedDay, setSelectedDay] = useState(0);
   const applyMultipliers = (values) =>
     SWAP_RATE_KEYS.forEach(([, key], i) => set(key, values[i]));
   return (
@@ -656,6 +872,8 @@ export function SwapsTab({ s, set }) {
       <div className="form-grid grp-check-stack">
         <CheckField
           label="Enable swaps"
+          fieldKey="swap_mode"
+          lockField={lockField}
           checked={enabled}
           onChange={(on) => set("swap_mode", on ? 1 : 0)}
         />
@@ -668,11 +886,12 @@ export function SwapsTab({ s, set }) {
         <NumField label="Short positions" value={s.swap_short} onChange={(v) => set("swap_short", v)} />
         <SelectField
           label="Days in year"
-          value={s.swap_year_day}
-          options={plain(SwapDays_options)}
-          fallback
+          value={swapYearDayValue(s.swap_year_day)}
+          options={plain(SwapYearDays_options)}
           onChange={(v) => set("swap_year_day", v)}
         />
+      </div>
+      <div className="form-grid grp-check-stack">
         <CheckField
           label="Automatically consider holidays"
           checked={hasBit(s.swap_flags, SWAP_CONSIDER_HOLIDAYS)}
@@ -680,43 +899,55 @@ export function SwapsTab({ s, set }) {
         />
       </div>
       <div className="sym-swaps-row">
-        <span className="sym-swaps-caption">Swap multipliers:</span>
-        <table className="sym-sessions-table sym-swaps-table">
-          <thead>
-            <tr>
-              <th>Day of week</th>
-              <th>Multiplier</th>
-            </tr>
-          </thead>
-          <tbody>
-            {SWAP_RATE_KEYS.map(([name, key]) => (
-              <tr key={key}>
-                <td>{name}</td>
-                <td>
-                  <input
-                    type="text"
-                    className="df-cell-input"
-                    value={s[key] ? s[key] : ""}
-                    onChange={(e) => set(key, Number(e.target.value) || 0)}
-                  />
-                </td>
+        <span className="sym-swaps-caption">Swap multipliers</span>
+        <div className="sym-swaps-table-wrap">
+          <table className="sym-sessions-table sym-swaps-table">
+            <thead>
+              <tr>
+                <th>Day of week</th>
+                <th>Multiplier</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {SWAP_RATE_KEYS.map(([name, key], day) => (
+                <tr
+                  key={key}
+                  className={selectedDay === day ? "selected" : ""}
+                  onClick={() => setSelectedDay(day)}
+                >
+                  <td>
+                    <span className="sym-swaps-day-mark" aria-hidden="true">
+                      ✓
+                    </span>
+                    {name}
+                  </td>
+                  <td className="sym-swaps-mult-cell">
+                    <input
+                      type="text"
+                      className="sym-swaps-mult-input"
+                      disabled={!enabled}
+                      value={s[key] != null && s[key] !== "" ? s[key] : ""}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={() => setSelectedDay(day)}
+                      onChange={(e) => set(key, Number(e.target.value) || 0)}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="sym-swaps-presets">
-          <button type="button" onClick={() => applyMultipliers(FOREX_MULTIPLIERS)}>
+          <button type="button" disabled={!enabled} onClick={() => applyMultipliers(FOREX_MULTIPLIERS)}>
             Forex
           </button>
-          <button type="button" onClick={() => applyMultipliers([1, 1, 1, 1, 1, 1, 1])}>
+          <button type="button" disabled={!enabled} onClick={() => applyMultipliers([1, 1, 1, 1, 1, 1, 1])}>
             All week
           </button>
-          <div className="sym-swaps-from">
-            <button type="button" disabled>
-              From symbol
-            </button>
-            <PropSelect fill value="" options={[{ value: "", label: "" }]} disabled />
-          </div>
+          <button type="button" disabled>
+            From symbol
+          </button>
+          <PropSelect fill value="" options={[{ value: "", label: "" }]} disabled />
         </div>
       </div>
     </>

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { createSymbol, fetchSymbol, updateSymbol } from "@/api/endpoints/symbols.js";
 import {
@@ -78,6 +80,7 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
   const [original, setOriginal] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(symbolId);
+  const close = useDialogStack(onClose);
 
   useEffect(() => {
     if (isNew) return;
@@ -124,21 +127,20 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
       }
     }
     onSaved();
-    onClose();
+    close();
   }
 
   const title = `Symbol: ${isNew ? draft.path || "New" : draft?.path || "…"}`;
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           className="sym-config-window"
           width={787}
@@ -164,7 +166,7 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
               <button type="button" className="config-ok" onClick={handleOk}>
                 OK
               </button>
-              <button type="button" onClick={onClose}>
+              <button type="button" onClick={close}>
                 Cancel
               </button>
               <button type="button" className="config-help" disabled>
@@ -181,6 +183,6 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
             ))}
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }

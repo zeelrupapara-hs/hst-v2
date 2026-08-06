@@ -20,6 +20,7 @@ import (
 type CloneSymbols struct {
 	Postfix string  `json:"postfix" validate:"required,max=16"`
 	Path    string  `json:"path" validate:"max=255"`
+	CopyTo  string  `json:"copy_to" validate:"max=255"`
 	Symbols []int64 `json:"symbols"`
 }
 
@@ -75,12 +76,29 @@ func (s *Server) CloneSymbol(c *fiber.Ctx) error {
 		where, args = "path LIKE $1", []any{body.Path + `\%`}
 	}
 
-	args = append(args, postfix, time.Now().UnixNano())
-	fix, mod := "$"+strconv.Itoa(len(args)-1), "$"+strconv.Itoa(len(args))
+	copyTo := strings.TrimSpace(body.CopyTo)
+	args = append(args, time.Now().UnixNano())
+	modIdx := len(args)
+	mod := "$" + strconv.Itoa(modIdx)
+
+	const pathSep = " || chr(92) || "
+
+	var pathExpr, symbolExpr string
+	if copyTo != "" {
+		args = append(args, copyTo, postfix)
+		dest, fix := "$"+strconv.Itoa(modIdx+1), "$"+strconv.Itoa(modIdx+2)
+		symbolExpr = "symbol || " + fix
+		pathExpr = dest + " || " + fix + pathSep + "symbol || " + fix
+	} else {
+		args = append(args, postfix)
+		fix := "$" + strconv.Itoa(modIdx+1)
+		symbolExpr = "symbol || " + fix
+		pathExpr = "regexp_replace(path, '\\\\' || symbol || '$', '') || " + fix + pathSep + "symbol || " + fix
+	}
 
 	rows, err := s.DB.DB.Query(ctx,
 		`INSERT INTO hst.symbols (symbol, path, date_modified, `+cloneColumns+`)
-		 SELECT symbol || `+fix+`, path || `+fix+`, `+mod+`, `+cloneColumns+`
+		 SELECT `+symbolExpr+`, `+pathExpr+`, `+mod+`, `+cloneColumns+`
 		   FROM hst.symbols WHERE `+where+`
 		 RETURNING symbol_id, symbol, path`, args...)
 	if err != nil {

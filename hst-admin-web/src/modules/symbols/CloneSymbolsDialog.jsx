@@ -1,5 +1,8 @@
 import { useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
+import { SymbolFolderSelect } from "@/components/ui/SymbolFolderSelect.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { cloneSymbols } from "@/api/endpoints/symbols.js";
 import { TabIntro } from "./SymbolTabs.jsx";
@@ -16,7 +19,7 @@ function Pane({ title, folder, names }) {
       <div className="sym-clone-tree">
         <div className="sym-clone-folder">
           <span className="sym-clone-folder-icon" aria-hidden="true" />
-          {folder || "\\"}
+          {folder || "Symbols"}
         </div>
         {names.map((n) => (
           <div key={n} className="sym-clone-leaf">
@@ -35,9 +38,11 @@ function Pane({ title, folder, names }) {
  */
 export function CloneSymbolsDialog({ symbols, folder = "", onClose, onDone }) {
   const [postfix, setPostfix] = useState("");
+  const [copyTo, setCopyTo] = useState(folder);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag("clone-symbols");
-  const target = `${folder}${suffix(postfix)}`;
+  const close = useDialogStack(onClose);
+  const target = `${copyTo}${suffix(postfix)}`;
 
   async function handleOk() {
     if (!postfix.trim()) {
@@ -47,29 +52,29 @@ export function CloneSymbolsDialog({ symbols, folder = "", onClose, onDone }) {
     // the selection wins; an empty one clones the folder the list is showing
     // the field is typed without the leading dot, so the wire carries the dotted form
     const dotted = suffix(postfix.trim());
+    const payload = { postfix: dotted, copy_to: copyTo };
     const res = await cloneSymbols(
       symbols.length
-        ? { postfix: dotted, symbols: symbols.map((r) => r.symbol_id) }
-        : { postfix: dotted, path: folder },
+        ? { ...payload, symbols: symbols.map((r) => r.symbol_id) }
+        : { ...payload, path: folder },
     );
     if (!res.ok) {
       setError(res.message || "clone failed");
       return;
     }
     onDone();
-    onClose();
+    close();
   }
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           className="sym-clone-window"
           width={651}
@@ -81,7 +86,7 @@ export function CloneSymbolsDialog({ symbols, folder = "", onClose, onDone }) {
               <button type="button" className="config-ok" onClick={handleOk}>
                 OK
               </button>
-              <button type="button" onClick={onClose}>
+              <button type="button" onClick={close}>
                 Cancel
               </button>
             </div>
@@ -95,10 +100,10 @@ export function CloneSymbolsDialog({ symbols, folder = "", onClose, onDone }) {
               <span className="sym-suffix">without leading dot</span>
             </span>
             <label>Copy to</label>
-            <input type="text" readOnly value={`${target}\\`} />
+            <SymbolFolderSelect value={copyTo} onChange={setCopyTo} />
           </div>
           <p className="sym-clone-sentence">
-            {symbols.length || "All"} symbols will be copied from &apos;{folder}\&apos; to &apos;
+            {symbols.length || "All"} symbols will be copied from &apos;{folder || "Symbols"}\&apos; to &apos;
             {target}\&apos; with postfix {suffix(postfix)}
           </p>
           <div className="sym-clone-panes">
@@ -111,6 +116,6 @@ export function CloneSymbolsDialog({ symbols, folder = "", onClose, onDone }) {
           </div>
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }

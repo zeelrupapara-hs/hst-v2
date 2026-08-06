@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import {
   createDatafeed,
@@ -92,6 +94,7 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
   const [modules, setModules] = useState([]);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(feedId);
+  const close = useDialogStack(onClose);
 
   useEffect(() => {
     fetchDatafeedModules(1).then((res) => res.ok && setModules(res.data || []));
@@ -167,19 +170,18 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
     });
 
     onSaved();
-    onClose();
+    close();
   }
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           className="df-config-window"
           width={570}
@@ -205,7 +207,7 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
               <button type="button" className="config-ok" onClick={handleOk}>
                 OK
               </button>
-              <button type="button" onClick={onClose}>
+              <button type="button" onClick={close}>
                 Cancel
               </button>
               <button type="button" className="config-help" disabled>
@@ -222,6 +224,6 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
             ))}
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }

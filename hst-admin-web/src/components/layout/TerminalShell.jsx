@@ -3,6 +3,7 @@ import { NavTree } from "@/components/layout/NavTree.jsx";
 import { StatusBar } from "@/components/layout/StatusBar.jsx";
 import { Toolbox } from "@/components/layout/Toolbox.jsx";
 import { ToolbarButton } from "@/components/ui/ToolbarButton.jsx";
+import { ToolboxProvider } from "@/hooks/useToolbox.jsx";
 import { useFullscreen } from "@/hooks/useFullscreen.js";
 import { useSession } from "@/hooks/useSession.js";
 
@@ -17,7 +18,7 @@ export function TerminalShell({ panel }) {
       : "HST Manager — Trade Server (Live)";
 
   return (
-    <>
+    <ToolboxProvider>
       <div className="terminal-title">
         <span className="terminal-title-text">{title}</span>
         <div className="title-actions">
@@ -62,6 +63,6 @@ export function TerminalShell({ panel }) {
         <Toolbox />
         <StatusBar connected={session.status === "ready"} moduleLabel="" />
       </div>
-    </>
+    </ToolboxProvider>
   );
 }

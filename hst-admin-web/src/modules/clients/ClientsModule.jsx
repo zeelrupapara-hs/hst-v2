@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
@@ -45,6 +47,7 @@ function ClientDialog({ clientId, onClose, onSaved }) {
   const [original, setOriginal] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(clientId);
+  const close = useDialogStack(onClose);
 
   useEffect(() => {
     if (isNew) return;
@@ -85,7 +88,7 @@ function ClientDialog({ clientId, onClose, onSaved }) {
       }
     }
     onSaved();
-    onClose();
+    close();
   }
 
   const TABS = ["General", "Personal", "Address"];
@@ -128,16 +131,15 @@ function ClientDialog({ clientId, onClose, onSaved }) {
   }
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
           height={470}
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Client: New" : `Client: ${draft?.person_name ?? clientId}`}
           tabs={
@@ -153,7 +155,7 @@ function ClientDialog({ clientId, onClose, onSaved }) {
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -169,7 +171,7 @@ function ClientDialog({ clientId, onClose, onSaved }) {
           </div>
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

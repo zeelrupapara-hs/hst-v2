@@ -1,8 +1,3 @@
-/**
- * Settings dialog shell: title bar with the help and close glyphs, tab strip, body, footer.
- * Width and height are fixed per dialog: switching tabs must never resize the window.
- * @param {{title: string, tabs?: any, children: any, footer?: any, className?: string, width?: number, draggable?: boolean, onTitlePointerDown?: Function, onClose?: Function}} props
- */
 export function SettingsDialog({
   title,
   tabs,

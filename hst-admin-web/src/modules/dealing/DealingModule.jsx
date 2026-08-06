@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { onEvent } from "@/api/socket.js";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import {
   confirmRequest,
   connectDealer,
@@ -21,6 +23,7 @@ const REQUEST_STATE = { 7: "new order", 8: "modification", 9: "cancellation" };
 function ActionDialog({ action, row, onClose, onDone }) {
   const [value, setValue] = useState(action === "requote" ? String(row.price_current || "") : "");
   const [error, setError] = useState("");
+  const close = useDialogStack(onClose);
 
   async function run() {
     let res;
@@ -37,14 +40,14 @@ function ActionDialog({ action, row, onClose, onDone }) {
       return;
     }
     onDone();
-    onClose();
+    close();
   }
 
   const label = { confirm: "Price (0 = request price)", requote: "New price", reject: "Reason" }[action];
 
   return (
-    <div className="sym-session-dialog-overlay" onClick={onClose}>
-      <div className="sym-session-dialog dealing-action" role="dialog" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay className="sym-session-dialog-overlay" onClose={onClose}>
+      <div className="sym-session-dialog dealing-action" role="dialog">
         <div className="sym-session-dialog-title">
           {action[0].toUpperCase() + action.slice(1)}: order #{row.order_id} — {row.login} {row.symbol}
         </div>
@@ -59,11 +62,11 @@ function ActionDialog({ action, row, onClose, onDone }) {
           <span />
           <div className="sym-session-dialog-actions">
             <button type="button" className="sym-session-ok" onClick={run}>OK</button>
-            <button type="button" className="sym-session-cancel" onClick={onClose}>Cancel</button>
+            <button type="button" className="sym-session-cancel" onClick={close}>Cancel</button>
           </div>
         </div>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

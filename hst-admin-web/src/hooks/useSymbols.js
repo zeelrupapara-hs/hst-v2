@@ -6,9 +6,23 @@ let cache = null;
 let inflight = null;
 const listeners = new Set();
 
+async function loadAll() {
+  const all = [];
+  let page = 1;
+  for (;;) {
+    const res = await fetchSymbols({ page, limit: 500 });
+    if (!res.ok) return cache || [];
+    const batch = res.data || [];
+    all.push(...batch);
+    if (batch.length < 500) break;
+    page += 1;
+  }
+  return all;
+}
+
 async function load() {
-  inflight ??= fetchSymbols().then((res) => {
-    cache = res.ok ? res.data || [] : cache || [];
+  inflight ??= loadAll().then((rows) => {
+    cache = rows;
     inflight = null;
     listeners.forEach((fn) => fn(cache));
     return cache;

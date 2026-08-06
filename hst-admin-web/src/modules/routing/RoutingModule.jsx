@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
@@ -217,6 +219,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
   const [selCond, setSelCond] = useState(null);
   const [editCond, setEditCond] = useState(null);
   const { offset, onTitlePointerDown } = useDialogDrag(ruleId);
+  const close = useDialogStack(onClose);
 
   useEffect(() => {
     if (isNew) return;
@@ -277,21 +280,20 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
       }
     }
     onSaved();
-    onClose();
+    close();
   }
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
           width={640}
           height={680}
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Routing: New" : `Routing: ${draft?.name ?? "…"}`}
           tabs={
@@ -307,7 +309,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -438,7 +440,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
           )}
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }
 

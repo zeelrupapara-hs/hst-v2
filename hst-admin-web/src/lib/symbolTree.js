@@ -57,3 +57,34 @@ export function annotateTreeCounts(node, symbols) {
   for (const key of sortedTreeChildKeys(node)) annotateTreeCounts(node.children[key], symbols);
   return node;
 }
+
+/** Turn persisted empty-folder paths into the parent→names map the navigator uses. */
+export function emptyFolderPathsToMap(paths) {
+  const map = {};
+  for (const path of paths || []) {
+    const parts = path.split("\\").filter(Boolean);
+    if (!parts.length) continue;
+    const name = parts.pop();
+    const parent = parts.join("\\");
+    map[parent] ??= [];
+    if (!map[parent].includes(name)) map[parent].push(name);
+  }
+  for (const key of Object.keys(map)) {
+    map[key].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  }
+  return map;
+}
+
+/** Last segment of a backslash folder path. */
+export function folderLeafName(path) {
+  if (!path) return "";
+  const i = path.lastIndexOf("\\");
+  return i >= 0 ? path.slice(i + 1) : path;
+}
+
+/** Rebuild a full path after renaming the leaf segment. */
+export function folderWithLeafName(path, leaf) {
+  const i = path.lastIndexOf("\\");
+  const parent = i >= 0 ? path.slice(0, i) : "";
+  return parent ? `${parent}\\${leaf}` : leaf;
+}

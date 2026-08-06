@@ -5,6 +5,7 @@ import { fetchNavigation } from "@/api/endpoints/navigation.js";
 import { SessionContext } from "@/hooks/useSession.js";
 import { onEvent, startSocket, stopSocket } from "@/api/socket.js";
 import { reloadSymbols } from "@/hooks/useSymbols.js";
+import { reloadSymbolFolders } from "@/hooks/useSymbolFolders.js";
 import { reloadGroups } from "@/hooks/useGroups.js";
 import { reloadDatafeeds } from "@/hooks/useDatafeeds.js";
 
@@ -56,8 +57,10 @@ export function SessionProvider({ children }) {
     startSocket();
     const offConfig = onEvent("*", (event) => {
       if (!/_created$|_updated$|_deleted$/.test(event.type)) return;
-      if (event.type.startsWith("symbol")) reloadSymbols();
-      else if (event.type.startsWith("group")) reloadGroups();
+      if (event.type.startsWith("symbol")) {
+        reloadSymbols();
+        reloadSymbolFolders();
+      } else if (event.type.startsWith("group")) reloadGroups();
       else if (event.type.startsWith("datafeed")) reloadDatafeeds();
       refreshNav();
     });

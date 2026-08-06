@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
@@ -7,7 +9,7 @@ import { createGroupSymbol, updateGroupSymbol } from "@/api/endpoints/groups.js"
 import { fetchSymbols } from "@/api/endpoints/symbols.js";
 import {
   ExecMode_name,
-  SwapDays_options,
+  SwapYearDays_options,
   SwapMode_name,
   TradeMode_name,
   toLots,
@@ -205,6 +207,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
   );
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(row?.symbol_id ?? "new");
+  const close = useDialogStack(onClose);
 
   useEffect(() => {
     fetchSymbols().then((res) => {
@@ -239,7 +242,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
       return;
     }
     onSaved();
-    onClose();
+    close();
   }
 
   function Default({ id, label }) {
@@ -557,7 +560,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
               <Sel
                 label="Days in year"
                 value={draft.swap_year_day}
-                options={withDefault(SwapDays_options.map((d) => ({ value: d, label: String(d) })))}
+                options={withDefault(SwapYearDays_options.map((d) => ({ value: d, label: String(d) })))}
                 disabled={off}
                 onChange={(v) => set("swap_year_day", v)}
               />
@@ -629,17 +632,16 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
   const intro = TABS.find((t) => t.id === activeTab)?.intro;
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
           width={700}
           height={480}
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={`Symbol: ${draft.path || "*"}`}
           tabs={
@@ -660,7 +662,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -676,6 +678,6 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
           </div>
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }

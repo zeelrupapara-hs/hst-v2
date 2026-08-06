@@ -53,7 +53,10 @@ export const SwapMode_name = {
   9: "Using profit currency",
 };
 
-export const SwapDays_options = [360, 365, 366];
+export const SwapYearDays_options = [360, 365, 366];
+
+/** @deprecated use SwapYearDays_options */
+export const SwapDays_options = SwapYearDays_options;
 
 export const SymbolSector_name = {
   0: "Undefined",
@@ -163,7 +166,9 @@ export const DIGITS_options = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
 export const MarketDepth_options = [
   { value: 0, label: "off" },
-  ...Array.from({ length: 32 }, (_, i) => ({ value: i + 1, label: String(i + 1) })),
+  { value: 10, label: "10" },
+  { value: 16, label: "16" },
+  { value: 32, label: "32" },
 ];
 
 export const BookVolume_options = [

@@ -155,7 +155,7 @@ type UptSymbol struct {
 	SwapMode                       *model.SwapMode          `json:"swap_mode"`
 	SwapLong                       *float64                 `json:"swap_long"`
 	SwapShort                      *float64                 `json:"swap_short"`
-	SwapYearDay                    *model.SwapDays          `json:"swap_year_day"`
+	SwapYearDay                    *int32                   `json:"swap_year_day"`
 	SwapFlags                      *model.SwapFlags         `json:"swap_flags"`
 	SwapRateSunday                 *float64                 `json:"swap_rate_sunday"`
 	SwapRateMonday                 *float64                 `json:"swap_rate_monday"`
@@ -649,6 +649,7 @@ func insertSessions(ctx context.Context, db sessionInserter, symbolID int64, ses
 //	@Param		page	query		int		false	"page number, from 1"
 //	@Param		limit	query		int		false	"rows per page, max 500"
 //	@Param		search	query		string	false	"matches symbol, path or description"
+//	@Param		folder	query		string	false	"limit to symbols under this folder path"
 //	@Param		sort_by	query		string	false	"symbol_id, symbol, path, digits, trade_mode, calc_mode, exec_mode, spread, date_created, date_modified"	Enums(symbol_id, symbol, path, digits, trade_mode, calc_mode, exec_mode, spread, date_created, date_modified)
 //	@Param		order	query		string	false	"asc or desc"																								Enums(asc, desc)
 //	@Success	200		{object}	Response{data=[]v1.ViewSymbol}
@@ -662,14 +663,16 @@ func (s *Server) ListSymbols(c *fiber.Ctx) error {
 	if err != nil {
 		return s.App.HttpResponseBadQueryParams(c, err)
 	}
+	folder := c.Query("folder")
 
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+symbolListColumns+`
 		   FROM hst.symbols
 		  WHERE ($1 = '' OR symbol ILIKE '%'||$1||'%' OR path ILIKE '%'||$1||'%'
 		         OR description ILIKE '%'||$1||'%')
+		    AND ($4 = '' OR path = $4 OR path LIKE $4 || E'\\%')
 		  ORDER BY `+q.SortBy+`
-		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset)
+		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset, folder)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -1105,8 +1108,8 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 		    filter_gap = COALESCE($117, filter_gap),
 		    filter_gap_ticks = COALESCE($118, filter_gap_ticks),
 		    tick_chart_mode = COALESCE($119, tick_chart_mode),
-		    point = CASE WHEN $120 IS NOT NULL THEN power(10::numeric, -($121)::int) ELSE point END,
-		    multiply = CASE WHEN $122 IS NOT NULL THEN power(10::numeric, ($123)::int) ELSE multiply END,
+		    point = CASE WHEN $120::int IS NOT NULL THEN power(10::numeric, -($121::int)) ELSE point END,
+		    multiply = CASE WHEN $122::int IS NOT NULL THEN power(10::numeric, ($123::int)) ELSE multiply END,
 		    date_modified = $124
 		  WHERE symbol_id = $1`,
 		id,
@@ -1228,6 +1231,10 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 		body.FilterGap,
 		body.FilterGapTicks,
 		body.TickChartMode,
+		body.Digits,
+		body.Digits,
+		body.Digits,
+		body.Digits,
 		time.Now().UnixNano())
 	if err != nil {
 		if utils.IsUniqueViolation(err) {

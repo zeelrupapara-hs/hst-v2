@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
@@ -24,6 +26,7 @@ export function BalanceDialog({ user, onClose, onSaved }) {
   const [comment, setComment] = useState("");
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(user.login);
+  const close = useDialogStack(onClose);
 
   async function handleOk() {
     const value = Number(amount);
@@ -37,19 +40,18 @@ export function BalanceDialog({ user, onClose, onSaved }) {
       return;
     }
     onSaved();
-    onClose();
+    close();
   }
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           width={420}
           height={330}
@@ -59,7 +61,7 @@ export function BalanceDialog({ user, onClose, onSaved }) {
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -90,6 +92,6 @@ export function BalanceDialog({ user, onClose, onSaved }) {
           </div>
         </SettingsDialog>
       </div>
-    </div>
+    </DialogOverlay>
   );
 }

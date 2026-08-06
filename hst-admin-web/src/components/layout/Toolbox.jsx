@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchJournal, searchJournal } from "@/api/endpoints/journal.js";
+import { useToolbox } from "@/hooks/useToolbox.jsx";
 import { formatNs } from "@/lib/time.js";
 
 const toNs = (local) => (local ? new Date(local).getTime() * 1e6 : undefined);
@@ -93,18 +94,40 @@ function SearchPanel() {
 
 /** Bottom service panel: Journal live from the server, Search lands with the modules. */
 export function Toolbox() {
-  const [tab, setTab] = useState("journal");
+  const toolbox = useToolbox();
+  const tab = toolbox?.tab ?? "journal";
+  const setTab = toolbox?.setTab ?? (() => {});
+  const journalQuery = toolbox?.journalQuery ?? "";
+  const journalTick = toolbox?.tick ?? 0;
+
   const [rows, setRows] = useState(null);
   const [message, setMessage] = useState("");
+  const [journalSearch, setJournalSearch] = useState("");
 
   useEffect(() => {
-    if (tab !== "journal" || rows !== null) return;
+    if (tab !== "journal") return;
+
+    const q = journalQuery.trim();
+    setJournalSearch(q);
+
+    if (q) {
+      searchJournal({ search: q, limit: 200 }).then((res) => {
+        if (res.ok) {
+          setRows(res.data ?? []);
+          setMessage("");
+        } else {
+          setRows([]);
+          setMessage(res.message || "journal search failed");
+        }
+      });
+      return;
+    }
 
     fetchJournal({ limit: 100 }).then((res) => {
       if (res.ok) setRows(res.data ?? []);
       else setMessage(res.message || "journal unavailable");
     });
-  }, [tab, rows]);
+  }, [tab, journalQuery, journalTick]);
 
   return (
     <div className="toolbox">
@@ -126,6 +149,12 @@ export function Toolbox() {
 
       {tab === "journal" && (
         <div className="toolbox-panel active">
+          {journalSearch && (
+            <div className="toolbox-search-bar">
+              <input type="text" value={journalSearch} readOnly />
+              <span className="module-note">Filtered by configuration</span>
+            </div>
+          )}
           <JournalRows rows={rows} message={message} />
         </div>
       )}

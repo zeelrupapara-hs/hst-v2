@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu, listMenuHead } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
+import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
+import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
@@ -64,6 +66,7 @@ function RuleEditor({ rule, onSave, onClose }) {
   const [draft, setDraft] = useState(() => toDraftRule(rule));
   const [paths, setPaths] = useState([]);
   const [menu, setMenu] = useState(null);
+  const close = useDialogStack(onClose);
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
 
   useEffect(() => {
@@ -95,13 +98,13 @@ function RuleEditor({ rule, onSave, onClose }) {
     });
 
   return (
-    <div className="sym-session-dialog-overlay" onClick={onClose}>
-      <div className="sym-session-dialog lev-rule-dialog" role="dialog" onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay className="sym-session-dialog-overlay" onClose={onClose}>
+      <div className="sym-session-dialog lev-rule-dialog" role="dialog">
         <div className="sym-session-dialog-title">
           <span>Leverage Rule</span>
           <span className="lev-title-glyphs">
             <button type="button" className="lev-title-btn" aria-label="Help" disabled>?</button>
-            <button type="button" className="lev-title-btn" aria-label="Close" onClick={onClose}>✕</button>
+            <button type="button" className="lev-title-btn" aria-label="Close" onClick={close}>✕</button>
           </span>
         </div>
         <div className="sym-session-dialog-body">
@@ -193,7 +196,7 @@ function RuleEditor({ rule, onSave, onClose }) {
           <button type="button" className="sym-session-ok" disabled={!canSave} onClick={submit}>
             OK
           </button>
-          <button type="button" className="sym-session-cancel lev-default-btn" onClick={onClose}>Cancel</button>
+          <button type="button" className="sym-session-cancel lev-default-btn" onClick={close}>Cancel</button>
         </div>
         {menu && (
           <ContextMenu
@@ -212,7 +215,7 @@ function RuleEditor({ rule, onSave, onClose }) {
           />
         )}
       </div>
-    </div>
+    </DialogOverlay>
   );
 }
 
@@ -225,6 +228,7 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
   const [menu, setMenu] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(profileId);
+  const close = useDialogStack(onClose);
 
   useEffect(() => {
     if (isNew) return;
@@ -265,7 +269,7 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
       return;
     }
     onSaved();
-    onClose();
+    close();
   }
 
   const saveRule = (rule) => {
@@ -287,23 +291,22 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
     });
 
   return (
-    <div className="dialog-overlay" onClick={onClose} role="presentation">
+    <DialogOverlay>
       <div
         className="dialog-positioner"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px)` }}
-        onClick={(e) => e.stopPropagation()}
       >
         <SettingsDialog
           draggable
           height={520}
-          onClose={onClose}
+          onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title="Leverage"
           footer={
             <div className="config-actions">
               {error && <span className="login-error">{error}</span>}
               <button type="button" className="config-ok" onClick={handleOk}>OK</button>
-              <button type="button" onClick={onClose}>Cancel</button>
+              <button type="button" onClick={close}>Cancel</button>
               <button type="button" className="config-help" disabled>Help</button>
             </div>
           }
@@ -408,7 +411,7 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
           />
         )}
       </div>
-    </div>
+    </DialogOverlay>
   );
 }
 
