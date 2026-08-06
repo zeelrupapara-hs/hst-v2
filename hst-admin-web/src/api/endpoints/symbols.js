@@ -13,3 +13,6 @@ export const updateSymbol = (id, patch) =>
 
 export const deleteSymbol = (id) =>
   request(`/api/v1/symbols/${id}`, { method: "DELETE" });
+
+export const cloneSymbols = ({ postfix, path = "", symbols = [] }) =>
+  request("/api/v1/symbols/clone", { method: "POST", body: { postfix, path, symbols } });

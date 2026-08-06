@@ -7,6 +7,7 @@ import { ExecMode_name } from "@/constants/symbols.js";
 import { filterSymbolsByFolder, topType } from "@/lib/symbolTree.js";
 import { deleteSymbol } from "@/api/endpoints/symbols.js";
 import { SymbolDialog } from "./SymbolDialog.jsx";
+import { CloneSymbolsDialog } from "./CloneSymbolsDialog.jsx";
 
 const COLUMNS = [
   { key: "symbol", label: "Symbol" },
@@ -32,6 +33,7 @@ export function SymbolsModule() {
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  const [clone, setClone] = useState(null);
   const canEdit = session.can?.right_cfg_symbols !== false;
 
   const all = useMemo(() => filterSymbolsByFolder(symbols, folder), [symbols, folder]);
@@ -96,7 +98,11 @@ export function SymbolsModule() {
 
   const items = [
     { ...head[0], disabled: hasSelection && selected.length > 1 },
-    { label: "Add Copy", shortcut: "Ctrl+M", disabled: true },
+    {
+      label: "Add Copy",
+      shortcut: "Ctrl+M",
+      onClick: () => setClone(selected.map((i) => rows[i]).filter(Boolean)),
+    },
     head[1],
     head[2],
     "sep",
@@ -222,6 +228,14 @@ export function SymbolsModule() {
       )}
       {menu && canEdit && (
         <ContextMenu x={menu.x} y={menu.y} onClose={() => setMenu(null)} items={items} />
+      )}
+      {clone && (
+        <CloneSymbolsDialog
+          symbols={clone}
+          folder={folder}
+          onClose={() => setClone(null)}
+          onDone={saved}
+        />
       )}
       {dialog && (
         <SymbolDialog

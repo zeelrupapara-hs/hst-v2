@@ -34,7 +34,7 @@ const TABS = [
 const MAIN_FIELDS = [
   "name", "module", "enable", "mode", "gateway_server", "feed_server", "feed_login",
   "feed_password", "gateway_login", "gateway_password", "timeout", "timeout_reconnect",
-  "timeout_sleep", "attempts_sleep", "company", "issuer",
+  "timeout_sleep", "attempts_sleep", "company", "issuer", "allow_import_symbols",
 ];
 
 const newDraft = () => ({

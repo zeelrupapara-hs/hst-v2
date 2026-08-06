@@ -3521,3 +3521,58 @@ html, body {
 .filter-bar input { border: 1px solid #adadad; padding: 3px 6px; font-size: 12px; }
 .module-note { color: var(--muted); background: transparent; border: none; margin: 0; padding: 0 6px; }
 .df-empty { color: var(--muted); text-align: center; padding: 14px; }
+
+/* accounts — security tab password rows */
+.acc-pass-tab { padding: 6px 2px; }
+.acc-pass-row { margin-bottom: 12px; }
+.acc-pass-note { font-size: 12px; color: #222; margin-bottom: 4px; }
+.acc-pass-line { display: flex; gap: 8px; align-items: center; }
+.acc-pass-line input { flex: 0 0 190px; border: 1px solid #adadad; padding: 3px 6px; font-size: 12px; }
+.acc-pass-line button { min-width: 110px; padding: 3px 8px; font-size: 12px; }
+.acc-pass-status { font-size: 11px; color: var(--muted); margin-top: 3px; }
+.acc-pass-warn { font-size: 12px; color: #a05000; margin: 0; }
+
+/* time — the server clock card in the workspace */
+.time-module { padding: 12px; max-width: 560px; }
+.time-grid { padding: 8px 0; }
+.time-grid select { width: 260px; height: 22px; }
+.time-clock { font-weight: 600; }
+.time-actions { border-top: none; background: transparent; justify-content: flex-start; padding-left: 0; }
+
+/* datafeeds: symbols tab import checkbox sits outside the form grid */
+.df-symbols-import {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 6px 74px;
+}
+
+/* symbols: Clone Symbols dialog */
+.sym-clone-form { grid-template-columns: 150px 200px minmax(0, 1fr); padding: 0 12px; }
+.sym-clone-form input[type="text"] { width: 100%; }
+.sym-clone-form .sym-with-suffix { grid-column: 2 / -1; }
+.sym-clone-sentence { margin: 10px 12px; color: #1b5fa8; }
+.sym-clone-panes { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 0 12px 12px; }
+.sym-clone-pane { position: relative; border: 1px solid #adadad; background: #fff; padding: 14px 8px 8px; }
+.sym-clone-pane-title {
+  position: absolute;
+  top: -9px;
+  left: 8px;
+  background: #ffe9a8;
+  border: 1px solid #d8b45a;
+  padding: 0 6px;
+  font-size: 12px;
+}
+.sym-clone-tree { font-size: 12px; line-height: 20px; }
+.sym-clone-folder { padding-left: 14px; }
+.sym-clone-leaf { padding-left: 34px; }
+.sym-clone-folder-icon {
+  display: inline-block;
+  width: 14px;
+  height: 12px;
+  margin-right: 5px;
+  vertical-align: -1px;
+  background: #f5c542;
+  border: 1px solid #c99a1f;
+  border-radius: 2px;
+}

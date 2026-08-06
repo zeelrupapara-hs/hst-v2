@@ -81,6 +81,7 @@ export const ChartMode_name = { 0: "by bid price", 1: "by last price" };
 export const FillFlag_labels = [
   { bit: 1, label: "Fill or Kill" },
   { bit: 2, label: "Immediate or Cancel" },
+  { bit: 4, label: "Book or Cancel" },
 ];
 
 export const ExpirFlag_labels = [
@@ -104,6 +105,10 @@ export const OrderFlag_labels = [
 export const TICK_REALTIME = 1;
 export const TICK_COLLECT_RAW = 2;
 export const TICK_FEED_STATS = 4;
+export const TICK_NEGATIVE_PRICES = 8;
+
+// ie_flags bits (InstantFlags).
+export const INSTANT_FAST_CONFIRMATION = 1;
 
 // trade_flags bits (SymbolTradeFlags).
 export const TRADE_PROFIT_BY_MARKET = 1;
@@ -158,6 +163,11 @@ export const DIGITS_options = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 
 export const MarketDepth_options = [
   { value: 0, label: "off" },
+  ...Array.from({ length: 32 }, (_, i) => ({ value: i + 1, label: String(i + 1) })),
+];
+
+export const BookVolume_options = [
+  { value: 0, label: "default" },
   ...Array.from({ length: 32 }, (_, i) => ({ value: i + 1, label: String(i + 1) })),
 ];
 

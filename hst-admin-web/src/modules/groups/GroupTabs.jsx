@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon.jsx";
+import { fetchLeverages } from "@/api/endpoints/leverages.js";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import {
   AuthMode_name,
@@ -136,7 +137,7 @@ function TrailingCheck({ flags, bit, label, onChange }) {
   );
 }
 
-export function GroupCommonTab({ g, set, isNew }) {
+export function GroupCommonTab({ g, set }) {
   const notify = (g.permission_flags ?? 0) & PermissionFlag_notifyMask;
   const setNotify = (v) =>
     set("permission_flags", ((g.permission_flags ?? 0) & ~PermissionFlag_notifyMask) | v);
@@ -148,7 +149,7 @@ export function GroupCommonTab({ g, set, isNew }) {
         Please specify name of group, deposit currency, trade server, and authentication type.
       </GroupTabIntro>
       <div className="form-grid sym-form-two-col">
-        <Field label="Name" value={g.group} onChange={isNew ? (v) => set("group", v) : undefined} />
+        <Field label="Name" value={g.group} onChange={(v) => set("group", v)} />
         <SelectField
           label="Currency"
           value={g.currency || "USD"}
@@ -206,6 +207,8 @@ export function GroupCompanyTab({ g, set }) {
         <Field label="Company" value={g.company} onChange={(v) => set("company", v)} wide />
         <Field label="Company site" value={g.company_page} onChange={(v) => set("company_page", v)} wide />
         <Field label="Company email" value={g.company_email} onChange={(v) => set("company_email", v)} wide />
+        <Field label="Deposit site" value={g.company_deposit} onChange={(v) => set("company_deposit", v)} wide />
+        <Field label="Withdrawal site" value={g.company_withdrawal} onChange={(v) => set("company_withdrawal", v)} wide />
         <Field label="Support site" value={g.company_support_page} onChange={(v) => set("company_support_page", v)} wide />
         <Field label="Support email" value={g.company_support_email} onChange={(v) => set("company_support_email", v)} wide />
         <Field label="Templates folder" value={g.company_catalog} onChange={(v) => set("company_catalog", v)} wide />
@@ -287,6 +290,12 @@ export function GroupPermissionsTab({ g, set }) {
 
 export function GroupMarginTab({ g, set }) {
   const compensates = ((g.trade_flags ?? 0) & TradeFlag_soCompensation) !== 0;
+  const [profiles, setProfiles] = useState([]);
+
+  useEffect(() => {
+    fetchLeverages().then((res) => setProfiles(res.ok ? (res.data ?? []) : []));
+  }, []);
+
   return (
     <>
       <GroupTabIntro>
@@ -321,6 +330,17 @@ export function GroupMarginTab({ g, set }) {
           label="Withdraw credit after negative balance compensation"
           disabled={!compensates}
           onChange={(v) => set("trade_flags", v)}
+        />
+      </div>
+      <div className="form-grid">
+        <SelectField
+          label="Floating leverage profile"
+          value={g.margin_leverage_id ?? 0}
+          options={[
+            { value: 0, label: "None" },
+            ...profiles.map((p) => ({ value: p.leverage_id, label: p.name })),
+          ]}
+          onChange={(v) => set("margin_leverage_id", Number(v))}
         />
       </div>
       <fieldset className="fieldset">

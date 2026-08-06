@@ -43,6 +43,7 @@ const newDraft = (folderPath) => ({
   margin_so_mode: 0,
   margin_free_mode: 1,
   margin_free_profit_mode: 0,
+  margin_leverage_id: 0,
   limit_history: 0,
   limit_orders: 0,
   limit_symbols: 0,
@@ -55,20 +56,19 @@ const newDraft = (folderPath) => ({
 
 /** Fields UptGroup can write; the diff never sends anything else. */
 const PATCH_FIELDS = [
+  "group",
   "permission_flags", "auth_mode", "auth_password_min", "company", "company_page",
-  "company_email", "company_support_page", "company_support_email", "company_catalog",
+  "company_email", "company_deposit", "company_withdrawal",
+  "company_support_page", "company_support_email", "company_catalog",
   "currency", "currency_digits", "reports_mode", "reports_flags", "reports_email",
   "reports_smtp", "reports_smtp_login", "news_mode", "news_category", "mail_mode",
   "trade_flags", "trade_interest_rate", "trade_virtual_credit", "trade_transfer_mode",
   "margin_free_mode", "margin_so_mode", "margin_call", "margin_stop_out",
-  "margin_free_profit_mode", "margin_mode", "limit_history", "limit_orders",
+  "margin_free_profit_mode", "margin_mode", "margin_leverage_id", "limit_history", "limit_orders",
   "limit_symbols", "limit_positions", "limit_positions_volume", "demo_leverage", "demo_deposit",
 ];
 
-/**
- * The 8-tab group dialog. groupId "new" creates (the path in Name builds the sections);
- * renaming an existing group's Name saves a copy under the new path, the reference rule.
- */
+/** The 8-tab group dialog. groupId "new" creates; an existing group renames in place. */
 export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
   const isNew = groupId === "new";
   const [activeTab, setActiveTab] = useState("Common");
@@ -93,13 +93,12 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
 
   async function handleOk() {
     if (!draft) return;
-    const renamed = !isNew && draft.group !== original.group;
+    if (!draft.group?.trim() || draft.group.endsWith("\\")) {
+      setError("Group name is required");
+      return;
+    }
 
-    if (isNew || renamed) {
-      if (!draft.group?.trim() || draft.group.endsWith("\\")) {
-        setError("Group name is required");
-        return;
-      }
+    if (isNew) {
       const body = Object.fromEntries(
         PATCH_FIELDS.filter((k) => draft[k] !== undefined && draft[k] !== null).map((k) => [k, draft[k]]),
       );
@@ -113,6 +112,7 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
       for (const key of PATCH_FIELDS) {
         if (draft[key] !== undefined && draft[key] !== original[key]) patch[key] = draft[key];
       }
+      if (patch.group) patch.group = patch.group.trim();
       if (Object.keys(patch).length) {
         const res = await updateGroup(groupId, patch);
         if (!res.ok) {
@@ -131,7 +131,7 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
     if (!draft) return null;
     switch (tab) {
       case "Common":
-        return <GroupCommonTab g={draft} set={set} isNew />;
+        return <GroupCommonTab g={draft} set={set} />;
       case "Company":
         return <GroupCompanyTab g={draft} set={set} />;
       case "News & Mail":

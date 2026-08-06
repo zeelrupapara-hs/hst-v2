@@ -105,6 +105,17 @@ export function DatafeedSymbolsTab({ d, set }) {
       showMove={false}
       headless
       showAddRow
+      beforeTable={
+        <label className="no-colon df-check-cell df-symbols-import">
+          <input
+            type="checkbox"
+            className="df-checkbox"
+            checked={d.allow_import_symbols === 1}
+            onChange={(e) => set("allow_import_symbols", e.target.checked ? 1 : 0)}
+          />
+          Allow importing symbol settings
+        </label>
+      }
       onChangeRows={(next) => set("feed_symbols", next)}
       emptyLabel=""
       renderCellPrefix={() => <DfRowIcon />}

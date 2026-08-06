@@ -4,7 +4,7 @@ import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { useGroups } from "@/hooks/useGroups.js";
-import { createUser, fetchUser, updateUser } from "@/api/endpoints/users.js";
+import { createUser, fetchUser, resetUserPassword, updateUser } from "@/api/endpoints/users.js";
 import { AccountRight_checks, LimitRight_checks } from "@/constants/users.js";
 import { AccountOverviewTab } from "./AccountOverviewTab.jsx";
 
@@ -48,6 +48,57 @@ function RightCheck({ rights, def, onChange }) {
       />{" "}
       {def.label}
     </label>
+  );
+}
+
+const PASSWORD_KINDS = [
+  { kind: "main", label: "Master password", note: "used for full access to the trading account" },
+  { kind: "investor", label: "Investor password", note: "used for read-only access to the trading account" },
+  { kind: "api", label: "API password", note: "used for access to the server through the web API" },
+];
+
+const CLASSES = ["abcdefghijkmnopqrstuvwxyz", "ABCDEFGHJKLMNPQRSTUVWXYZ", "23456789", "!@#$%^&*-_=+"];
+
+/** One character from each class, then filler, then shuffled — 4 classes guaranteed. */
+function generatePassword() {
+  const rand = (s) => s[Math.floor(Math.random() * s.length)];
+  const all = CLASSES.join("");
+  const chars = CLASSES.map(rand);
+  while (chars.length < 12) chars.push(rand(all));
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
+
+function PasswordRow({ login, kind }) {
+  const [value, setValue] = useState("");
+  const [status, setStatus] = useState("");
+
+  async function onChangePassword() {
+    if (value.length < 8) {
+      setStatus("minimum 8 characters");
+      return;
+    }
+    const res = await resetUserPassword(login, kind.kind, value);
+    setStatus(res.ok ? "password changed" : res.message || "change failed");
+  }
+
+  return (
+    <div className="acc-pass-row">
+      <div className="acc-pass-note">
+        {kind.label} {kind.note}
+      </div>
+      <div className="acc-pass-line">
+        <input value={value} onChange={(e) => { setValue(e.target.value); setStatus(""); }} />
+        <button type="button" onClick={onChangePassword}>Change</button>
+        <button type="button" onClick={() => { setValue(generatePassword()); setStatus(""); }}>
+          Generate
+        </button>
+      </div>
+      <div className="acc-pass-status">{status || "minimum 8 characters"}</div>
+    </div>
   );
 }
 
@@ -203,10 +254,14 @@ export function AccountDialog({ login, onClose, onSaved }) {
             </div>
           </>
         ) : (
-          <Intro>
-            Passwords are changed by the account owner through the trading terminal; a staff-side
-            reset endpoint is not available yet.
-          </Intro>
+          <div className="acc-pass-tab">
+            {PASSWORD_KINDS.map((kind) => (
+              <PasswordRow key={kind.kind} login={login} kind={kind} />
+            ))}
+            <p className="acc-pass-warn">
+              Changing the master password ends the account's open sessions.
+            </p>
+          </div>
         );
     }
   }

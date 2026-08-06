@@ -30,3 +30,6 @@ export const updateDatafeedTranslate = (id, rowId, patch) =>
   request(`/api/v1/datafeeds/${id}/translates/${rowId}`, { method: "PATCH", body: patch });
 export const deleteDatafeedTranslate = (id, rowId) =>
   request(`/api/v1/datafeeds/${id}/translates/${rowId}`, { method: "DELETE" });
+
+export const reorderDatafeeds = (datafeedIds) =>
+  request("/api/v1/datafeeds/order", { method: "PUT", body: { datafeed_ids: datafeedIds } });

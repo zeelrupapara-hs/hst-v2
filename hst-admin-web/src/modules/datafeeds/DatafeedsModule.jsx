@@ -8,6 +8,7 @@ import {
   activateDatafeed,
   deleteDatafeed,
   fetchDatafeedModules,
+  reorderDatafeeds,
   updateDatafeed,
 } from "@/api/endpoints/datafeeds.js";
 import { formatNs } from "@/lib/time.js";
@@ -40,7 +41,9 @@ export function DatafeedsModule() {
   const [pane, setPane] = useState("selected");
   const [modules, setModules] = useState([]);
   const canEdit = session.can?.right_cfg_datafeeds !== false;
-  const row = selected == null ? null : datafeeds[selected];
+  // feed_index is the priority order the server restarts feeds in
+  const feeds = [...datafeeds].sort((a, b) => (a.feed_index ?? 0) - (b.feed_index ?? 0));
+  const row = selected == null ? null : feeds[selected];
 
   useEffect(() => {
     if (pane !== "available" || modules.length) return;
@@ -61,6 +64,20 @@ export function DatafeedsModule() {
   async function onRestart(target) {
     const res = await activateDatafeed(target.datafeed_id);
     if (!res.ok) window.alert(res.message || "restart failed");
+    reload();
+  }
+
+  async function onMove(delta) {
+    const to = selected + delta;
+    if (selected == null || to < 0 || to >= feeds.length) return;
+    const ids = feeds.map((f) => f.datafeed_id);
+    [ids[selected], ids[to]] = [ids[to], ids[selected]];
+    const res = await reorderDatafeeds(ids);
+    if (!res.ok) {
+      window.alert(res.message || "reorder failed");
+      return;
+    }
+    setSelected(to);
     reload();
   }
 
@@ -122,7 +139,7 @@ export function DatafeedsModule() {
               </tr>
             </thead>
             <tbody>
-              {datafeeds.map((feed, i) => (
+              {feeds.map((feed, i) => (
                 <tr
                   key={feed.datafeed_id}
                   className={selected === i || feed.datafeed_id === highlight ? "selected" : ""}
@@ -206,6 +223,17 @@ export function DatafeedsModule() {
               onDelete: () => onDelete(row),
               hasSelection: !!row,
             }),
+            "sep",
+            {
+              label: "Move Up",
+              disabled: !row || selected === 0,
+              onClick: () => onMove(-1),
+            },
+            {
+              label: "Move Down",
+              disabled: !row || selected >= feeds.length - 1,
+              onClick: () => onMove(1),
+            },
             "sep",
             {
               label: row?.enable === 1 ? "Disable" : "Enable",

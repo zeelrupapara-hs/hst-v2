@@ -13,3 +13,6 @@ export const createClient = (body) => request("/api/v1/clients", { method: "POST
 export const updateClient = (id, patch) =>
   request(`/api/v1/clients/${id}`, { method: "PATCH", body: patch });
 export const deleteClient = (id) => request(`/api/v1/clients/${id}`, { method: "DELETE" });
+
+export const resetUserPassword = (login, kind, password) =>
+  request(`/api/v1/users/${login}/password`, { method: "POST", body: { kind, password } });

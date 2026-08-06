@@ -3,6 +3,7 @@ import { Icon } from "@/components/ui/Icon.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import {
   BackgroundColor_options,
+  BookVolume_options,
   CalcMode_name,
   CalcMode_order,
   ChartMode_name,
@@ -14,6 +15,7 @@ import {
   FillFlag_labels,
   FilterTicks_options,
   GTCMode_name,
+  INSTANT_FAST_CONFIRMATION,
   MARGIN_CHECK_PROCESS,
   MARGIN_CHECK_SLTP,
   MARGIN_EXCLUDE_PL,
@@ -31,6 +33,7 @@ import {
   SymbolSector_name,
   TICK_COLLECT_RAW,
   TICK_FEED_STATS,
+  TICK_NEGATIVE_PRICES,
   TICK_REALTIME,
   TRADE_ALLOW_SIGNALS,
   TRADE_PROFIT_BY_MARKET,
@@ -251,6 +254,12 @@ export function CommonTab({ s, set, isNew }) {
         />
         <NumField label="Spread" value={s.spread} offWhenZero onChange={(v) => set("spread", v)} />
         <SelectField
+          label="Market depth volume"
+          value={s.tick_book_volume ?? 0}
+          options={BookVolume_options}
+          onChange={(v) => set("tick_book_volume", v)}
+        />
+        <SelectField
           label="Chart mode"
           value={s.tick_chart_mode}
           names={ChartMode_name}
@@ -313,14 +322,19 @@ export function QuotesTab({ s, set }) {
           onChange={(on) => tick(TICK_REALTIME, on)}
         />
         <CheckField
-          label="Save raw prices"
-          checked={hasBit(s.tick_flags, TICK_COLLECT_RAW)}
-          onChange={(on) => tick(TICK_COLLECT_RAW, on)}
+          label="Allow negative quotes"
+          checked={hasBit(s.tick_flags, TICK_NEGATIVE_PRICES)}
+          onChange={(on) => tick(TICK_NEGATIVE_PRICES, on)}
         />
         <CheckField
           label="Receive market statistics from datafeeds"
           checked={hasBit(s.tick_flags, TICK_FEED_STATS)}
           onChange={(on) => tick(TICK_FEED_STATS, on)}
+        />
+        <CheckField
+          label="Save raw prices"
+          checked={hasBit(s.tick_flags, TICK_COLLECT_RAW)}
+          onChange={(on) => tick(TICK_COLLECT_RAW, on)}
         />
       </div>
       <div className="form-grid sym-quotes-form">
@@ -471,6 +485,12 @@ export function ExecutionTab({ s, set }) {
               fallback
               suffix="points"
               onChange={(v) => set("ie_slip_losing", v)}
+            />
+            <label />
+            <CheckField
+              label="Fast confirmation of requotes within client deviation"
+              checked={hasBit(s.ie_flags, INSTANT_FAST_CONFIRMATION)}
+              onChange={(on) => set("ie_flags", setBit(s.ie_flags, INSTANT_FAST_CONFIRMATION, on))}
             />
             <NumField
               label="Maximum volume"
