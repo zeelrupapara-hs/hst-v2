@@ -124,7 +124,7 @@ var adminTree = []navNode{
 	{key: "leverages", label: "Leverage Profiles", icon: "percent", route: "/leverage-profiles",
 		section: "config", needs: []uint{model.MgrRightCfgGroups}, counter: "leverages"},
 
-	{key: "routing", label: "Request Routing", icon: "git-branch", route: "/routing", section: "config",
+	{key: "routing", label: "Routing", icon: "git-branch", route: "/routing", section: "config",
 		needs: []uint{model.MgrRightCfgRequests}, counter: "routing"},
 
 	{key: "datafeeds", label: "Data Feeds", icon: "rss", route: "/datafeeds", section: "feeds",
