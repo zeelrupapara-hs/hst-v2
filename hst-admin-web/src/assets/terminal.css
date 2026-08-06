@@ -3649,3 +3649,11 @@ label.sym-check::after { content: none; }
 .time-module > .module-note { margin-left: 192px; }
 .time-actions { padding-left: 180px; }
 .time-module > .module-note { margin-left: 180px; }
+
+/* trailing-check columns: both columns right-align text with the box after, tight rows */
+.grp-check-cols { gap: 6px 28px; padding: 4px 24px 4px 12px; }
+.grp-check-cols > .grp-check-trailing,
+.grp-check-cols > .grp-check-trailing:nth-child(even) { justify-content: flex-end; }
+.settings-dialog .grp-check-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+/* inside a two-column check block each row keeps its own column */
+.settings-dialog .grp-check-cols > .sym-check { grid-column: auto; }
