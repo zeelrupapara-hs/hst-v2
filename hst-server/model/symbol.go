@@ -551,13 +551,6 @@ var (
 	}
 )
 
-// SymbolIndustry stores EnIndustries.
-type SymbolIndustry int32
-
-const (
-	SymbolIndustry_undefined SymbolIndustry = 0
-)
-
 type SymbolSessionType int32
 
 const (

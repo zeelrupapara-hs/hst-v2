@@ -1,7 +1,17 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
+import { useSymbols } from "@/hooks/useSymbols.js";
+import { useExclusiveDropdown } from "@/hooks/useExclusiveDropdown.js";
+import { fetchSymbolLookups } from "@/api/endpoints/symbols.js";
+import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
+import {
+  digitsForCurrencyField,
+  isForexDerived,
+  isMarginDerived,
+} from "@/lib/symbolCurrency.js";
+import { COUNTRY_options } from "@/constants/countries.js";
 import {
   BackgroundColor_options,
   BookVolume_options,
@@ -31,6 +41,7 @@ import {
   SwapYearDays_options,
   SwapMode_name,
   SymbolIndustry_name,
+  SymbolIndustries_bySector,
   SymbolSector_name,
   TICK_COLLECT_RAW,
   TICK_FEED_STATS,
@@ -154,15 +165,21 @@ function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZer
   );
 }
 
-function SelectField({ label, value, names, order, options, onChange, disabled, suffix, fallback, lockField, fieldKey }) {
+function SelectField({ label, value, names, order, options, onChange, disabled, suffix, fallback, lockField, fieldKey, emptyValue }) {
   const locked = lockField?.(fieldKey);
   const opts = options ?? enumOptions(names, order);
   const list =
     fallback != null && !opts.some((o) => String(o.value) === String(value))
       ? [{ value, label: String(value ?? "") }, ...opts]
       : opts;
+  const defaultValue =
+    emptyValue !== undefined
+      ? emptyValue
+      : opts.length && typeof opts[0]?.value === "string"
+        ? ""
+        : 0;
   const select = (
-    <PropSelect fill value={value ?? 0} options={list} onChange={onChange} disabled={disabled || locked} />
+    <PropSelect fill value={value ?? defaultValue} options={list} onChange={onChange} disabled={disabled || locked} />
   );
   return (
     <>
@@ -191,23 +208,37 @@ function parseMarketDepth(text) {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
-/** MT5-style combo: presets in the list, any number may be typed. */
-function EditableSelectField({ label, value, options, onChange, format, parse, lockField, fieldKey }) {
+/** MT5-style combo: presets in the list, any value may be typed. */
+function EditableSelectField({ label, value, options, onChange, format, parse, lockField, fieldKey, filterOptions }) {
   const locked = lockField?.(fieldKey);
   const [open, setOpen] = useState(false);
   const [raw, setRaw] = useState(null);
   const [pos, setPos] = useState(null);
   const rootRef = useRef(null);
+  const btnRef = useRef(null);
+  const menuRef = useRef(null);
+  const openRef = useRef(false);
+  const announceOpen = useExclusiveDropdown(open, setOpen);
   const fmt = format ?? String;
   const par = parse ?? ((text) => Number(text) || 0);
   const items = options ?? [];
   const display = raw ?? fmt(value);
+  const needle = String(raw ?? fmt(value) ?? "").trim().toLowerCase();
+  const visibleItems =
+    filterOptions && needle
+      ? items.filter((o) => String(o.label ?? o.value ?? "").toLowerCase().includes(needle))
+      : items;
+
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
     function close(e) {
       if (rootRef.current?.contains(e.target)) return;
-      if (e.target.closest?.(".prop-select-menu")) return;
+      if (btnRef.current?.contains(e.target)) return;
+      if (menuRef.current?.contains(e.target)) return;
       setOpen(false);
     }
     const onKey = (e) => e.key === "Escape" && setOpen(false);
@@ -227,9 +258,15 @@ function EditableSelectField({ label, value, options, onChange, format, parse, l
 
   function openMenu(e) {
     if (locked) return;
+    e.preventDefault();
     e.stopPropagation();
+    if (openRef.current) {
+      setOpen(false);
+      return;
+    }
+    announceOpen();
     const r = rootRef.current.getBoundingClientRect();
-    setPos({ top: r.bottom, left: r.left, width: r.width });
+    setPos({ top: r.bottom, left: r.left, width: Math.max(r.width, 180) });
     setOpen(true);
   }
 
@@ -247,47 +284,74 @@ function EditableSelectField({ label, value, options, onChange, format, parse, l
             className="editable-select-input"
             value={display}
             disabled={locked}
-            onFocus={() => setRaw(fmt(value))}
-            onBlur={(e) => commit(e.target.value)}
-            onChange={(e) => setRaw(e.target.value)}
+            onFocus={() => {
+              setRaw(fmt(value));
+            }}
+            onBlur={(e) => {
+              if (btnRef.current?.contains(e.relatedTarget)) return;
+              commit(e.target.value);
+              setOpen(false);
+            }}
+            onChange={(e) => {
+              setRaw(e.target.value);
+              if (filterOptions && !openRef.current) {
+                announceOpen();
+                const r = rootRef.current.getBoundingClientRect();
+                setPos({ top: r.bottom, left: r.left, width: Math.max(r.width, 180) });
+                setOpen(true);
+              }
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
                 commit(e.currentTarget.value);
                 e.currentTarget.blur();
+                setOpen(false);
+              } else if (e.key === "Escape") {
+                setOpen(false);
+              } else if (e.key === "ArrowDown" && !open) {
+                e.preventDefault();
+                openMenu(e);
               }
             }}
           />
-          <button
-            type="button"
-            className="prop-select-btn"
-            aria-label="Open list"
-            disabled={locked}
-            onClick={openMenu}
-          />
+          <span className="prop-select-btn-wrap" ref={btnRef} onMouseDown={openMenu}>
+            <button
+              type="button"
+              className="prop-select-btn"
+              aria-label="Open list"
+              disabled={locked}
+              tabIndex={-1}
+            />
+          </span>
         </div>
       </div>
       {open &&
         pos &&
         createPortal(
           <ul
-            className="prop-select-menu"
+            ref={menuRef}
+            className="prop-select-menu prop-select-menu-front"
             style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
           >
-            {items.map((opt) => (
-              <li
-                key={String(opt.value)}
-                className={String(opt.value) === String(value) ? "sel" : undefined}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange?.(opt.value);
-                  setRaw(null);
-                  setOpen(false);
-                }}
-              >
-                {opt.label}
-              </li>
-            ))}
+            {visibleItems.length ? (
+              visibleItems.map((opt) => (
+                <li
+                  key={`${String(opt.value)}:${String(opt.label)}`}
+                  className={String(opt.value) === String(value) ? "sel" : undefined}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange?.(opt.value);
+                    setRaw(null);
+                    setOpen(false);
+                  }}
+                >
+                  {opt.label}
+                </li>
+              ))
+            ) : (
+              <li className="prop-select-menu-empty">No matches</li>
+            )}
           </ul>,
           document.body,
         )}
@@ -319,6 +383,9 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const rootRef = useRef(null);
+  const menuRef = useRef(null);
+  const openRef = useRef(false);
+  const announceOpen = useExclusiveDropdown(open, setOpen);
   const all = labels.reduce((a, l) => a | l.bit, 0);
   const picked = labels.filter((l) => hasBit(value, l.bit));
   const summary =
@@ -329,10 +396,14 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
         : "None";
 
   useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
     if (!open) return;
     const close = (e) => {
       if (rootRef.current?.contains(e.target)) return;
-      if (e.target.closest?.(".sym-flag-combo-menu")) return;
+      if (menuRef.current?.contains(e.target)) return;
       setOpen(false);
     };
     const onKey = (e) => e.key === "Escape" && setOpen(false);
@@ -348,11 +419,14 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
   function toggle(e) {
     if (locked) return;
     e.stopPropagation();
-    if (!open) {
-      const r = rootRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom, left: r.left, width: r.width });
+    if (openRef.current) {
+      setOpen(false);
+      return;
     }
-    setOpen((v) => !v);
+    announceOpen();
+    const r = rootRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom, left: r.left, width: r.width });
+    setOpen(true);
   }
 
   return (
@@ -368,6 +442,7 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
         pos &&
         createPortal(
           <div
+            ref={menuRef}
             className="sym-flag-combo-menu"
             style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: pos.width }}
             onMouseDown={(e) => e.stopPropagation()}
@@ -390,9 +465,55 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
 }
 
 export function CommonTab({ s, set, isNew, lockField }) {
+  const { symbols } = useSymbols();
+  const [lookups, setLookups] = useState({ sources: [], bases: [] });
+
+  useEffect(() => {
+    let alive = true;
+    fetchSymbolLookups().then((res) => {
+      if (alive && res.ok) setLookups(res.data || { sources: [], bases: [] });
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const domActive = Number(s.tick_book_depth) > 0;
   const spreadLocked = domActive || lockField?.("spread");
   const balanceLocked = domActive || lockField?.("spread_balance");
+
+  const sourceHeaders = useMemo(() => {
+    const symbolNames = new Set(symbols.map((row) => row.symbol).filter(Boolean));
+    const opts = [{ value: "", label: "-" }];
+    const seen = new Set(["", "-"]);
+    for (const v of lookups.sources) {
+      const s = v == null ? "" : String(v).trim();
+      if (!s || seen.has(s) || symbolNames.has(s)) continue;
+      seen.add(s);
+      opts.push({ value: s, label: s });
+    }
+    return opts;
+  }, [lookups.sources, symbols]);
+
+  // Basis is always another symbol — tree only, plus "-" for none (no legacy flat rows).
+  const basisHeaders = useMemo(() => [{ value: "", label: "-" }], []);
+
+  const sector = s.sector ?? 0;
+  const industryIds = SymbolIndustries_bySector[sector] ?? [0];
+  const industryNames = useMemo(() => {
+    const names = { 0: SymbolIndustry_name[0] };
+    for (const id of industryIds) {
+      if (id !== 0 && SymbolIndustry_name[id]) names[id] = SymbolIndustry_name[id];
+    }
+    return names;
+  }, [industryIds]);
+
+  const onSectorChange = (v) => {
+    set("sector", v);
+    const allowed = SymbolIndustries_bySector[v ?? 0] ?? [0];
+    if (!allowed.includes(Number(s.industry ?? 0))) set("industry", 0);
+  };
+
   return (
     <>
       <TabIntro>
@@ -405,12 +526,45 @@ export function CommonTab({ s, set, isNew, lockField }) {
         <Field label="Exchange" fieldKey="exchange" lockField={lockField} value={s.exchange} onChange={(v) => set("exchange", v)} />
         <Field label="International" fieldKey="international" lockField={lockField} value={s.international} onChange={(v) => set("international", v)} />
         <Field label="ISIN" fieldKey="isin" lockField={lockField} value={s.isin} onChange={(v) => set("isin", v)} />
-        <SelectField label="Sector" fieldKey="sector" lockField={lockField} value={s.sector} names={SymbolSector_name} onChange={(v) => set("sector", v)} />
+        <SelectField label="Sector" fieldKey="sector" lockField={lockField} value={s.sector} names={SymbolSector_name} onChange={onSectorChange} />
         <Field label="CFI" fieldKey="cfi" lockField={lockField} value={s.cfi} onChange={(v) => set("cfi", v)} />
-        <SelectField label="Industry" value={s.industry} names={SymbolIndustry_name} disabled />
-        <Field label="Basis" fieldKey="basis" lockField={lockField} value={s.basis} onChange={(v) => set("basis", v)} combo />
-        <Field label="Country" fieldKey="country" lockField={lockField} value={s.country} onChange={(v) => set("country", v)} combo />
-        <Field label="Source" fieldKey="source" lockField={lockField} value={s.source} onChange={(v) => set("source", v)} combo />
+        <SelectField
+          label="Industry"
+          fieldKey="industry"
+          lockField={lockField}
+          value={s.industry ?? 0}
+          names={industryNames}
+          order={industryIds}
+          fallback
+          onChange={(v) => set("industry", v)}
+        />
+        <SymbolTreeSelectField
+          label="Basis"
+          fieldKey="basis"
+          lockField={lockField}
+          value={s.basis ?? ""}
+          headerItems={basisHeaders}
+          onChange={(v) => set("basis", v)}
+        />
+        <EditableSelectField
+          label="Country"
+          fieldKey="country"
+          lockField={lockField}
+          value={s.country ?? ""}
+          options={COUNTRY_options}
+          filterOptions
+          format={(v) => (v == null || v === "" ? "" : String(v))}
+          parse={(text) => String(text ?? "")}
+          onChange={(v) => set("country", v)}
+        />
+        <SymbolTreeSelectField
+          label="Source"
+          fieldKey="source"
+          lockField={lockField}
+          value={s.source ?? ""}
+          headerItems={sourceHeaders}
+          onChange={(v) => set("source", v)}
+        />
         <Field label="Category" fieldKey="category" lockField={lockField} value={s.category} onChange={(v) => set("category", v)} />
         <label>Background</label>
         <span className="sym-color-select">
@@ -485,24 +639,80 @@ export function CommonTab({ s, set, isNew, lockField }) {
 }
 
 export function CurrencyTab({ s, set, lockField }) {
-  const derived = Number(s.calc_mode) === 0;
+  const forexDerived = isForexDerived(s.calc_mode);
+  const marginDerived = isMarginDerived(s.calc_mode);
   const cur = (v) => plain(CURRENCY_options).concat(
     CURRENCY_options.includes(v) || !v ? [] : [{ value: v, label: v }],
   );
+
+  const setCurrency = (fieldKey, value) => {
+    set(fieldKey, value);
+    const digitPatch = digitsForCurrencyField(fieldKey, value);
+    for (const [k, v] of Object.entries(digitPatch)) set(k, v);
+  };
+
   return (
     <>
       <TabIntro>The setting up of base, profit, and margin currencies of the symbol.</TabIntro>
       <div className="form-grid sym-currency-block">
-        <SelectField label="Base currency" fieldKey="currency_base" lockField={lockField} value={s.currency_base} options={cur(s.currency_base)} disabled={derived} onChange={(v) => set("currency_base", v)} />
-        <SelectField label="Base currency digits" value={s.currency_base_digits} options={plain(DIGITS_options)} onChange={(v) => set("currency_base_digits", v)} />
+        <SelectField
+          label="Base currency"
+          fieldKey="currency_base"
+          lockField={lockField}
+          value={s.currency_base}
+          options={cur(s.currency_base)}
+          disabled={forexDerived}
+          onChange={(v) => setCurrency("currency_base", v)}
+        />
+        <SelectField
+          label="Base currency digits"
+          fieldKey="currency_base_digits"
+          lockField={lockField}
+          value={s.currency_base_digits}
+          options={plain(DIGITS_options)}
+          disabled={forexDerived}
+          onChange={(v) => set("currency_base_digits", v)}
+        />
       </div>
       <div className="form-grid sym-currency-block">
-        <SelectField label="Profit currency" value={s.currency_profit} options={cur(s.currency_profit)} disabled={derived} onChange={(v) => set("currency_profit", v)} />
-        <SelectField label="Profit currency digits" value={s.currency_profit_digits} options={plain(DIGITS_options)} onChange={(v) => set("currency_profit_digits", v)} />
+        <SelectField
+          label="Profit currency"
+          fieldKey="currency_profit"
+          lockField={lockField}
+          value={s.currency_profit}
+          options={cur(s.currency_profit)}
+          disabled={forexDerived}
+          onChange={(v) => setCurrency("currency_profit", v)}
+        />
+        <SelectField
+          label="Profit currency digits"
+          fieldKey="currency_profit_digits"
+          lockField={lockField}
+          value={s.currency_profit_digits}
+          options={plain(DIGITS_options)}
+          disabled={forexDerived}
+          onChange={(v) => set("currency_profit_digits", v)}
+        />
       </div>
       <div className="form-grid sym-currency-block">
-        <SelectField label="Margin currency" value={s.currency_margin} options={cur(s.currency_margin)} onChange={(v) => set("currency_margin", v)} />
-        <SelectField label="Margin currency digits" value={s.currency_margin_digits} options={plain(DIGITS_options)} onChange={(v) => set("currency_margin_digits", v)} />
+        <SelectField
+          label="Margin currency"
+          fieldKey="currency_margin"
+          lockField={lockField}
+          value={s.currency_margin}
+          options={cur(s.currency_margin)}
+          disabled={marginDerived}
+          onChange={(v) => setCurrency("currency_margin", v)}
+        />
+        <SelectField
+          label="Margin currency digits"
+          fieldKey="currency_margin_digits"
+          lockField={lockField}
+          value={s.currency_margin_digits}
+          options={plain(DIGITS_options)}
+          disabled={marginDerived}
+          onChange={(v) => set("currency_margin_digits", v)}
+        />
       </div>
     </>
   );

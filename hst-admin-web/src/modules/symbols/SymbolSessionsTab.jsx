@@ -7,27 +7,12 @@ import {
   formatDaySessions,
   mergeDaySessions,
 } from "@/lib/symbolSessions.js";
-import { fromNs } from "@/lib/time.js";
+import { formatUnixSec, parseMt5DateTimeToSec } from "@/lib/time.js";
 import { SessionEditorDialog } from "./SessionEditorDialog.jsx";
-
-const pad = (n) => String(n).padStart(2, "0");
 
 const MT5_EPOCH = "1970.01.01 00:00";
 
-const formatMt5DateTime = (ns) => {
-  if (!ns) return MT5_EPOCH;
-  const d = fromNs(ns);
-  return `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-
-const parseMt5DateTime = (raw) => {
-  const s = raw.trim();
-  const m = s.match(/^(\d{4})\.(\d{2})\.(\d{2})\s+(\d{2}):(\d{2})$/);
-  if (!m) return null;
-  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]);
-  if (Number.isNaN(d.getTime())) return null;
-  return d.getTime() * 1e6;
-};
+const formatMt5DateTime = (sec) => (sec ? formatUnixSec(sec) : MT5_EPOCH);
 
 /** Sessions grid: select days (Ctrl/Shift), Edit or double-click opens the timeline editor. */
 export function SymbolSessionsTab({ s, set }) {
@@ -131,8 +116,8 @@ export function SymbolSessionsTab({ s, set }) {
             key={`from-${s.time_start}-${useLimits}`}
             placeholder={MT5_EPOCH}
             onBlur={(e) => {
-              const ns = parseMt5DateTime(e.target.value);
-              if (ns != null) set("time_start", ns);
+              const sec = parseMt5DateTimeToSec(e.target.value);
+              if (sec != null) set("time_start", sec);
               else e.target.value = formatMt5DateTime(s.time_start);
             }}
           />
@@ -145,8 +130,8 @@ export function SymbolSessionsTab({ s, set }) {
             key={`to-${s.time_expiration}-${useLimits}`}
             placeholder={MT5_EPOCH}
             onBlur={(e) => {
-              const ns = parseMt5DateTime(e.target.value);
-              if (ns != null) set("time_expiration", ns);
+              const sec = parseMt5DateTimeToSec(e.target.value);
+              if (sec != null) set("time_expiration", sec);
               else e.target.value = formatMt5DateTime(s.time_expiration);
             }}
           />

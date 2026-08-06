@@ -5,6 +5,12 @@ import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { createSymbol, fetchSymbol, updateSymbol } from "@/api/endpoints/symbols.js";
 import {
+  CFD_CALC_MODES,
+  currencyDigits,
+  deriveSymbolCurrencies,
+  isForexDerived,
+} from "@/lib/symbolCurrency.js";
+import {
   CommonTab,
   CurrencyTab,
   ExecutionTab,
@@ -36,6 +42,9 @@ function newDraft(folderPath) {
     currency_base: "USD",
     currency_profit: "USD",
     currency_margin: "USD",
+    currency_base_digits: 2,
+    currency_profit_digits: 2,
+    currency_margin_digits: 2,
     digits: 5,
     trade_mode: 4,
     calc_mode: 0,
@@ -93,6 +102,46 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
       setOriginal(res.data);
     });
   }, [symbolId, isNew]);
+
+  useEffect(() => {
+    if (!draft) return;
+    const patch = deriveSymbolCurrencies({
+      symbol: draft.symbol,
+      calc_mode: draft.calc_mode,
+      current: draft,
+    });
+    if (!patch) return;
+    setDraft((prev) => {
+      if (!prev) return prev;
+      let changed = false;
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(patch)) {
+        if (next[k] !== v) {
+          next[k] = v;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [draft?.symbol, draft?.calc_mode]);
+
+  useEffect(() => {
+    if (!draft || isForexDerived(draft.calc_mode)) return;
+    if (!CFD_CALC_MODES.has(Number(draft.calc_mode))) return;
+    const profit = String(draft.currency_profit ?? "").trim() || "USD";
+    const marginDigits = currencyDigits(profit);
+    setDraft((prev) => {
+      if (!prev) return prev;
+      if (prev.currency_margin === profit && prev.currency_margin_digits === marginDigits) {
+        return prev;
+      }
+      return {
+        ...prev,
+        currency_margin: profit,
+        currency_margin_digits: marginDigits,
+      };
+    });
+  }, [draft?.calc_mode, draft?.currency_profit]);
 
   function set(key, value) {
     setDraft((prev) => {

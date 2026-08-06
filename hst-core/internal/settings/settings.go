@@ -64,6 +64,10 @@ type Rules struct {
 	CurrencyProfit string
 	CurrencyMargin string
 
+	CurrencyBaseDigits   int32
+	CurrencyProfitDigits int32
+	CurrencyMarginDigits int32
+
 	// MaxDeviationTime is how stale a quote may be, in seconds, before instant execution requotes.
 	MaxDeviationTime int32
 	// Slippage in points either side of the requested price, before instant execution requotes.
@@ -220,6 +224,10 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		CurrencyBase:   sym.CurrencyBase,
 		CurrencyProfit: sym.CurrencyProfit,
 		CurrencyMargin: sym.CurrencyMargin,
+
+		CurrencyBaseDigits:   sym.CurrencyBaseDigits,
+		CurrencyProfitDigits: sym.CurrencyProfitDigits,
+		CurrencyMarginDigits: sym.CurrencyMarginDigits,
 
 		TradeMode:  model.TradeMode(pick(o.TradeMode, sym.TradeMode)),
 		ExecMode:   model.ExecMode(pick(o.ExecMode, sym.ExecMode)),

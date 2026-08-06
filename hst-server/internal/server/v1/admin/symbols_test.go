@@ -1,6 +1,9 @@
 package admin
 
-import "testing"
+import (
+	"hstserver/model"
+	"testing"
+)
 
 func TestValidateSessionsOvernightWindows(t *testing.T) {
 	sessions := []CrtSymbolSession{
@@ -29,5 +32,35 @@ func TestValidateSessionsOpenMustBeLessThanClose(t *testing.T) {
 	}
 	if err := validateSessions(sessions); err == nil {
 		t.Fatal("expected open >= close to fail validation")
+	}
+}
+
+func TestPrepareCreateSymbolDefaults(t *testing.T) {
+	body := CrtSymbol{
+		Symbol:         "EURUSD",
+		Path:           "Forex",
+		CurrencyBase:   "EUR",
+		CurrencyProfit: "USD",
+		CurrencyMargin: "USD",
+		TimeStart:      1_700_000_000,
+	}
+	sym := prepareCreateSymbol(body, `Forex\EURUSD`, 999)
+	if sym.TradeMode != model.TradeMode_full {
+		t.Fatalf("trade_mode default: got %v want full", sym.TradeMode)
+	}
+	if sym.ExecMode != model.ExecMode_market {
+		t.Fatalf("exec_mode default: got %v want market", sym.ExecMode)
+	}
+	if sym.TimeStart != 1_700_000_000 {
+		t.Fatalf("time_start: got %d want seconds passthrough", sym.TimeStart)
+	}
+	if sym.MarginInitialBuy != 1 || sym.MarginInitialSell != 1 {
+		t.Fatalf("margin buy/sell defaults: got %v %v", sym.MarginInitialBuy, sym.MarginInitialSell)
+	}
+	if sym.SwapYearDay != 360 {
+		t.Fatalf("swap_year_day default: got %d", sym.SwapYearDay)
+	}
+	if len(symbolInsertArgs(sym)) != 122 {
+		t.Fatalf("insert arg count: got %d want 122", len(symbolInsertArgs(sym)))
 	}
 }

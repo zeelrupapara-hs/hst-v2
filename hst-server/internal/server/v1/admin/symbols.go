@@ -34,42 +34,127 @@ type CrtSymbolSession struct {
 	Close int32 `json:"close" validate:"gte=1,lte=1440"`
 }
 
-// CrtSymbol is the create payload, and point and multiply come from digits.
+// CrtSymbol is the create payload; zero values pick schema-like defaults in prepareCreateSymbol.
 type CrtSymbol struct {
-	Symbol         string             `json:"symbol" validate:"required,max=64"`
-	Path           string             `json:"path" validate:"required,max=255"`
-	Description    string             `json:"description" validate:"max=255"`
-	ISIN           string             `json:"isin" validate:"max=32"`
-	International  string             `json:"international" validate:"max=64"`
-	Category       string             `json:"category" validate:"max=128"`
-	Exchange       string             `json:"exchange" validate:"max=128"`
-	Source         string             `json:"source" validate:"max=128"`
-	CurrencyBase   string             `json:"currency_base" validate:"required,max=16"`
-	CurrencyProfit string             `json:"currency_profit" validate:"required,max=16"`
-	CurrencyMargin string             `json:"currency_margin" validate:"required,max=16"`
-	Digits         int32              `json:"digits" validate:"gte=0,lte=12"`
-	TradeMode      int16              `json:"trade_mode" validate:"gte=0,lte=4"`
-	CalcMode       int16              `json:"calc_mode" validate:"gte=0"`
-	ExecMode       int16              `json:"exec_mode" validate:"gte=0,lte=3"`
-	ContractSize   float64            `json:"contract_size" validate:"gte=0"`
-	Spread         int32              `json:"spread"`
-	SpreadBalance  int32              `json:"spread_balance"`
-	StopsLevel     int32              `json:"stops_level" validate:"gte=0"`
-	FreezeLevel    int32              `json:"freeze_level" validate:"gte=0"`
-	QuotesTimeout  int32              `json:"quotes_timeout" validate:"gte=0"`
-	VolumeMin      int64              `json:"volume_min" validate:"gte=0"`
-	VolumeMax      int64              `json:"volume_max" validate:"gte=0"`
-	VolumeStep     int64              `json:"volume_step" validate:"gte=0"`
-	TickSize       float64            `json:"tick_size" validate:"gte=0"`
-	TickValue      float64            `json:"tick_value" validate:"gte=0"`
-	SwapMode       int16              `json:"swap_mode" validate:"gte=0,lte=9"`
-	SwapLong       float64            `json:"swap_long"`
-	SwapShort      float64            `json:"swap_short"`
-	FillFlags      int32              `json:"fill_flags" validate:"gte=0"`
-	ExpirFlags     int32              `json:"expir_flags" validate:"gte=0"`
-	OrderFlags     int32              `json:"order_flags" validate:"gte=0"`
-	GTCMode        int16              `json:"gtc_mode" validate:"gte=0,lte=2"`
-	Sessions       []CrtSymbolSession `json:"sessions" validate:"dive"`
+	Symbol                         string             `json:"symbol" validate:"required,max=64"`
+	Path                           string             `json:"path" validate:"required,max=255"`
+	Description                    string             `json:"description" validate:"max=255"`
+	ISIN                           string             `json:"isin" validate:"max=32"`
+	International                  string             `json:"international" validate:"max=64"`
+	Category                       string             `json:"category" validate:"max=128"`
+	Exchange                       string             `json:"exchange" validate:"max=128"`
+	Cfi                            string             `json:"cfi" validate:"max=16"`
+	Sector                         int16              `json:"sector" validate:"gte=0"`
+	Industry                       int32              `json:"industry" validate:"gte=0"`
+	Country                        string             `json:"country" validate:"max=64"`
+	Basis                          string             `json:"basis" validate:"max=64"`
+	Source                         string             `json:"source" validate:"max=128"`
+	Page                           string             `json:"page" validate:"max=255"`
+	CurrencyBase                   string             `json:"currency_base" validate:"required,max=16"`
+	CurrencyBaseDigits             int32              `json:"currency_base_digits" validate:"gte=0,lte=12"`
+	CurrencyProfit                 string             `json:"currency_profit" validate:"required,max=16"`
+	CurrencyProfitDigits           int32              `json:"currency_profit_digits" validate:"gte=0,lte=12"`
+	CurrencyMargin                 string             `json:"currency_margin" validate:"required,max=16"`
+	CurrencyMarginDigits           int32              `json:"currency_margin_digits" validate:"gte=0,lte=12"`
+	Color                          int64              `json:"color"`
+	ColorBackground                int64              `json:"color_background"`
+	Digits                         int32              `json:"digits" validate:"gte=0,lte=12"`
+	TickFlags                      int32              `json:"tick_flags" validate:"gte=0"`
+	TickBookDepth                  int32              `json:"tick_book_depth" validate:"gte=0"`
+	TickBookVolume                 int32              `json:"tick_book_volume" validate:"gte=0"`
+	FilterSoft                     int32              `json:"filter_soft" validate:"gte=0"`
+	FilterSoftTicks                int32              `json:"filter_soft_ticks" validate:"gte=0"`
+	FilterHard                     int32              `json:"filter_hard" validate:"gte=0"`
+	FilterHardTicks                int32              `json:"filter_hard_ticks" validate:"gte=0"`
+	FilterDiscard                  int32              `json:"filter_discard" validate:"gte=0"`
+	FilterSpreadMax                int32              `json:"filter_spread_max" validate:"gte=0"`
+	FilterSpreadMin                int32              `json:"filter_spread_min" validate:"gte=0"`
+	SubscriptionsDelay             int32              `json:"subscriptions_delay" validate:"gte=0"`
+	TradeMode                      int16              `json:"trade_mode" validate:"gte=0,lte=4"`
+	CalcMode                       int16              `json:"calc_mode" validate:"gte=0"`
+	ExecMode                       int16              `json:"exec_mode" validate:"gte=0,lte=3"`
+	GTCMode                        int16              `json:"gtc_mode" validate:"gte=0,lte=2"`
+	FillFlags                      int32              `json:"fill_flags" validate:"gte=0"`
+	ExpirFlags                     int32              `json:"expir_flags" validate:"gte=0"`
+	Spread                         int32              `json:"spread"`
+	SpreadBalance                  int32              `json:"spread_balance"`
+	SpreadDiff                     int32              `json:"spread_diff"`
+	SpreadDiffBalance              int32              `json:"spread_diff_balance"`
+	TickValue                      float64            `json:"tick_value" validate:"gte=0"`
+	TickSize                       float64            `json:"tick_size" validate:"gte=0"`
+	ContractSize                   float64            `json:"contract_size" validate:"gte=0"`
+	StopsLevel                     int32              `json:"stops_level" validate:"gte=0"`
+	FreezeLevel                    int32              `json:"freeze_level" validate:"gte=0"`
+	QuotesTimeout                  int32              `json:"quotes_timeout" validate:"gte=0"`
+	VolumeMin                      int64              `json:"volume_min" validate:"gte=0"`
+	VolumeMinExt                   int64              `json:"volume_min_ext" validate:"gte=0"`
+	VolumeMax                      int64              `json:"volume_max" validate:"gte=0"`
+	VolumeMaxExt                   int64              `json:"volume_max_ext" validate:"gte=0"`
+	VolumeStep                     int64              `json:"volume_step" validate:"gte=0"`
+	VolumeStepExt                  int64              `json:"volume_step_ext" validate:"gte=0"`
+	VolumeLimit                    int64              `json:"volume_limit" validate:"gte=0"`
+	VolumeLimitExt                 int64              `json:"volume_limit_ext" validate:"gte=0"`
+	MarginFlags                    int32              `json:"margin_flags" validate:"gte=0"`
+	MarginInitial                  float64            `json:"margin_initial" validate:"gte=0"`
+	MarginMaintenance              float64            `json:"margin_maintenance" validate:"gte=0"`
+	MarginInitialBuy               float64            `json:"margin_initial_buy" validate:"gte=0"`
+	MarginInitialSell              float64            `json:"margin_initial_sell" validate:"gte=0"`
+	MarginInitialBuyLimit          float64            `json:"margin_initial_buy_limit" validate:"gte=0"`
+	MarginInitialSellLimit         float64            `json:"margin_initial_sell_limit" validate:"gte=0"`
+	MarginInitialBuyStop           float64            `json:"margin_initial_buy_stop" validate:"gte=0"`
+	MarginInitialSellStop          float64            `json:"margin_initial_sell_stop" validate:"gte=0"`
+	MarginInitialBuyStopLimit      float64            `json:"margin_initial_buy_stop_limit" validate:"gte=0"`
+	MarginInitialSellStopLimit     float64            `json:"margin_initial_sell_stop_limit" validate:"gte=0"`
+	MarginMaintenanceBuy           float64            `json:"margin_maintenance_buy" validate:"gte=0"`
+	MarginMaintenanceSell          float64            `json:"margin_maintenance_sell" validate:"gte=0"`
+	MarginMaintenanceBuyLimit      float64            `json:"margin_maintenance_buy_limit" validate:"gte=0"`
+	MarginMaintenanceSellLimit     float64            `json:"margin_maintenance_sell_limit" validate:"gte=0"`
+	MarginMaintenanceBuyStop       float64            `json:"margin_maintenance_buy_stop" validate:"gte=0"`
+	MarginMaintenanceSellStop      float64            `json:"margin_maintenance_sell_stop" validate:"gte=0"`
+	MarginMaintenanceBuyStopLimit  float64            `json:"margin_maintenance_buy_stop_limit" validate:"gte=0"`
+	MarginMaintenanceSellStopLimit float64            `json:"margin_maintenance_sell_stop_limit" validate:"gte=0"`
+	MarginHedged                   float64            `json:"margin_hedged" validate:"gte=0"`
+	SwapMode                       int16              `json:"swap_mode" validate:"gte=0,lte=9"`
+	SwapLong                       float64            `json:"swap_long"`
+	SwapShort                      float64            `json:"swap_short"`
+	SwapYearDay                    int32              `json:"swap_year_day" validate:"gte=0"`
+	SwapFlags                      int32              `json:"swap_flags" validate:"gte=0"`
+	SwapRateSunday                 float64            `json:"swap_rate_sunday" validate:"gte=0"`
+	SwapRateMonday                 float64            `json:"swap_rate_monday" validate:"gte=0"`
+	SwapRateTuesday                float64            `json:"swap_rate_tuesday" validate:"gte=0"`
+	SwapRateWednesday              float64            `json:"swap_rate_wednesday" validate:"gte=0"`
+	SwapRateThursday               float64            `json:"swap_rate_thursday" validate:"gte=0"`
+	SwapRateFriday                 float64            `json:"swap_rate_friday" validate:"gte=0"`
+	SwapRateSaturday               float64            `json:"swap_rate_saturday" validate:"gte=0"`
+	TimeStart                      int64              `json:"time_start" validate:"gte=0"`
+	TimeExpiration                 int64              `json:"time_expiration" validate:"gte=0"`
+	ReFlags                        int32              `json:"re_flags" validate:"gte=0"`
+	ReTimeout                      int32              `json:"re_timeout" validate:"gte=0"`
+	IeCheckMode                    int16              `json:"ie_check_mode" validate:"gte=0"`
+	IeTimeout                      int32              `json:"ie_timeout" validate:"gte=0"`
+	IeSlipProfit                   int32              `json:"ie_slip_profit" validate:"gte=0"`
+	IeFlags                        int32              `json:"ie_flags" validate:"gte=0"`
+	IeSlipLosing                   int32              `json:"ie_slip_losing" validate:"gte=0"`
+	IeVolumeMax                    int64              `json:"ie_volume_max" validate:"gte=0"`
+	IeVolumeMaxExt                 int64              `json:"ie_volume_max_ext" validate:"gte=0"`
+	PriceSettle                    float64            `json:"price_settle" validate:"gte=0"`
+	PriceLimitMax                  float64            `json:"price_limit_max" validate:"gte=0"`
+	PriceLimitMin                  float64            `json:"price_limit_min" validate:"gte=0"`
+	TradeFlags                     int32              `json:"trade_flags" validate:"gte=0"`
+	OrderFlags                     int32              `json:"order_flags" validate:"gte=0"`
+	MarginRateLiquidity            float64            `json:"margin_rate_liquidity" validate:"gte=0"`
+	MarginRateCurrency             float64            `json:"margin_rate_currency" validate:"gte=0"`
+	FaceValue                      float64            `json:"face_value" validate:"gte=0"`
+	AccruedInterest                float64            `json:"accrued_interest" validate:"gte=0"`
+	SpliceType                     int16              `json:"splice_type" validate:"gte=0"`
+	SpliceTimeType                 int16              `json:"splice_time_type" validate:"gte=0"`
+	SpliceTimeDays                 int32              `json:"splice_time_days" validate:"gte=0"`
+	OptionMode                     int16              `json:"option_mode" validate:"gte=0"`
+	PriceStrike                    float64            `json:"price_strike" validate:"gte=0"`
+	FilterGap                      int32              `json:"filter_gap" validate:"gte=0"`
+	FilterGapTicks                 int32              `json:"filter_gap_ticks" validate:"gte=0"`
+	TickChartMode                  int16              `json:"tick_chart_mode" validate:"gte=0"`
+	Sessions                       []CrtSymbolSession `json:"sessions" validate:"dive"`
 }
 
 // UptSymbol patches a symbol, and sending sessions replaces every row.
@@ -333,6 +418,249 @@ const symbolAllColumns = `
 	date_created,
 	date_modified`
 
+const symbolInsertColumns = `
+	symbol, path, isin, description, international, category, exchange, cfi, sector, industry,
+	country, basis, source, page, currency_base, currency_base_digits, currency_profit,
+	currency_profit_digits, currency_margin, currency_margin_digits, color, color_background,
+	digits, point, multiply, tick_flags, tick_book_depth, tick_book_volume, filter_soft,
+	filter_soft_ticks, filter_hard, filter_hard_ticks, filter_discard, filter_spread_max,
+	filter_spread_min, subscriptions_delay, trade_mode, calc_mode, exec_mode, gtc_mode,
+	fill_flags, expir_flags, spread, spread_balance, spread_diff, spread_diff_balance,
+	tick_value, tick_size, contract_size, stops_level, freeze_level, quotes_timeout,
+	volume_min, volume_min_ext, volume_max, volume_max_ext, volume_step, volume_step_ext,
+	volume_limit, volume_limit_ext, margin_flags, margin_initial, margin_maintenance,
+	margin_initial_buy, margin_initial_sell, margin_initial_buy_limit, margin_initial_sell_limit,
+	margin_initial_buy_stop, margin_initial_sell_stop, margin_initial_buy_stop_limit,
+	margin_initial_sell_stop_limit, margin_maintenance_buy, margin_maintenance_sell,
+	margin_maintenance_buy_limit, margin_maintenance_sell_limit, margin_maintenance_buy_stop,
+	margin_maintenance_sell_stop, margin_maintenance_buy_stop_limit,
+	margin_maintenance_sell_stop_limit, margin_hedged, swap_mode, swap_long, swap_short,
+	swap_year_day, swap_flags, swap_rate_sunday, swap_rate_monday, swap_rate_tuesday,
+	swap_rate_wednesday, swap_rate_thursday, swap_rate_friday, swap_rate_saturday,
+	time_start, time_expiration, re_flags, re_timeout, ie_check_mode, ie_timeout, ie_slip_profit,
+	ie_flags, ie_slip_losing, ie_volume_max, ie_volume_max_ext, price_settle, price_limit_max,
+	price_limit_min, trade_flags, order_flags, margin_rate_liquidity, margin_rate_currency,
+	face_value, accrued_interest, splice_type, splice_time_type, splice_time_days, option_mode,
+	price_strike, filter_gap, filter_gap_ticks, tick_chart_mode, date_created, date_modified`
+
+func defaultSwapRate(v float64) float64 {
+	if v == 0 {
+		return 1
+	}
+	return v
+}
+
+// prepareCreateSymbol maps the POST body onto a full row, applying schema-like defaults for zeros.
+func prepareCreateSymbol(body CrtSymbol, path string, now int64) model.Symbol {
+	digits := body.Digits
+	if digits == 0 {
+		digits = 5
+	}
+	point, multiply := pointMultiply(digits)
+
+	tradeMode := body.TradeMode
+	if tradeMode == 0 {
+		tradeMode = 4
+	}
+	execMode := body.ExecMode
+	if execMode == 0 {
+		execMode = 2
+	}
+	contractSize := body.ContractSize
+	if contractSize == 0 {
+		contractSize = 100000
+	}
+	volumeMin := body.VolumeMin
+	if volumeMin == 0 {
+		volumeMin = 10000
+	}
+	volumeMax := body.VolumeMax
+	if volumeMax == 0 {
+		volumeMax = 100000000
+	}
+	volumeStep := body.VolumeStep
+	if volumeStep == 0 {
+		volumeStep = 10000
+	}
+	swapYearDay := body.SwapYearDay
+	if swapYearDay == 0 {
+		swapYearDay = 360
+	}
+	marginInitialBuy := body.MarginInitialBuy
+	if marginInitialBuy == 0 {
+		marginInitialBuy = 1
+	}
+	marginInitialSell := body.MarginInitialSell
+	if marginInitialSell == 0 {
+		marginInitialSell = 1
+	}
+
+	sym := model.Symbol{
+		Symbol:                         body.Symbol,
+		Path:                           path,
+		Isin:                           body.ISIN,
+		Description:                    body.Description,
+		International:                  body.International,
+		Category:                       body.Category,
+		Exchange:                       body.Exchange,
+		Cfi:                            body.Cfi,
+		Sector:                         model.SymbolSector(body.Sector),
+		Industry:                       model.SymbolIndustry(body.Industry),
+		Country:                        body.Country,
+		Basis:                          body.Basis,
+		Source:                         body.Source,
+		Page:                           body.Page,
+		CurrencyBase:                   body.CurrencyBase,
+		CurrencyBaseDigits:             body.CurrencyBaseDigits,
+		CurrencyProfit:                 body.CurrencyProfit,
+		CurrencyProfitDigits:           body.CurrencyProfitDigits,
+		CurrencyMargin:                 body.CurrencyMargin,
+		CurrencyMarginDigits:           body.CurrencyMarginDigits,
+		Color:                          body.Color,
+		ColorBackground:                body.ColorBackground,
+		Digits:                         digits,
+		Point:                          point,
+		Multiply:                       multiply,
+		TickFlags:                      model.TickFlags(body.TickFlags),
+		TickBookDepth:                  body.TickBookDepth,
+		TickBookVolume:                 body.TickBookVolume,
+		FilterSoft:                     body.FilterSoft,
+		FilterSoftTicks:                body.FilterSoftTicks,
+		FilterHard:                     body.FilterHard,
+		FilterHardTicks:                body.FilterHardTicks,
+		FilterDiscard:                  body.FilterDiscard,
+		FilterSpreadMax:                body.FilterSpreadMax,
+		FilterSpreadMin:                body.FilterSpreadMin,
+		SubscriptionsDelay:             body.SubscriptionsDelay,
+		TradeMode:                      model.TradeMode(tradeMode),
+		CalcMode:                       model.CalcMode(body.CalcMode),
+		ExecMode:                       model.ExecMode(execMode),
+		GtcMode:                        model.GTCMode(body.GTCMode),
+		FillFlags:                      model.FillingFlags(body.FillFlags),
+		ExpirFlags:                     model.ExpirationFlags(body.ExpirFlags),
+		Spread:                         body.Spread,
+		SpreadBalance:                  body.SpreadBalance,
+		SpreadDiff:                     body.SpreadDiff,
+		SpreadDiffBalance:              body.SpreadDiffBalance,
+		TickValue:                      body.TickValue,
+		TickSize:                       body.TickSize,
+		ContractSize:                   contractSize,
+		StopsLevel:                     body.StopsLevel,
+		FreezeLevel:                    body.FreezeLevel,
+		QuotesTimeout:                  body.QuotesTimeout,
+		VolumeMin:                      volumeMin,
+		VolumeMinExt:                   body.VolumeMinExt,
+		VolumeMax:                      volumeMax,
+		VolumeMaxExt:                   body.VolumeMaxExt,
+		VolumeStep:                     volumeStep,
+		VolumeStepExt:                  body.VolumeStepExt,
+		VolumeLimit:                    body.VolumeLimit,
+		VolumeLimitExt:                 body.VolumeLimitExt,
+		MarginFlags:                    model.SymbolMarginFlags(body.MarginFlags),
+		MarginInitial:                  body.MarginInitial,
+		MarginMaintenance:              body.MarginMaintenance,
+		MarginInitialBuy:               marginInitialBuy,
+		MarginInitialSell:              marginInitialSell,
+		MarginInitialBuyLimit:          body.MarginInitialBuyLimit,
+		MarginInitialSellLimit:         body.MarginInitialSellLimit,
+		MarginInitialBuyStop:           body.MarginInitialBuyStop,
+		MarginInitialSellStop:          body.MarginInitialSellStop,
+		MarginInitialBuyStopLimit:      body.MarginInitialBuyStopLimit,
+		MarginInitialSellStopLimit:     body.MarginInitialSellStopLimit,
+		MarginMaintenanceBuy:           body.MarginMaintenanceBuy,
+		MarginMaintenanceSell:          body.MarginMaintenanceSell,
+		MarginMaintenanceBuyLimit:      body.MarginMaintenanceBuyLimit,
+		MarginMaintenanceSellLimit:     body.MarginMaintenanceSellLimit,
+		MarginMaintenanceBuyStop:       body.MarginMaintenanceBuyStop,
+		MarginMaintenanceSellStop:      body.MarginMaintenanceSellStop,
+		MarginMaintenanceBuyStopLimit:  body.MarginMaintenanceBuyStopLimit,
+		MarginMaintenanceSellStopLimit: body.MarginMaintenanceSellStopLimit,
+		MarginHedged:                   body.MarginHedged,
+		SwapMode:                       model.SwapMode(body.SwapMode),
+		SwapLong:                       body.SwapLong,
+		SwapShort:                      body.SwapShort,
+		SwapYearDay:                    swapYearDay,
+		SwapFlags:                      model.SwapFlags(body.SwapFlags),
+		SwapRateSunday:                 defaultSwapRate(body.SwapRateSunday),
+		SwapRateMonday:                 defaultSwapRate(body.SwapRateMonday),
+		SwapRateTuesday:                defaultSwapRate(body.SwapRateTuesday),
+		SwapRateWednesday:              defaultSwapRate(body.SwapRateWednesday),
+		SwapRateThursday:               defaultSwapRate(body.SwapRateThursday),
+		SwapRateFriday:                 defaultSwapRate(body.SwapRateFriday),
+		SwapRateSaturday:               defaultSwapRate(body.SwapRateSaturday),
+		TimeStart:                      body.TimeStart,
+		TimeExpiration:                 body.TimeExpiration,
+		ReFlags:                        model.RequestFlags(body.ReFlags),
+		ReTimeout:                      body.ReTimeout,
+		IeCheckMode:                    model.InstantMode(body.IeCheckMode),
+		IeTimeout:                      body.IeTimeout,
+		IeSlipProfit:                   body.IeSlipProfit,
+		IeFlags:                        model.InstantFlags(body.IeFlags),
+		IeSlipLosing:                   body.IeSlipLosing,
+		IeVolumeMax:                    body.IeVolumeMax,
+		IeVolumeMaxExt:                 body.IeVolumeMaxExt,
+		PriceSettle:                    body.PriceSettle,
+		PriceLimitMax:                  body.PriceLimitMax,
+		PriceLimitMin:                  body.PriceLimitMin,
+		TradeFlags:                     model.SymbolTradeFlags(body.TradeFlags),
+		OrderFlags:                     model.OrderFlags(body.OrderFlags),
+		MarginRateLiquidity:            body.MarginRateLiquidity,
+		MarginRateCurrency:             body.MarginRateCurrency,
+		FaceValue:                      body.FaceValue,
+		AccruedInterest:                body.AccruedInterest,
+		SpliceType:                     model.SpliceType(body.SpliceType),
+		SpliceTimeType:                 model.SpliceTimeType(body.SpliceTimeType),
+		SpliceTimeDays:                 body.SpliceTimeDays,
+		OptionMode:                     model.OptionMode(body.OptionMode),
+		PriceStrike:                    body.PriceStrike,
+		FilterGap:                      body.FilterGap,
+		FilterGapTicks:                 body.FilterGapTicks,
+		TickChartMode:                  model.ChartMode(body.TickChartMode),
+		DateCreated:                    now,
+		DateModified:                   now,
+	}
+	applyDerivedCurrencies(&sym)
+	return sym
+}
+
+func symbolInsertArgs(sym model.Symbol) []any {
+	return []any{
+		sym.Symbol, sym.Path, sym.Isin, sym.Description, sym.International, sym.Category, sym.Exchange,
+		sym.Cfi, sym.Sector, sym.Industry, sym.Country, sym.Basis, sym.Source, sym.Page,
+		sym.CurrencyBase, sym.CurrencyBaseDigits, sym.CurrencyProfit, sym.CurrencyProfitDigits,
+		sym.CurrencyMargin, sym.CurrencyMarginDigits, sym.Color, sym.ColorBackground, sym.Digits,
+		sym.Point, sym.Multiply, sym.TickFlags, sym.TickBookDepth, sym.TickBookVolume, sym.FilterSoft,
+		sym.FilterSoftTicks, sym.FilterHard, sym.FilterHardTicks, sym.FilterDiscard, sym.FilterSpreadMax,
+		sym.FilterSpreadMin, sym.SubscriptionsDelay, sym.TradeMode, sym.CalcMode, sym.ExecMode, sym.GtcMode,
+		sym.FillFlags, sym.ExpirFlags, sym.Spread, sym.SpreadBalance, sym.SpreadDiff, sym.SpreadDiffBalance,
+		sym.TickValue, sym.TickSize, sym.ContractSize, sym.StopsLevel, sym.FreezeLevel, sym.QuotesTimeout,
+		sym.VolumeMin, sym.VolumeMinExt, sym.VolumeMax, sym.VolumeMaxExt, sym.VolumeStep, sym.VolumeStepExt,
+		sym.VolumeLimit, sym.VolumeLimitExt, sym.MarginFlags, sym.MarginInitial, sym.MarginMaintenance,
+		sym.MarginInitialBuy, sym.MarginInitialSell, sym.MarginInitialBuyLimit, sym.MarginInitialSellLimit,
+		sym.MarginInitialBuyStop, sym.MarginInitialSellStop, sym.MarginInitialBuyStopLimit,
+		sym.MarginInitialSellStopLimit, sym.MarginMaintenanceBuy, sym.MarginMaintenanceSell,
+		sym.MarginMaintenanceBuyLimit, sym.MarginMaintenanceSellLimit, sym.MarginMaintenanceBuyStop,
+		sym.MarginMaintenanceSellStop, sym.MarginMaintenanceBuyStopLimit, sym.MarginMaintenanceSellStopLimit,
+		sym.MarginHedged, sym.SwapMode, sym.SwapLong, sym.SwapShort, sym.SwapYearDay, sym.SwapFlags,
+		sym.SwapRateSunday, sym.SwapRateMonday, sym.SwapRateTuesday, sym.SwapRateWednesday,
+		sym.SwapRateThursday, sym.SwapRateFriday, sym.SwapRateSaturday, sym.TimeStart, sym.TimeExpiration,
+		sym.ReFlags, sym.ReTimeout, sym.IeCheckMode, sym.IeTimeout, sym.IeSlipProfit, sym.IeFlags,
+		sym.IeSlipLosing, sym.IeVolumeMax, sym.IeVolumeMaxExt, sym.PriceSettle, sym.PriceLimitMax,
+		sym.PriceLimitMin, sym.TradeFlags, sym.OrderFlags, sym.MarginRateLiquidity, sym.MarginRateCurrency,
+		sym.FaceValue, sym.AccruedInterest, sym.SpliceType, sym.SpliceTimeType, sym.SpliceTimeDays,
+		sym.OptionMode, sym.PriceStrike, sym.FilterGap, sym.FilterGapTicks, sym.TickChartMode,
+		sym.DateCreated, sym.DateModified,
+	}
+}
+
+func symbolInsertPlaceholders(n int) string {
+	parts := make([]string, n)
+	for i := range parts {
+		parts[i] = fmt.Sprintf("$%d", i+1)
+	}
+	return strings.Join(parts, ",")
+}
+
 func pointMultiply(digits int32) (float64, float64) {
 	return math.Pow10(int(-digits)), math.Pow10(int(digits))
 }
@@ -531,41 +859,15 @@ func (s *Server) CreateSymbol(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, err)
 	}
 
-	// zero means "use schema-like defaults" for create (patch can set disabled=0 later)
-	tradeMode := body.TradeMode
-	if tradeMode == 0 {
-		tradeMode = 4
-	}
-	execMode := body.ExecMode
-	if execMode == 0 {
-		execMode = 2
-	}
-	contractSize := body.ContractSize
-	if contractSize == 0 {
-		contractSize = 100000
-	}
-	volumeMin := body.VolumeMin
-	if volumeMin == 0 {
-		volumeMin = 10000
-	}
-	volumeMax := body.VolumeMax
-	if volumeMax == 0 {
-		volumeMax = 100000000
-	}
-	volumeStep := body.VolumeStep
-	if volumeStep == 0 {
-		volumeStep = 10000
-	}
-	if volumeMax < volumeMin {
-		return s.App.HttpResponseBadRequest(c, fmt.Errorf("volume_max must be >= volume_min"))
-	}
-
-	point, multiply := pointMultiply(body.Digits)
 	path := symbolPath(body.Path, body.Symbol)
 	if len(path) > 255 {
 		return s.App.HttpResponseBadRequest(c, fmt.Errorf("path and symbol are longer than 255 together"))
 	}
-	now := time.Now().UnixNano()
+
+	sym := prepareCreateSymbol(body, path, time.Now().UnixNano())
+	if sym.VolumeMax > 0 && sym.VolumeMin > 0 && sym.VolumeMax < sym.VolumeMin {
+		return s.App.HttpResponseBadRequest(c, fmt.Errorf("volume_max must be >= volume_min"))
+	}
 
 	tx, err := s.DB.DB.Begin(ctx)
 	if err != nil {
@@ -573,32 +875,16 @@ func (s *Server) CreateSymbol(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	insertArgs := symbolInsertArgs(sym)
 	view := &v1.ViewSymbol{}
 	err = tx.QueryRow(ctx,
-		`INSERT INTO hst.symbols
-		   (symbol, path, description, isin, international, category, exchange, source,
-		    currency_base, currency_profit, currency_margin, digits, point, multiply,
-		    trade_mode, calc_mode, exec_mode, contract_size, spread, spread_balance,
-		    stops_level, freeze_level, quotes_timeout, volume_min, volume_max, volume_step,
-		    tick_size, tick_value, swap_mode, swap_long, swap_short,
-		    fill_flags, expir_flags, order_flags, gtc_mode,
-		    date_created, date_modified)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-		         $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$36)
+		`INSERT INTO hst.symbols (`+symbolInsertColumns+`)
+		 VALUES (`+symbolInsertPlaceholders(len(insertArgs))+`)
 		 RETURNING `+symbolListColumns,
-		body.Symbol, path, body.Description, body.ISIN, body.International,
-		body.Category, body.Exchange, body.Source,
-		body.CurrencyBase, body.CurrencyProfit, body.CurrencyMargin,
-		body.Digits, point, multiply,
-		tradeMode, body.CalcMode, execMode, contractSize, body.Spread, body.SpreadBalance,
-		body.StopsLevel, body.FreezeLevel, body.QuotesTimeout,
-		volumeMin, volumeMax, volumeStep,
-		body.TickSize, body.TickValue, body.SwapMode, body.SwapLong, body.SwapShort,
-		body.FillFlags, body.ExpirFlags, body.OrderFlags, body.GTCMode,
-		now).
-		Scan(&view.SymbolId, &view.Symbol, &view.Path, &view.Description, &view.Digits,
-			&view.TradeMode, &view.CalcMode, &view.ExecMode, &view.Spread, &view.ContractSize,
-			&view.DateModified)
+		insertArgs...,
+	).Scan(&view.SymbolId, &view.Symbol, &view.Path, &view.Description, &view.Digits,
+		&view.TradeMode, &view.CalcMode, &view.ExecMode, &view.Spread, &view.ContractSize,
+		&view.DateModified)
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
@@ -641,6 +927,96 @@ func insertSessions(ctx context.Context, db sessionInserter, symbolID int64, ses
 	return nil
 }
 
+// ViewSymbolLookups lists distinct source/basis strings for symbol form combos.
+type ViewSymbolLookups struct {
+	Sources []string `json:"sources"`
+	Bases   []string `json:"bases"`
+}
+
+func distinctStrings(rows pgx.Rows) ([]string, error) {
+	out := []string{}
+	for rows.Next() {
+		var v string
+		if err := rows.Scan(&v); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+func mergeSortedUnique(a, b []string) []string {
+	seen := make(map[string]struct{}, len(a)+len(b))
+	out := make([]string, 0, len(a)+len(b))
+	for _, list := range [][]string{a, b} {
+		for _, v := range list {
+			if v == "" {
+				continue
+			}
+			if _, ok := seen[v]; ok {
+				continue
+			}
+			seen[v] = struct{}{}
+			out = append(out, v)
+		}
+	}
+	sort.Strings(out)
+	return out
+}
+
+// GetSymbolLookups returns distinct source and basis values used on symbols,
+// merged with configured datafeed names for the Source dropdown.
+//
+//	@Id			GetSymbolLookups
+//	@Tags		Symbols
+//	@Produce	json
+//	@Success	200	{object}	Response{data=ViewSymbolLookups}
+//	@Failure	403	{object}	Response
+//	@Failure	500	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/symbols/lookups [get]
+func (s *Server) GetSymbolLookups(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	symbolSources, err := s.DB.DB.Query(ctx,
+		`SELECT DISTINCT source FROM hst.symbols WHERE source <> '' ORDER BY source`)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	srcFromSymbols, err := distinctStrings(symbolSources)
+	symbolSources.Close()
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	feedRows, err := s.DB.DB.Query(ctx,
+		`SELECT DISTINCT name FROM hst.datafeeds WHERE name <> '' ORDER BY name`)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	feedNames, err := distinctStrings(feedRows)
+	feedRows.Close()
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	basisRows, err := s.DB.DB.Query(ctx,
+		`SELECT DISTINCT basis FROM hst.symbols WHERE basis <> '' ORDER BY basis`)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	bases, err := distinctStrings(basisRows)
+	basisRows.Close()
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return s.App.HttpResponseOK(c, ViewSymbolLookups{
+		Sources: mergeSortedUnique(srcFromSymbols, feedNames),
+		Bases:   bases,
+	})
+}
+
 // ListSymbols returns a page of symbols.
 //
 //	@Id			ListSymbols
@@ -670,7 +1046,7 @@ func (s *Server) ListSymbols(c *fiber.Ctx) error {
 		   FROM hst.symbols
 		  WHERE ($1 = '' OR symbol ILIKE '%'||$1||'%' OR path ILIKE '%'||$1||'%'
 		         OR description ILIKE '%'||$1||'%')
-		    AND ($4 = '' OR path = $4 OR path LIKE $4 || E'\\%')
+		    AND ($4 = '' OR path = $4 OR starts_with(path, $4 || E'\\'))
 		  ORDER BY `+q.SortBy+`
 		  LIMIT $2 OFFSET $3`, q.Search, q.Limit, q.Offset, folder)
 	if err != nil {
@@ -968,6 +1344,8 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 		}
 		sortSessions(sessions)
 	}
+
+	applyDerivedCurrenciesToPatch(before, &body)
 
 	changes := changedSymbolFields(before, &body, sessions)
 

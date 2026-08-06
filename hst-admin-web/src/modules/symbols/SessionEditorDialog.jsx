@@ -2,23 +2,29 @@ import { useEffect, useRef, useState } from "react";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import {
+  DISPLAY_MIN,
+  EXTEND_MIN,
   EXTEND_SCALE_HOURS,
+  GRID_DISPLAY_MINUTES,
+  PRIMARY_MIN,
   PRIMARY_SCALE_HOURS,
   SESSION_QUOTE,
   SESSION_TRADE,
   TAIL_SCALE_HOURS,
+  TOTAL_SCALE_MIN,
+  applyCloseDrag,
+  applyOpenDrag,
   canAddWindow,
-  clampMarkerMinute,
   classifyWindows,
   dayLabel,
   displayPct,
   extendScaleLeft,
+  formatScaleHour,
   hasSeparateTrade,
   hourTickClass,
   minuteFromTrack,
   minutesToTime,
   primaryScaleLeft,
-  sessionOverlaps,
   tailScaleLeft,
   toDisplayMinute,
   tradeWithinQuoteExtended,
@@ -38,17 +44,17 @@ function collectMarkers(windows) {
   for (const w of classified) {
     const dOpen = toDisplayMinute(w.open, w.zone);
     const dClose = toDisplayMinute(w.close, w.zone);
-    map.set(`${dOpen}-open`, {
+    map.set(`${dOpen}-open-${w.zone}`, {
       storageMin: w.open,
       displayMin: dOpen,
       end: false,
       zone: w.zone,
       edge: "open",
     });
-    map.set(`${dClose}-close`, {
+    map.set(`${dClose}-close-${w.zone}`, {
       storageMin: w.close,
       displayMin: dClose,
-      end: w.close >= 1440 && w.zone === "primary",
+      end: w.close >= PRIMARY_MIN && w.zone === "primary",
       zone: w.zone,
       edge: "close",
     });
@@ -56,8 +62,8 @@ function collectMarkers(windows) {
   const markers = [...map.values()].sort((a, b) => a.displayMin - b.displayMin);
   let lastPct = -999;
   return markers.map((m, i) => {
-    const pct = (m.displayMin / 2880) * 100;
-    const tier = Math.abs(pct - lastPct) < 6 ? (i % 2) + 1 : 0;
+    const pct = (m.displayMin / TOTAL_SCALE_MIN) * 100;
+    const tier = Math.abs(pct - lastPct) < 5 ? (i % 2) + 1 : 0;
     lastPct = pct;
     return { ...m, tier };
   });
@@ -72,7 +78,7 @@ function TimelineScale({ windows }) {
           className={hourTickClass(h, "primary", windows)}
           style={{ left: primaryScaleLeft(h) }}
         >
-          {h < 10 ? `0${h}` : h}
+          {formatScaleHour(h, "primary")}
         </span>
       ))}
       {EXTEND_SCALE_HOURS.map((h) => (
@@ -81,7 +87,7 @@ function TimelineScale({ windows }) {
           className={hourTickClass(h, "extend", windows)}
           style={{ left: extendScaleLeft(h) }}
         >
-          {h < 10 ? `0${h}` : h}
+          {formatScaleHour(h, "extend")}
         </span>
       ))}
       {TAIL_SCALE_HOURS.map((h) => (
@@ -90,9 +96,21 @@ function TimelineScale({ windows }) {
           className={hourTickClass(h, "tail", windows)}
           style={{ left: tailScaleLeft(h) }}
         >
-          {h}
+          {formatScaleHour(h, "tail")}
         </span>
       ))}
+    </div>
+  );
+}
+
+function TimelineGrid() {
+  return (
+    <div className="sym-timeline-grid" aria-hidden="true">
+      {GRID_DISPLAY_MINUTES.map((m) => (
+        <div key={m} className="sym-timeline-grid-line" style={{ left: displayPct(m) }} />
+      ))}
+      <div className="sym-timeline-zone-divider" style={{ left: displayPct(PRIMARY_MIN) }} />
+      <div className="sym-timeline-zone-divider" style={{ left: displayPct(DISPLAY_MIN) }} />
     </div>
   );
 }
@@ -113,32 +131,31 @@ function TimelineRow({ label, windows, onChange, readOnly }) {
   }
 
   function applyMarkerMove(clientX, trackEl, shiftKey) {
-    const { minute } = minuteFromTrack(clientX, trackEl, shiftKey);
+    const track = minuteFromTrack(clientX, trackEl, shiftKey);
     const idx = dragRef.current.index;
     const edge = dragRef.current.edge;
-    const zone = classified[idx]?.zone ?? "primary";
-    onChange(
-      wins.map((w, i) => {
-        if (i !== idx) return { ...w };
-        const next = clampMarkerMinute(minute, edge, w, zone);
-        if (sessionOverlaps(wins, next.open, next.close, i)) return { ...w };
-        return next;
-      }),
-    );
+    if (edge === "close") {
+      onChange(applyCloseDrag(wins, idx, track));
+      return;
+    }
+    onChange(applyOpenDrag(wins, idx, track));
   }
 
   function nudgeMarker(idx, edge, delta) {
     const zone = classified[idx]?.zone ?? "primary";
     const w = wins[idx];
-    const minute = edge === "open" ? w.open + delta : w.close + delta;
-    onChange(
-      wins.map((wi, i) => {
-        if (i !== idx) return { ...wi };
-        const next = clampMarkerMinute(minute, edge, wi, zone);
-        if (sessionOverlaps(wins, next.open, next.close, i)) return { ...wi };
-        return next;
-      }),
-    );
+    const raw = edge === "open" ? w.open + delta : w.close + delta;
+    const minute =
+      zone === "extension"
+        ? Math.max(0, Math.min(EXTEND_MIN, raw))
+        : Math.max(0, Math.min(PRIMARY_MIN, raw));
+    const trackPos = {
+      minute,
+      zone: zone === "extension" ? "extension" : "primary",
+      displayMinute: zone === "extension" ? PRIMARY_MIN + minute : minute,
+    };
+    if (edge === "close") onChange(applyCloseDrag(wins, idx, trackPos));
+    else onChange(applyOpenDrag(wins, idx, trackPos));
   }
 
   function finishCreate(clientX, shiftKey) {
@@ -151,8 +168,22 @@ function TimelineRow({ label, windows, onChange, readOnly }) {
     if (start.zone !== end.zone) return;
     const lo = Math.min(start.minute, end.minute);
     const hi = Math.max(start.minute, end.minute);
+    if (hi - lo < 1) return;
+    if (start.zone === "extension") {
+      if (!hasMidnightPair(wins) || !canAddWindow(wins, lo, hi)) return;
+      onChange(sortWins([...wins, { open: lo, close: hi }]));
+      return;
+    }
     if (!canAddWindow(wins, lo, hi)) return;
-    onChange([...wins, { open: lo, close: hi }].sort((a, b) => a.open - b.open));
+    onChange(sortWins([...wins, { open: lo, close: hi }]));
+  }
+
+  function hasMidnightPair(w) {
+    return w.some((win) => win.close === PRIMARY_MIN);
+  }
+
+  function sortWins(list) {
+    return [...list].sort((a, b) => a.open - b.open);
   }
 
   useEffect(() => {
@@ -194,6 +225,9 @@ function TimelineRow({ label, windows, onChange, readOnly }) {
     if (!track) return;
     e.preventDefault();
     const start = minuteFromTrack(e.clientX, track, e.shiftKey);
+    if (start.zone === "extension" && start.displayMinute > PRIMARY_MIN && !hasMidnightPair(wins)) {
+      return;
+    }
     createRef.current = { start, track };
     setCreatePreview({
       open: start.minute,
@@ -206,86 +240,91 @@ function TimelineRow({ label, windows, onChange, readOnly }) {
   return (
     <div className="sym-timeline-row">
       <span className="sym-timeline-label">{label}</span>
-      <div className="sym-timeline-track-wrap">
-        <TimelineScale windows={wins} />
-        <div
-          ref={trackRef}
-          className={`sym-timeline-track${readOnly ? " readonly" : " editable"}`}
-          onMouseDown={onTrackMouseDown}
-        >
-          <div className="sym-timeline-track-zones" aria-hidden="true">
-            <div className="sym-timeline-track-zone sym-timeline-track-primary" />
-            <div className="sym-timeline-track-zone sym-timeline-track-extend" />
-            <div className="sym-timeline-track-zone sym-timeline-track-tail" />
-          </div>
-          {classified.map((w, i) => (
-            <div
-              key={`${w.zone}-${i}-${w.open}`}
-              className="sym-timeline-seg"
-              style={{
-                left: displayPct(toDisplayMinute(w.open, w.zone)),
-                width: displayPct(toDisplayMinute(w.close, w.zone) - toDisplayMinute(w.open, w.zone)),
-              }}
-            />
-          ))}
-          {createPreview && createPreview.hiDisplay > createPreview.loDisplay && (
-            <div
-              className="sym-timeline-create-preview"
-              style={{
-                left: displayPct(createPreview.loDisplay),
-                width: displayPct(createPreview.hiDisplay - createPreview.loDisplay),
-              }}
-            />
-          )}
-          {markers.map((m) => {
-            const idx = findWindowIndex(m.storageMin, m.edge, m.zone);
-            const draggable = !readOnly && idx >= 0;
-            return (
+      <div className="sym-timeline-frame">
+        <div className="sym-timeline-track-wrap">
+          <TimelineScale windows={wins} />
+          <div
+            ref={trackRef}
+            className={`sym-timeline-track${readOnly ? " readonly" : " editable"}`}
+            onMouseDown={onTrackMouseDown}
+          >
+            <div className="sym-timeline-track-zones" aria-hidden="true">
+              <div className="sym-timeline-track-zone sym-timeline-track-primary" />
+              <div className="sym-timeline-track-zone sym-timeline-track-extend" />
+              <div className="sym-timeline-track-zone sym-timeline-track-tail" />
+            </div>
+            <TimelineGrid />
+            {classified.map((w, i) => (
               <div
-                key={`${m.displayMin}-${m.edge}`}
-                className={`sym-timeline-marker${draggable ? " sym-timeline-marker-draggable" : ""}`}
-                style={{ left: displayPct(m.displayMin) }}
-              >
-                <span
-                  className={`sym-timeline-marker-label tier-${m.tier}${m.end ? " end" : ""}`}
+                key={`${w.zone}-${i}-${w.open}`}
+                className="sym-timeline-seg"
+                style={{
+                  left: displayPct(toDisplayMinute(w.open, w.zone)),
+                  width: displayPct(
+                    toDisplayMinute(w.close, w.zone) - toDisplayMinute(w.open, w.zone),
+                  ),
+                }}
+              />
+            ))}
+            {createPreview && createPreview.hiDisplay > createPreview.loDisplay && (
+              <div
+                className="sym-timeline-create-preview"
+                style={{
+                  left: displayPct(createPreview.loDisplay),
+                  width: displayPct(createPreview.hiDisplay - createPreview.loDisplay),
+                }}
+              />
+            )}
+            {markers.map((m) => {
+              const idx = findWindowIndex(m.storageMin, m.edge, m.zone);
+              const draggable = !readOnly && idx >= 0;
+              return (
+                <div
+                  key={`${m.displayMin}-${m.edge}-${m.zone}`}
+                  className={`sym-timeline-marker${draggable ? " sym-timeline-marker-draggable" : ""}`}
+                  style={{ left: displayPct(m.displayMin) }}
                 >
-                  {minutesToTime(m.storageMin)}
-                </span>
-                <span className="sym-timeline-marker-pin" />
-                {draggable && (
                   <span
-                    className="sym-timeline-marker-hit"
-                    tabIndex={0}
-                    role="slider"
-                    aria-valuemin={0}
-                    aria-valuemax={1440}
-                    aria-valuenow={m.storageMin}
-                    aria-label={`${m.edge} at ${minutesToTime(m.storageMin)}`}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      dragRef.current = {
-                        active: true,
-                        index: idx,
-                        edge: m.edge,
-                        track: trackRef.current,
-                      };
-                    }}
-                    onKeyDown={(e) => {
-                      const step = e.shiftKey ? 5 : 1;
-                      if (e.key === "ArrowLeft") {
+                    className={`sym-timeline-marker-label tier-${m.tier}${m.end ? " end" : ""}`}
+                  >
+                    {minutesToTime(m.storageMin)}
+                  </span>
+                  <span className="sym-timeline-marker-pin" />
+                  {draggable && (
+                    <span
+                      className="sym-timeline-marker-hit"
+                      tabIndex={0}
+                      role="slider"
+                      aria-valuemin={0}
+                      aria-valuemax={m.zone === "extension" ? EXTEND_MIN : PRIMARY_MIN}
+                      aria-valuenow={m.storageMin}
+                      aria-label={`${m.edge} at ${minutesToTime(m.storageMin)}`}
+                      onMouseDown={(e) => {
                         e.preventDefault();
-                        nudgeMarker(idx, m.edge, -step);
-                      } else if (e.key === "ArrowRight") {
-                        e.preventDefault();
-                        nudgeMarker(idx, m.edge, step);
-                      }
-                    }}
-                  />
-                )}
-              </div>
-            );
-          })}
+                        e.stopPropagation();
+                        dragRef.current = {
+                          active: true,
+                          index: idx,
+                          edge: m.edge,
+                          track: trackRef.current,
+                        };
+                      }}
+                      onKeyDown={(e) => {
+                        const step = e.shiftKey ? 5 : 1;
+                        if (e.key === "ArrowLeft") {
+                          e.preventDefault();
+                          nudgeMarker(idx, m.edge, -step);
+                        } else if (e.key === "ArrowRight") {
+                          e.preventDefault();
+                          nudgeMarker(idx, m.edge, step);
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>

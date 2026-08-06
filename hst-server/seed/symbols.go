@@ -30,6 +30,18 @@ var currencyNames = map[string]string{
 // smallDigitQuotes are quoted with 3 digits instead of 5, the way the platform does.
 var smallDigitQuotes = map[string]bool{"JPY": true, "HUF": true}
 
+var seedCurrencyDigits = map[string]int32{
+	"JPY": 0, "HUF": 0, "KRW": 0, "VND": 0, "CLP": 0, "ISK": 0, "TWD": 0,
+	"BHD": 3, "JOD": 3, "KWD": 3, "OMR": 3, "TND": 3,
+}
+
+func currencyDigits(code string) int32 {
+	if d, ok := seedCurrencyDigits[code]; ok {
+		return d
+	}
+	return 2
+}
+
 // forexSymbols are the 60 instruments a fresh install starts with.
 var forexSymbols = []forexSymbol{
 	// the seven majors
@@ -99,6 +111,8 @@ func (s *Seeder) SeedSymbols(ctx context.Context) error {
 
 	for _, sym := range forexSymbols {
 		base, profit := sym.Name[:3], sym.Name[3:]
+		baseDigits := currencyDigits(base)
+		profitDigits := currencyDigits(profit)
 
 		digits := int32(5)
 		if smallDigitQuotes[profit] {
@@ -110,7 +124,8 @@ func (s *Seeder) SeedSymbols(ctx context.Context) error {
 		if err := tx.QueryRow(ctx,
 			`INSERT INTO hst.symbols
 			   (symbol, path, description, sector,
-			    currency_base, currency_profit, currency_margin,
+			    currency_base, currency_base_digits, currency_profit, currency_profit_digits,
+			    currency_margin, currency_margin_digits,
 			    digits, point, multiply, tick_size, tick_flags,
 			    trade_mode, calc_mode, exec_mode, gtc_mode,
 			    fill_flags, expir_flags, order_flags,
@@ -125,19 +140,19 @@ func (s *Seeder) SeedSymbols(ctx context.Context) error {
 			    margin_maintenance_buy_stop, margin_maintenance_sell_stop,
 			    margin_maintenance_buy_stop_limit, margin_maintenance_sell_stop_limit,
 			    date_created, date_modified)
-			 VALUES ($1,$2,$3,$4,$5,$6,$5,$7,$8,$9,$8,$10,
-			         $11,$12,$13,$14,$15,$16,$17,
-			         $18,$19,$20,$21,$22,$23,
-			         $24,$24,$24,$24,$24,$24,$24,$24,
-			         $24,$24,$24,$24,$24,$24,$24,$24,
-			         $25,$25)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,
+			         $16,$17,$18,$19,$20,$21,$22,
+			         $23,$24,$25,$26,$27,$28,
+			         $29,$29,$29,$29,$29,$29,$29,$29,
+			         $29,$29,$29,$29,$29,$29,$29,$29,
+			         $30,$30)
 			 RETURNING symbol_id`,
 			sym.Name,
 			sym.Folder+`\`+sym.Name,
 			fmt.Sprintf("%s vs %s", currencyNames[base], currencyNames[profit]),
 			model.SymbolSector_currency,
-			base, profit,
-			digits, point, math.Pow10(int(digits)),
+			base, baseDigits, profit, profitDigits, base, baseDigits,
+			digits, point, math.Pow10(int(digits)), math.Pow10(int(digits)),
 			model.TickFlags_realtime,
 			model.TradeMode_full, model.CalcMode_forex, model.ExecMode_market, model.GTCMode_gtc,
 			model.FillingFlags_fok|model.FillingFlags_ioc,

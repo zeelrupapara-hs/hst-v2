@@ -91,6 +91,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	symbols.Post("/folders", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.CreateSymbolFolder)
 	symbols.Patch("/folders", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.RenameSymbolFolder)
 	symbols.Delete("/folders", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.DeleteSymbolFolder)
+	symbols.Get("/lookups", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.GetSymbolLookups)
 	symbols.Get("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.GetSymbol)
 	symbols.Patch("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.UpdateSymbol)
 	symbols.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgSymbols), s.DeleteSymbol)

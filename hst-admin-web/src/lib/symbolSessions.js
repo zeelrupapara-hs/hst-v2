@@ -25,12 +25,26 @@ export const PRIMARY_SCALE_HOURS = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 2
 export const EXTEND_SCALE_HOURS = [2, 4, 6, 8, 10, 12];
 export const TAIL_SCALE_HOURS = [14, 16, 18, 20, 22, 24];
 
+/** Vertical grid lines every 2 hours across the full MT5 frame. */
+export const GRID_DISPLAY_MINUTES = [
+  ...PRIMARY_SCALE_HOURS.map((h) => (h === 24 ? PRIMARY_MIN : h * 60)),
+  ...EXTEND_SCALE_HOURS.map((h) => PRIMARY_MIN + h * 60),
+  ...TAIL_SCALE_HOURS.map((h) => DISPLAY_MIN + (h - 12) * 60),
+];
+
 export function minutesToTime(m) {
   m = Number(m);
   if (m >= 1440) return "24:00";
   const h = Math.floor(m / 60);
   const min = m % 60;
   return `${h < 10 ? "0" : ""}${h}:${min < 10 ? "0" : ""}${min}`;
+}
+
+/** MT5-style scale label (00:00 at day start, then 02…24). */
+export function formatScaleHour(hour, zone) {
+  if (zone === "primary" && hour === 0) return "00:00";
+  if (hour === 24) return "24";
+  return hour < 10 ? `0${hour}` : String(hour);
 }
 
 export function windowsForDay(sessions, type, day) {
@@ -74,13 +88,16 @@ export function tradeWithinQuote(quoteWins, tradeWins) {
   return tradeWins.every((t) => quoteWins.some((q) => t.open >= q.open && t.close <= q.close));
 }
 
+function hasMidnightEnd(windows, skipIndex = -1) {
+  return windows.some((w, i) => i !== skipIndex && w.close === PRIMARY_MIN);
+}
+
 /** Classify window as primary day or post-midnight extension (MT5 overnight layout). */
 export function classifySessionZone(w, windows, index) {
-  const hasOvernight = windows.some((o, i) => i !== index && o.close === 1440);
-  if (!hasOvernight) return "primary";
-  if (w.close === 1440 || w.open >= 720) return "primary";
-  // Post-midnight continuation: early-morning windows before 10:00 on the extension scale.
-  if (w.open < 600) return "extension";
+  if (w.close === PRIMARY_MIN) return "primary";
+  if (hasMidnightEnd(windows, index) && w.open < EXTEND_MIN && w.close <= EXTEND_MIN) {
+    return "extension";
+  }
   return "primary";
 }
 
@@ -105,7 +122,8 @@ export function primaryScaleLeft(hour) {
 }
 
 export function extendScaleLeft(hour) {
-  return displayPct(PRIMARY_MIN + hour * 60);
+  const storage = Math.min(hour * 60, EXTEND_MIN);
+  return displayPct(PRIMARY_MIN + storage);
 }
 
 export function tailScaleLeft(hour) {
@@ -128,12 +146,10 @@ export function hourTickClass(hour, scaleZone, windows) {
 
   if (scaleZone === "primary") {
     if (hour === 24) return "sym-timeline-tick end";
-    return hourInWindows(hour, primaryWins)
-      ? "sym-timeline-tick"
-      : "sym-timeline-tick off";
+    return hourInWindows(hour, primaryWins) ? "sym-timeline-tick" : "sym-timeline-tick off";
   }
   if (scaleZone === "extend") {
-    const storageStart = hour * 60;
+    const storageStart = Math.min(hour * 60, EXTEND_MIN);
     const inSession = extendWins.some((w) => w.open <= storageStart && w.close > storageStart);
     return inSession ? "sym-timeline-tick extend-active" : "sym-timeline-tick extend";
   }
@@ -194,7 +210,74 @@ export function canAddWindow(windows, open, close) {
   return !sessionOverlaps(windows, lo, hi);
 }
 
-/** Clamp marker drag for a classified window. */
+function stripExtensionWindows(windows) {
+  return windows.filter((w, i) => classifySessionZone(w, windows, i) !== "extension");
+}
+
+function findExtensionIndex(windows) {
+  return windows.findIndex((w, i) => classifySessionZone(w, windows, i) === "extension");
+}
+
+function sortWindows(windows) {
+  return [...windows].sort((a, b) => a.open - b.open);
+}
+
+/** Apply close-marker drag, including drag past 24:00 into the extension zone. */
+export function applyCloseDrag(windows, index, trackPos) {
+  const classified = classifyWindows(windows);
+  const zone = classified[index]?.zone ?? "primary";
+  const w = windows[index];
+
+  if (trackPos.zone === "extension") {
+    const extClose = Math.max(1, Math.min(EXTEND_MIN, trackPos.minute));
+    if (zone === "primary") {
+      const base = stripExtensionWindows(windows.filter((_, i) => i !== index));
+      const primary = { open: w.open, close: PRIMARY_MIN };
+      const extension = { open: 0, close: extClose };
+      if (sessionOverlaps(base, primary.open, primary.close)) return windows;
+      if (sessionOverlaps(base, extension.open, extension.close)) return windows;
+      return sortWindows([...base, primary, extension]);
+    }
+    const extIdx = zone === "extension" ? index : findExtensionIndex(windows);
+    if (extIdx < 0) return windows;
+    const next = windows.map((win, i) => (i === extIdx ? { ...win, close: extClose } : { ...win }));
+    if (sessionOverlaps(next, next[extIdx].open, extClose, extIdx)) return windows;
+    return next;
+  }
+
+  if (zone === "extension") return windows;
+
+  const close = Math.max(w.open + 1, Math.min(PRIMARY_MIN, trackPos.minute));
+  let next = windows.map((win, i) => (i === index ? { ...win, close } : { ...win }));
+  if (close < PRIMARY_MIN) {
+    next = stripExtensionWindows(next);
+  }
+  if (sessionOverlaps(next, next[index].open, close, index)) return windows;
+  return next;
+}
+
+/** Apply open-marker drag within primary or extension zones. */
+export function applyOpenDrag(windows, index, trackPos) {
+  const classified = classifyWindows(windows);
+  const zone = classified[index]?.zone ?? "primary";
+  const w = windows[index];
+
+  if (zone === "extension") {
+    if (trackPos.zone !== "extension") return windows;
+    const open = Math.max(0, Math.min(trackPos.minute, w.close - 1));
+    const next = windows.map((win, i) => (i === index ? { ...win, open } : { ...win }));
+    if (sessionOverlaps(next, open, w.close, index)) return windows;
+    return next;
+  }
+
+  if (trackPos.zone === "extension") return windows;
+  const open = Math.max(0, Math.min(trackPos.minute, w.close - 1));
+  const next = windows.map((win, i) => (i === index ? { ...win, open } : { ...win }));
+  if (sessionOverlaps(next, open, w.close, index)) return windows;
+  return next;
+}
+
+/** Clamp marker drag for a classified window (keyboard nudge). */
 export function clampMarkerMinute(minute, edge, window, zone) {
   const w = { ...window };
   if (zone === "extension") {

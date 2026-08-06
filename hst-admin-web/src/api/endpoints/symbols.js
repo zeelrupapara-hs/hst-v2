@@ -7,6 +7,8 @@ export const fetchSymbols = ({ search = "", folder = "", page = 0, limit = 500 }
   return request(`/api/v1/symbols?${q}`);
 };
 
+export const fetchSymbolLookups = () => request("/api/v1/symbols/lookups");
+
 export const fetchSymbol = (id) => request(`/api/v1/symbols/${id}`);
 
 export const createSymbol = (body) =>

@@ -77,7 +77,7 @@ export const SymbolSector_name = {
   15: "Commodities",
 };
 
-export const SymbolIndustry_name = { 0: "Undefined" };
+export { SymbolIndustry_name, SymbolIndustries_bySector } from "./symbol_industry.generated.js";
 
 export const ChartMode_name = { 0: "by bid price", 1: "by last price" };
 
@@ -159,8 +159,10 @@ export const colorToCss = (v) => {
 
 export const CURRENCY_options = [
   "AUD", "CAD", "CHF", "CNH", "CNY", "CZK", "DKK", "EUR", "GBP", "HKD", "HUF",
-  "JPY", "MXN", "NOK", "NZD", "PLN", "RUB", "SEK", "SGD", "TRY", "USD", "ZAR",
+  "ILS", "JPY", "MXN", "NOK", "NZD", "PLN", "RUB", "SEK", "SGD", "THB", "TRY", "USD", "ZAR",
 ];
+
+export { CURRENCY_DIGITS, currencyDigits } from "@/lib/symbolCurrency.js";
 
 export const DIGITS_options = [0, 1, 2, 3, 4, 5, 6, 7, 8];
 

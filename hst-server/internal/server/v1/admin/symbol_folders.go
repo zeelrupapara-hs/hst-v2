@@ -99,13 +99,18 @@ func normalizeFolderPath(path string) (string, error) {
 	return path, nil
 }
 
+// sqlPathUnderFolder matches symbols (or folder rows) stored under folder $1.
+// Paths use backslash separators (e.g. Forex.1\USDHUF.1). PostgreSQL LIKE treats \ as
+// the default escape, so LIKE $1 || E'\\%' matches a literal trailing % — not what we want.
+const sqlPathUnderFolder = `starts_with(path, $1 || E'\\')`
+
 // folderExists is true when the path is stored explicitly or implied by a symbol beneath it.
 func folderExists(ctx context.Context, db *pgxpool.Pool, path string) (bool, error) {
 	var n int
 	err := db.QueryRow(ctx,
 		`SELECT (
 		    EXISTS (SELECT 1 FROM hst.symbol_folders WHERE path = $1)
-		    OR EXISTS (SELECT 1 FROM hst.symbols WHERE path LIKE $1 || '\%')
+		    OR EXISTS (SELECT 1 FROM hst.symbols WHERE `+sqlPathUnderFolder+`)
 		 )::int`, path).Scan(&n)
 	return n > 0, err
 }
@@ -253,13 +258,12 @@ func (s *Server) RenameSymbolFolder(c *fiber.Ctx) error {
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	now := time.Now().UnixNano()
-	prefix := from + `\`
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE hst.symbols
 		    SET path = ($2::text || substring(path FROM length($1) + 1)),
 		        date_modified = $3
-		  WHERE path LIKE $1 || '\%'`, from, to, now); err != nil {
+		  WHERE `+sqlPathUnderFolder, from, to, now); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
@@ -272,7 +276,7 @@ func (s *Server) RenameSymbolFolder(c *fiber.Ctx) error {
 		`UPDATE hst.symbol_folders
 		    SET path = ($2::text || substring(path FROM length($1) + 1)),
 		        updated_at = $3
-		  WHERE path LIKE $4 || '%'`, from, to, now, prefix); err != nil {
+		  WHERE `+sqlPathUnderFolder, from, to, now); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
@@ -330,7 +334,7 @@ func (s *Server) DeleteSymbolFolder(c *fiber.Ctx) error {
 
 	var symbolCount int
 	if err := s.DB.DB.QueryRow(ctx,
-		`SELECT count(*) FROM hst.symbols WHERE path LIKE $1 || '\%'`, path).Scan(&symbolCount); err != nil {
+		`SELECT count(*) FROM hst.symbols WHERE `+sqlPathUnderFolder, path).Scan(&symbolCount); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 	if symbolCount > 0 && !body.Cascade {
@@ -343,12 +347,11 @@ func (s *Server) DeleteSymbolFolder(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	prefix := path + `\`
 	deleted := []v1.ViewSymbolRef{}
 
 	if body.Cascade {
 		rows, err := tx.Query(ctx,
-			`DELETE FROM hst.symbols WHERE path LIKE $1 || '\%' RETURNING symbol_id, symbol, path`, path)
+			`DELETE FROM hst.symbols WHERE `+sqlPathUnderFolder+` RETURNING symbol_id, symbol, path`, path)
 		if err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
@@ -368,7 +371,7 @@ func (s *Server) DeleteSymbolFolder(c *fiber.Ctx) error {
 	}
 
 	tag, err := tx.Exec(ctx,
-		`DELETE FROM hst.symbol_folders WHERE path = $1 OR path LIKE $2 || '%'`, path, prefix)
+		`DELETE FROM hst.symbol_folders WHERE path = $1 OR `+sqlPathUnderFolder, path)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
