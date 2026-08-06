@@ -183,7 +183,7 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
           onTitlePointerDown={onTitlePointerDown}
           className="df-config-window"
           width={570}
-          height={419}
+          height={520}
           title="Data Feed"
           tabs={
             <div className="config-tabs df-config-tabs">

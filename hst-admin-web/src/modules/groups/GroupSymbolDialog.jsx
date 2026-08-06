@@ -638,7 +638,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
         <SettingsDialog
           draggable
           width={700}
-          height={440}
+          height={480}
           onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title={`Symbol: ${draft.path || "*"}`}

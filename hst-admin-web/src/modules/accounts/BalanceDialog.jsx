@@ -52,7 +52,7 @@ export function BalanceDialog({ user, onClose, onSaved }) {
           onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           width={420}
-          height={300}
+          height={330}
           className="balance-dialog"
           title={`Balance: ${user.login} — ${user.name}`}
           footer={

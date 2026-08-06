@@ -295,7 +295,7 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          height={440}
+          height={520}
           onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title="Leverage"

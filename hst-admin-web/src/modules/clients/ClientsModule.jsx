@@ -136,7 +136,7 @@ function ClientDialog({ clientId, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          height={440}
+          height={470}
           onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Client: New" : `Client: ${draft?.person_name ?? clientId}`}

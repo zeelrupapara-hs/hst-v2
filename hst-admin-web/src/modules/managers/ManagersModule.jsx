@@ -69,7 +69,7 @@ function ManagerDialog({ manager, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          height={440}
+          height={560}
           onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Manager: New" : `Manager: ${manager.login} — ${manager.name}`}

@@ -3614,3 +3614,33 @@ label.sym-check::after { content: none; }
 .terminal-body { height: calc(100vh - var(--title-h) - var(--toolbar-h)); }
 /* the body scrollbar must not overlap the right field column */
 .settings-dialog .form-grid { padding-right: 22px; }
+
+/* nothing scrolls inside a dialog: the window is sized to its tallest tab */
+.settings-dialog .config-body { overflow: hidden; }
+
+/* smaller dialog type: more of every tab fits the fixed window */
+.settings-dialog,
+.settings-dialog .config-body,
+.settings-dialog .form-grid,
+.settings-dialog .form-grid input,
+.settings-dialog .form-grid label,
+.settings-dialog .prop-select,
+.settings-dialog .data-table,
+.settings-dialog .sym-check { font-size: 11px; }
+.settings-dialog .config-tabs button { font-size: 11px; padding: 5px 10px 4px; }
+.settings-dialog .form-grid { row-gap: 6px; }
+.settings-dialog .form-grid input[type="text"],
+.settings-dialog .form-grid input[type="password"] { height: 21px; }
+.settings-dialog .sym-sessions-intro p { font-size: 11px; }
+/* the last two horizontal overflows: two-col grids and the feed module pair shrink to fit */
+.settings-dialog .sym-form-two-col { grid-template-columns: 148px 165px 145px minmax(0, 1fr); }
+.df-module-pair { min-width: 0; display: flex; gap: 6px; }
+.df-module-pair .prop-select { min-width: 0; flex: 1; }
+.settings-dialog .df-input-wide,
+.settings-dialog .df-input-med { width: 100%; max-width: 100%; }
+
+/* the time screen shares the dialog rhythm */
+.time-module .form-grid { grid-template-columns: 170px 260px; row-gap: 7px; }
+.time-module .form-grid select,
+.time-module .form-grid input { width: 100%; height: 22px; border: 1px solid #adadad; font-size: 12px; }
+.time-clock { font-weight: 600; }

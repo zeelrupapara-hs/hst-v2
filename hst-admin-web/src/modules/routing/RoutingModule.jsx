@@ -290,7 +290,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
         <SettingsDialog
           draggable
           width={640}
-          height={520}
+          height={680}
           onClose={onClose}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Routing: New" : `Routing: ${draft?.name ?? "…"}`}
