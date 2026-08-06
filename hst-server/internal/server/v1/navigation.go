@@ -121,7 +121,7 @@ var adminTree = []navNode{
 	{key: "symbols", label: "Symbols", icon: "tag", route: "/symbols", section: "config",
 		needs: []uint{model.MgrRightCfgSymbols}, counter: "symbols"},
 
-	{key: "leverages", label: "Leverage Profiles", icon: "percent", route: "/leverage-profiles",
+	{key: "leverages", label: "Leverages", icon: "percent", route: "/leverage-profiles",
 		section: "config", needs: []uint{model.MgrRightCfgGroups}, counter: "leverages"},
 
 	{key: "routing", label: "Routing", icon: "git-branch", route: "/routing", section: "config",
