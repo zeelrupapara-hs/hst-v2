@@ -25,6 +25,10 @@ type Symbol struct {
 	CurrencyProfit string
 	CurrencyMargin string
 
+	CurrencyBaseDigits   int32
+	CurrencyProfitDigits int32
+	CurrencyMarginDigits int32
+
 	VolumeMin   int64
 	VolumeMax   int64
 	VolumeStep  int64

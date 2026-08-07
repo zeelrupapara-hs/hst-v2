@@ -5,6 +5,12 @@ import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { createSymbol, fetchSymbol, updateSymbol } from "@/api/endpoints/symbols.js";
 import {
+  CFD_CALC_MODES,
+  currencyDigits,
+  deriveSymbolCurrencies,
+  isForexDerived,
+} from "@/lib/symbolCurrency.js";
+import {
   CommonTab,
   CurrencyTab,
   ExecutionTab,
@@ -15,6 +21,7 @@ import {
   TradeTab,
 } from "./SymbolTabs.jsx";
 import { SymbolSessionsTab } from "./SymbolSessionsTab.jsx";
+import { symbolFolder } from "@/lib/symbolTree.js";
 
 const TABS = [
   { id: "common", label: "Common", Panel: CommonTab },
@@ -36,6 +43,9 @@ function newDraft(folderPath) {
     currency_base: "USD",
     currency_profit: "USD",
     currency_margin: "USD",
+    currency_base_digits: 2,
+    currency_profit_digits: 2,
+    currency_margin_digits: 2,
     digits: 5,
     trade_mode: 4,
     calc_mode: 0,
@@ -94,11 +104,60 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
     });
   }, [symbolId, isNew]);
 
-  function set(key, value) {
+  useEffect(() => {
+    if (!draft) return;
+    const patch = deriveSymbolCurrencies({
+      symbol: draft.symbol,
+      calc_mode: draft.calc_mode,
+      current: draft,
+    });
+    if (!patch) return;
     setDraft((prev) => {
-      const next = { ...prev, [key]: value };
-      if (isNew && key === "symbol") {
-        next.path = folderPath ? `${folderPath}\\${value}` : value;
+      if (!prev) return prev;
+      let changed = false;
+      const next = { ...prev };
+      for (const [k, v] of Object.entries(patch)) {
+        if (next[k] !== v) {
+          next[k] = v;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [draft?.symbol, draft?.calc_mode]);
+
+  useEffect(() => {
+    if (!draft || isForexDerived(draft.calc_mode)) return;
+    if (!CFD_CALC_MODES.has(Number(draft.calc_mode))) return;
+    const profit = String(draft.currency_profit ?? "").trim() || "USD";
+    const marginDigits = currencyDigits(profit);
+    setDraft((prev) => {
+      if (!prev) return prev;
+      if (prev.currency_margin === profit && prev.currency_margin_digits === marginDigits) {
+        return prev;
+      }
+      return {
+        ...prev,
+        currency_margin: profit,
+        currency_margin_digits: marginDigits,
+      };
+    });
+  }, [draft?.calc_mode, draft?.currency_profit]);
+
+  function set(keyOrFields, value) {
+    setDraft((prev) => {
+      if (typeof keyOrFields === "object" && keyOrFields !== null) {
+        return { ...prev, ...keyOrFields };
+      }
+      const next = { ...prev, [keyOrFields]: value };
+      if (keyOrFields === "symbol") {
+        const name = String(value ?? "");
+        if (isNew) {
+          next.path = folderPath ? `${folderPath}\\${name}` : name;
+        } else {
+          const folder = symbolFolder(prev.path || "");
+          next.path = folder ? `${folder}\\${name}` : name;
+        }
       }
       return next;
     });
@@ -106,18 +165,24 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
 
   async function handleOk() {
     if (!draft) return;
+    const trimmed = String(draft.symbol ?? "").trim();
+    const folder = symbolFolder(draft.path || "");
+    const normalized =
+      trimmed === draft.symbol
+        ? draft
+        : { ...draft, symbol: trimmed, path: folder ? `${folder}\\${trimmed}` : trimmed };
     if (isNew) {
-      if (!draft.symbol.trim()) {
+      if (!trimmed) {
         setError("Symbol name is required");
         return;
       }
-      const res = await createSymbol({ ...draft, sessions: (draft.sessions || []).map(sessionRow) });
+      const res = await createSymbol({ ...normalized, sessions: (normalized.sessions || []).map(sessionRow) });
       if (!res.ok) {
         setError(res.message || "create failed");
         return;
       }
     } else {
-      const patch = diff(draft, original);
+      const patch = diff(normalized, original);
       if (Object.keys(patch).length) {
         const res = await updateSymbol(symbolId, patch);
         if (!res.ok) {

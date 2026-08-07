@@ -7,7 +7,7 @@ import {
   formatDaySessions,
   mergeDaySessions,
 } from "@/lib/symbolSessions.js";
-import { fromNs } from "@/lib/time.js";
+import { formatUnixSec, parseMt5DateTimeToSec } from "@/lib/time.js";
 import { SessionEditorDialog } from "./SessionEditorDialog.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");

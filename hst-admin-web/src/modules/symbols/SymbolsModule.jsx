@@ -7,7 +7,7 @@ import { useListShortcuts } from "@/hooks/useListShortcuts.js";
 import { ContextMenu, listMenuHead } from "@/components/ui/ContextMenu.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
-import { ExecMode_name } from "@/constants/symbols.js";
+import { ExecMode_name, symbolBackgroundCss } from "@/constants/symbols.js";
 import { filterSymbolsByFolder, topType } from "@/lib/symbolTree.js";
 import { filterSymbolsByMasks, maskFilterLabel } from "@/lib/symbolMasks.js";
 import { deleteSymbol } from "@/api/endpoints/symbols.js";
@@ -212,17 +212,25 @@ export function SymbolsModule() {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
+            {rows.map((row, i) => {
+              const bg = symbolBackgroundCss(row.color_background);
+              const selectedRow = selected.includes(i);
+              return (
               <tr
                 key={row.symbol_id}
-                className={selected.includes(i) ? "selected" : ""}
+                className={[selectedRow ? "selected" : "", bg ? "sym-row-bg" : ""].filter(Boolean).join(" ") || undefined}
+                style={bg && !selectedRow ? { "--sym-row-bg": bg } : undefined}
                 onClick={(e) => pick(i, e)}
-                onContextMenu={(e) => !selected.includes(i) && pick(i, e)}
+                onContextMenu={(e) => !selectedRow && pick(i, e)}
                 onDoubleClick={() => canEdit && setDialog({ id: row.symbol_id })}
               >
                 <td>
                   <span className="sym-symbol-cell">
-                    <span className="sym-coin-icon" aria-hidden="true" />
+                    <span
+                      className={bg ? "sym-color-swatch sym-list-swatch" : "sym-coin-icon"}
+                      style={bg ? { background: bg } : undefined}
+                      aria-hidden="true"
+                    />
                     {row.symbol}
                   </span>
                 </td>
@@ -231,7 +239,8 @@ export function SymbolsModule() {
                 <td>{ExecMode_name[row.exec_mode]}</td>
                 <td className="num">{row.digits}</td>
               </tr>
-            ))}
+            );
+            })}
           </tbody>
         </table>
       </div>
