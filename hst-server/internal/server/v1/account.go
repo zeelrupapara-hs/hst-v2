@@ -195,6 +195,7 @@ type ViewSymbol struct {
 	SwapRateThursday  float64 `json:"swap_rate_thursday"`
 	SwapRateFriday    float64 `json:"swap_rate_friday"`
 	SwapRateSaturday  float64 `json:"swap_rate_saturday"`
+	ColorBackground   int64   `json:"color_background"`
 }
 
 func PtrOr[T any](p *T, def T) T {

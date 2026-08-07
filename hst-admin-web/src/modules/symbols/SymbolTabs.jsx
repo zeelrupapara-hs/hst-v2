@@ -89,7 +89,7 @@ function spreadBalanceCaption(spread, balance) {
 
 const fmt = (v, digits) => (v == null ? "" : Number(v).toFixed(digits));
 
-function Field({ label, value, onChange, wide, readOnly, combo, suffix, disabled, lockField, fieldKey }) {
+function Field({ label, value, onChange, wide, readOnly, combo, suffix, disabled, lockField, fieldKey, inputClassName = "" }) {
   const locked = lockField?.(fieldKey);
   const input = (
     <input
@@ -97,7 +97,7 @@ function Field({ label, value, onChange, wide, readOnly, combo, suffix, disabled
       readOnly={readOnly || locked || !onChange}
       disabled={disabled || locked}
       value={value ?? ""}
-      className={wide ? "wide" : ""}
+      className={[wide ? "wide" : "", inputClassName].filter(Boolean).join(" ") || undefined}
       onChange={onChange ? (e) => onChange(e.target.value) : undefined}
     />
   );
@@ -134,11 +134,11 @@ function FmtInput({ value, digits, onChange, className = "" }) {
   );
 }
 
-function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZero, lockField, fieldKey }) {
+function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZero, lockField, fieldKey, inputClassName = "" }) {
   const locked = lockField?.(fieldKey);
   if (locked) {
     return (
-      <Field label={label} suffix={suffix} value={offWhenZero && !value ? "off" : value} readOnly />
+      <Field label={label} suffix={suffix} value={offWhenZero && !value ? "off" : value} readOnly inputClassName={inputClassName} />
     );
   }
   if (digits != null && onChange) {
@@ -146,7 +146,7 @@ function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZer
       <>
         <label>{label}</label>
         <span className="sym-with-suffix">
-          <FmtInput value={value} digits={digits} onChange={onChange} />
+          <FmtInput value={value} digits={digits} onChange={onChange} className={inputClassName} />
           {suffix && <span className="sym-suffix">{suffix}</span>}
         </span>
       </>
@@ -158,6 +158,7 @@ function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZer
       suffix={suffix}
       value={offWhenZero && !value ? "off" : value}
       readOnly={readOnly}
+      inputClassName={inputClassName}
       onChange={
         onChange ? (v) => onChange(v === "" || v === "off" ? 0 : Number(v) || 0) : undefined
       }
@@ -165,7 +166,7 @@ function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZer
   );
 }
 
-function SelectField({ label, value, names, order, options, onChange, disabled, suffix, fallback, lockField, fieldKey, emptyValue }) {
+function SelectField({ label, value, names, order, options, onChange, disabled, suffix, fallback, lockField, fieldKey, emptyValue, controlClassName = "" }) {
   const locked = lockField?.(fieldKey);
   const opts = options ?? enumOptions(names, order);
   const list =
@@ -179,7 +180,14 @@ function SelectField({ label, value, names, order, options, onChange, disabled, 
         ? ""
         : 0;
   const select = (
-    <PropSelect fill value={value ?? defaultValue} options={list} onChange={onChange} disabled={disabled || locked} />
+    <PropSelect
+      fill
+      className={controlClassName}
+      value={value ?? defaultValue}
+      options={list}
+      onChange={onChange}
+      disabled={disabled || locked}
+    />
   );
   return (
     <>
@@ -209,7 +217,7 @@ function parseMarketDepth(text) {
 }
 
 /** MT5-style combo: presets in the list, any value may be typed. */
-function EditableSelectField({ label, value, options, onChange, format, parse, lockField, fieldKey, filterOptions }) {
+function EditableSelectField({ label, value, options, onChange, format, parse, lockField, fieldKey, filterOptions, className = "" }) {
   const locked = lockField?.(fieldKey);
   const [open, setOpen] = useState(false);
   const [raw, setRaw] = useState(null);
@@ -275,7 +283,7 @@ function EditableSelectField({ label, value, options, onChange, format, parse, l
       <label>{label}</label>
       <div
         ref={rootRef}
-        className={`prop-select prop-select-fill editable-select${locked ? " prop-select-disabled" : ""}`}
+        className={`prop-select prop-select-fill editable-select ${className}${locked ? " prop-select-disabled" : ""}`.trim()}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="prop-select-box editable-select-box">
@@ -388,12 +396,15 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
   const announceOpen = useExclusiveDropdown(open, setOpen);
   const all = labels.reduce((a, l) => a | l.bit, 0);
   const picked = labels.filter((l) => hasBit(value, l.bit));
+  const joined = picked.map((l) => l.label).join(", ");
   const summary =
     picked.length === labels.length
       ? "All"
-      : picked.length
-        ? picked.map((l) => l.label).join(", ")
-        : "None";
+      : picked.length === 0
+        ? "None"
+        : joined.length > 28
+          ? `${picked.length} selected`
+          : joined;
 
   useEffect(() => {
     openRef.current = open;
@@ -433,7 +444,7 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
     <>
       <label>{label}</label>
       <span className="sym-flag-combo" ref={rootRef}>
-        <button type="button" className="sym-flag-combo-box" disabled={locked} onClick={toggle}>
+        <button type="button" className="sym-flag-combo-box" disabled={locked} onClick={toggle} title={joined || summary}>
           <span className="sym-flag-combo-value">{summary}</span>
           <span className="sym-flag-combo-arrow" />
         </button>
@@ -501,7 +512,7 @@ export function CommonTab({ s, set, isNew, lockField }) {
         <Field label="International" fieldKey="international" lockField={lockField} value={s.international} onChange={(v) => set("international", v)} />
         <Field label="ISIN" fieldKey="isin" lockField={lockField} value={s.isin} onChange={(v) => set("isin", v)} />
         <SelectField label="Sector" fieldKey="sector" lockField={lockField} value={s.sector} names={SymbolSector_name} onChange={onSectorChange} />
-        <Field label="CFI" fieldKey="cfi" lockField={lockField} value={s.cfi} onChange={(v) => set("cfi", v)} />
+        <Field label="CFI" fieldKey="cfi" lockField={lockField} value={s.cfi} onChange={(v) => set("cfi", v)} inputClassName="sym-common-left" />
         <SelectField
           label="Industry"
           fieldKey="industry"
@@ -519,6 +530,7 @@ export function CommonTab({ s, set, isNew, lockField }) {
           value={s.basis ?? ""}
           headerItems={symbolPickerHeaders}
           onChange={(v) => set("basis", v)}
+          className="sym-common-left"
         />
         <EditableSelectField
           label="Country"
@@ -538,10 +550,11 @@ export function CommonTab({ s, set, isNew, lockField }) {
           value={s.source ?? ""}
           headerItems={symbolPickerHeaders}
           onChange={(v) => set("source", v)}
+          className="sym-common-left"
         />
         <Field label="Category" fieldKey="category" lockField={lockField} value={s.category} onChange={(v) => set("category", v)} />
         <label>Background</label>
-        <span className="sym-color-select">
+        <span className="sym-color-select sym-common-left">
           <span
             className="sym-color-swatch"
             style={{
@@ -553,13 +566,14 @@ export function CommonTab({ s, set, isNew, lockField }) {
           />
           <PropSelect
             fill
+            className="sym-common-left"
             value={s.color_background ?? COLOR_NONE}
             options={BackgroundColor_options}
             onChange={(v) => set("color_background", v)}
           />
         </span>
         <Field label="Page" value={s.page} onChange={(v) => set("page", v)} />
-        <SelectField label="Digits" fieldKey="digits" lockField={lockField} value={s.digits} options={plain(DIGITS_options)} onChange={(v) => set("digits", v)} />
+        <SelectField label="Digits" fieldKey="digits" lockField={lockField} value={s.digits} options={plain(DIGITS_options)} onChange={(v) => set("digits", v)} controlClassName="sym-common-md" />
         <EditableSelectField
           label="Market depth"
           fieldKey="tick_book_depth"
@@ -569,14 +583,15 @@ export function CommonTab({ s, set, isNew, lockField }) {
           format={formatMarketDepth}
           parse={parseMarketDepth}
           onChange={(v) => set("tick_book_depth", v)}
+          className="sym-common-md"
         />
         <NumField
           label="Spread"
           fieldKey="spread"
           lockField={lockField}
-          value={s.spread}
-          offWhenZero
+          value={s.spread ?? 0}
           readOnly={spreadLocked}
+          inputClassName="sym-common-md"
           onChange={spreadLocked ? undefined : (v) => set("spread", v)}
         />
         <SelectField
@@ -584,6 +599,7 @@ export function CommonTab({ s, set, isNew, lockField }) {
           value={s.tick_book_volume ?? 0}
           options={BookVolume_options}
           onChange={(v) => set("tick_book_volume", v)}
+          controlClassName="sym-common-md"
         />
         <label className="sym-spread-balance-label">Spread balance</label>
         <span className={`sym-spread-balance${balanceLocked ? " sym-spread-balance-disabled" : ""}`}>
@@ -1126,7 +1142,7 @@ export function SwapsTab({ s, set, lockField }) {
         <NumField label="Long positions" value={s.swap_long} onChange={(v) => set("swap_long", v)} />
         <NumField label="Short positions" value={s.swap_short} onChange={(v) => set("swap_short", v)} />
       </div>
-      <div className="form-grid sym-form-two-col sym-swaps-year-row">
+      <div className="form-grid sym-swaps-year-row">
         <SelectField
           label="Days in year"
           value={swapYearDayValue(s.swap_year_day)}

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"encoding/json"
 	"hstserver/model"
 	"testing"
 )
@@ -62,5 +63,58 @@ func TestPrepareCreateSymbolDefaults(t *testing.T) {
 	}
 	if len(symbolInsertArgs(sym)) != 122 {
 		t.Fatalf("insert arg count: got %d want 122", len(symbolInsertArgs(sym)))
+	}
+}
+
+func TestValidateMarketDepthSpreadAllowsWhenDepthOff(t *testing.T) {
+	before := map[string]json.RawMessage{
+		"tick_book_depth": json.RawMessage(`0`),
+		"spread":          json.RawMessage(`16`),
+		"spread_balance":  json.RawMessage(`0`),
+	}
+	spread := int32(20)
+	body := UptSymbol{Spread: &spread}
+	if err := validateMarketDepthSpread(before, &body); err != nil {
+		t.Fatalf("expected spread change when depth off, got: %v", err)
+	}
+}
+
+func TestValidateMarketDepthSpreadRejectsWhenDepthOn(t *testing.T) {
+	before := map[string]json.RawMessage{
+		"tick_book_depth": json.RawMessage(`16`),
+		"spread":          json.RawMessage(`0`),
+		"spread_balance":  json.RawMessage(`0`),
+	}
+	spread := int32(10)
+	body := UptSymbol{Spread: &spread}
+	if err := validateMarketDepthSpread(before, &body); err == nil {
+		t.Fatal("expected spread patch to fail when market depth enabled")
+	}
+}
+
+func TestValidateMarketDepthSpreadAllowsDepthChangeAlone(t *testing.T) {
+	before := map[string]json.RawMessage{
+		"tick_book_depth": json.RawMessage(`0`),
+		"spread":          json.RawMessage(`0`),
+		"spread_balance":  json.RawMessage(`0`),
+	}
+	depth := int32(16)
+	body := UptSymbol{TickBookDepth: &depth}
+	if err := validateMarketDepthSpread(before, &body); err != nil {
+		t.Fatalf("expected enabling market depth without spread change, got: %v", err)
+	}
+}
+
+func TestValidateMarketDepthSpreadAllowsSpreadWhenDisablingDepth(t *testing.T) {
+	before := map[string]json.RawMessage{
+		"tick_book_depth": json.RawMessage(`16`),
+		"spread":          json.RawMessage(`0`),
+		"spread_balance":  json.RawMessage(`0`),
+	}
+	depth := int32(0)
+	spread := int32(12)
+	body := UptSymbol{TickBookDepth: &depth, Spread: &spread}
+	if err := validateMarketDepthSpread(before, &body); err != nil {
+		t.Fatalf("expected spread change when disabling market depth in same patch, got: %v", err)
 	}
 }

@@ -22,3 +22,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright audit artifacts
+.playwright-audit/
+playwright-report/
+test-results/

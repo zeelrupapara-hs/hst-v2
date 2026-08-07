@@ -118,6 +118,7 @@ export function SymbolTreeSelectField({
   headerItems = [],
   lockField,
   fieldKey,
+  className = "",
 }) {
   const locked = lockField?.(fieldKey);
   const { symbols } = useSymbols();
@@ -242,7 +243,7 @@ export function SymbolTreeSelectField({
       <label>{label}</label>
       <div
         ref={rootRef}
-        className={`prop-select prop-select-fill editable-select${locked ? " prop-select-disabled" : ""}`}
+        className={`prop-select prop-select-fill editable-select ${className}${locked ? " prop-select-disabled" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="prop-select-box editable-select-box">

@@ -598,6 +598,7 @@ type Symbol struct {
 	Point                          float64           `db:"point" json:"point"`
 	Multiply                       float64           `db:"multiply" json:"multiply"`
 	TickFlags                      TickFlags         `db:"tick_flags" json:"tick_flags"`
+	// TickBookDepth > 0: exchange DOM; Spread/SpreadBalance are not applied (see hst-quote ApplySpread).
 	TickBookDepth                  int32             `db:"tick_book_depth" json:"tick_book_depth"`
 	TickBookVolume                 int32             `db:"tick_book_volume" json:"tick_book_volume"`
 	FilterSoft                     int32             `db:"filter_soft" json:"filter_soft"`

@@ -60,6 +60,8 @@ type CrtSymbol struct {
 	ColorBackground                int64              `json:"color_background"`
 	Digits                         int32              `json:"digits" validate:"gte=0,lte=12"`
 	TickFlags                      int32              `json:"tick_flags" validate:"gte=0"`
+	// TickBookDepth is exchange DOM levels per side (0 = off). When > 0, Spread and SpreadBalance
+	// are stored but ignored at quote time; see validateMarketDepthSpread on patch.
 	TickBookDepth                  int32              `json:"tick_book_depth" validate:"gte=0"`
 	TickBookVolume                 int32              `json:"tick_book_volume" validate:"gte=0"`
 	FilterSoft                     int32              `json:"filter_soft" validate:"gte=0"`
@@ -76,6 +78,7 @@ type CrtSymbol struct {
 	GTCMode                        int16              `json:"gtc_mode" validate:"gte=0,lte=2"`
 	FillFlags                      int32              `json:"fill_flags" validate:"gte=0"`
 	ExpirFlags                     int32              `json:"expir_flags" validate:"gte=0"`
+	// Spread / SpreadBalance apply only when TickBookDepth is 0 (MT5 Common tab).
 	Spread                         int32              `json:"spread"`
 	SpreadBalance                  int32              `json:"spread_balance"`
 	SpreadDiff                     int32              `json:"spread_diff"`
@@ -183,6 +186,7 @@ type UptSymbol struct {
 	ColorBackground                *int64                   `json:"color_background"`
 	Digits                         *int32                   `json:"digits"`
 	TickFlags                      *model.TickFlags         `json:"tick_flags"`
+	// TickBookDepth > 0 enables exchange DOM; spread markup fields are locked on patch.
 	TickBookDepth                  *int32                   `json:"tick_book_depth"`
 	TickBookVolume                 *int32                   `json:"tick_book_volume"`
 	FilterSoft                     *int32                   `json:"filter_soft"`
@@ -199,6 +203,7 @@ type UptSymbol struct {
 	GtcMode                        *model.GTCMode           `json:"gtc_mode"`
 	FillFlags                      *model.FillingFlags      `json:"fill_flags"`
 	ExpirFlags                     *model.ExpirationFlags   `json:"expir_flags"`
+	// Ignored at quote time when TickBookDepth > 0; cannot be changed via PATCH while DOM is on.
 	Spread                         *int32                   `json:"spread"`
 	SpreadBalance                  *int32                   `json:"spread_balance"`
 	SpreadDiff                     *int32                   `json:"spread_diff"`
@@ -291,7 +296,7 @@ var symbolsSortable = utils.NewSortable(
 	"exec_mode", "spread", "date_created", "date_modified")
 
 const symbolListColumns = `symbol_id, symbol, path, description, digits, trade_mode,
-	calc_mode, exec_mode, spread, contract_size, date_modified,
+	calc_mode, exec_mode, spread, contract_size, date_modified, color_background,
 	swap_mode, swap_long, swap_short, swap_year_day, swap_flags,
 	swap_rate_sunday, swap_rate_monday, swap_rate_tuesday, swap_rate_wednesday,
 	swap_rate_thursday, swap_rate_friday, swap_rate_saturday`
@@ -742,6 +747,16 @@ func jsonString(raw json.RawMessage) string {
 	return out
 }
 
+// jsonInt32 reads a json number as int32; missing or invalid values become 0.
+func jsonInt32(raw json.RawMessage) int32 {
+	var n int32
+	if len(raw) == 0 {
+		return 0
+	}
+	_ = json.Unmarshal(raw, &n)
+	return n
+}
+
 // sameJSON compares two json values, treating 100 and 100.00000000 as equal.
 func sameJSON(was, next json.RawMessage) bool {
 	if bytes.Equal(was, next) {
@@ -833,6 +848,34 @@ func validateSessions(sessions []CrtSymbolSession) error {
 	return nil
 }
 
+func patchInt32Changed(before map[string]json.RawMessage, key string, patch *int32) bool {
+	if patch == nil {
+		return false
+	}
+	return jsonInt32(before[key]) != *patch
+}
+
+func effectiveTickBookDepth(before map[string]json.RawMessage, patch *int32) int32 {
+	if patch != nil {
+		return *patch
+	}
+	return jsonInt32(before["tick_book_depth"])
+}
+
+// validateMarketDepthSpread enforces MT5: spread markup is disabled while exchange DOM is on.
+func validateMarketDepthSpread(before map[string]json.RawMessage, body *UptSymbol) error {
+	if effectiveTickBookDepth(before, body.TickBookDepth) <= 0 {
+		return nil
+	}
+	if patchInt32Changed(before, "spread", body.Spread) ||
+		patchInt32Changed(before, "spread_balance", body.SpreadBalance) {
+		return fmt.Errorf(
+			"spread and spread_balance cannot be changed while market depth is enabled (tick_book_depth > 0); set market depth to off first",
+		)
+	}
+	return nil
+}
+
 // CreateSymbol registers a server-wide instrument.
 //
 //	@Id			CreateSymbol
@@ -892,7 +935,7 @@ func (s *Server) CreateSymbol(c *fiber.Ctx) error {
 		insertArgs...,
 	).Scan(&view.SymbolId, &view.Symbol, &view.Path, &view.Description, &view.Digits,
 		&view.TradeMode, &view.CalcMode, &view.ExecMode, &view.Spread, &view.ContractSize,
-		&view.DateModified,
+		&view.DateModified, &view.ColorBackground,
 		&view.SwapMode, &view.SwapLong, &view.SwapShort, &view.SwapYearDay, &view.SwapFlags,
 		&view.SwapRateSunday, &view.SwapRateMonday, &view.SwapRateTuesday, &view.SwapRateWednesday,
 		&view.SwapRateThursday, &view.SwapRateFriday, &view.SwapRateSaturday)
@@ -1088,7 +1131,7 @@ func (s *Server) ListSymbols(c *fiber.Ctx) error {
 		var v v1.ViewSymbol
 		if err := rows.Scan(&v.SymbolId, &v.Symbol, &v.Path, &v.Description, &v.Digits,
 			&v.TradeMode, &v.CalcMode, &v.ExecMode, &v.Spread, &v.ContractSize,
-			&v.DateModified,
+			&v.DateModified, &v.ColorBackground,
 			&v.SwapMode, &v.SwapLong, &v.SwapShort, &v.SwapYearDay, &v.SwapFlags,
 			&v.SwapRateSunday, &v.SwapRateMonday, &v.SwapRateTuesday, &v.SwapRateWednesday,
 			&v.SwapRateThursday, &v.SwapRateFriday, &v.SwapRateSaturday); err != nil {
@@ -1324,6 +1367,7 @@ func (s *Server) selectSymbolDetail(ctx context.Context, id int64) (*ViewSymbolD
 }
 
 // UpdateSymbol patches fields present in the body.
+// Spread and spread_balance cannot be changed while tick_book_depth > 0 (market depth enabled).
 //
 //	@Id			UpdateSymbol
 //	@Tags		Symbols
@@ -1388,6 +1432,9 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 	var before map[string]json.RawMessage
 	if err := json.Unmarshal(raw, &before); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if err := validateMarketDepthSpread(before, &body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
 	}
 
 	// only sessions need a second look, and only when the caller sends them
