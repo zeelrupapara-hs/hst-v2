@@ -4147,3 +4147,8 @@ label.sym-check::after { content: none; }
 .settings-dialog .grp-sym-form .grp-suffixed { white-space: nowrap; }
 /* a checkbox is as wide as its box, so its text sits next to it and not a field away */
 .sym-check input[type="checkbox"] { flex: 0 0 auto; width: 13px; }
+
+/* ── data feed dialog: its forms keep their own geometry under a settings dialog ── */
+.settings-dialog .df-timeouts-form { grid-template-columns: 240px 108px auto; max-width: 520px; }
+.settings-dialog .df-common-form label.df-check-cell { grid-column: 2 / -1; }
+.settings-dialog .df-common-form { grid-template-columns: 150px 175px 90px minmax(0, 1fr); }
