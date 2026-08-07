@@ -64,7 +64,7 @@ function Branch({ node, path, depth, open, toggle, onPick }) {
             .sort((a, b) => a.symbol.localeCompare(b.symbol))
             .map((s) => (
               <div key={s.symbol} className="symtree-row" style={{ paddingLeft: (depth + 1) * 16 + 18 }}>
-                <button type="button" className="symtree-item" onClick={() => onPick(s.symbol)}>
+                <button type="button" className="symtree-item" onClick={() => onPick([...path, s.symbol].join("\\"))}>
                   <span className="df-row-icon" aria-hidden="true">$</span>
                   {s.symbol}
                   {s.description && <span className="symtree-desc">, {s.description}</span>}
