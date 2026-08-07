@@ -102,9 +102,9 @@ type Datafeed struct {
 	Mode               FeederFlags           `db:"mode" json:"mode"`
 	GatewayServer      string                `db:"gateway_server" json:"gateway_server"`
 	FeedServer         string                `db:"feed_server" json:"feed_server"`
-	FeedLogin          int64                 `db:"feed_login" json:"feed_login"`
+	FeedLogin          string                `db:"feed_login" json:"feed_login"`
 	FeedPassword       string                `db:"feed_password" json:"-"`
-	GatewayLogin       int64                 `db:"gateway_login" json:"gateway_login"`
+	GatewayLogin       string                `db:"gateway_login" json:"gateway_login"`
 	GatewayPassword    string                `db:"gateway_password" json:"-"`
 	Timeout            int32                 `db:"timeout" json:"timeout"`
 	TimeoutReconnect   int32                 `db:"timeout_reconnect" json:"timeout_reconnect"`

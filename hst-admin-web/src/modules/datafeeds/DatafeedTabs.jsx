@@ -57,7 +57,7 @@ export function DatafeedCommonTab({ d, set, modules }) {
           <PropSelect fill value={d.mode ?? 1} options={MODE_OPTIONS} onChange={(v) => set("mode", Number(v))} />
         </div>
         <Field label="Feed server" value={d.feed_server} onChange={(v) => set("feed_server", v)} width="wide" />
-        <Field label="Feed login" value={d.feed_login} onChange={(v) => set("feed_login", Number(v) || 0)} />
+        <Field label="Feed login" value={d.feed_login} onChange={(v) => set("feed_login", v)} />
         <Field
           label="Password"
           type="password"
@@ -79,7 +79,7 @@ export function DatafeedCommonTab({ d, set, modules }) {
             <Field
               label="Gateway login"
               value={d.gateway_login}
-              onChange={(v) => set("gateway_login", Number(v) || 0)}
+              onChange={(v) => set("gateway_login", v)}
             />
             <Field
               label="Gateway password"
