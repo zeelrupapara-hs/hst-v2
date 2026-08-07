@@ -21,6 +21,7 @@ import {
   TradeTab,
 } from "./SymbolTabs.jsx";
 import { SymbolSessionsTab } from "./SymbolSessionsTab.jsx";
+import { symbolFolder } from "@/lib/symbolTree.js";
 
 const TABS = [
   { id: "common", label: "Common", Panel: CommonTab },
@@ -149,8 +150,14 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
         return { ...prev, ...keyOrFields };
       }
       const next = { ...prev, [keyOrFields]: value };
-      if (isNew && keyOrFields === "symbol") {
-        next.path = folderPath ? `${folderPath}\\${value}` : value;
+      if (keyOrFields === "symbol") {
+        const name = String(value ?? "");
+        if (isNew) {
+          next.path = folderPath ? `${folderPath}\\${name}` : name;
+        } else {
+          const folder = symbolFolder(prev.path || "");
+          next.path = folder ? `${folder}\\${name}` : name;
+        }
       }
       return next;
     });
@@ -158,18 +165,24 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
 
   async function handleOk() {
     if (!draft) return;
+    const trimmed = String(draft.symbol ?? "").trim();
+    const folder = symbolFolder(draft.path || "");
+    const normalized =
+      trimmed === draft.symbol
+        ? draft
+        : { ...draft, symbol: trimmed, path: folder ? `${folder}\\${trimmed}` : trimmed };
     if (isNew) {
-      if (!draft.symbol.trim()) {
+      if (!trimmed) {
         setError("Symbol name is required");
         return;
       }
-      const res = await createSymbol({ ...draft, sessions: (draft.sessions || []).map(sessionRow) });
+      const res = await createSymbol({ ...normalized, sessions: (normalized.sessions || []).map(sessionRow) });
       if (!res.ok) {
         setError(res.message || "create failed");
         return;
       }
     } else {
-      const patch = diff(draft, original);
+      const patch = diff(normalized, original);
       if (Object.keys(patch).length) {
         const res = await updateSymbol(symbolId, patch);
         if (!res.ok) {

@@ -506,7 +506,7 @@ export function CommonTab({ s, set, isNew, lockField }) {
         other parameters.
       </TabIntro>
       <div className="form-grid sym-form-two-col">
-        <Field label="Symbol" fieldKey="symbol" lockField={lockField} value={s.symbol} onChange={isNew ? (v) => set("symbol", v) : undefined} />
+        <Field label="Symbol" fieldKey="symbol" lockField={lockField} value={s.symbol} onChange={(v) => set("symbol", v)} />
         <Field label="Description" fieldKey="description" lockField={lockField} value={s.description} onChange={(v) => set("description", v)} />
         <Field label="Exchange" fieldKey="exchange" lockField={lockField} value={s.exchange} onChange={(v) => set("exchange", v)} />
         <Field label="International" fieldKey="international" lockField={lockField} value={s.international} onChange={(v) => set("international", v)} />
