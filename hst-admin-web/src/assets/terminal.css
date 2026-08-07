@@ -4152,3 +4152,44 @@ label.sym-check::after { content: none; }
 .settings-dialog .df-timeouts-form { grid-template-columns: 240px 108px auto; max-width: 520px; }
 .settings-dialog .df-common-form label.df-check-cell { grid-column: 2 / -1; }
 .settings-dialog .df-common-form { grid-template-columns: 150px 175px 90px minmax(0, 1fr); }
+
+/* ── symbol tree dropdown: folders closed until opened, a folder picks its branch ── */
+.symtree-editor { display: flex; align-items: center; width: 100%; }
+.symtree-editor .df-cell-input { flex: 1 1 auto; }
+.symtree-drop { width: 18px; height: 18px; padding: 0; font-size: 9px; line-height: 1; }
+.symtree-backdrop { position: fixed; inset: 0; z-index: 1000; }
+.symtree-pop {
+  position: fixed;
+  z-index: 1001;
+  max-height: 320px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #7f9db9;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+  padding: 2px 0;
+}
+.symtree-row { display: flex; align-items: center; white-space: nowrap; }
+.symtree-arrow {
+  width: 16px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #808080;
+  font-size: 9px;
+  cursor: pointer;
+}
+.symtree-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px 1px 2px;
+  border: none;
+  background: none;
+  font-size: 11px;
+  cursor: pointer;
+}
+.symtree-item:hover { background: #316ac5; color: #fff; }
+.symtree-item:hover .symtree-desc { color: #dfe8f6; }
+.symtree-desc { color: #808080; }
+.symtree-empty { padding: 4px 10px; font-size: 11px; color: #808080; }

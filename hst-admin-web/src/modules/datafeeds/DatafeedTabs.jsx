@@ -98,7 +98,7 @@ export function DatafeedSymbolsTab({ d, set }) {
   return (
     <DfListPanel
       intro="Please specify the symbols for which the data feed will translate quotes."
-      columns={[{ id: "scope", label: "", defaultValue: "*" }]}
+      columns={[{ id: "scope", label: "", defaultValue: "*", editor: "symbols" }]}
       rows={d.feed_symbols || []}
       rowKey={(row, i) => row.feed_symbol_id ?? `new-${i}`}
       canEdit
