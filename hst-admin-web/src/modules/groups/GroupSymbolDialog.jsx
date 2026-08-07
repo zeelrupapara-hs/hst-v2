@@ -69,6 +69,8 @@ const MARGIN_CHECK_OPTIONS = withDefault([
   { value: 3, label: "All" },
 ]);
 
+// the dealer timeout and order confirmation only exist in Request execution
+const EXEC_REQUEST = 0;
 const IE_FAST_CONFIRMATION = 1;
 const RE_CONFIRM_ORDERS = 1;
 const SWAP_CONSIDER_HOLIDAYS = 1;
@@ -79,9 +81,10 @@ const YES_NO = withDefault([
 ]);
 
 // permissions_book_depth is a plain count; 0 means no limit.
-const BOOK_DEPTH_OPTIONS = withDefault(
-  Array.from({ length: 33 }, (_, i) => ({ value: i, label: i === 0 ? "unlimited" : String(i) })),
-);
+const BOOK_DEPTH_OPTIONS = Array.from({ length: 33 }, (_, i) => ({
+  value: i,
+  label: i === 0 ? "unlimited" : String(i),
+}));
 
 const SWAP_DAYS = [
   ["swap_rate_sunday", "Sunday"],
@@ -105,7 +108,7 @@ const rateKeys = (base) =>
 
 // One Use-default control per reference cluster; the wire clears whole sections only.
 const CLUSTERS = {
-  spread: { section: "common", keys: ["permissions_flags", "permissions_book_depth", "spread_diff", "spread_diff_balance"] },
+  spread: { section: "common", keys: ["spread_diff", "spread_diff_balance"] },
   volumes: { section: "common", keys: ["volume_min", "volume_max", "volume_step"] },
   limit: { section: "common", keys: ["volume_limit"] },
   trade: { section: "trade", keys: ["trade_mode", "fill_flags", "expir_flags", "order_flags"] },
@@ -142,12 +145,12 @@ const TABS = [
   { id: "swaps", label: "Swaps", intro: "Please set up parameters of charging swaps by symbols for the group." },
 ];
 
-function Num({ label, value, onChange, disabled, lots, suffix, wide }) {
+function Num({ label, value, onChange, disabled, lots, suffix, wide, span }) {
   const shown = value == null ? "" : lots ? toLots(value) : value;
   return (
     <>
       <label>{label}</label>
-      <span className={suffix ? "grp-suffixed" : undefined}>
+      <span className={[suffix && "grp-suffixed", span && "grp-sym-span"].filter(Boolean).join(" ") || undefined}>
         <input
           type="text"
           className={wide ? "grp-sym-wide" : undefined}
@@ -167,27 +170,52 @@ function Num({ label, value, onChange, disabled, lots, suffix, wide }) {
   );
 }
 
-function Sel({ label, value, options, onChange, disabled }) {
+function Sel({ label, value, options, onChange, disabled, span }) {
+  const select = (
+    <PropSelect
+      fill
+      disabled={disabled}
+      value={value == null ? DEFAULT : value}
+      options={options}
+      onChange={(v) => onChange(v === DEFAULT ? null : v)}
+    />
+  );
   return (
     <>
       <label>{label}</label>
-      <PropSelect
-        fill
-        disabled={disabled}
-        value={value == null ? DEFAULT : value}
-        options={options}
-        onChange={(v) => onChange(v === DEFAULT ? null : v)}
-      />
+      {span ? <span className="grp-sym-span">{select}</span> : select}
     </>
   );
 }
 
-function Check({ label, checked, onChange, disabled }) {
+function Check({ label, checked, onChange, disabled, half }) {
   return (
-    <label className="sym-check">
+    <label className={half ? "sym-check grp-sym-half" : "sym-check grp-sym-full"}>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />{" "}
       {label}
     </label>
+  );
+}
+
+/** The spread difference split between the two sides; the caption shows where each side lands. */
+function Balance({ value, spread, onChange, disabled }) {
+  const bid = value ?? 0;
+  return (
+    <>
+      <label>Difference balance</label>
+      <span className="grp-sym-slider">
+        <input
+          type="range"
+          disabled={disabled}
+          min={0}
+          max={Math.max(spread ?? 0, 0)}
+          step={1}
+          value={Math.min(bid, Math.max(spread ?? 0, 0))}
+          onChange={(e) => onChange(Number(e.target.value))}
+        />
+        <span className="grp-suffix">{bid} bid / {(spread ?? 0) - bid} ask</span>
+      </span>
+    </>
   );
 }
 
@@ -223,9 +251,13 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
 
   async function handleOk() {
     const patch = { path: draft.path || "*" };
+    // market depth has no Use-default control of its own, so it is written whenever it is set
+    const DEPTH = ["permissions_flags", "permissions_book_depth"];
+    for (const key of DEPTH) if (draft[key] != null) patch[key] = draft[key];
+
     for (const section of ["common", "trade", "execution", "margin", "margin_rate", "swaps"]) {
       const ids = Object.keys(CLUSTERS).filter((id) => CLUSTERS[id].section === section);
-      if (ids.every((id) => useDefault[id])) {
+      if (ids.every((id) => useDefault[id]) && !(section === "common" && DEPTH.some((k) => draft[k] != null))) {
         patch[`use_default_${section}`] = true;
         continue;
       }
@@ -296,30 +328,26 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
     switch (tab) {
       case "common":
         return (
-          <div className="form-grid sym-form-two-col">
+          <div className="form-grid sym-form-two-col grp-sym-form">
             <Sel
+              span
               label="Symbol"
               value={draft.path ?? "*"}
               options={[...new Set(["*", draft.path || "*", ...paths])].map((p) => ({ value: p, label: p }))}
               onChange={(v) => set("path", v || "*")}
             />
-            <span />
-            <span />
             <Check
+              half
               label="Enable market depth"
-              disabled={useDefault.spread}
               checked={bit("permissions_flags", 1)}
               onChange={(on) => setBit("permissions_flags", 1, on)}
             />
             <Sel
               label="Market depth limit"
-              value={draft.permissions_book_depth}
+              value={draft.permissions_book_depth ?? 0}
               options={BOOK_DEPTH_OPTIONS}
-              disabled={useDefault.spread}
               onChange={(v) => set("permissions_book_depth", v)}
             />
-            <span />
-            <span />
             <Default id="spread" label="Use default spread" />
             <Num
               label="Spread difference"
@@ -328,63 +356,58 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
               disabled={useDefault.spread}
               onChange={(v) => set("spread_diff", v)}
             />
-            <Num
-              label="Difference balance"
+            <Balance
               value={draft.spread_diff_balance}
+              spread={draft.spread_diff}
               disabled={useDefault.spread}
               onChange={(v) => set("spread_diff_balance", v)}
-              suffix={`${draft.spread_diff_balance ?? 0} bid / ${(draft.spread_diff ?? 0) - (draft.spread_diff_balance ?? 0)} ask`}
             />
             <Default id="volumes" label="Use default volumes" />
-            <Num label="Minimum" lots value={draft.volume_min} disabled={useDefault.volumes} onChange={(v) => set("volume_min", v)} />
-            <Num label="Step" lots value={draft.volume_step} disabled={useDefault.volumes} onChange={(v) => set("volume_step", v)} />
-            <Num label="Maximum" lots value={draft.volume_max} disabled={useDefault.volumes} onChange={(v) => set("volume_max", v)} />
-            <span />
-            <span />
+            <div className="grp-sym-triple">
+              <Num label="Minimum" lots value={draft.volume_min} disabled={useDefault.volumes} onChange={(v) => set("volume_min", v)} />
+              <Num label="Step" lots value={draft.volume_step} disabled={useDefault.volumes} onChange={(v) => set("volume_step", v)} />
+              <Num label="Maximum" lots value={draft.volume_max} disabled={useDefault.volumes} onChange={(v) => set("volume_max", v)} />
+            </div>
             <Default id="limit" label="Use default limit" />
             <Num label="Limit" lots value={draft.volume_limit} disabled={useDefault.limit} onChange={(v) => set("volume_limit", v)} />
           </div>
         );
       case "trade":
         return (
-          <div className="form-grid sym-form-two-col">
+          <div className="form-grid sym-form-two-col grp-sym-form">
             <Default id="trade" label="Use default trade settings" />
             <Sel
+              span
               label="Trade"
               value={draft.trade_mode}
               options={withDefault(enumOptions(TradeMode_name))}
               disabled={useDefault.trade}
               onChange={(v) => set("trade_mode", v)}
             />
-            <span />
-            <span />
             <Sel
+              span
               label="Filling"
               value={draft.fill_flags}
               options={flagOptions(FILLING_LABELS)}
               disabled={useDefault.trade}
               onChange={(v) => set("fill_flags", v)}
             />
-            <span />
-            <span />
             <Sel
+              span
               label="Expiration"
               value={draft.expir_flags}
               options={flagOptions(EXPIRATION_LABELS)}
               disabled={useDefault.trade}
               onChange={(v) => set("expir_flags", v)}
             />
-            <span />
-            <span />
             <Sel
+              span
               label="Orders"
               value={draft.order_flags}
               options={flagOptions(ORDER_LABELS)}
               disabled={useDefault.trade}
               onChange={(v) => set("order_flags", v)}
             />
-            <span />
-            <span />
             <Default id="trade_level" label="Use default trade level settings" />
             <Num
               label="Limit & stop level"
@@ -405,7 +428,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
       case "execution": {
         const off = useDefault.execution;
         return (
-          <div className="form-grid sym-form-two-col">
+          <div className="form-grid sym-form-two-col grp-sym-form">
             <Default id="execution" label="Use default execution settings" />
             <Sel
               label="Execution"
@@ -439,21 +462,25 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
               disabled={off}
               onChange={(v) => set("ie_volume_max", v)}
             />
-            <Num label="Timeout" suffix="seconds" value={draft.re_timeout} disabled={off} onChange={(v) => set("re_timeout", v)} />
-            <span />
-            <span />
-            <Check
-              label="Confirm orders"
-              disabled={off}
-              checked={bit("re_flags", RE_CONFIRM_ORDERS)}
-              onChange={(on) => setBit("re_flags", RE_CONFIRM_ORDERS, on)}
-            />
+            {draft.exec_mode === EXEC_REQUEST && (
+              <>
+                <Num label="Timeout" suffix="seconds" value={draft.re_timeout} disabled={off} onChange={(v) => set("re_timeout", v)} />
+                <span />
+                <span />
+                <Check
+                  label="Confirm orders"
+                  disabled={off}
+                  checked={bit("re_flags", RE_CONFIRM_ORDERS)}
+                  onChange={(on) => setBit("re_flags", RE_CONFIRM_ORDERS, on)}
+                />
+              </>
+            )}
           </div>
         );
       }
       case "margin":
         return (
-          <div className="form-grid sym-form-two-col">
+          <div className="form-grid sym-form-two-col grp-sym-form">
             <Default id="margin_values" label="Use default margin values" />
             <Num label="Initial margin" value={draft.margin_initial} disabled={useDefault.margin_values} onChange={(v) => set("margin_initial", v)} />
             <span />
@@ -489,6 +516,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
               onChange={(on) => setBit("margin_flags", MARGIN_RECALC_RATES, on)}
             />
             <Sel
+              span
               label="Additional margin checks"
               value={draft.margin_flags == null ? null : draft.margin_flags & MARGIN_CHECK_BITS}
               options={MARGIN_CHECK_OPTIONS}
@@ -502,7 +530,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
       case "margin_rate":
         return (
           <>
-            <div className="form-grid sym-form-two-col">
+            <div className="form-grid sym-form-two-col grp-sym-form">
               <Num
                 label="Liquidity margin rate"
                 value={draft.margin_liquidity}
@@ -545,16 +573,15 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
         const off = useDefault.swaps;
         return (
           <>
-            <div className="form-grid sym-form-two-col">
+            <div className="form-grid sym-form-two-col grp-sym-form">
               <Sel
+                span
                 label="Type"
                 value={draft.swap_mode}
                 options={withDefault(enumOptions(SwapMode_name))}
                 disabled={off}
                 onChange={(v) => set("swap_mode", v)}
               />
-              <span />
-              <span />
               <Num label="Long positions" value={draft.swap_long} disabled={off} onChange={(v) => set("swap_long", v)} />
               <Num label="Short positions" value={draft.swap_short} disabled={off} onChange={(v) => set("swap_short", v)} />
               <Sel
@@ -639,8 +666,8 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          width={700}
-          height={480}
+          width={675}
+          height={520}
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={`Symbol: ${draft.path || "*"}`}
