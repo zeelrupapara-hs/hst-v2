@@ -38,8 +38,15 @@ function CellEditor({ col, value, onCommit, onCancel }) {
     inputRef.current?.select?.();
   }, []);
 
-  if (col.editor === "symbols") {
-    return <SymbolTreeSelect value={value} onCommit={onCommit} onCancel={onCancel} />;
+  if (col.editor === "symbols" || col.editor === "symbol") {
+    return (
+      <SymbolTreeSelect
+        value={value}
+        onCommit={onCommit}
+        onCancel={onCancel}
+        leafOnly={col.editor === "symbol"}
+      />
+    );
   }
 
   if (col.editor === "yesno") {

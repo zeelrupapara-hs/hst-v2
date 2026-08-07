@@ -132,7 +132,7 @@ export function DatafeedTranslationsTab({ d, set }) {
         "If any of the parameters is not set, its source values will be used."
       }
       columns={[
-        { id: "symbol", label: "Symbol", defaultValue: "" },
+        { id: "symbol", label: "Symbol", defaultValue: "", editor: "symbol" },
         { id: "source", label: "Source", defaultValue: "" },
         { id: "bid_markup", label: "Bid", defaultValue: 0, editor: "number", align: "num" },
         { id: "ask_markup", label: "Ask", defaultValue: 0, editor: "number", align: "num" },

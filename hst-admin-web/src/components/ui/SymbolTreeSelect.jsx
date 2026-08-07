@@ -18,7 +18,7 @@ function buildTree(symbols) {
   return root;
 }
 
-function Branch({ node, path, depth, open, toggle, onPick }) {
+function Branch({ node, path, depth, open, toggle, onPick, leafOnly }) {
   const key = path.join("\\");
   const expanded = open.has(key);
   return (
@@ -38,7 +38,7 @@ function Branch({ node, path, depth, open, toggle, onPick }) {
         <button
           type="button"
           className="symtree-item symtree-folder"
-          onClick={() => onPick(depth === 0 ? "*" : `${key}\\*`)}
+          onClick={() => (leafOnly ? toggle(key) : onPick(depth === 0 ? "*" : `${key}\\*`))}
         >
           <span className="df-row-icon" aria-hidden="true">$</span>
           {node.name}
@@ -57,6 +57,7 @@ function Branch({ node, path, depth, open, toggle, onPick }) {
                 open={open}
                 toggle={toggle}
                 onPick={onPick}
+                leafOnly={leafOnly}
               />
             ))}
           {node.symbols
@@ -64,7 +65,7 @@ function Branch({ node, path, depth, open, toggle, onPick }) {
             .sort((a, b) => a.symbol.localeCompare(b.symbol))
             .map((s) => (
               <div key={s.symbol} className="symtree-row" style={{ paddingLeft: (depth + 1) * 16 + 18 }}>
-                <button type="button" className="symtree-item" onClick={() => onPick([...path, s.symbol].join("\\"))}>
+                <button type="button" className="symtree-item" onClick={() => onPick(leafOnly ? s.symbol : [...path, s.symbol].join("\\"))}>
                   <span className="df-row-icon" aria-hidden="true">$</span>
                   {s.symbol}
                   {s.description && <span className="symtree-desc">, {s.description}</span>}
@@ -81,7 +82,7 @@ function Branch({ node, path, depth, open, toggle, onPick }) {
  * A mask editor whose dropdown is the symbol tree, folders closed at first: a folder
  * picks the whole branch as a pattern, a leaf picks that one symbol.
  */
-export function SymbolTreeSelect({ value, onCommit, onCancel }) {
+export function SymbolTreeSelect({ value, onCommit, onCancel, leafOnly = false }) {
   const inputRef = useRef(null);
   const [tree, setTree] = useState(null);
   const [openList, setOpenList] = useState(false);
@@ -107,7 +108,8 @@ export function SymbolTreeSelect({ value, onCommit, onCancel }) {
     setOpenList(true);
   }
 
-  const commit = (v) => onCommit(v.trim() || "*");
+  // an empty scope means everything; an empty symbol stays empty
+  const commit = (v) => onCommit(v.trim() || (leafOnly ? "" : "*"));
 
   return (
     <span className="symtree-editor">
@@ -155,7 +157,7 @@ export function SymbolTreeSelect({ value, onCommit, onCancel }) {
               style={{ left: rect.left, top: rect.bottom + 1, minWidth: rect.width }}
             >
               {tree ? (
-                <Branch node={tree} path={[]} depth={0} open={open} toggle={toggle} onPick={commit} />
+                <Branch node={tree} path={[]} depth={0} open={open} toggle={toggle} onPick={commit} leafOnly={leafOnly} />
               ) : (
                 <div className="symtree-row symtree-empty">loading…</div>
               )}
