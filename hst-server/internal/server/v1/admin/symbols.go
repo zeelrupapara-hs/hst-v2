@@ -291,7 +291,15 @@ var symbolsSortable = utils.NewSortable(
 	"exec_mode", "spread", "date_created", "date_modified")
 
 const symbolListColumns = `symbol_id, symbol, path, description, digits, trade_mode,
-	calc_mode, exec_mode, spread, contract_size, date_modified`
+	calc_mode, exec_mode, spread, contract_size, date_modified,
+	swap_mode, swap_long, swap_short, swap_year_day, swap_flags,
+	swap_rate_sunday, swap_rate_monday, swap_rate_tuesday, swap_rate_wednesday,
+	swap_rate_thursday, swap_rate_friday, swap_rate_saturday`
+
+const symbolSwapColumns = `symbol_id, symbol,
+	swap_mode, swap_long, swap_short, swap_year_day, swap_flags,
+	swap_rate_sunday, swap_rate_monday, swap_rate_tuesday, swap_rate_wednesday,
+	swap_rate_thursday, swap_rate_friday, swap_rate_saturday`
 
 const symbolAllColumns = `
 	symbol_id,
@@ -884,7 +892,10 @@ func (s *Server) CreateSymbol(c *fiber.Ctx) error {
 		insertArgs...,
 	).Scan(&view.SymbolId, &view.Symbol, &view.Path, &view.Description, &view.Digits,
 		&view.TradeMode, &view.CalcMode, &view.ExecMode, &view.Spread, &view.ContractSize,
-		&view.DateModified)
+		&view.DateModified,
+		&view.SwapMode, &view.SwapLong, &view.SwapShort, &view.SwapYearDay, &view.SwapFlags,
+		&view.SwapRateSunday, &view.SwapRateMonday, &view.SwapRateTuesday, &view.SwapRateWednesday,
+		&view.SwapRateThursday, &view.SwapRateFriday, &view.SwapRateSaturday)
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
@@ -925,6 +936,24 @@ func insertSessions(ctx context.Context, db sessionInserter, symbolID int64, ses
 		}
 	}
 	return nil
+}
+
+// ViewSymbolSwaps is the swap slice of a symbol — small payload for copy-from-symbol.
+type ViewSymbolSwaps struct {
+	SymbolId          int64   `json:"symbol_id"`
+	Symbol            string  `json:"symbol"`
+	SwapMode          int16   `json:"swap_mode"`
+	SwapLong          float64 `json:"swap_long"`
+	SwapShort         float64 `json:"swap_short"`
+	SwapYearDay       int32   `json:"swap_year_day"`
+	SwapFlags         int32   `json:"swap_flags"`
+	SwapRateSunday    float64 `json:"swap_rate_sunday"`
+	SwapRateMonday    float64 `json:"swap_rate_monday"`
+	SwapRateTuesday   float64 `json:"swap_rate_tuesday"`
+	SwapRateWednesday float64 `json:"swap_rate_wednesday"`
+	SwapRateThursday  float64 `json:"swap_rate_thursday"`
+	SwapRateFriday    float64 `json:"swap_rate_friday"`
+	SwapRateSaturday  float64 `json:"swap_rate_saturday"`
 }
 
 // ViewSymbolLookups lists distinct source/basis strings for symbol form combos.
@@ -1059,7 +1088,10 @@ func (s *Server) ListSymbols(c *fiber.Ctx) error {
 		var v v1.ViewSymbol
 		if err := rows.Scan(&v.SymbolId, &v.Symbol, &v.Path, &v.Description, &v.Digits,
 			&v.TradeMode, &v.CalcMode, &v.ExecMode, &v.Spread, &v.ContractSize,
-			&v.DateModified); err != nil {
+			&v.DateModified,
+			&v.SwapMode, &v.SwapLong, &v.SwapShort, &v.SwapYearDay, &v.SwapFlags,
+			&v.SwapRateSunday, &v.SwapRateMonday, &v.SwapRateTuesday, &v.SwapRateWednesday,
+			&v.SwapRateThursday, &v.SwapRateFriday, &v.SwapRateSaturday); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
 		out = append(out, v)
@@ -1095,6 +1127,42 @@ func (s *Server) GetSymbol(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 	return s.App.HttpResponseOK(c, detail)
+}
+
+// GetSymbolSwaps returns only swap fields for copy-from-symbol (no sessions, no full row).
+//
+//	@Id			GetSymbolSwaps
+//	@Tags		Symbols
+//	@Produce	json
+//	@Param		id	path		int	true	"symbol id"
+//	@Success	200	{object}	Response{data=ViewSymbolSwaps}
+//	@Failure	400	{object}	Response
+//	@Failure	404	{object}	Response
+//	@Failure	500	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/symbols/{id}/swaps [get]
+func (s *Server) GetSymbolSwaps(c *fiber.Ctx) error {
+	id, err := c.ParamsInt("id")
+	if err != nil {
+		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	var v ViewSymbolSwaps
+	err = s.DB.DB.QueryRow(c.UserContext(),
+		`SELECT `+symbolSwapColumns+` FROM hst.symbols WHERE symbol_id = $1`, id).
+		Scan(
+			&v.SymbolId, &v.Symbol,
+			&v.SwapMode, &v.SwapLong, &v.SwapShort, &v.SwapYearDay, &v.SwapFlags,
+			&v.SwapRateSunday, &v.SwapRateMonday, &v.SwapRateTuesday, &v.SwapRateWednesday,
+			&v.SwapRateThursday, &v.SwapRateFriday, &v.SwapRateSaturday,
+		)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	return s.App.HttpResponseOK(c, v)
 }
 
 func (s *Server) selectSymbolDetail(ctx context.Context, id int64) (*ViewSymbolDetail, error) {

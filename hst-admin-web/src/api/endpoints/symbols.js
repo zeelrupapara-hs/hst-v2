@@ -11,6 +11,8 @@ export const fetchSymbolLookups = () => request("/api/v1/symbols/lookups");
 
 export const fetchSymbol = (id) => request(`/api/v1/symbols/${id}`);
 
+export const fetchSymbolSwaps = (id) => request(`/api/v1/symbols/${id}/swaps`);
+
 export const createSymbol = (body) =>
   request("/api/v1/symbols", { method: "POST", body });
 

@@ -2,9 +2,9 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
-import { useSymbols } from "@/hooks/useSymbols.js";
 import { useExclusiveDropdown } from "@/hooks/useExclusiveDropdown.js";
-import { fetchSymbolLookups } from "@/api/endpoints/symbols.js";
+import { useSymbols } from "@/hooks/useSymbols.js";
+import { fetchSymbolSwaps } from "@/api/endpoints/symbols.js";
 import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
 import {
   digitsForCurrencyField,
@@ -359,10 +359,10 @@ function EditableSelectField({ label, value, options, onChange, format, parse, l
   );
 }
 
-function CheckField({ label, checked, onChange, disabled, lockField, fieldKey }) {
+function CheckField({ label, checked, onChange, disabled, lockField, fieldKey, className = "" }) {
   const locked = lockField?.(fieldKey);
   return (
-    <label className={`sym-check${locked ? " sym-field-locked" : ""}`}>
+    <label className={`sym-check${locked ? " sym-field-locked" : ""}${className ? ` ${className}` : ""}`}>
       <input
         type="checkbox"
         checked={!!checked}
@@ -465,38 +465,12 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
 }
 
 export function CommonTab({ s, set, isNew, lockField }) {
-  const { symbols } = useSymbols();
-  const [lookups, setLookups] = useState({ sources: [], bases: [] });
-
-  useEffect(() => {
-    let alive = true;
-    fetchSymbolLookups().then((res) => {
-      if (alive && res.ok) setLookups(res.data || { sources: [], bases: [] });
-    });
-    return () => {
-      alive = false;
-    };
-  }, []);
-
   const domActive = Number(s.tick_book_depth) > 0;
   const spreadLocked = domActive || lockField?.("spread");
   const balanceLocked = domActive || lockField?.("spread_balance");
 
-  const sourceHeaders = useMemo(() => {
-    const symbolNames = new Set(symbols.map((row) => row.symbol).filter(Boolean));
-    const opts = [{ value: "", label: "-" }];
-    const seen = new Set(["", "-"]);
-    for (const v of lookups.sources) {
-      const s = v == null ? "" : String(v).trim();
-      if (!s || seen.has(s) || symbolNames.has(s)) continue;
-      seen.add(s);
-      opts.push({ value: s, label: s });
-    }
-    return opts;
-  }, [lookups.sources, symbols]);
-
-  // Basis is always another symbol — tree only, plus "-" for none (no legacy flat rows).
-  const basisHeaders = useMemo(() => [{ value: "", label: "-" }], []);
+  // Basis and Source point at another symbol — tree only, plus "-" for none.
+  const symbolPickerHeaders = useMemo(() => [{ value: "", label: "-" }], []);
 
   const sector = s.sector ?? 0;
   const industryIds = SymbolIndustries_bySector[sector] ?? [0];
@@ -543,7 +517,7 @@ export function CommonTab({ s, set, isNew, lockField }) {
           fieldKey="basis"
           lockField={lockField}
           value={s.basis ?? ""}
-          headerItems={basisHeaders}
+          headerItems={symbolPickerHeaders}
           onChange={(v) => set("basis", v)}
         />
         <EditableSelectField
@@ -562,7 +536,7 @@ export function CommonTab({ s, set, isNew, lockField }) {
           fieldKey="source"
           lockField={lockField}
           value={s.source ?? ""}
-          headerItems={sourceHeaders}
+          headerItems={symbolPickerHeaders}
           onChange={(v) => set("source", v)}
         />
         <Field label="Category" fieldKey="category" lockField={lockField} value={s.category} onChange={(v) => set("category", v)} />
@@ -1063,6 +1037,24 @@ const SWAP_RATE_KEYS = [
 
 const FOREX_MULTIPLIERS = [0, 1, 1, 3, 1, 1, 0];
 
+const SWAP_COPY_FIELDS = [
+  "swap_mode",
+  "swap_long",
+  "swap_short",
+  "swap_year_day",
+  "swap_flags",
+  ...SWAP_RATE_KEYS.map(([, key]) => key),
+];
+
+function swapFieldsFromRow(row) {
+  if (!row || row.swap_mode === undefined) return null;
+  const out = {};
+  for (const key of SWAP_COPY_FIELDS) {
+    if (row[key] !== undefined) out[key] = row[key];
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 function swapYearDayValue(v) {
   const n = Number(v);
   return SwapYearDays_options.includes(n) ? n : 360;
@@ -1071,8 +1063,47 @@ function swapYearDayValue(v) {
 export function SwapsTab({ s, set, lockField }) {
   const enabled = Number(s.swap_mode) !== 0;
   const [selectedDay, setSelectedDay] = useState(0);
+  const [fromSymbol, setFromSymbol] = useState("");
+  const { symbols, reload } = useSymbols();
+
   const applyMultipliers = (values) =>
     SWAP_RATE_KEYS.forEach(([, key], i) => set(key, values[i]));
+
+  async function copySwapFromSymbol() {
+    const name = fromSymbol.trim();
+    if (!name) return;
+    if (name === s.symbol) {
+      window.alert("Choose a different symbol to copy from");
+      return;
+    }
+
+    let list = symbols;
+    if (list.length && !("swap_mode" in list[0])) {
+      list = await reload();
+    }
+
+    const row = list.find((sym) => sym.symbol === name);
+    if (!row?.symbol_id) {
+      window.alert(`Symbol '${name}' not found`);
+      return;
+    }
+
+    let fields = swapFieldsFromRow(row);
+    if (!fields) {
+      const res = await fetchSymbolSwaps(row.symbol_id);
+      if (!res.ok) {
+        window.alert(res.message || "failed to load swap settings");
+        return;
+      }
+      fields = swapFieldsFromRow(res.data);
+    }
+    if (!fields) {
+      window.alert("No swap settings found for that symbol");
+      return;
+    }
+    set(fields);
+  }
+
   return (
     <>
       <TabIntro>
@@ -1091,19 +1122,20 @@ export function SwapsTab({ s, set, lockField }) {
       <div className="form-grid sym-swaps-type">
         <SelectField label="Type" value={s.swap_mode} names={SwapMode_name} disabled={!enabled} onChange={(v) => set("swap_mode", v)} />
       </div>
-      <div className="form-grid sym-form-two-col">
+      <div className="form-grid sym-form-two-col sym-swaps-positions">
         <NumField label="Long positions" value={s.swap_long} onChange={(v) => set("swap_long", v)} />
         <NumField label="Short positions" value={s.swap_short} onChange={(v) => set("swap_short", v)} />
+      </div>
+      <div className="form-grid sym-form-two-col sym-swaps-year-row">
         <SelectField
           label="Days in year"
           value={swapYearDayValue(s.swap_year_day)}
           options={plain(SwapYearDays_options)}
           onChange={(v) => set("swap_year_day", v)}
         />
-      </div>
-      <div className="form-grid grp-check-stack">
         <CheckField
           label="Automatically consider holidays"
+          className="sym-swaps-holidays-check"
           checked={hasBit(s.swap_flags, SWAP_CONSIDER_HOLIDAYS)}
           onChange={(on) => set("swap_flags", setBit(s.swap_flags, SWAP_CONSIDER_HOLIDAYS, on))}
         />
@@ -1154,10 +1186,23 @@ export function SwapsTab({ s, set, lockField }) {
           <button type="button" disabled={!enabled} onClick={() => applyMultipliers([1, 1, 1, 1, 1, 1, 1])}>
             All week
           </button>
-          <button type="button" disabled>
+          <button
+            type="button"
+            disabled={!enabled || !fromSymbol.trim()}
+            onClick={copySwapFromSymbol}
+          >
             From symbol
           </button>
-          <PropSelect fill value="" options={[{ value: "", label: "" }]} disabled />
+          <div className="sym-swaps-from-picker">
+            <SymbolTreeSelectField
+              label=""
+              fieldKey="swap_from"
+              lockField={() => !enabled}
+              value={fromSymbol}
+              headerItems={[{ value: "", label: "" }]}
+              onChange={setFromSymbol}
+            />
+          </div>
         </div>
       </div>
     </>

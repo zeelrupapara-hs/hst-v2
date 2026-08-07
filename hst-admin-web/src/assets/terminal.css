@@ -3714,23 +3714,40 @@ select {
 .sym-side-buy { background: #1565c0; }
 .sym-side-sell { background: #c62828; }
 
-.sym-swaps-type { grid-template-columns: 108px minmax(0, 1fr); }
+.sym-swaps-type .prop-select {
+  grid-column: 2 / -1;
+  width: 100%;
+  max-width: 475px;
+}
+
+.sym-swaps-positions { grid-template-columns: 148px 165px 145px 165px; }
+.settings-dialog .sym-swaps-positions { grid-template-columns: 148px 165px 145px 165px; }
+
+.sym-swaps-year-row { grid-template-columns: 148px 80px 145px minmax(0, 1fr); }
+.settings-dialog .sym-swaps-year-row { grid-template-columns: 148px 80px 145px minmax(0, 1fr); }
+.sym-swaps-year-row .prop-select { width: 80px; max-width: 80px; }
+.settings-dialog .sym-swaps-year-row .prop-select { width: 80px; max-width: 80px; }
+.sym-swaps-holidays-check {
+  grid-column: 3 / -1;
+  align-self: center;
+  justify-self: start;
+  width: auto;
+}
+
 .sym-swaps-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 4px 12px 12px;
+  display: grid;
+  grid-template-columns: 148px 220px 200px;
+  gap: 8px 10px;
+  align-items: start;
+  padding: 8px 22px 12px 12px;
 }
 .sym-swaps-caption {
-  width: 148px;
-  flex-shrink: 0;
   text-align: right;
   padding-top: 6px;
   font-size: 11px;
 }
 .sym-swaps-caption::after { content: ":"; }
 .sym-swaps-table-wrap {
-  flex: 0 0 220px;
   border: 1px solid var(--chrome-border);
   background: #fff;
 }
@@ -3771,7 +3788,7 @@ select {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  width: 200px;
+  min-width: 0;
 }
 .sym-swaps-presets button {
   width: 100%;
@@ -3792,11 +3809,24 @@ select {
   border-color: #d0d0d0;
   cursor: default;
 }
-.sym-swaps-presets .prop-select { width: 100%; }
+.sym-swaps-presets .prop-select { width: 100%; min-width: 0; }
 .sym-swaps-presets .prop-select-box {
   height: 22px;
   border-color: #c0c0c0;
   background: #fff;
+}
+
+.sym-swaps-from-picker {
+  display: contents;
+}
+
+.sym-swaps-from-picker > label:empty {
+  display: none;
+}
+
+.sym-swaps-from-picker .prop-select-fill {
+  max-width: none;
+  width: 100%;
 }
 
 .sym-list-tabs { display: flex; gap: 2px; padding: 2px 4px 0; }
@@ -4182,6 +4212,20 @@ label.sym-check::after { content: none; }
 .settings-dialog .sym-sessions-intro p { font-size: 11px; }
 /* the last two horizontal overflows: two-col grids and the feed module pair shrink to fit */
 .settings-dialog .sym-form-two-col { grid-template-columns: 148px 165px 145px minmax(0, 1fr); }
+.settings-dialog .sym-form-two-col.sym-swaps-positions { grid-template-columns: 148px 165px 145px 165px; }
+.settings-dialog .sym-form-two-col.sym-swaps-year-row { grid-template-columns: 148px 80px 145px minmax(0, 1fr); }
+.settings-dialog .sym-swaps-year-row .prop-select { width: 80px; max-width: 80px; }
+.settings-dialog .sym-form-two-col.sym-swaps-year-row .sym-swaps-holidays-check {
+  grid-column: 3 / -1;
+  grid-row: 1;
+  justify-self: start;
+  width: auto;
+}
+.settings-dialog .sym-swaps-type .prop-select {
+  grid-column: 2 / -1;
+  width: 100%;
+  max-width: 475px;
+}
 .df-module-pair { min-width: 0; display: flex; gap: 6px; }
 .df-module-pair .prop-select { min-width: 0; flex: 1; }
 .settings-dialog .df-input-wide,

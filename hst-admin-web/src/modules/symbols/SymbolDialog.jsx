@@ -143,10 +143,13 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
     });
   }, [draft?.calc_mode, draft?.currency_profit]);
 
-  function set(key, value) {
+  function set(keyOrFields, value) {
     setDraft((prev) => {
-      const next = { ...prev, [key]: value };
-      if (isNew && key === "symbol") {
+      if (typeof keyOrFields === "object" && keyOrFields !== null) {
+        return { ...prev, ...keyOrFields };
+      }
+      const next = { ...prev, [keyOrFields]: value };
+      if (isNew && keyOrFields === "symbol") {
         next.path = folderPath ? `${folderPath}\\${value}` : value;
       }
       return next;

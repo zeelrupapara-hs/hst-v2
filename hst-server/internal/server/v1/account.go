@@ -182,6 +182,19 @@ type ViewSymbol struct {
 	Spread       int32   `json:"spread"`
 	ContractSize float64 `json:"contract_size"`
 	DateModified int64   `json:"date_modified"`
+	// Swap summary — populated on admin list for copy-from-symbol without a detail fetch.
+	SwapMode          int16   `json:"swap_mode"`
+	SwapLong          float64 `json:"swap_long"`
+	SwapShort         float64 `json:"swap_short"`
+	SwapYearDay       int32   `json:"swap_year_day"`
+	SwapFlags         int32   `json:"swap_flags"`
+	SwapRateSunday    float64 `json:"swap_rate_sunday"`
+	SwapRateMonday    float64 `json:"swap_rate_monday"`
+	SwapRateTuesday   float64 `json:"swap_rate_tuesday"`
+	SwapRateWednesday float64 `json:"swap_rate_wednesday"`
+	SwapRateThursday  float64 `json:"swap_rate_thursday"`
+	SwapRateFriday    float64 `json:"swap_rate_friday"`
+	SwapRateSaturday  float64 `json:"swap_rate_saturday"`
 }
 
 func PtrOr[T any](p *T, def T) T {
