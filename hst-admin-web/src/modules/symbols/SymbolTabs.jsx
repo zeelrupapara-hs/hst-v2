@@ -72,7 +72,7 @@ const enumOptions = (names, order) =>
 
 const plain = (values) => values.map((v) => ({ value: v, label: String(v) }));
 
-/** MT5 SpreadBalance → bid/ask point shifts shown under the slider. */
+/** Spread balance as the bid/ask point shifts shown under the slider. */
 function spreadBalanceShifts(spread, balance) {
   const s = Number(spread) || 0;
   const b = Number(balance) || 0;

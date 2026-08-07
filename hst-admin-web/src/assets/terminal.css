@@ -4378,3 +4378,78 @@ label.sym-check::after { content: none; }
 .settings-dialog .grp-check-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 /* inside a two-column check block each row keeps its own column */
 .settings-dialog .grp-check-cols > .sym-check { grid-column: auto; }
+
+/* ── group symbol dialog: the reference pairs some rows and runs others full width ── */
+.settings-dialog .grp-sym-span { grid-column: span 3; }
+/* a checkbox that shares its row with a following label and field */
+
+.grp-sym-triple {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 150px 100px 60px 100px 80px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 6px;
+}
+.grp-sym-triple label { text-align: right; padding-right: 2px; font-weight: normal; font-size: 11px; }
+.grp-sym-triple input[type="text"] { width: 100%; }
+.grp-sym-slider { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.grp-sym-slider input[type="range"] { flex: 1 1 auto; min-width: 0; height: 16px; }
+.grp-sym-slider .grp-suffix { white-space: nowrap; }
+.settings-dialog .grp-sym-span .prop-select { width: 100%; max-width: none; }
+/* checkboxes start at the control column, as the reference has them */
+.settings-dialog .form-grid > .sym-check.grp-sym-full { grid-column: span 4; padding-left: 158px; }
+.settings-dialog .form-grid > .sym-check.grp-sym-half { grid-column: span 2; padding-left: 158px; }
+/* the swap week has to show all seven days without the tab scrolling */
+.grp-sym-swap-table th, .grp-sym-swap-table td { padding: 1px 4px; height: 18px; }
+.grp-sym-swap-table th { white-space: nowrap; }
+.grp-sym-swap-btns button { height: 20px; }
+/* a long caption runs past its cell rather than wrapping under the box */
+.settings-dialog .grp-sym-form .grp-suffixed { white-space: nowrap; }
+/* a checkbox is as wide as its box, so its text sits next to it and not a field away */
+.sym-check input[type="checkbox"] { flex: 0 0 auto; width: 13px; }
+
+/* ── data feed dialog: its forms keep their own geometry under a settings dialog ── */
+.settings-dialog .df-timeouts-form { grid-template-columns: 240px 108px auto; max-width: 520px; }
+.settings-dialog .df-common-form label.df-check-cell { grid-column: 2 / -1; }
+.settings-dialog .df-common-form { grid-template-columns: 150px 175px 90px minmax(0, 1fr); }
+
+/* ── symbol tree dropdown: folders closed until opened, a folder picks its branch ── */
+.symtree-editor { display: flex; align-items: center; width: 100%; }
+.symtree-editor .df-cell-input { flex: 1 1 auto; }
+.symtree-drop { width: 18px; height: 18px; padding: 0; font-size: 9px; line-height: 1; }
+.symtree-backdrop { position: fixed; inset: 0; z-index: 1000; }
+.symtree-pop {
+  position: fixed;
+  z-index: 1001;
+  max-height: 320px;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid #7f9db9;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+  padding: 2px 0;
+}
+.symtree-row { display: flex; align-items: center; white-space: nowrap; }
+.symtree-arrow {
+  width: 16px;
+  height: 18px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #808080;
+  font-size: 9px;
+  cursor: pointer;
+}
+.symtree-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 1px 8px 1px 2px;
+  border: none;
+  background: none;
+  font-size: 11px;
+  cursor: pointer;
+}
+.symtree-item:hover { background: #316ac5; color: #fff; }
+.symtree-item:hover .symtree-desc { color: #dfe8f6; }
+.symtree-desc { color: #808080; }
+.symtree-empty { padding: 4px 10px; font-size: 11px; color: #808080; }

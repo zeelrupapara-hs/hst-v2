@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
+import { SymbolTreeSelect } from "@/components/ui/SymbolTreeSelect.jsx";
 
 export function DatafeedTabIntro({ children }) {
   return (
@@ -36,6 +37,17 @@ function CellEditor({ col, value, onCommit, onCancel }) {
     inputRef.current?.focus();
     inputRef.current?.select?.();
   }, []);
+
+  if (col.editor === "symbols" || col.editor === "symbol") {
+    return (
+      <SymbolTreeSelect
+        value={value}
+        onCommit={onCommit}
+        onCancel={onCancel}
+        leafOnly={col.editor === "symbol"}
+      />
+    );
+  }
 
   if (col.editor === "yesno") {
     return (

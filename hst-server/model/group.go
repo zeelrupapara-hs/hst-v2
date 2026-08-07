@@ -514,14 +514,17 @@ func GroupStatusFromFlags(flags PermissionsFlags) string {
 	return "active"
 }
 
+// PermissionsFlags_group_default is what a new group gets; without enable_connection it could not log in.
+const PermissionsFlags_group_default = PermissionsFlags_enable_connection | PermissionsFlags_risk_warning |
+	PermissionsFlags_notify_deals | PermissionsFlags_notify_orders | PermissionsFlags_notify_balances
+
 // PermissionFlagsFromStatus maps active|inactive → flags.
-// Active uses the migration default (PERMISSION_CERT_CONFIRM = 1).
 func PermissionFlagsFromStatus(status string) PermissionsFlags {
 	switch status {
 	case "inactive", "disabled", "Disabled":
 		return PermissionsFlags_none
 	default:
-		return PermissionsFlags_cert_confirm
+		return PermissionsFlags_group_default
 	}
 }
 

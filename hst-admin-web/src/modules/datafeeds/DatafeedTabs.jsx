@@ -56,8 +56,8 @@ export function DatafeedCommonTab({ d, set, modules }) {
           <PropSelect fill value={d.module ?? ""} options={moduleOptions} onChange={(v) => set("module", v)} />
           <PropSelect fill value={d.mode ?? 1} options={MODE_OPTIONS} onChange={(v) => set("mode", Number(v))} />
         </div>
-        <Field label="Feed server" value={d.feed_server} onChange={(v) => set("feed_server", v)} width="med" />
-        <Field label="Feed login" value={d.feed_login} onChange={(v) => set("feed_login", Number(v) || 0)} />
+        <Field label="Feed server" value={d.feed_server} onChange={(v) => set("feed_server", v)} width="wide" />
+        <Field label="Feed login" value={d.feed_login} onChange={(v) => set("feed_login", v)} />
         <Field
           label="Password"
           type="password"
@@ -74,12 +74,12 @@ export function DatafeedCommonTab({ d, set, modules }) {
               label="Gateway server"
               value={d.gateway_server}
               onChange={(v) => set("gateway_server", v)}
-              width="med"
+              width="wide"
             />
             <Field
               label="Gateway login"
               value={d.gateway_login}
-              onChange={(v) => set("gateway_login", Number(v) || 0)}
+              onChange={(v) => set("gateway_login", v)}
             />
             <Field
               label="Gateway password"
@@ -98,7 +98,7 @@ export function DatafeedSymbolsTab({ d, set }) {
   return (
     <DfListPanel
       intro="Please specify the symbols for which the data feed will translate quotes."
-      columns={[{ id: "scope", label: "", defaultValue: "*" }]}
+      columns={[{ id: "scope", label: "", defaultValue: "*", editor: "symbols" }]}
       rows={d.feed_symbols || []}
       rowKey={(row, i) => row.feed_symbol_id ?? `new-${i}`}
       canEdit
@@ -132,7 +132,7 @@ export function DatafeedTranslationsTab({ d, set }) {
         "If any of the parameters is not set, its source values will be used."
       }
       columns={[
-        { id: "symbol", label: "Symbol", defaultValue: "" },
+        { id: "symbol", label: "Symbol", defaultValue: "", editor: "symbol" },
         { id: "source", label: "Source", defaultValue: "" },
         { id: "bid_markup", label: "Bid", defaultValue: 0, editor: "number", align: "num" },
         { id: "ask_markup", label: "Ask", defaultValue: 0, editor: "number", align: "num" },

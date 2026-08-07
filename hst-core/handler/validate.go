@@ -26,6 +26,9 @@ func (h *Handler) ValidateOrder(e *book.Entry, o *model.Order, r *settings.Rules
 	if code := h.checkOrderFlags(o, r); !code.OK() {
 		return code
 	}
+	if code := h.checkExpert(o, r); !code.OK() {
+		return code
+	}
 	if code := h.checkVolume(o, r); !code.OK() {
 		return code
 	}
@@ -78,12 +81,20 @@ func (h *Handler) ValidatePosition(e *book.Entry, p *model.Position, req *model.
 		PriceSL:    req.PriceSL,
 		PriceTP:    req.PriceTP,
 		RateMargin: p.RateMargin,
+		ExpertId:   req.ExpertId,
+		Reason:     req.Reason,
 	}
 	if !p.IsBuy() {
 		level.Type = model.OrderType_sell
 	}
 
 	if code := h.checkOrderFlags(level, r); !code.OK() {
+		return code
+	}
+	if code := h.checkExpert(level, r); !code.OK() {
+		return code
+	}
+	if code := h.checkTrailing(p, level, r); !code.OK() {
 		return code
 	}
 	if code := h.checkStops(level, r, t); !code.OK() {
@@ -106,6 +117,33 @@ func (h *Handler) checkOrderFlags(o *model.Order, r *settings.Rules) model.RetCo
 		return model.RetTradeInvalidStops
 	}
 	if o.PriceTP > 0 && r.OrderFlags&model.OrderFlagTP == 0 {
+		return model.RetTradeInvalidStops
+	}
+
+	return model.RetOK
+}
+
+// checkExpert refuses a request an expert advisor sent, when the group does not allow one.
+func (h *Handler) checkExpert(o *model.Order, r *settings.Rules) model.RetCode {
+	if r.Group.TradeFlags&model.TradeFlagExperts != 0 {
+		return model.RetOK
+	}
+	// routing already reads an expert as a non-zero expert id, so the flag reads it the same way
+	if o.ExpertId != 0 || o.Reason == model.OrderReason_expert {
+		return model.RetTradeDisabled
+	}
+
+	return model.RetOK
+}
+
+// checkTrailing refuses an expert moving a stop that is already set, when the group forbids trailing.
+func (h *Handler) checkTrailing(p *model.Position, o *model.Order, r *settings.Rules) model.RetCode {
+	if r.Group.TradeFlags&model.TradeFlagTrailing != 0 {
+		return model.RetOK
+	}
+	// a trailing stop reaches the engine as an expert dragging an existing stop-loss along
+	if p.PriceSL > 0 && o.PriceSL != p.PriceSL &&
+		(o.ExpertId != 0 || o.Reason == model.OrderReason_expert) {
 		return model.RetTradeInvalidStops
 	}
 
@@ -330,7 +368,7 @@ func (h *Handler) checkLimits(e *book.Entry, o *model.Order, r *settings.Rules) 
 		return model.RetTradeMaxVolume
 	}
 
-	// the group's cap on the account's whole book, in lots
+	// limit_positions_volume caps the whole book in lots, not in money, despite the column's name
 	if g.LimitPositionsValue > 0 &&
 		model.Lots(total+o.VolumeCurrent) > g.LimitPositionsValue {
 		return model.RetTradeMaxVolume

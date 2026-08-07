@@ -361,6 +361,63 @@ func (s *Server) GetGroup(c *fiber.Ctx) error {
 	return s.App.HttpResponseOK(c, v)
 }
 
+// the one place a new group's defaults are stated; the groups table DEFAULTs mirror it
+var groupDefaults = struct {
+	PermissionFlags      model.PermissionsFlags
+	AuthMode             model.AuthMode
+	AuthPasswordMin      int32
+	Currency             string
+	CurrencyDigits       int32
+	ReportsMode          model.ReportsMode
+	ReportsFlags         model.ReportsFlags
+	NewsMode             model.NewsMode
+	MailMode             model.MailMode
+	TradeFlags           model.GroupTradeFlags
+	TradeInterestRate    float64
+	TradeVirtualCredit   float64
+	TradeTransferMode    model.TransferMode
+	MarginFreeMode       model.FreeMarginMode
+	MarginSOMode         model.StopOutMode
+	MarginCall           float64
+	MarginStopOut        float64
+	MarginFreeProfitMode model.MarginFreeProfitMode
+	MarginMode           model.MarginMode
+	MarginFlags          model.GroupMarginFlags
+	LimitHistory         model.HistoryLimit
+	LimitOrders          int32
+	LimitSymbols         int32
+	LimitPositions       int32
+	LimitPositionsVolume float64
+	SymbolPath           string
+}{
+	PermissionFlags:      model.PermissionsFlags_group_default,
+	AuthMode:             model.AuthMode_standard,
+	AuthPasswordMin:      8,
+	Currency:             "USD",
+	CurrencyDigits:       2,
+	ReportsMode:          model.ReportsMode_disabled,
+	ReportsFlags:         model.ReportsFlags_none,
+	NewsMode:             model.NewsMode_full,
+	MailMode:             model.MailMode_full,
+	TradeFlags:           model.GroupTradeFlags_swaps | model.GroupTradeFlags_trailing | model.GroupTradeFlags_experts | model.GroupTradeFlags_signals_all,
+	TradeInterestRate:    0,
+	TradeVirtualCredit:   0,
+	TradeTransferMode:    model.TransferMode_disabled,
+	MarginFreeMode:       model.FreeMarginMode_use_pl,
+	MarginSOMode:         model.StopOutMode_percent,
+	MarginCall:           50,
+	MarginStopOut:        30,
+	MarginFreeProfitMode: model.MarginFreeProfitMode_pl,
+	MarginMode:           model.MarginMode_retail_netting,
+	MarginFlags:          model.GroupMarginFlags_none,
+	LimitHistory:         model.HistoryLimit_all,
+	LimitOrders:          0,
+	LimitSymbols:         0,
+	LimitPositions:       0,
+	LimitPositionsVolume: 0,
+	SymbolPath:           "*",
+}
+
 // CreateGroup inserts a group template.
 //
 //	@Id			CreateGroup
@@ -389,7 +446,12 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, err)
 	}
 
-	flags := model.PermissionFlagsFromStatus("active")
+	// exchange margin is accepted by the schema but the engine still nets, so it would silently lie
+	if body.MarginMode != nil && *body.MarginMode == model.MarginMode_exchange {
+		return s.App.HttpResponseBadRequest(c, errors.New("margin_mode exchange is not supported yet; use retail netting or retail hedging"))
+	}
+
+	flags := groupDefaults.PermissionFlags
 	if body.PermissionFlags != nil {
 		flags = *body.PermissionFlags
 	} else if body.Status != "" {
@@ -398,7 +460,7 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 
 	currency := body.Currency
 	if currency == "" {
-		currency = "USD"
+		currency = groupDefaults.Currency
 	}
 	newsLangs := body.NewsLangs
 	if newsLangs == nil {
@@ -408,7 +470,14 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	now := time.Now().UnixNano()
 
-	v, err := scanViewGroup(s.DB.DB.QueryRow(c.UserContext(),
+	// the group and its first scope rule are one act: a group that trades nothing is not a group
+	tx, err := s.DB.DB.Begin(c.UserContext())
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	defer func() { _ = tx.Rollback(c.UserContext()) }()
+
+	v, err := scanViewGroup(tx.QueryRow(c.UserContext(),
 		`INSERT INTO hst.groups (
 		    "group",
 		    permission_flags, auth_mode, auth_password_min,
@@ -427,32 +496,47 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 		    $1,$2,$3,$4,$5,$6,$7,$8,$9,$10,
 		    $11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
 		    $21,$22,$23,$24,$25,$26,$27,$28,$29,$30,
-		    $31,$32,$33,$34,$35,$36,$37,$38,$39,$40,
+		    $31,$32,$33,$34,
+		    -- zero is not a leverage profile, it is an invalid foreign key
+		    CASE WHEN $35::bigint = 0 THEN NULL ELSE $35::bigint END,
+		    $36,$37,$38,$39,$40,
 		    $41,$42,$43
 		 ) RETURNING `+groupColumns,
 		path,
-		flags, v1.PtrOr(body.AuthMode, model.AuthMode_standard), v1.PtrOr(body.AuthPasswordMin, int32(0)),
+		flags, v1.PtrOr(body.AuthMode, groupDefaults.AuthMode), v1.PtrOr(body.AuthPasswordMin, groupDefaults.AuthPasswordMin),
 		body.Company, body.CompanyPage, body.CompanyEmail, body.CompanySupportPage, body.CompanySupportEmail, body.CompanyCatalog,
 		body.CompanyDeposit, body.CompanyWithdrawal,
-		currency, v1.PtrOr(body.CurrencyDigits, int32(2)),
-		v1.PtrOr(body.ReportsMode, model.ReportsMode_disabled), v1.PtrOr(body.ReportsFlags, model.ReportsFlags_none),
+		currency, v1.PtrOr(body.CurrencyDigits, groupDefaults.CurrencyDigits),
+		v1.PtrOr(body.ReportsMode, groupDefaults.ReportsMode), v1.PtrOr(body.ReportsFlags, groupDefaults.ReportsFlags),
 		body.ReportsEmail, body.ReportsSMTP, body.ReportsSMTPLogin,
-		v1.PtrOr(body.NewsMode, model.NewsMode_disabled), body.NewsCategory, newsLangs, v1.PtrOr(body.MailMode, model.MailMode_disabled),
-		v1.PtrOr(body.TradeFlags, model.GroupTradeFlags_none), v1.PtrOr(body.TradeInterestRate, 0.0),
-		v1.PtrOr(body.TradeVirtualCredit, 0.0), v1.PtrOr(body.TradeTransferMode, model.TransferMode_disabled),
-		v1.PtrOr(body.MarginFreeMode, model.FreeMarginMode_not_use_pl), v1.PtrOr(body.MarginSOMode, model.StopOutMode_percent),
-		v1.PtrOr(body.MarginCall, 0.0), v1.PtrOr(body.MarginStopOut, 0.0),
-		v1.PtrOr(body.MarginFreeProfitMode, model.MarginFreeProfitMode_pl),
-		v1.PtrOr(body.MarginMode, model.MarginMode_retail_netting), v1.PtrOr(body.MarginFlags, model.GroupMarginFlags_none),
+		v1.PtrOr(body.NewsMode, groupDefaults.NewsMode), body.NewsCategory, newsLangs, v1.PtrOr(body.MailMode, groupDefaults.MailMode),
+		v1.PtrOr(body.TradeFlags, groupDefaults.TradeFlags), v1.PtrOr(body.TradeInterestRate, groupDefaults.TradeInterestRate),
+		v1.PtrOr(body.TradeVirtualCredit, groupDefaults.TradeVirtualCredit), v1.PtrOr(body.TradeTransferMode, groupDefaults.TradeTransferMode),
+		v1.PtrOr(body.MarginFreeMode, groupDefaults.MarginFreeMode), v1.PtrOr(body.MarginSOMode, groupDefaults.MarginSOMode),
+		v1.PtrOr(body.MarginCall, groupDefaults.MarginCall), v1.PtrOr(body.MarginStopOut, groupDefaults.MarginStopOut),
+		v1.PtrOr(body.MarginFreeProfitMode, groupDefaults.MarginFreeProfitMode),
+		v1.PtrOr(body.MarginMode, groupDefaults.MarginMode), v1.PtrOr(body.MarginFlags, groupDefaults.MarginFlags),
 		body.MarginLeverageId,
 		body.DemoLeverage, body.DemoDeposit,
-		v1.PtrOr(body.LimitHistory, model.HistoryLimit_all), v1.PtrOr(body.LimitOrders, int32(0)),
-		v1.PtrOr(body.LimitSymbols, int32(0)), v1.PtrOr(body.LimitPositions, int32(0)), v1.PtrOr(body.LimitPositionsVolume, 0.0),
+		v1.PtrOr(body.LimitHistory, groupDefaults.LimitHistory), v1.PtrOr(body.LimitOrders, groupDefaults.LimitOrders),
+		v1.PtrOr(body.LimitSymbols, groupDefaults.LimitSymbols), v1.PtrOr(body.LimitPositions, groupDefaults.LimitPositions),
+		v1.PtrOr(body.LimitPositionsVolume, groupDefaults.LimitPositionsVolume),
 		now))
 	if err != nil {
 		if utils.IsUniqueViolation(err) {
 			return s.App.HttpResponseConflict(c, errs.ErrAlreadyExists)
 		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	// without one scope rule the group trades nothing; "*" means every instrument, all settings inherited
+	if _, err := tx.Exec(c.UserContext(),
+		`INSERT INTO hst.groups_symbols (group_id, updated_at, path, config_index) VALUES ($1,$2,$3,0)`,
+		v.GroupID, now, groupDefaults.SymbolPath); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	if err := tx.Commit(c.UserContext()); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
@@ -496,6 +580,11 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 	}
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	// exchange margin is accepted by the schema but the engine still nets, so it would silently lie
+	if body.MarginMode != nil && *body.MarginMode == model.MarginMode_exchange {
+		return s.App.HttpResponseBadRequest(c, errors.New("margin_mode exchange is not supported yet; use retail netting or retail hedging"))
 	}
 
 	flags := body.PermissionFlags

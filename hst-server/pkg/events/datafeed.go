@@ -78,7 +78,7 @@ type WorkerDatafeedConfig struct {
 	Enable           model.DatafeedEnable   `json:"enable"`
 	Mode             model.FeederFlags      `json:"mode"`
 	FeedServer       string                 `json:"feed_server"`
-	FeedLogin        int64                  `json:"feed_login"`
+	FeedLogin        string                 `json:"feed_login"`
 	FeedPassword     string                 `json:"feed_password"`
 	TimeoutReconnect int32                  `json:"timeout_reconnect"`
 	Params           []WorkerParam          `json:"params"`

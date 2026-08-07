@@ -1,4 +1,4 @@
-/** Turn an MT5-style mask (`EUR*`, `!GBPUSD`) into a case-insensitive RegExp. */
+/** Turn a platform mask (`EUR*`, `!GBPUSD`) into a case-insensitive RegExp. */
 function maskToRegex(mask) {
   const neg = mask.startsWith("!");
   const raw = neg ? mask.slice(1) : mask;
@@ -13,7 +13,7 @@ function maskToRegex(mask) {
 }
 
 /**
- * Filter symbols by comma-separated masks (MT5 filter tab).
+ * Filter symbols by comma-separated masks as the filter tab takes them.
  * Positives are OR'd; exclusions (`!`) always apply.
  * @param {Array<{symbol?: string}>} rows
  * @param {string} expr

@@ -191,6 +191,10 @@ func (s *Server) ResetPassword(c *fiber.Ctx) error {
 		return s.resetDenied(c, err)
 	}
 
+	if err := s.RequirePasswordLength(ctx, login, "", body.Password); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+
 	if _, err := s.claimResetCode(ctx, login, body.Code, true); err != nil {
 		return s.resetDenied(c, err)
 	}

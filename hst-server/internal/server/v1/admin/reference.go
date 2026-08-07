@@ -335,6 +335,10 @@ func (s *Server) ResetUserPassword(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
+	if err := s.RequirePasswordLength(ctx, int64(login), "", body.Password); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+
 	hash, err := s.OAuth2.Hasher.HashPassword(body.Password)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)

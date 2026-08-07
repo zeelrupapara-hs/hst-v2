@@ -2,13 +2,72 @@ package v1
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
+
+// historyMonths is how far back each limit_history setting reaches, zero being no limit at all.
+var historyMonths = map[model.HistoryLimit]int{
+	model.HistoryLimit_months_1: 1,
+	model.HistoryLimit_months_3: 3,
+	model.HistoryLimit_months_6: 6,
+	model.HistoryLimit_year_1:   12,
+	model.HistoryLimit_year_2:   24,
+	model.HistoryLimit_year_3:   36,
+}
+
+// historyFloor is the earliest moment, in unix seconds, this session may read its own history.
+//
+// Staff read the whole ledger, so only a trading account's group limits it, and an unknown group
+// or an unset limit means no floor.
+func (s *HttpServer) historyFloor(c *fiber.Ctx) (int64, error) {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return 0, errs.ErrCouldNotParseClientCfg
+	}
+	if snap.IsManager {
+		return 0, nil
+	}
+
+	var limit model.HistoryLimit
+	err := s.DB.DB.QueryRow(c.UserContext(),
+		`SELECT limit_history FROM hst.groups WHERE "group" = $1`, snap.Group).Scan(&limit)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, nil
+		}
+		return 0, err
+	}
+
+	months, ok := historyMonths[limit]
+	if !ok {
+		return 0, nil
+	}
+
+	return time.Now().AddDate(0, -months, 0).Unix(), nil
+}
+
+// historyPage is readPage clamped to the window the caller's group keeps.
+func (s *HttpServer) historyPage(c *fiber.Ctx, def int) (pageOpts, error) {
+	p := readPage(c, def)
+
+	floor, err := s.historyFloor(c)
+	if err != nil {
+		return p, err
+	}
+	if floor > 0 && p.from < floor {
+		p.from = floor
+	}
+
+	return p, nil
+}
 
 // ViewDeal is one line of the ledger.
 type ViewDeal struct {
@@ -111,7 +170,12 @@ func (s *HttpServer) GetMyDeals(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	out, err := s.readDeals(c.UserContext(), "d.login = $1", []any{snap.Login}, readPage(c, 100))
+	p, err := s.historyPage(c, 100)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	out, err := s.readDeals(c.UserContext(), "d.login = $1", []any{snap.Login}, p)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -146,8 +210,13 @@ func (s *HttpServer) GetAccountDeals(c *fiber.Ctx) error {
 
 	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 2)
 
+	p, err := s.historyPage(c, 100)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
 	out, err := s.readDeals(c.UserContext(), "d.login = $1 AND "+where,
-		append([]any{int64(login)}, args...), readPage(c, 100))
+		append([]any{int64(login)}, args...), p)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

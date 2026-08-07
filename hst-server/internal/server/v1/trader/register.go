@@ -81,12 +81,18 @@ func (s *Server) Register(c *fiber.Ctx) error {
 	// a signup is enabled and owns its password, and nothing else: rights are not the caller's to choose
 	rights := int64(model.UsersRights_enabled | model.UsersRights_password)
 
-	passwordMain, err := utils.NewPassword(generatedPasswordLength)
+	// a group demanding more than the mail length gets a longer password, not a rejected signup
+	length := generatedPasswordLength
+	if min := int(s.GroupPasswordMin(ctx, 0, group)); min > length {
+		length = min
+	}
+
+	passwordMain, err := utils.NewPassword(length)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	passwordInvestor, err := utils.NewPassword(generatedPasswordLength)
+	passwordInvestor, err := utils.NewPassword(length)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

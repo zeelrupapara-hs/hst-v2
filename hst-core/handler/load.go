@@ -74,7 +74,7 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT group_id, "group", currency, currency_digits,
 		        margin_mode, margin_free_mode, margin_so_mode, margin_call, margin_stop_out,
-		        margin_flags, margin_free_profit_mode,
+		        margin_flags, margin_free_profit_mode, margin_leverage_id,
 		        trade_flags, trade_interest_rate, trade_virtual_credit,
 		        limit_orders, limit_positions, limit_positions_volume, limit_symbols
 		   FROM hst.groups`)
@@ -86,7 +86,7 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 		g := &model.Group{}
 		if err := rows.Scan(&g.GroupId, &g.Group, &g.Currency, &g.CurrencyDigits,
 			&g.MarginMode, &g.MarginFreeMode, &g.MarginSOMode, &g.MarginCall, &g.MarginStopOut,
-			&g.MarginFlags, &g.MarginFreeProfit,
+			&g.MarginFlags, &g.MarginFreeProfit, &g.MarginLeverageId,
 			&g.TradeFlags, &g.TradeInterestRate, &g.TradeVirtualCredit,
 			&g.LimitOrders, &g.LimitPositions, &g.LimitPositionsValue, &g.LimitSymbols); err != nil {
 			rows.Close()
@@ -97,6 +97,10 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 	rows.Close()
 	if rows.Err() != nil {
 		return rows.Err()
+	}
+
+	if err := h.loadLeverageProfiles(ctx, groups); err != nil {
+		return err
 	}
 
 	symbols := make(map[string]*model.Symbol, 4096)
@@ -212,6 +216,74 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 
 	if err := h.LoadCalendar(ctx); err != nil {
 		return err
+	}
+
+	return nil
+}
+
+// loadLeverageProfiles hangs each group's floating leverage tree off the group itself, so margin
+// reads it out of memory rather than asking the database per order.
+func (h *Handler) loadLeverageProfiles(ctx context.Context, groups map[string]*model.Group) error {
+	profiles := make(map[int64][]*model.LeverageRule, 16)
+	byRule := make(map[int64]*model.LeverageRule, 64)
+
+	// config_index is the profile's own ordering and the first match wins
+	rows, err := h.DB.DB.Query(ctx,
+		`SELECT rule_id, leverage_id, path, range_mode
+		   FROM hst.leverage_rules
+		  ORDER BY leverage_id, config_index`)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var ruleId, leverageId int64
+		r := &model.LeverageRule{}
+
+		if err := rows.Scan(&ruleId, &leverageId, &r.Path, &r.RangeMode); err != nil {
+			rows.Close()
+			return err
+		}
+
+		byRule[ruleId] = r
+		profiles[leverageId] = append(profiles[leverageId], r)
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	rows, err = h.DB.DB.Query(ctx,
+		`SELECT rule_id, range_to, margin_rate_initial, margin_rate_maintenance
+		   FROM hst.leverage_tiers
+		  ORDER BY rule_id, range_from`)
+	if err != nil {
+		return err
+	}
+
+	for rows.Next() {
+		var ruleId int64
+		var t model.LeverageTier
+
+		if err := rows.Scan(&ruleId, &t.RangeTo, &t.MarginRateInitial,
+			&t.MarginRateMaintenance); err != nil {
+			rows.Close()
+			return err
+		}
+
+		if r, ok := byRule[ruleId]; ok {
+			r.Tiers = append(r.Tiers, t)
+		}
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	for _, g := range groups {
+		if g.MarginLeverageId != nil {
+			g.LeverageRules = profiles[*g.MarginLeverageId]
+		}
 	}
 
 	return nil

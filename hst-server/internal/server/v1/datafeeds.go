@@ -43,9 +43,9 @@ type CrtDatafeed struct {
 	Mode               *model.FeederFlags    `json:"mode"`
 	GatewayServer      string                `json:"gateway_server" validate:"max=255"`
 	FeedServer         string                `json:"feed_server" validate:"max=255"`
-	FeedLogin          int64                 `json:"feed_login"`
+	FeedLogin          string                `json:"feed_login" validate:"max=64"`
 	FeedPassword       string                `json:"feed_password"`
-	GatewayLogin       int64                 `json:"gateway_login"`
+	GatewayLogin       string                `json:"gateway_login" validate:"max=64"`
 	GatewayPassword    string                `json:"gateway_password"`
 	Timeout            *int32                `json:"timeout"`
 	TimeoutReconnect   *int32                `json:"timeout_reconnect"`
@@ -64,9 +64,9 @@ type UptDatafeed struct {
 	Mode               *model.FeederFlags    `json:"mode"`
 	GatewayServer      *string               `json:"gateway_server" validate:"omitempty,max=255"`
 	FeedServer         *string               `json:"feed_server" validate:"omitempty,max=255"`
-	FeedLogin          *int64                `json:"feed_login"`
+	FeedLogin          *string               `json:"feed_login" validate:"omitempty,max=64"`
 	FeedPassword       *string               `json:"feed_password"`
-	GatewayLogin       *int64                `json:"gateway_login"`
+	GatewayLogin       *string               `json:"gateway_login" validate:"omitempty,max=64"`
 	GatewayPassword    *string               `json:"gateway_password"`
 	Timeout            *int32                `json:"timeout"`
 	TimeoutReconnect   *int32                `json:"timeout_reconnect"`
@@ -87,8 +87,8 @@ type ViewDatafeed struct {
 	Mode               model.FeederFlags           `json:"mode"`
 	GatewayServer      string                      `json:"gateway_server"`
 	FeedServer         string                      `json:"feed_server"`
-	FeedLogin          int64                       `json:"feed_login"`
-	GatewayLogin       int64                       `json:"gateway_login"`
+	FeedLogin          string                      `json:"feed_login"`
+	GatewayLogin       string                      `json:"gateway_login"`
 	Timeout            int32                       `json:"timeout"`
 	TimeoutReconnect   int32                       `json:"timeout_reconnect"`
 	TimeoutSleep       int32                       `json:"timeout_sleep"`
@@ -365,13 +365,6 @@ func validateGatewayPassword(pw string) error {
 	return nil
 }
 
-func validateGatewayLogin(login int64) error {
-	if login < 0 {
-		return errors.New("gateway_login must be non-negative")
-	}
-	return nil
-}
-
 func datafeedExists(c *fiber.Ctx, s *HttpServer, datafeedID int) error {
 	var exists int
 	err := s.DB.DB.QueryRow(c.UserContext(),
@@ -570,9 +563,6 @@ func (s *HttpServer) CreateDatafeed(c *fiber.Ctx) error {
 	if err := validateFeederMode(mode); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
 	}
-	if err := validateGatewayLogin(body.GatewayLogin); err != nil {
-		return s.App.HttpResponseBadRequest(c, err)
-	}
 	if err := validateGatewayPassword(body.GatewayPassword); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
 	}
@@ -701,9 +691,6 @@ func (s *HttpServer) UpdateDatafeed(c *fiber.Ctx) error {
 		}
 	}
 	if body.GatewayLogin != nil {
-		if err := validateGatewayLogin(*body.GatewayLogin); err != nil {
-			return s.App.HttpResponseBadRequest(c, err)
-		}
 	}
 	if body.GatewayPassword != nil {
 		if err := validateGatewayPassword(*body.GatewayPassword); err != nil {
