@@ -4145,3 +4145,5 @@ label.sym-check::after { content: none; }
 .grp-sym-swap-btns button { height: 20px; }
 /* a long caption runs past its cell rather than wrapping under the box */
 .settings-dialog .grp-sym-form .grp-suffixed { white-space: nowrap; }
+/* a checkbox is as wide as its box, so its text sits next to it and not a field away */
+.sym-check input[type="checkbox"] { flex: 0 0 auto; width: 13px; }
