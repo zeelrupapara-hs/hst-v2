@@ -1,61 +1,104 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
-import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
+import { SymbolPathSelectField } from "@/components/ui/SymbolPathSelectField.jsx";
+import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
+import { useSymbols } from "@/hooks/useSymbols.js";
+import { fetchSymbolSwaps } from "@/api/endpoints/symbols.js";
 import { createGroupSymbol, updateGroupSymbol } from "@/api/endpoints/groups.js";
-import { fetchSymbols } from "@/api/endpoints/symbols.js";
 import {
+  Deviation_options,
   ExecMode_name,
-  SwapYearDays_options,
+  ExpirFlag_labels,
+  FillFlag_labels,
+  INSTANT_FAST_CONFIRMATION,
+  OrderFlag_labels,
+  REQUEST_ORDER,
   SwapMode_name,
   TradeMode_name,
   toLots,
   fromLots,
+  SWAP_CONSIDER_HOLIDAYS,
 } from "@/constants/symbols.js";
+import {
+  FOREX_SWAP_MULTIPLIERS,
+  SWAP_DAY_KEYS,
+  SWAP_HOLIDAYS_OPTIONS,
+  formatSwapMultiplier,
+  parseSwapAmount,
+  parseSwapMultiplier,
+  parseSwapYearDay,
+  swapAmountOptions,
+  swapFieldsFromRow,
+  swapMultiplierOptions,
+  swapYearDayOptions,
+} from "@/lib/swapConfig.js";
+import { FlagCombo, TabIntro, EditableSelectField } from "@/modules/symbols/SymbolTabs.jsx";
+import {
+  defaultGroupDiffBalance,
+  groupDiffBalanceCaption,
+  groupDiffBalanceFromSlider,
+  groupDiffBalanceSliderValue,
+  groupSpreadMagnitude,
+} from "@/lib/groupSpreadBalance.js";
 
 const DEFAULT = "";
+
+const SPREAD_DIFF_OPTIONS = [-3, -2, -1, 0, 1, 2, 3].map((v) => ({ value: v, label: String(v) }));
+
+function parseSpreadDiff(text) {
+  const raw = String(text ?? "").trim();
+  if (raw === "") return null;
+  const n = parseInt(raw, 10);
+  return Number.isNaN(n) ? null : n;
+}
+
+function parseDeviation(text) {
+  const raw = String(text ?? "").trim();
+  if (raw === "") return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+const DEVIATION_PRESET_OPTIONS = Deviation_options.map((v) => ({ value: v, label: String(v) }));
+
+const CATALOG_DEFAULTS = {
+  spread_diff: 0,
+  spread_diff_balance: 0,
+  volume_min: 10000,
+  volume_max: 10000000000,
+  volume_step: 10000,
+  volume_limit: 0,
+};
+
+// MT5 greys these strings on the `*` row when Use default is checked.
+const WILDCARD_DISPLAY = {
+  spread_diff: 0,
+  spread_diff_balance: 0,
+  volume_min: "0.00000001",
+  volume_max: "100000000",
+  volume_step: "0.00000001",
+  volume_limit: "0",
+};
+
+function isRootPath(path) {
+  return (path ?? "*") === "*";
+}
+
+/** The "*" row defaults market depth on when permissions_flags is unset. */
+function marketDepthOn(flags, path) {
+  if (flags != null) return (flags & 1) !== 0;
+  return isRootPath(path);
+}
 
 // Every override control offers the literal Default entry; it writes NULL (inherit).
 const withDefault = (options) => [{ value: DEFAULT, label: "Default" }, ...options];
 
 const enumOptions = (names) =>
   Object.entries(names).map(([value, label]) => ({ value: Number(value), label }));
-
-// A bit-mask combo: Default, each single flag, and All when every bit is set.
-const flagOptions = (labels) => {
-  const all = labels.reduce((acc, f) => acc | f.bit, 0);
-  return withDefault([
-    { value: 0, label: "None" },
-    ...labels.map((f) => ({ value: f.bit, label: f.label })),
-    { value: all, label: "All" },
-  ]);
-};
-
-const FILLING_LABELS = [
-  { bit: 1, label: "Fill or Kill" },
-  { bit: 2, label: "Immediate or Cancel" },
-  { bit: 4, label: "Book or Cancel" },
-];
-
-const EXPIRATION_LABELS = [
-  { bit: 1, label: "Good till canceled" },
-  { bit: 2, label: "Day" },
-  { bit: 4, label: "Specified time" },
-  { bit: 8, label: "Specified day" },
-];
-
-const ORDER_LABELS = [
-  { bit: 1, label: "Market orders" },
-  { bit: 2, label: "Limit orders" },
-  { bit: 4, label: "Stop orders" },
-  { bit: 8, label: "Stop limit orders" },
-  { bit: 16, label: "Stop loss" },
-  { bit: 32, label: "Take profit" },
-  { bit: 64, label: "Close by" },
-];
 
 // model.SymbolMarginFlags: bits 1|2 are the additional checks, 4|8|16 the switches below.
 const MARGIN_CHECK_BITS = 3;
@@ -69,32 +112,14 @@ const MARGIN_CHECK_OPTIONS = withDefault([
   { value: 3, label: "All" },
 ]);
 
-// the dealer timeout and order confirmation only exist in Request execution
 const EXEC_REQUEST = 0;
-const IE_FAST_CONFIRMATION = 1;
-const RE_CONFIRM_ORDERS = 1;
-const SWAP_CONSIDER_HOLIDAYS = 1;
-
-const YES_NO = withDefault([
-  { value: 0, label: "No" },
-  { value: 1, label: "Yes" },
-]);
+const EXEC_INSTANT = 1;
 
 // permissions_book_depth is a plain count; 0 means no limit.
 const BOOK_DEPTH_OPTIONS = Array.from({ length: 33 }, (_, i) => ({
   value: i,
   label: i === 0 ? "unlimited" : String(i),
 }));
-
-const SWAP_DAYS = [
-  ["swap_rate_sunday", "Sunday"],
-  ["swap_rate_monday", "Monday"],
-  ["swap_rate_tuesday", "Tuesday"],
-  ["swap_rate_wednesday", "Wednesday"],
-  ["swap_rate_thursday", "Thursday"],
-  ["swap_rate_friday", "Friday"],
-  ["swap_rate_saturday", "Saturday"],
-];
 
 const RATE_COLUMNS = [
   ["", "Market Order"],
@@ -105,6 +130,32 @@ const RATE_COLUMNS = [
 
 const rateKeys = (base) =>
   ["buy", "sell"].flatMap((side) => RATE_COLUMNS.map(([sfx]) => `${base}_${side}${sfx}`));
+
+const fmtRate = (v, digits) => (v == null || v === "" ? "" : Number(v).toFixed(digits));
+
+function parseMarginRate(text) {
+  const raw = String(text ?? "").trim();
+  if (raw === "" || raw.toLowerCase() === "default") return null;
+  const n = Number(raw);
+  return Number.isNaN(n) ? null : n;
+}
+
+function parseMarginCurrency(text) {
+  const raw = String(text ?? "").trim();
+  if (raw === "" || raw.toLowerCase() === "default") return null;
+  const n = Number(raw);
+  return Number.isNaN(n) ? null : fmtRate(n, 8);
+}
+
+function marginRateOptions(value, digits, presets = [0, 1]) {
+  const items = [{ value: null, label: "Default" }];
+  for (const n of presets) items.push({ value: n, label: fmtRate(n, digits) });
+  const num = value == null || value === "" ? null : Number(value);
+  if (num != null && !Number.isNaN(num) && !presets.includes(num)) {
+    items.push({ value: num, label: fmtRate(num, digits) });
+  }
+  return items;
+}
 
 // One Use-default control per reference cluster; the wire clears whole sections only.
 const CLUSTERS = {
@@ -127,10 +178,21 @@ const CLUSTERS = {
     section: "swaps",
     keys: [
       "swap_mode", "swap_long", "swap_short", "swap_year_day", "swap_flags",
-      ...SWAP_DAYS.map(([key]) => key),
+      ...SWAP_DAY_KEYS.map(([, key]) => key),
     ],
   },
 };
+
+function buildResolved(row) {
+  const resolved = { ...CATALOG_DEFAULTS };
+  if (!row) return resolved;
+  for (const c of Object.values(CLUSTERS)) {
+    for (const key of c.keys) {
+      if (row[key] != null) resolved[key] = row[key];
+    }
+  }
+  return resolved;
+}
 
 const TABS = [
   { id: "common", label: "Common", intro: "Please set up main parameters of symbols for the group." },
@@ -145,32 +207,45 @@ const TABS = [
   { id: "swaps", label: "Swaps", intro: "Please set up parameters of charging swaps by symbols for the group." },
 ];
 
-function Num({ label, value, onChange, disabled, lots, suffix, wide, span }) {
-  const shown = value == null ? "" : lots ? toLots(value) : value;
+function Num({ label, value, inherit, onChange, disabled, lots, suffix, wide, span, execGrid }) {
+  const showPlaceholder = disabled && inherit == null;
+  let shown = "";
+  if (!showPlaceholder) {
+    if (inherit != null) {
+      shown = typeof inherit === "string" ? inherit : lots ? toLots(inherit) : inherit;
+    } else if (lots) {
+      shown = toLots(value ?? 0);
+    } else if (value != null) {
+      shown = value;
+    }
+  }
+  const suffixCls = suffix ? (execGrid ? "sym-with-suffix" : "grp-suffixed") : null;
   return (
     <>
       <label>{label}</label>
-      <span className={[suffix && "grp-suffixed", span && "grp-sym-span"].filter(Boolean).join(" ") || undefined}>
-        <input
-          type="text"
-          className={wide ? "grp-sym-wide" : undefined}
-          disabled={disabled}
-          value={shown}
-          placeholder="Default"
-          onChange={(e) => {
-            const raw = e.target.value.trim();
-            if (raw === "") return onChange(null);
-            const n = Number(raw);
-            onChange(Number.isNaN(n) ? null : lots ? fromLots(n) : n);
-          }}
-        />
+      <span className={[suffixCls, span && !execGrid && "grp-sym-span"].filter(Boolean).join(" ") || undefined}>
+        <span className="grp-sym-spin">
+          <input
+            type="text"
+            className={wide ? "grp-sym-wide" : undefined}
+            disabled={disabled}
+            value={shown}
+            placeholder={showPlaceholder ? "Default" : undefined}
+            onChange={(e) => {
+              const raw = e.target.value.trim();
+              if (raw === "") return onChange(null);
+              const n = Number(raw);
+              onChange(Number.isNaN(n) ? null : lots ? fromLots(n) : n);
+            }}
+          />
+        </span>
         {suffix && <span className="grp-suffix">{suffix}</span>}
       </span>
     </>
   );
 }
 
-function Sel({ label, value, options, onChange, disabled, span }) {
+function Sel({ label, value, options, onChange, disabled, span, depthLimit, suffix }) {
   const select = (
     <PropSelect
       fill
@@ -180,40 +255,78 @@ function Sel({ label, value, options, onChange, disabled, span }) {
       onChange={(v) => onChange(v === DEFAULT ? null : v)}
     />
   );
+  const control = suffix ? (
+    <span className="grp-suffixed">
+      {select}
+      <span className="grp-suffix">{suffix}</span>
+    </span>
+  ) : (
+    select
+  );
+  if (depthLimit) {
+    return (
+      <>
+        <label className="grp-sym-depth-limit-label">{label}</label>
+        <span className="grp-sym-depth-limit-field">{control}</span>
+      </>
+    );
+  }
   return (
     <>
       <label>{label}</label>
-      {span ? <span className="grp-sym-span">{select}</span> : select}
+      {span ? <span className="grp-sym-span">{control}</span> : control}
     </>
   );
 }
 
-function Check({ label, checked, onChange, disabled, half }) {
+function Check({ label, checked, onChange, disabled, half, inline, depth, execGrid }) {
+  const cls = execGrid
+    ? "sym-check"
+    : depth
+      ? "sym-check grp-sym-depth-check"
+      : inline
+        ? "sym-check grp-sym-inline-check"
+        : half
+          ? "sym-check grp-sym-half"
+          : "sym-check grp-sym-full";
   return (
-    <label className={half ? "sym-check grp-sym-half" : "sym-check grp-sym-full"}>
+    <label className={cls}>
       <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />{" "}
       {label}
     </label>
   );
 }
 
-/** The spread difference split between the two sides; the caption shows where each side lands. */
-function Balance({ value, spread, onChange, disabled }) {
-  const bid = value ?? 0;
+/** Difference balance — distributes spread_diff points between bid and ask (group symbols Common tab). */
+function DiffBalanceField({ spread, balance, disabled, onChange }) {
+  const s = groupSpreadMagnitude(spread);
+  const sliderVal = groupDiffBalanceSliderValue(spread, balance);
+  const locked = disabled || s === 0;
+
+  function commit(nextBid) {
+    onChange(groupDiffBalanceFromSlider(spread, nextBid));
+  }
+
   return (
     <>
-      <label>Difference balance</label>
-      <span className="grp-sym-slider">
-        <input
-          type="range"
-          disabled={disabled}
-          min={0}
-          max={Math.max(spread ?? 0, 0)}
-          step={1}
-          value={Math.min(bid, Math.max(spread ?? 0, 0))}
-          onChange={(e) => onChange(Number(e.target.value))}
-        />
-        <span className="grp-suffix">{bid} bid / {(spread ?? 0) - bid} ask</span>
+      <label className="sym-spread-balance-label grp-sym-diff-balance-label">Difference balance</label>
+      <span className={`sym-spread-balance grp-sym-diff-balance${locked ? " sym-spread-balance-disabled" : ""}`}>
+        <span className="sym-spread-balance-track grp-sym-diff-balance-track">
+          <input
+            type="range"
+            className="grp-sym-diff-balance-range"
+            min={0}
+            max={s}
+            step={1}
+            disabled={locked}
+            value={sliderVal}
+            onInput={(e) => commit(Number(e.target.value))}
+            onChange={(e) => commit(Number(e.target.value))}
+          />
+        </span>
+        <span className="sym-spread-balance-caption grp-sym-diff-balance-caption">
+          {groupDiffBalanceCaption(spread, balance)}
+        </span>
       </span>
     </>
   );
@@ -227,23 +340,18 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
   const isNew = !row;
   const [activeTab, setActiveTab] = useState("common");
   const [draft, setDraft] = useState(() => (isNew ? { path: "*" } : { ...row }));
-  const [paths, setPaths] = useState([]);
   const [useDefault, setUseDefault] = useState(() =>
     Object.fromEntries(
       Object.entries(CLUSTERS).map(([id, c]) => [id, isNew || c.keys.every((k) => row[k] == null)]),
     ),
   );
+  const [resolved] = useState(() => buildResolved(row));
   const [error, setError] = useState("");
+  const [fromSymbol, setFromSymbol] = useState("");
+  const [selectedSwapDay, setSelectedSwapDay] = useState(0);
+  const { symbols, reload } = useSymbols();
   const { offset, onTitlePointerDown } = useDialogDrag(row?.symbol_id ?? "new");
   const close = useDialogStack(onClose);
-
-  useEffect(() => {
-    fetchSymbols().then((res) => {
-      if (!res.ok) return;
-      const folders = new Set((res.data || []).map((s) => String(s.path || "").split("\\")[0]).filter(Boolean));
-      setPaths([...folders].sort().map((f) => `${f}\\*`));
-    });
-  }, []);
 
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
   const bit = (key, mask) => (draft[key] == null ? false : (draft[key] & mask) !== 0);
@@ -282,16 +390,92 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
       <Check
         label={label}
         checked={useDefault[id]}
-        onChange={(on) => setUseDefault({ ...useDefault, [id]: on })}
+        onChange={(on) => {
+          setUseDefault({ ...useDefault, [id]: on });
+          setDraft((prev) => {
+            const next = { ...prev };
+            for (const key of CLUSTERS[id].keys) {
+              if (on) next[key] = null;
+              else if (next[key] == null) next[key] = resolved[key] ?? CATALOG_DEFAULTS[key] ?? 0;
+            }
+            return next;
+          });
+        }}
       />
     );
   }
 
   function setSwapRates(values) {
-    setDraft((prev) => ({ ...prev, ...Object.fromEntries(SWAP_DAYS.map(([key], i) => [key, values[i]])) }));
+    setDraft((prev) => ({ ...prev, ...Object.fromEntries(SWAP_DAY_KEYS.map(([, key], i) => [key, values[i]])) }));
+  }
+
+  function resetSwapDefaults() {
+    setUseDefault({ ...useDefault, swaps: true });
+    setDraft((prev) => {
+      const next = { ...prev };
+      for (const key of CLUSTERS.swaps.keys) next[key] = null;
+      return next;
+    });
+  }
+
+  function swapHolidaysValue() {
+    if (draft.swap_flags == null) return null;
+    return draft.swap_flags & SWAP_CONSIDER_HOLIDAYS ? 1 : 0;
+  }
+
+  function swapDayChecked(key) {
+    const v = useDefault.swaps ? resolved[key] : draft[key];
+    return v != null && Number(v) !== 0;
+  }
+
+  function swapDayMultiplier(key) {
+    return useDefault.swaps ? null : draft[key];
+  }
+
+  async function copySwapFromSymbol() {
+    const name = fromSymbol.trim();
+    if (!name) return;
+
+    let list = symbols;
+    if (list.length && !("swap_mode" in list[0])) {
+      list = await reload();
+    }
+
+    const sym = list.find((item) => item.symbol === name);
+    if (!sym?.symbol_id) {
+      window.alert(`Symbol '${name}' not found`);
+      return;
+    }
+
+    let fields = swapFieldsFromRow(sym);
+    if (!fields) {
+      const res = await fetchSymbolSwaps(sym.symbol_id);
+      if (!res.ok) {
+        window.alert(res.message || "failed to load swap settings");
+        return;
+      }
+      fields = swapFieldsFromRow(res.data);
+    }
+    if (!fields) {
+      window.alert("No swap settings found for that symbol");
+      return;
+    }
+
+    setUseDefault({ ...useDefault, swaps: false });
+    setDraft((prev) => ({ ...prev, ...fields }));
+  }
+
+  function resetMarginRateDefaults() {
+    setUseDefault({ ...useDefault, margin_rate: true });
+    setDraft((prev) => {
+      const next = { ...prev };
+      for (const key of CLUSTERS.margin_rate.keys) next[key] = null;
+      return next;
+    });
   }
 
   function ratesBlock(base, title) {
+    const off = useDefault.margin_rate;
     return (
       <>
         <tr className="grp-sym-rate-head">
@@ -302,18 +486,19 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
             <td className="grp-sym-rate-side">{side === "buy" ? "Buy" : "Sell"}</td>
             {RATE_COLUMNS.map(([sfx]) => {
               const key = `${base}_${side}${sfx}`;
+              const value = off ? null : draft[key];
               return (
                 <td key={key}>
-                  <input
-                    type="text"
-                    className="df-cell-input grp-sym-rate-cell"
-                    disabled={useDefault.margin_rate}
+                  <EditableSelectField
+                    hideLabel
+                    className="grp-sym-rate-select"
                     placeholder="Default"
-                    value={draft[key] == null ? "" : draft[key]}
-                    onChange={(e) => {
-                      const raw = e.target.value.trim();
-                      set(key, raw === "" ? null : Number(raw) || 0);
-                    }}
+                    disabled={off}
+                    value={value}
+                    options={marginRateOptions(value, 7)}
+                    format={(v) => fmtRate(v, 7)}
+                    parse={parseMarginRate}
+                    onChange={(v) => set(key, v)}
                   />
                 </td>
               );
@@ -326,52 +511,82 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
 
   function panel(tab) {
     switch (tab) {
-      case "common":
+      case "common": {
+        const root = isRootPath(draft.path);
+        const depthOn = marketDepthOn(draft.permissions_flags, draft.path);
+        const inherit = (clusterId, key) =>
+          useDefault[clusterId] && root ? (WILDCARD_DISPLAY[key] ?? CATALOG_DEFAULTS[key] ?? 0) : null;
         return (
-          <div className="form-grid sym-form-two-col grp-sym-form">
-            <Sel
-              span
+          <div className="form-grid sym-form-two-col grp-sym-form grp-sym-common">
+            <SymbolPathSelectField
               label="Symbol"
+              className="grp-sym-symbol-wide"
               value={draft.path ?? "*"}
-              options={[...new Set(["*", draft.path || "*", ...paths])].map((p) => ({ value: p, label: p }))}
               onChange={(v) => set("path", v || "*")}
+              disabled={!isNew}
             />
             <Check
-              half
+              depth
               label="Enable market depth"
-              checked={bit("permissions_flags", 1)}
-              onChange={(on) => setBit("permissions_flags", 1, on)}
+              checked={depthOn}
+              onChange={(on) => {
+                if (draft.permissions_flags == null) set("permissions_flags", on ? 1 : 0);
+                else setBit("permissions_flags", 1, on);
+              }}
             />
             <Sel
+              depthLimit
               label="Market depth limit"
               value={draft.permissions_book_depth ?? 0}
               options={BOOK_DEPTH_OPTIONS}
+              disabled={!depthOn}
               onChange={(v) => set("permissions_book_depth", v)}
             />
             <Default id="spread" label="Use default spread" />
-            <Num
+            <EditableSelectField
               label="Spread difference"
               suffix="pt"
-              value={draft.spread_diff}
+              placeholder="Default"
+              liveCommit
               disabled={useDefault.spread}
-              onChange={(v) => set("spread_diff", v)}
+              value={useDefault.spread ? inherit("spread", "spread_diff") : draft.spread_diff}
+              options={SPREAD_DIFF_OPTIONS}
+              format={(v) => (v == null ? "" : String(v))}
+              parse={parseSpreadDiff}
+              onChange={(v) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  spread_diff: v,
+                  // MT5 resets difference balance when spread difference changes.
+                  spread_diff_balance: defaultGroupDiffBalance(v),
+                }))
+              }
             />
-            <Balance
-              value={draft.spread_diff_balance}
-              spread={draft.spread_diff}
+            <DiffBalanceField
+              spread={
+                useDefault.spread
+                  ? (inherit("spread", "spread_diff") ?? 0)
+                  : (draft.spread_diff ?? 0)
+              }
+              balance={
+                useDefault.spread
+                  ? (inherit("spread", "spread_diff_balance") ?? 0)
+                  : (draft.spread_diff_balance ?? 0)
+              }
               disabled={useDefault.spread}
               onChange={(v) => set("spread_diff_balance", v)}
             />
             <Default id="volumes" label="Use default volumes" />
             <div className="grp-sym-triple">
-              <Num label="Minimum" lots value={draft.volume_min} disabled={useDefault.volumes} onChange={(v) => set("volume_min", v)} />
-              <Num label="Step" lots value={draft.volume_step} disabled={useDefault.volumes} onChange={(v) => set("volume_step", v)} />
-              <Num label="Maximum" lots value={draft.volume_max} disabled={useDefault.volumes} onChange={(v) => set("volume_max", v)} />
+              <Num label="Minimum" lots value={draft.volume_min} inherit={inherit("volumes", "volume_min")} disabled={useDefault.volumes} onChange={(v) => set("volume_min", v)} />
+              <Num label="Step" lots value={draft.volume_step} inherit={inherit("volumes", "volume_step")} disabled={useDefault.volumes} onChange={(v) => set("volume_step", v)} />
+              <Num label="Maximum" lots value={draft.volume_max} inherit={inherit("volumes", "volume_max")} disabled={useDefault.volumes} onChange={(v) => set("volume_max", v)} />
             </div>
             <Default id="limit" label="Use default limit" />
-            <Num label="Limit" lots value={draft.volume_limit} disabled={useDefault.limit} onChange={(v) => set("volume_limit", v)} />
+            <Num label="Limit" lots value={draft.volume_limit} inherit={inherit("limit", "volume_limit")} disabled={useDefault.limit} onChange={(v) => set("volume_limit", v)} />
           </div>
         );
+      }
       case "trade":
         return (
           <div className="form-grid sym-form-two-col grp-sym-form">
@@ -384,27 +599,24 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
               disabled={useDefault.trade}
               onChange={(v) => set("trade_mode", v)}
             />
-            <Sel
-              span
+            <FlagCombo
               label="Filling"
-              value={draft.fill_flags}
-              options={flagOptions(FILLING_LABELS)}
+              labels={FillFlag_labels}
+              value={draft.fill_flags ?? 0}
               disabled={useDefault.trade}
               onChange={(v) => set("fill_flags", v)}
             />
-            <Sel
-              span
+            <FlagCombo
               label="Expiration"
-              value={draft.expir_flags}
-              options={flagOptions(EXPIRATION_LABELS)}
+              labels={ExpirFlag_labels}
+              value={draft.expir_flags ?? 0}
               disabled={useDefault.trade}
               onChange={(v) => set("expir_flags", v)}
             />
-            <Sel
-              span
+            <FlagCombo
               label="Orders"
-              value={draft.order_flags}
-              options={flagOptions(ORDER_LABELS)}
+              labels={OrderFlag_labels}
+              value={draft.order_flags ?? 0}
               disabled={useDefault.trade}
               onChange={(v) => set("order_flags", v)}
             />
@@ -427,6 +639,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
         );
       case "execution": {
         const off = useDefault.execution;
+        const mode = draft.exec_mode != null ? Number(draft.exec_mode) : null;
         return (
           <div className="form-grid sym-form-two-col grp-sym-form">
             <Default id="execution" label="Use default execution settings" />
@@ -439,30 +652,69 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
             />
             <span />
             <span />
-            <Num label="Max time deviation" suffix="seconds" value={draft.ie_timeout} disabled={off} onChange={(v) => set("ie_timeout", v)} />
-            <span />
-            <span />
-            <Num label="Max profit deviation" suffix="points" value={draft.ie_slip_profit} disabled={off} onChange={(v) => set("ie_slip_profit", v)} />
-            <span />
-            <span />
-            <Num label="Max losing deviation" suffix="points" value={draft.ie_slip_losing} disabled={off} onChange={(v) => set("ie_slip_losing", v)} />
-            <span />
-            <span />
-            <Check
-              label="Fast confirmation of requotes within client deviation"
-              disabled={off}
-              checked={bit("ie_flags", IE_FAST_CONFIRMATION)}
-              onChange={(on) => setBit("ie_flags", IE_FAST_CONFIRMATION, on)}
-            />
-            <Num
-              label="Maximum volume"
-              lots
-              suffix="before switching to Request execution"
-              value={draft.ie_volume_max}
-              disabled={off}
-              onChange={(v) => set("ie_volume_max", v)}
-            />
-            {draft.exec_mode === EXEC_REQUEST && (
+            {mode === EXEC_INSTANT && (
+              <>
+                <EditableSelectField
+                  label="Max time deviation"
+                  suffix="seconds"
+                  placeholder="Default"
+                  disabled={off}
+                  value={off ? null : draft.ie_timeout}
+                  options={DEVIATION_PRESET_OPTIONS}
+                  format={(v) => (v == null ? "" : String(v))}
+                  parse={parseDeviation}
+                  onChange={(v) => set("ie_timeout", v)}
+                />
+                <span />
+                <span />
+                <EditableSelectField
+                  label="Max profit deviation"
+                  suffix="points"
+                  placeholder="Default"
+                  disabled={off}
+                  value={off ? null : draft.ie_slip_profit}
+                  options={DEVIATION_PRESET_OPTIONS}
+                  format={(v) => (v == null ? "" : String(v))}
+                  parse={parseDeviation}
+                  onChange={(v) => set("ie_slip_profit", v)}
+                />
+                <span />
+                <span />
+                <EditableSelectField
+                  label="Max losing deviation"
+                  suffix="points"
+                  placeholder="Default"
+                  disabled={off}
+                  value={off ? null : draft.ie_slip_losing}
+                  options={DEVIATION_PRESET_OPTIONS}
+                  format={(v) => (v == null ? "" : String(v))}
+                  parse={parseDeviation}
+                  onChange={(v) => set("ie_slip_losing", v)}
+                />
+                <span />
+                <span />
+                <div className="form-grid sym-exec-grid grp-sym-exec-instant">
+                  <label />
+                  <Check
+                    execGrid
+                    label="Fast confirmation of requotes within client deviation"
+                    disabled={off}
+                    checked={bit("ie_flags", INSTANT_FAST_CONFIRMATION)}
+                    onChange={(on) => setBit("ie_flags", INSTANT_FAST_CONFIRMATION, on)}
+                  />
+                  <Num
+                    execGrid
+                    label="Maximum volume"
+                    lots
+                    suffix="before switching to Request execution"
+                    value={draft.ie_volume_max}
+                    disabled={off}
+                    onChange={(v) => set("ie_volume_max", v)}
+                  />
+                </div>
+              </>
+            )}
+            {mode === EXEC_REQUEST && (
               <>
                 <Num label="Timeout" suffix="seconds" value={draft.re_timeout} disabled={off} onChange={(v) => set("re_timeout", v)} />
                 <span />
@@ -470,8 +722,8 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
                 <Check
                   label="Confirm orders"
                   disabled={off}
-                  checked={bit("re_flags", RE_CONFIRM_ORDERS)}
-                  onChange={(on) => setBit("re_flags", RE_CONFIRM_ORDERS, on)}
+                  checked={bit("re_flags", REQUEST_ORDER)}
+                  onChange={(on) => setBit("re_flags", REQUEST_ORDER, on)}
                 />
               </>
             )}
@@ -527,25 +779,33 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
             />
           </div>
         );
-      case "margin_rate":
+      case "margin_rate": {
+        const off = useDefault.margin_rate;
         return (
           <>
             <div className="form-grid sym-form-two-col grp-sym-form">
-              <Num
+              <Default id="margin_rate" label="Use default margin rate settings" />
+              <EditableSelectField
                 label="Liquidity margin rate"
-                value={draft.margin_liquidity}
-                disabled={useDefault.margin_rate}
+                placeholder="Default"
+                disabled={off}
+                value={off ? null : draft.margin_liquidity}
+                options={marginRateOptions(draft.margin_liquidity, 3)}
+                format={(v) => fmtRate(v, 3)}
+                parse={parseMarginRate}
                 onChange={(v) => set("margin_liquidity", v)}
               />
               <span />
               <span />
-              <label>Currency margin rate</label>
-              <input
-                type="text"
-                disabled={useDefault.margin_rate}
+              <EditableSelectField
+                label="Currency margin rate"
                 placeholder="Default"
-                value={draft.margin_currency ?? ""}
-                onChange={(e) => set("margin_currency", e.target.value.toUpperCase() || null)}
+                disabled={off}
+                value={off ? null : draft.margin_currency}
+                options={marginRateOptions(draft.margin_currency, 8)}
+                format={(v) => fmtRate(v, 8)}
+                parse={parseMarginCurrency}
+                onChange={(v) => set("margin_currency", v)}
               />
             </div>
             <table className="data-table data-table-grid grp-sym-rates">
@@ -563,17 +823,19 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
               </tbody>
             </table>
             <div className="grp-sym-default-btn">
-              <button type="button" onClick={() => setUseDefault({ ...useDefault, margin_rate: true })}>
+              <button type="button" onClick={resetMarginRateDefaults}>
                 Use default rates settings
               </button>
             </div>
           </>
         );
+      }
       case "swaps": {
         const off = useDefault.swaps;
         return (
           <>
             <div className="form-grid sym-form-two-col grp-sym-form">
+              <Default id="swaps" label="Use default swap settings" />
               <Sel
                 span
                 label="Type"
@@ -582,21 +844,42 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
                 disabled={off}
                 onChange={(v) => set("swap_mode", v)}
               />
-              <Num label="Long positions" value={draft.swap_long} disabled={off} onChange={(v) => set("swap_long", v)} />
-              <Num label="Short positions" value={draft.swap_short} disabled={off} onChange={(v) => set("swap_short", v)} />
-              <Sel
-                label="Days in year"
-                value={draft.swap_year_day}
-                options={withDefault(SwapYearDays_options.map((d) => ({ value: d, label: String(d) })))}
+              <EditableSelectField
+                label="Long positions"
+                placeholder="Default"
                 disabled={off}
+                value={off ? null : draft.swap_long}
+                options={swapAmountOptions(draft.swap_long)}
+                format={(v) => (v == null ? "" : String(v))}
+                parse={parseSwapAmount}
+                onChange={(v) => set("swap_long", v)}
+              />
+              <EditableSelectField
+                label="Short positions"
+                placeholder="Default"
+                disabled={off}
+                value={off ? null : draft.swap_short}
+                options={swapAmountOptions(draft.swap_short)}
+                format={(v) => (v == null ? "" : String(v))}
+                parse={parseSwapAmount}
+                onChange={(v) => set("swap_short", v)}
+              />
+              <EditableSelectField
+                label="Days in year"
+                placeholder="Default"
+                disabled={off}
+                value={off ? null : draft.swap_year_day}
+                options={swapYearDayOptions(draft.swap_year_day)}
+                format={(v) => (v == null ? "" : String(v))}
+                parse={parseSwapYearDay}
                 onChange={(v) => set("swap_year_day", v)}
               />
               <Sel
                 label="Consider holidays"
-                value={draft.swap_flags == null ? null : draft.swap_flags & SWAP_CONSIDER_HOLIDAYS}
-                options={YES_NO}
+                value={off ? null : swapHolidaysValue()}
+                options={SWAP_HOLIDAYS_OPTIONS}
                 disabled={off}
-                onChange={(v) => set("swap_flags", v)}
+                onChange={(v) => set("swap_flags", v === DEFAULT ? null : v === 1 ? SWAP_CONSIDER_HOLIDAYS : 0)}
               />
             </div>
             <div className="grp-sym-swap-layout">
@@ -604,25 +887,39 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
               <table className="data-table data-table-grid grp-sym-swap-table">
                 <thead>
                   <tr>
+                    <th className="grp-sym-swap-check-col" />
                     <th>Day of week</th>
                     <th>Multiplier</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {SWAP_DAYS.map(([key, day]) => (
-                    <tr key={key}>
+                  {SWAP_DAY_KEYS.map(([day, key], idx) => (
+                    <tr
+                      key={key}
+                      className={selectedSwapDay === idx ? "selected" : ""}
+                      onClick={() => setSelectedSwapDay(idx)}
+                    >
+                      <td className="grp-sym-swap-check-col">
+                        <input
+                          type="checkbox"
+                          disabled={off}
+                          checked={swapDayChecked(key)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={(e) => set(key, e.target.checked ? (draft[key] > 0 ? draft[key] : 1) : 0)}
+                        />
+                      </td>
                       <td>{day}</td>
                       <td>
-                        <input
-                          type="text"
-                          className="df-cell-input grp-sym-rate-cell"
-                          disabled={off}
+                        <EditableSelectField
+                          hideLabel
+                          className="grp-sym-swap-mult-select"
                           placeholder="Default"
-                          value={draft[key] == null ? "" : draft[key]}
-                          onChange={(e) => {
-                            const raw = e.target.value.trim();
-                            set(key, raw === "" ? null : Number(raw) || 0);
-                          }}
+                          disabled={off}
+                          value={swapDayMultiplier(key)}
+                          options={swapMultiplierOptions(draft[key])}
+                          format={formatSwapMultiplier}
+                          parse={parseSwapMultiplier}
+                          onChange={(v) => set(key, v)}
                         />
                       </td>
                     </tr>
@@ -630,23 +927,29 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
                 </tbody>
               </table>
               <div className="grp-sym-swap-btns">
-                <button type="button" disabled={off} onClick={() => setSwapRates([null, null, null, null, null, null, null])}>
+                <button type="button" disabled={off} onClick={() => setSwapRates(SWAP_DAY_KEYS.map(() => null))}>
                   Default
                 </button>
-                <button type="button" disabled={off} onClick={() => setSwapRates([0, 1, 1, 3, 1, 1, 0])}>
+                <button type="button" disabled={off} onClick={() => setSwapRates(FOREX_SWAP_MULTIPLIERS)}>
                   Forex
                 </button>
                 <button type="button" disabled={off} onClick={() => setSwapRates([1, 1, 1, 1, 1, 1, 1])}>
                   All week
                 </button>
-                <button type="button" disabled title="No source symbol route">
+                <button type="button" disabled={off || !fromSymbol.trim()} onClick={copySwapFromSymbol}>
                   From symbol
                 </button>
-                <PropSelect fill disabled value="" options={[{ value: "", label: "" }]} />
+                <SymbolTreeSelectField
+                  label=""
+                  value={fromSymbol}
+                  headerItems={[{ value: "", label: "" }]}
+                  lockField={() => off}
+                  onChange={setFromSymbol}
+                />
               </div>
             </div>
             <div className="grp-sym-default-btn">
-              <button type="button" onClick={() => setUseDefault({ ...useDefault, swaps: true })}>
+              <button type="button" onClick={resetSwapDefaults}>
                 Use default swap settings
               </button>
             </div>
@@ -656,8 +959,6 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
     }
   }
 
-  const intro = TABS.find((t) => t.id === activeTab)?.intro;
-
   return (
     <DialogOverlay>
       <div
@@ -666,13 +967,14 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          width={675}
-          height={520}
+          className="sym-config-window"
+          width={787}
+          height={620}
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={`Symbol: ${draft.path || "*"}`}
           tabs={
-            <div className="config-tabs">
+            <div className="config-tabs sym-config-tabs">
               {TABS.map((tab) => (
                 <button
                   key={tab.id}
@@ -694,15 +996,12 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
             </div>
           }
         >
-          <div className="config-panel active">
-            <div className="sym-sessions-intro">
-              <span className="sym-tab-intro-icon" aria-hidden="true">
-                <Icon id="symbols-tree" size={48} />
-              </span>
-              <p>{intro}</p>
+          {TABS.map((tab) => (
+            <div key={tab.id} className={`config-panel${activeTab === tab.id ? " active" : ""}`}>
+              <TabIntro>{tab.intro}</TabIntro>
+              {panel(tab.id)}
             </div>
-            {panel(activeTab)}
-          </div>
+          ))}
         </SettingsDialog>
       </div>
     </DialogOverlay>

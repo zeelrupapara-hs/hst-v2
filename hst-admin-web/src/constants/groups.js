@@ -61,6 +61,47 @@ export const HistoryLimit_name = {
   6: "3 years",
 };
 
+/** MT5 limit dropdown presets — 0 means unlimited on the wire. */
+export const Limit_preset_options = [
+  { value: 0, label: "unlimited" },
+  { value: 10, label: "10" },
+  { value: 30, label: "30" },
+  { value: 50, label: "50" },
+  { value: 100, label: "100" },
+  { value: 200, label: "200" },
+  { value: 500, label: "500" },
+  { value: 1000, label: "1000" },
+];
+
+export function limitOptions(current) {
+  const n = Number(current) || 0;
+  if (n !== 0 && !Limit_preset_options.some((o) => o.value === n)) {
+    return [...Limit_preset_options, { value: n, label: String(n) }];
+  }
+  return Limit_preset_options;
+}
+
+/** Demo account default leverage presets (MT5 "1 : N" display). */
+export const DemoLeverage_options = [
+  { value: "", label: "" },
+  { value: 1, label: "1 : 1" },
+  { value: 10, label: "1 : 10" },
+  { value: 20, label: "1 : 20" },
+  { value: 50, label: "1 : 50" },
+  { value: 100, label: "1 : 100" },
+  { value: 200, label: "1 : 200" },
+  { value: 500, label: "1 : 500" },
+  { value: 1000, label: "1 : 1000" },
+];
+
+export function demoLeverageOptions(current) {
+  const n = current == null || current === "" ? "" : Number(current);
+  if (n !== "" && !DemoLeverage_options.some((o) => o.value === n)) {
+    return [...DemoLeverage_options, { value: n, label: `1 : ${n}` }];
+  }
+  return DemoLeverage_options;
+}
+
 export const PermissionFlag_labels = [
   { bit: 2, label: "Enable connections" },
   { bit: 1, label: "Enable certificate confirmation" },
@@ -71,8 +112,19 @@ export const PermissionFlag_labels = [
 
 export const PermissionFlag_forceOtp = 8;
 
-/** notify_deals | notify_orders | notify_balances, chosen as one value in the reference. */
+/** notify_deals | notify_orders | notify_balances — multi-select in the reference UI. */
 export const PermissionFlag_notifyMask = 64 | 128 | 256;
+export const NotifyFlag_deals = 64;
+export const NotifyFlag_orders = 128;
+export const NotifyFlag_balances = 256;
+export const NotifyFlag_all = NotifyFlag_deals | NotifyFlag_orders | NotifyFlag_balances;
+export const NotifyFlag_labels = [
+  { bit: NotifyFlag_deals, label: "Deals" },
+  { bit: NotifyFlag_orders, label: "Orders" },
+  { bit: NotifyFlag_balances, label: "Balance" },
+];
+
+/** Legacy single-select mapping; the dialog uses NotifyFlag_labels via NotifyCombo. */
 export const NotifyMode_options = [
   { value: 64 | 128 | 256, label: "All" },
   { value: 64, label: "Deals" },

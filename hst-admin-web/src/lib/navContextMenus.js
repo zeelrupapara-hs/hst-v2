@@ -66,3 +66,67 @@ export function isSymbolsNavNode(node) {
 export function isSymbolFolderNode(node) {
   return node?.key?.startsWith("symfolder:");
 }
+
+/**
+ * @param {{
+ *   canEdit?: boolean,
+ *   isFolder?: boolean,
+ *   onAdd?: Function,
+ *   onEdit?: Function,
+ *   onDelete?: Function,
+ *   onRefresh?: Function,
+ * }} handlers
+ */
+export function groupsNavMenuItems({
+  canEdit = true,
+  isFolder = false,
+  onAdd,
+  onEdit,
+  onDelete,
+  onRefresh,
+} = {}) {
+  const head = isFolder
+    ? [
+        { label: "Add", icon: "add", shortcut: "Ctrl+N", disabled: !canEdit, onClick: onAdd },
+        { label: "Edit", icon: "edit", shortcut: "Ctrl+U", disabled: !canEdit, onClick: onEdit },
+        { label: "Delete", icon: "delete", shortcut: "Del", disabled: !canEdit, onClick: onDelete },
+      ]
+    : [{ label: "Add", icon: "add", shortcut: "Ctrl+N", disabled: !canEdit, onClick: onAdd }];
+
+  return [
+    ...head,
+    "sep",
+    {
+      label: "Automation Triggers",
+      disabled: true,
+      items: [{ label: "(none)", disabled: true }],
+    },
+    {
+      label: "Automation Actions",
+      disabled: true,
+      items: [{ label: "(none)", disabled: true }],
+    },
+    "sep",
+    { label: "Export Configurations to File", disabled: true },
+    { label: "Import Configurations from File", disabled: true },
+    { label: "Import Configurations from Server", disabled: true },
+    "sep",
+    { label: "Refresh", icon: "refresh", shortcut: "F5", onClick: onRefresh },
+  ];
+}
+
+/** Folder path carried by a groups navigator node ("" = root under Groups). */
+export function groupsNavFolderPath(node) {
+  if (!node) return null;
+  if (node.key === "groups") return "";
+  if (node.key?.startsWith("groupfolder:")) return node.key.slice("groupfolder:".length);
+  return null;
+}
+
+export function isGroupsNavNode(node) {
+  return groupsNavFolderPath(node) !== null;
+}
+
+export function isGroupFolderNode(node) {
+  return node?.key?.startsWith("groupfolder:");
+}

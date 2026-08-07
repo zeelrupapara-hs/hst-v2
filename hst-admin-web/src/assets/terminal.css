@@ -976,6 +976,16 @@ html, body {
   box-sizing: border-box;
 }
 
+.dialog-overlay ~ .dialog-overlay {
+  z-index: 210;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+/* nested modal (e.g. GroupSymbolDialog from GroupDialog): hide the parent footer */
+.dialog-overlay:not(:last-of-type) .config-actions {
+  visibility: hidden;
+}
+
 .dialog-overlay .settings-dialog {
   min-height: 0;
   max-height: calc(100% - 8px);
@@ -3467,7 +3477,75 @@ select {
 
 /* ── groups module: reference rows the audit calls for ── */
 .grp-notify-select { display: inline-block; width: 190px; }
-.grp-change-btn { height: 22px; min-width: 92px; margin-left: 8px; }
+.grp-notify-select .sym-flag-combo { display: block; width: 100%; }
+.grp-change-btn {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: 22px;
+  min-width: 92px;
+  padding: 0 14px;
+  border: 1px solid #adadad;
+  background: #f5f5f5;
+  color: #000;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.grp-change-btn:hover:not(:disabled) {
+  background: #e5f1fb;
+  border-color: #0078d7;
+}
+.grp-change-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+.grp-lang-picker {
+  width: 100%;
+  max-width: 420px;
+}
+.grp-lang-picker input[type="text"] {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  max-width: none;
+}
+
+/* dual-list picker (news languages, etc.) */
+.dual-list-dialog { padding: 10px 12px 8px; }
+.dual-list-layout { display: flex; align-items: stretch; gap: 8px; }
+.dual-list-pane { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dual-list-caption { font-size: 11px; color: #000; }
+.dual-list-box {
+  flex: 1 1 auto;
+  height: 280px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow: auto;
+  border: 1px solid #808080;
+  background: #fff;
+}
+.dual-list-box li {
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: default;
+  user-select: none;
+}
+.dual-list-box li.selected { background: #316ac5; color: #fff; }
+.dual-list-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  justify-content: center;
+  padding-top: 18px;
+  width: 88px;
+  flex-shrink: 0;
+}
+.dual-list-actions button {
+  height: 22px;
+  font-size: 11px;
+  white-space: nowrap;
+}
 .grp-margin-levels { grid-template-columns: 150px 90px 110px 90px 24px minmax(0, 1fr); }
 .grp-margin-levels input[type="text"] { width: 90px; }
 .grp-check-cols {
@@ -3481,7 +3559,37 @@ select {
 
 /* group symbols — list glyph, button column, margin-rate and swap grids */
 .grp-sym-cell { display: inline-flex; align-items: center; gap: 5px; }
-.grp-sym-buttons-gap { height: 96px; }
+.grp-sym-tab {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.grp-sym-tab .sym-sessions-intro {
+  flex: 0 0 auto;
+  margin: 0 12px 8px 12px;
+}
+.grp-sym-tab .df-table-panel {
+  flex: 1 1 auto;
+  min-height: 220px;
+}
+.grp-sym-buttons {
+  align-self: stretch;
+  justify-content: flex-start;
+  padding-top: 8px;
+  padding-bottom: 10px;
+}
+.grp-sym-buttons-move,
+.grp-sym-buttons-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.grp-sym-buttons-actions { margin-top: auto; }
+.grp-sym-table .data-table th:nth-child(1),
+.grp-sym-table .data-table td:nth-child(1) { width: 58%; }
+.grp-sym-table .df-add-row.selected td { color: #fff; }
+.grp-sym-table .df-add-row.selected .df-add-plus { color: #fff; }
 .grp-sym-wide { max-width: 100%; }
 .grp-sym-rates { width: 100%; margin: 8px 0; }
 .grp-sym-rates th { text-align: right; }
@@ -3489,14 +3597,98 @@ select {
 .grp-sym-rate-head td { background: #ece9d8; font-weight: 600; }
 .grp-sym-rate-side { color: #0a246a; }
 .grp-sym-rate-cell { width: 100%; text-align: right; box-sizing: border-box; }
+.grp-sym-rates td .grp-sym-rate-select { width: 100%; }
+.grp-sym-rates td .grp-sym-rate-select .editable-select-input { text-align: right; }
 .grp-sym-swap-layout { display: flex; align-items: flex-start; gap: 10px; padding: 4px 12px; }
 .grp-sym-swap-caption { width: 84px; text-align: right; font-size: 11px; }
 .grp-sym-swap-caption::after { content: ":"; }
-.grp-sym-swap-table { width: 220px; }
+.grp-sym-swap-table { width: 260px; }
+.grp-sym-swap-table tbody tr { cursor: default; }
+.grp-sym-swap-table tbody tr.selected td { background: #e5f1fb; }
+.grp-sym-swap-check-col { width: 22px; text-align: center; padding: 0 2px !important; }
+.grp-sym-swap-check-col input[type="checkbox"] { margin: 0; vertical-align: middle; }
+.grp-sym-swap-mult-select { width: 100%; }
+.grp-sym-swap-mult-select .editable-select-input { height: 16px; font-size: 11px; }
 .grp-sym-swap-btns { display: flex; flex-direction: column; gap: 6px; width: 200px; }
 .grp-sym-swap-btns button { height: 22px; font-size: 11px; }
 .grp-sym-default-btn { padding: 6px 12px; }
 .grp-sym-default-btn button { height: 22px; font-size: 11px; padding: 0 16px; }
+
+/* ── group commission dialog (MT5 Commissions window) ── */
+.grp-comm-panel { display: flex; flex-direction: column; min-height: 0; }
+.grp-comm-form {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 6px 8px;
+  padding: 0 12px 8px;
+  align-items: center;
+}
+.grp-comm-label {
+  text-align: right;
+  font-size: 11px;
+  color: #000;
+}
+.grp-comm-label::after { content: ":"; }
+.grp-comm-field-wide { width: 100%; box-sizing: border-box; }
+.grp-comm-body {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 168px;
+  gap: 8px 12px;
+  align-items: start;
+}
+.grp-comm-left {
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: center;
+}
+.grp-comm-left > label {
+  text-align: right;
+  font-size: 11px;
+}
+.grp-comm-left > label::after { content: ":"; }
+.grp-comm-select { width: 100%; max-width: none; box-sizing: border-box; }
+.grp-comm-types {
+  border: none;
+  margin: 0;
+  padding: 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.grp-comm-type-opt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.grp-comm-type-opt input { margin: 0; }
+.grp-comm-filters {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 118px minmax(0, 1fr) 118px minmax(0, 1fr);
+  gap: 6px 8px;
+  align-items: center;
+  padding-top: 4px;
+}
+.grp-comm-filters .sym-flag-combo { display: block; width: 100%; }
+.grp-comm-filters .sym-flag-combo-box { width: 100%; box-sizing: border-box; }
+.grp-comm-tiers {
+  flex: 1 1 auto;
+  min-height: 160px;
+  margin: 0 12px 8px;
+}
+.grp-comm-tier-table th,
+.grp-comm-tier-table td { font-size: 11px; }
+.grp-comm-tier-table th:nth-child(1),
+.grp-comm-tier-table th:nth-child(2),
+.grp-comm-tier-table th:nth-child(3),
+.grp-comm-tier-table th:nth-child(4),
+.grp-comm-tier-table th:nth-child(5) { text-align: right; }
+.grp-comm-tier-table .df-cell-input { text-align: right; }
 
 /* ── datafeeds module: section head, pane tabs, row glyphs, vertical rail extras ── */
 .df-section-head {
@@ -3666,55 +3858,72 @@ select {
 
 .sym-spread-balance-track {
   position: relative;
-  height: 16px;
+  height: 20px;
   display: flex;
   align-items: center;
+  overflow: visible;
 }
 
 .sym-spread-balance input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
   width: 100%;
-  height: 16px;
+  height: 20px;
   margin: 0;
+  padding: 0;
+  border: none;
   background: transparent;
   cursor: pointer;
+  touch-action: none;
+  outline: none;
+  box-shadow: none;
 }
 
 .sym-spread-balance input[type="range"]::-webkit-slider-runnable-track {
-  height: 1px;
+  height: 2px;
   background: #808080;
   border: none;
+  border-radius: 0;
 }
 
 .sym-spread-balance input[type="range"]::-moz-range-track {
-  height: 1px;
+  height: 2px;
   background: #808080;
   border: none;
+  border-radius: 0;
 }
 
 .sym-spread-balance input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 3px;
-  height: 14px;
+  width: 8px;
+  height: 16px;
   margin-top: -7px;
   background: #0078d7;
-  border: none;
+  border: 1px solid #005a9e;
   border-radius: 0;
   box-shadow: none;
 }
 
 .sym-spread-balance input[type="range"]::-moz-range-thumb {
-  width: 3px;
-  height: 14px;
+  width: 8px;
+  height: 16px;
   background: #0078d7;
-  border: none;
+  border: 1px solid #005a9e;
   border-radius: 0;
   box-shadow: none;
 }
 
-.sym-spread-balance input[type="range"]:focus {
+.sym-spread-balance input[type="range"]:focus,
+.sym-spread-balance input[type="range"]:focus-visible,
+.sym-spread-balance input[type="range"]:active {
   outline: none;
+  box-shadow: none;
+}
+
+.sym-spread-balance input[type="range"]:focus::-webkit-slider-thumb,
+.sym-spread-balance input[type="range"]:focus::-webkit-slider-runnable-track {
+  outline: none;
+  box-shadow: none;
 }
 
 .sym-spread-balance input[type="range"]:focus::-webkit-slider-thumb {
@@ -3726,7 +3935,12 @@ select {
   opacity: 0.55;
 }
 
-.sym-spread-balance-disabled input[type="range"]::-webkit-slider-thumb,
+.sym-spread-balance input[type="range"]:disabled::-webkit-slider-thumb,
+.sym-spread-balance-disabled input[type="range"]::-webkit-slider-thumb {
+  background: #a0a0a0;
+}
+
+.sym-spread-balance input[type="range"]:disabled::-moz-range-thumb,
 .sym-spread-balance-disabled input[type="range"]::-moz-range-thumb {
   background: #a0a0a0;
 }
@@ -3772,6 +3986,7 @@ select {
 .sym-exec-grid { grid-template-columns: 150px 200px minmax(0, 1fr); }
 .sym-exec-grid .sym-with-suffix { grid-column: 2 / -1; }
 .sym-exec-grid .sym-check { grid-column: 2 / -1; }
+.settings-dialog .grp-sym-exec-instant { grid-column: 1 / -1; }
 .sym-margin-grid { grid-template-columns: 150px minmax(0, 260px); }
 
 .sym-flag-combo { position: relative; display: block; width: 100%; min-width: 0; }
@@ -4023,8 +4238,17 @@ select {
 .settings-dialog .config-tabs,
 .settings-dialog .config-title,
 .settings-dialog .config-actions { flex: 0 0 auto; }
-.settings-dialog .df-table-panel { max-height: 260px; }
-.settings-dialog .df-table-main { max-height: 220px; overflow: auto; }
+.settings-dialog .df-table-panel { max-height: none; flex: 1 1 auto; min-height: 220px; }
+.settings-dialog .df-table-main { max-height: none; flex: 1 1 auto; }
+.settings-dialog .grp-sym-tab { min-height: 260px; }
+.settings-dialog .config-panel.active:has(.grp-sym-tab) {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 12px 0 0;
+  box-sizing: border-box;
+}
 
 /* ── palette pass: the reference is Segoe UI on white with one accent blue ── */
 :root {
@@ -4376,11 +4600,115 @@ label.sym-check::after { content: none; }
 .grp-check-cols > .grp-check-trailing,
 .grp-check-cols > .grp-check-trailing:nth-child(even) { justify-content: flex-end; }
 .settings-dialog .grp-check-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+
+/* group permissions tab — MT5 two-column limits + wide dropdown rows */
+.grp-permissions-grid .prop-select-fill,
+.grp-permissions-grid input[type="text"] {
+  width: 100%;
+  max-width: none;
+}
+.grp-permissions-wide .prop-select-fill {
+  width: 100%;
+  max-width: 420px;
+}
+.grp-permissions-checks {
+  padding-top: 2px;
+  padding-bottom: 8px;
+}
 /* inside a two-column check block each row keeps its own column */
 .settings-dialog .grp-check-cols > .sym-check { grid-column: auto; }
 
 /* ── group symbol dialog: the reference pairs some rows and runs others full width ── */
 .settings-dialog .grp-sym-span { grid-column: span 3; }
+/* ── group symbol Common tab (MT5 layout) ── */
+.settings-dialog .grp-sym-common.sym-form-two-col {
+  grid-template-columns: 150px 175px 130px minmax(0, 1fr);
+}
+.grp-sym-common > label + .prop-select.grp-sym-symbol-wide,
+.grp-sym-common > label + .editable-select.grp-sym-symbol-wide {
+  grid-column: 2 / -1;
+}
+/* market depth: checkbox left (aligned with Use default rows), limit label+field on the right */
+.settings-dialog .grp-sym-common > .sym-check.grp-sym-depth-check {
+  grid-column: 1 / 3;
+  padding-left: 158px;
+}
+.settings-dialog .grp-sym-common > .grp-sym-depth-limit-label {
+  grid-column: 3;
+  text-align: right;
+}
+.settings-dialog .grp-sym-common > .grp-sym-depth-limit-field {
+  grid-column: 4;
+}
+.settings-dialog .grp-sym-common > .grp-sym-depth-limit-field .prop-select {
+  width: 175px;
+  max-width: 175px;
+}
+.settings-dialog .grp-sym-common > .grp-sym-diff-balance-label {
+  grid-column: 3;
+}
+.settings-dialog .grp-sym-common > .grp-sym-diff-balance {
+  grid-column: 4;
+  position: relative;
+  z-index: 2;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  max-width: none;
+}
+.grp-sym-diff-balance-track {
+  flex: 0 1 120px;
+  min-width: 90px;
+  max-width: 140px;
+}
+.grp-sym-diff-balance-caption {
+  flex: 0 0 auto;
+  text-align: left;
+  white-space: nowrap;
+  font-size: 11px;
+  line-height: 16px;
+}
+/* MT5 group symbol: white thumb, thin gray track */
+.grp-sym-diff-balance-range::-webkit-slider-runnable-track {
+  height: 1px;
+  background: #808080;
+}
+.grp-sym-diff-balance-range::-moz-range-track {
+  height: 1px;
+  background: #808080;
+}
+.grp-sym-diff-balance-range::-webkit-slider-thumb {
+  width: 7px;
+  height: 15px;
+  margin-top: -7px;
+  background: #fff;
+  border: 1px solid #808080;
+  box-shadow: none;
+}
+.grp-sym-diff-balance-range::-moz-range-thumb {
+  width: 7px;
+  height: 15px;
+  background: #fff;
+  border: 1px solid #808080;
+  box-shadow: none;
+}
+.grp-sym-diff-balance-range:disabled::-webkit-slider-thumb,
+.sym-spread-balance-disabled .grp-sym-diff-balance-range::-webkit-slider-thumb {
+  background: #e8e8e8;
+}
+.grp-sym-diff-balance-range:disabled::-moz-range-thumb,
+.sym-spread-balance-disabled .grp-sym-diff-balance-range::-moz-range-thumb {
+  background: #e8e8e8;
+}
+.grp-sym-spin {
+  display: inline-flex;
+  align-items: stretch;
+  width: 100%;
+}
+.grp-sym-spin input[type="text"] {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 /* a checkbox that shares its row with a following label and field */
 
 .grp-sym-triple {
@@ -4399,6 +4727,17 @@ label.sym-check::after { content: none; }
 /* checkboxes start at the control column, as the reference has them */
 .settings-dialog .form-grid > .sym-check.grp-sym-full { grid-column: span 4; padding-left: 158px; }
 .settings-dialog .form-grid > .sym-check.grp-sym-half { grid-column: span 2; padding-left: 158px; }
+.settings-dialog .form-grid > .sym-check.grp-sym-inline-check {
+  grid-column: 3 / -1;
+  padding-left: 0;
+  align-self: center;
+}
+.grp-sym-common .grp-sym-triple {
+  grid-template-columns: 150px minmax(0, 1fr) 48px minmax(0, 1fr) 72px minmax(0, 1fr);
+}
+.grp-sym-common .grp-sym-slider input[type="range"]:disabled {
+  opacity: 0.55;
+}
 /* the swap week has to show all seven days without the tab scrolling */
 .grp-sym-swap-table th, .grp-sym-swap-table td { padding: 1px 4px; height: 18px; }
 .grp-sym-swap-table th { white-space: nowrap; }

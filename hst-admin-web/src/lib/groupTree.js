@@ -39,3 +39,8 @@ export function filterGroupsByFolder(groups, folderPath) {
   const prefix = `${folderPath}\\`;
   return real.filter((g) => g.group === folderPath || (g.group || "").startsWith(prefix));
 }
+
+/** All group records to remove when deleting a navigator section. */
+export function groupsUnderFolder(groups, folderPath) {
+  return filterGroupsByFolder(groups, folderPath);
+}

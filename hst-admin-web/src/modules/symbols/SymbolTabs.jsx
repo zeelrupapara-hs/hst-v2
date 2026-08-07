@@ -11,6 +11,12 @@ import {
   isForexDerived,
   isMarginDerived,
 } from "@/lib/symbolCurrency.js";
+import {
+  FOREX_SWAP_MULTIPLIERS,
+  SWAP_DAY_KEYS,
+  swapFieldsFromRow,
+  swapYearDayValue,
+} from "@/lib/swapConfig.js";
 import { COUNTRY_options } from "@/constants/countries.js";
 import {
   BackgroundColor_options,
@@ -73,7 +79,7 @@ const enumOptions = (names, order) =>
 const plain = (values) => values.map((v) => ({ value: v, label: String(v) }));
 
 /** Spread balance as the bid/ask point shifts shown under the slider. */
-function spreadBalanceShifts(spread, balance) {
+export function spreadBalanceShifts(spread, balance) {
   const s = Number(spread) || 0;
   const b = Number(balance) || 0;
   if (s === 0) return { bid: b, ask: b };
@@ -82,7 +88,7 @@ function spreadBalanceShifts(spread, balance) {
   return { bid: -lo + b, ask: hi + b };
 }
 
-function spreadBalanceCaption(spread, balance) {
+export function spreadBalanceCaption(spread, balance) {
   const { bid, ask } = spreadBalanceShifts(spread, balance);
   return `${bid} bid / ${ask} ask`;
 }
@@ -216,9 +222,32 @@ function parseMarketDepth(text) {
   return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
+function parseDeviation(text) {
+  const raw = String(text ?? "").trim();
+  if (raw === "") return 0;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
 /** MT5-style combo: presets in the list, any value may be typed. */
-function EditableSelectField({ label, value, options, onChange, format, parse, lockField, fieldKey, filterOptions, className = "" }) {
-  const locked = lockField?.(fieldKey);
+export function EditableSelectField({
+  label,
+  value,
+  options,
+  onChange,
+  format,
+  parse,
+  lockField,
+  fieldKey,
+  filterOptions,
+  className = "",
+  disabled = false,
+  suffix,
+  placeholder,
+  liveCommit = false,
+  hideLabel = false,
+}) {
+  const locked = disabled || lockField?.(fieldKey);
   const [open, setOpen] = useState(false);
   const [raw, setRaw] = useState(null);
   const [pos, setPos] = useState(null);
@@ -278,62 +307,78 @@ function EditableSelectField({ label, value, options, onChange, format, parse, l
     setOpen(true);
   }
 
+  const control = (
+    <div
+      ref={rootRef}
+      className={`prop-select prop-select-fill editable-select ${className}${locked ? " prop-select-disabled" : ""}`.trim()}
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="prop-select-box editable-select-box">
+        <input
+          type="text"
+          className="editable-select-input"
+          value={display}
+          placeholder={placeholder}
+          disabled={locked}
+          onFocus={() => {
+            setRaw(fmt(value));
+          }}
+          onBlur={(e) => {
+            if (btnRef.current?.contains(e.relatedTarget)) return;
+            commit(e.target.value);
+            setOpen(false);
+          }}
+          onChange={(e) => {
+            setRaw(e.target.value);
+            if (liveCommit) {
+              const parsed = par(e.target.value);
+              if (parsed != null) onChange?.(parsed);
+            }
+            if (filterOptions && !openRef.current) {
+              announceOpen();
+              const r = rootRef.current.getBoundingClientRect();
+              setPos({ top: r.bottom, left: r.left, width: Math.max(r.width, 180) });
+              setOpen(true);
+            }
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              commit(e.currentTarget.value);
+              e.currentTarget.blur();
+              setOpen(false);
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            } else if (e.key === "ArrowDown" && !open) {
+              e.preventDefault();
+              openMenu(e);
+            }
+          }}
+        />
+        <span className="prop-select-btn-wrap" ref={btnRef} onMouseDown={openMenu}>
+          <button
+            type="button"
+            className="prop-select-btn"
+            aria-label="Open list"
+            disabled={locked}
+            tabIndex={-1}
+          />
+        </span>
+      </div>
+    </div>
+  );
+
   return (
     <>
-      <label>{label}</label>
-      <div
-        ref={rootRef}
-        className={`prop-select prop-select-fill editable-select ${className}${locked ? " prop-select-disabled" : ""}`.trim()}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="prop-select-box editable-select-box">
-          <input
-            type="text"
-            className="editable-select-input"
-            value={display}
-            disabled={locked}
-            onFocus={() => {
-              setRaw(fmt(value));
-            }}
-            onBlur={(e) => {
-              if (btnRef.current?.contains(e.relatedTarget)) return;
-              commit(e.target.value);
-              setOpen(false);
-            }}
-            onChange={(e) => {
-              setRaw(e.target.value);
-              if (filterOptions && !openRef.current) {
-                announceOpen();
-                const r = rootRef.current.getBoundingClientRect();
-                setPos({ top: r.bottom, left: r.left, width: Math.max(r.width, 180) });
-                setOpen(true);
-              }
-            }}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                commit(e.currentTarget.value);
-                e.currentTarget.blur();
-                setOpen(false);
-              } else if (e.key === "Escape") {
-                setOpen(false);
-              } else if (e.key === "ArrowDown" && !open) {
-                e.preventDefault();
-                openMenu(e);
-              }
-            }}
-          />
-          <span className="prop-select-btn-wrap" ref={btnRef} onMouseDown={openMenu}>
-            <button
-              type="button"
-              className="prop-select-btn"
-              aria-label="Open list"
-              disabled={locked}
-              tabIndex={-1}
-            />
-          </span>
-        </div>
-      </div>
+      {!hideLabel && <label>{label}</label>}
+      {suffix ? (
+        <span className="grp-suffixed">
+          {control}
+          <span className="grp-suffix">{suffix}</span>
+        </span>
+      ) : (
+        control
+      )}
       {open &&
         pos &&
         createPortal(
@@ -385,9 +430,19 @@ function CheckField({ label, checked, onChange, disabled, lockField, fieldKey, c
 const hasBit = (v, bit) => ((v ?? 0) & bit) !== 0;
 const setBit = (v, bit, on) => (on ? (v ?? 0) | bit : (v ?? 0) & ~bit);
 
-/** The reference shows order/filling/expiration sets as one combo summarising the selection. */
-function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
-  const locked = lockField?.(fieldKey);
+/** Push notifications: multi-select Deals / Orders / Balance (permission_flags bits 64|128|256). */
+export function FlagCombo({
+  label,
+  labels,
+  value,
+  onChange,
+  lockField,
+  fieldKey,
+  disabled,
+  hideLabel,
+  emptyLabel = "None",
+}) {
+  const locked = disabled || lockField?.(fieldKey);
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState(null);
   const rootRef = useRef(null);
@@ -401,7 +456,7 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
     picked.length === labels.length
       ? "All"
       : picked.length === 0
-        ? "None"
+        ? emptyLabel
         : joined.length > 28
           ? `${picked.length} selected`
           : joined;
@@ -442,7 +497,7 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
 
   return (
     <>
-      <label>{label}</label>
+      {!hideLabel && <label>{label}</label>}
       <span className="sym-flag-combo" ref={rootRef}>
         <button type="button" className="sym-flag-combo-box" disabled={locked} onClick={toggle} title={joined || summary}>
           <span className="sym-flag-combo-value">{summary}</span>
@@ -459,7 +514,11 @@ function FlagCombo({ label, labels, value, onChange, lockField, fieldKey }) {
             onMouseDown={(e) => e.stopPropagation()}
           >
             {labels.map((l) => (
-              <label key={l.bit} className="sym-flag-combo-item">
+              <label
+                key={l.bit}
+                className="sym-flag-combo-item"
+                onMouseDown={(e) => e.preventDefault()}
+              >
                 <input
                   type="checkbox"
                   checked={hasBit(value, l.bit)}
@@ -880,20 +939,22 @@ export function ExecutionTab({ s, set, lockField }) {
         {mode === 1 && (
           <>
             <NumField label="Max time deviation" value={s.ie_timeout} suffix="seconds" onChange={(v) => set("ie_timeout", v)} />
-            <SelectField
+            <EditableSelectField
               label="Max profit deviation"
               value={s.ie_slip_profit}
               options={plain(Deviation_options)}
-              fallback
               suffix="points"
+              format={(v) => (v == null ? "" : String(v))}
+              parse={parseDeviation}
               onChange={(v) => set("ie_slip_profit", v)}
             />
-            <SelectField
+            <EditableSelectField
               label="Max losing deviation"
               value={s.ie_slip_losing}
               options={plain(Deviation_options)}
-              fallback
               suffix="points"
+              format={(v) => (v == null ? "" : String(v))}
+              parse={parseDeviation}
               onChange={(v) => set("ie_slip_losing", v)}
             />
             <label />
@@ -1041,41 +1102,6 @@ export function MarginRatesTab({ s, set }) {
   );
 }
 
-const SWAP_RATE_KEYS = [
-  ["Sunday", "swap_rate_sunday"],
-  ["Monday", "swap_rate_monday"],
-  ["Tuesday", "swap_rate_tuesday"],
-  ["Wednesday", "swap_rate_wednesday"],
-  ["Thursday", "swap_rate_thursday"],
-  ["Friday", "swap_rate_friday"],
-  ["Saturday", "swap_rate_saturday"],
-];
-
-const FOREX_MULTIPLIERS = [0, 1, 1, 3, 1, 1, 0];
-
-const SWAP_COPY_FIELDS = [
-  "swap_mode",
-  "swap_long",
-  "swap_short",
-  "swap_year_day",
-  "swap_flags",
-  ...SWAP_RATE_KEYS.map(([, key]) => key),
-];
-
-function swapFieldsFromRow(row) {
-  if (!row || row.swap_mode === undefined) return null;
-  const out = {};
-  for (const key of SWAP_COPY_FIELDS) {
-    if (row[key] !== undefined) out[key] = row[key];
-  }
-  return Object.keys(out).length ? out : null;
-}
-
-function swapYearDayValue(v) {
-  const n = Number(v);
-  return SwapYearDays_options.includes(n) ? n : 360;
-}
-
 export function SwapsTab({ s, set, lockField }) {
   const enabled = Number(s.swap_mode) !== 0;
   const [selectedDay, setSelectedDay] = useState(0);
@@ -1083,7 +1109,7 @@ export function SwapsTab({ s, set, lockField }) {
   const { symbols, reload } = useSymbols();
 
   const applyMultipliers = (values) =>
-    SWAP_RATE_KEYS.forEach(([, key], i) => set(key, values[i]));
+    SWAP_DAY_KEYS.forEach(([, key], i) => set(key, values[i]));
 
   async function copySwapFromSymbol() {
     const name = fromSymbol.trim();
@@ -1167,7 +1193,7 @@ export function SwapsTab({ s, set, lockField }) {
               </tr>
             </thead>
             <tbody>
-              {SWAP_RATE_KEYS.map(([name, key], day) => (
+              {SWAP_DAY_KEYS.map(([name, key], day) => (
                 <tr
                   key={key}
                   className={selectedDay === day ? "selected" : ""}
@@ -1196,7 +1222,7 @@ export function SwapsTab({ s, set, lockField }) {
           </table>
         </div>
         <div className="sym-swaps-presets">
-          <button type="button" disabled={!enabled} onClick={() => applyMultipliers(FOREX_MULTIPLIERS)}>
+          <button type="button" disabled={!enabled} onClick={() => applyMultipliers(FOREX_SWAP_MULTIPLIERS)}>
             Forex
           </button>
           <button type="button" disabled={!enabled} onClick={() => applyMultipliers([1, 1, 1, 1, 1, 1, 1])}>

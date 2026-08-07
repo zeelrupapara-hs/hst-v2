@@ -6,18 +6,23 @@ import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { navIcon } from "@/lib/icons.js";
 import {
+  isGroupFolderNode,
+  isGroupsNavNode,
   isSymbolFolderNode,
   isSymbolsNavNode,
+  groupsNavFolderPath,
+  groupsNavMenuItems,
   symbolsNavFolderPath,
   symbolsNavMenuItems,
 } from "@/lib/navContextMenus.js";
-import { createSymbolFolder, deleteSymbolFolder } from "@/api/endpoints/symbols.js";
+import { createSymbolFolder, deleteSymbolFolder, renameSymbolFolder } from "@/api/endpoints/symbols.js";
+import { deleteGroup } from "@/api/endpoints/groups.js";
 import { useSymbols } from "@/hooks/useSymbols.js";
 import { useSymbolFolders } from "@/hooks/useSymbolFolders.js";
 import { useDatafeeds } from "@/hooks/useDatafeeds.js";
 import { useGroups } from "@/hooks/useGroups.js";
 import { useSession } from "@/hooks/useSession.js";
-import { buildGroupTree, sortedGroupKeys } from "@/lib/groupTree.js";
+import { buildGroupTree, groupsUnderFolder, sortedGroupKeys } from "@/lib/groupTree.js";
 import {
   annotateTreeCounts,
   buildFolderTree,
@@ -74,9 +79,9 @@ function symbolFolderChildren(folderNode, emptyFolders) {
 
 function shapeTree(nav, symbols = [], datafeeds = [], groups = [], emptyFolders = {}) {
   const nodes = (nav?.nodes ?? []).map((n) => {
-    if (n.key === "groups" && groups.length) {
+    if (n.key === "groups") {
       const root = buildGroupTree(groups);
-      return { ...n, route: "/groups", count: root.count, children: groupFolderChildren(root) };
+      return { ...n, route: "/groups", count: root.count || undefined, children: groupFolderChildren(root) };
     }
     if (n.key === "symbols") {
       const root = annotateTreeCounts(buildFolderTree(symbols), symbols);
@@ -129,12 +134,13 @@ function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFo
   const [open, setOpen] = useState(depth < 3);
 
   const folderPath = symbolsNavFolderPath(node);
-  const showPendingAdd = pendingFolder && pendingFolder.parentPath === folderPath;
+  const showPendingAdd = pendingFolder?.mode === "add" && pendingFolder.parentPath === folderPath;
+  const showPendingRename = pendingFolder?.mode === "rename" && pendingFolder.fromPath === folderPath;
   const hasChildren = node.children?.length > 0 || showPendingAdd;
 
   useEffect(() => {
-    if (showPendingAdd) setOpen(true);
-  }, [showPendingAdd]);
+    if (showPendingAdd || showPendingRename) setOpen(true);
+  }, [showPendingAdd, showPendingRename]);
 
   const to = node.route ? `/${panel}${node.route}` : null;
   const isActive = to !== null && location.pathname + location.search === to;
@@ -145,7 +151,7 @@ function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFo
   }
 
   function onRowContextMenu(e) {
-    if (!isSymbolsNavNode(node)) return;
+    if (!isSymbolsNavNode(node) && !isGroupsNavNode(node)) return;
     e.preventDefault();
     e.stopPropagation();
     onContextMenu(node, e);
@@ -154,9 +160,9 @@ function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFo
   return (
     <li className="nav-branch">
       <div
-        className={`nav-item nav-indent-${depth}${isActive ? " active" : ""}`}
+        className={`nav-item nav-indent-${depth}${isActive ? " active" : ""}${showPendingRename ? " nav-item-editing" : ""}`}
         role={to ? "link" : "button"}
-        onClick={onRowClick}
+        onClick={showPendingRename ? undefined : onRowClick}
         onContextMenu={onRowContextMenu}
       >
         <span
@@ -168,9 +174,39 @@ function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFo
         >
           {hasChildren ? (open ? "▼" : "▶") : "▶"}
         </span>
-        <Icon id={navIcon(node.key)} title={node.label} />
-        <span className={`label${node.offline ? " nav-feed-disabled" : ""}`}>{node.label}</span>
-        {node.count != null && <span className="count">({node.count})</span>}
+        {showPendingRename ? (
+          <>
+            <Icon id={navIcon(node.key)} title={node.label} />
+            <input
+              className="nav-folder-input"
+              value={pendingFolder.draft}
+              autoFocus
+              onFocus={(e) => e.target.select()}
+              onChange={(e) => onCommitFolder({ ...pendingFolder, draft: e.target.value }, false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  onCommitFolder({ ...pendingFolder, draft: e.target.value }, true);
+                }
+                if (e.key === "Escape") onCancelFolder();
+              }}
+              onBlur={(e) => {
+                const draft = e.target.value.trim();
+                if (!draft || draft === node.label) {
+                  onCancelFolder();
+                  return;
+                }
+                onCommitFolder({ ...pendingFolder, draft }, true);
+              }}
+            />
+          </>
+        ) : (
+          <>
+            <Icon id={navIcon(node.key)} title={node.label} />
+            <span className={`label${node.offline ? " nav-feed-disabled" : ""}`}>{node.label}</span>
+            {node.count != null && <span className="count">({node.count})</span>}
+          </>
+        )}
       </div>
       {hasChildren && open && (
         <ul>
@@ -223,6 +259,32 @@ function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFo
   );
 }
 
+function DeleteGroupFolderConfirm({ confirmDelete, onConfirm, onClose }) {
+  const close = useDialogStack(onClose);
+  return (
+    <div className="config-window sym-confirm">
+      <div className="config-title">
+        <span className="config-title-text">Delete</span>
+      </div>
+      <div className="config-body">
+        <p>
+          {confirmDelete.count === 1
+            ? `Delete group '${confirmDelete.path}'?`
+            : `Delete section '${confirmDelete.path}' and all ${confirmDelete.count} group(s) beneath it?`}
+        </p>
+      </div>
+      <div className="config-actions">
+        <button type="button" className="config-ok" onClick={() => { onConfirm(confirmDelete); close(); }}>
+          OK
+        </button>
+        <button type="button" onClick={close}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function DeleteFolderConfirm({ confirmDelete, onConfirm, onClose }) {
   const close = useDialogStack(onClose);
   return (
@@ -256,32 +318,89 @@ export function NavTree({ nav, panel }) {
   const { symbols, reload: reloadSymbols } = useSymbols();
   const { folders, reload: reloadFolders } = useSymbolFolders();
   const { datafeeds } = useDatafeeds();
-  const { groups } = useGroups();
+  const { groups, reload: reloadGroups } = useGroups();
   const [menu, setMenu] = useState(null);
   const [pendingFolder, setPendingFolder] = useState(null);
-  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [confirmDeleteSymbol, setConfirmDeleteSymbol] = useState(null);
+  const [confirmDeleteGroup, setConfirmDeleteGroup] = useState(null);
 
   const canEditSymbols = session.can?.right_cfg_symbols !== false;
+  const canEditGroups = session.can?.right_cfg_groups !== false;
   const emptyFolders = useMemo(() => emptyFolderPathsToMap(folders), [folders]);
 
   const refreshTree = useCallback(async () => {
     await Promise.all([reloadSymbols(), reloadFolders(), session.reload?.()]);
   }, [reloadSymbols, reloadFolders, session]);
 
-  const openFolder = useCallback(
+  const refreshGroupsTree = useCallback(async () => {
+    await Promise.all([reloadGroups(), session.reload?.()]);
+  }, [reloadGroups, session]);
+
+  const openGroupFolder = useCallback(
     (node) => {
-      const path = symbolsNavFolderPath(node);
+      const path = groupsNavFolderPath(node);
       if (path === null) return;
       setMenu(null);
-      navigate(`/${panel}/symbols?folder=${encodeURIComponent(path)}`);
+      navigate(`/${panel}/groups?folder=${encodeURIComponent(path)}`);
     },
     [navigate, panel],
   );
 
+  const startAddGroup = useCallback(
+    (node) => {
+      const path = groupsNavFolderPath(node);
+      if (path === null) return;
+      setMenu(null);
+      const qs = new URLSearchParams();
+      if (path) qs.set("folder", path);
+      qs.set("create", "1");
+      navigate(`/${panel}/groups?${qs.toString()}`);
+    },
+    [navigate, panel],
+  );
+
+  const requestDeleteGroupFolder = useCallback(
+    (node) => {
+      const path = groupsNavFolderPath(node);
+      if (!path || !isGroupFolderNode(node)) return;
+      setMenu(null);
+      const targets = groupsUnderFolder(groups, path);
+      if (!targets.length) return;
+      setConfirmDeleteGroup({ path, count: targets.length, targets });
+    },
+    [groups],
+  );
+
+  const doDeleteGroupFolder = useCallback(
+    async ({ targets, path }) => {
+      for (const row of targets) {
+        const res = await deleteGroup(row.group_id);
+        if (!res.ok) {
+          window.alert(res.message || "delete failed");
+          return;
+        }
+      }
+
+      const prefix = `folder=${encodeURIComponent(path)}`;
+      if (location.search.includes(prefix)) {
+        navigate(`/${panel}/groups`, { replace: true });
+      }
+      await refreshGroupsTree();
+    },
+    [location.search, navigate, panel, refreshGroupsTree],
+  );
+
+  const startEditFolder = useCallback((node) => {
+    const path = symbolsNavFolderPath(node);
+    if (!path || !isSymbolFolderNode(node)) return;
+    setPendingFolder({ mode: "rename", fromPath: path, draft: node.label });
+    setMenu(null);
+  }, []);
+
   const startAddFolder = useCallback((node) => {
     const parentPath = symbolsNavFolderPath(node);
     if (parentPath === null) return;
-    setPendingFolder({ parentPath, draft: "" });
+    setPendingFolder({ mode: "add", parentPath, draft: "" });
     setMenu(null);
   }, []);
 
@@ -296,25 +415,45 @@ export function NavTree({ nav, panel }) {
       setPendingFolder(null);
       if (!name) return;
 
-      const res = await createSymbolFolder(pending.parentPath, name);
-      if (!res.ok) {
-        window.alert(res.message || "create folder failed");
-        return;
+      if (pending.mode === "rename") {
+        const from = pending.fromPath;
+        const parts = from.split("\\");
+        parts[parts.length - 1] = name;
+        const to = parts.join("\\");
+        if (from === to) return;
+
+        const res = await renameSymbolFolder(from, to);
+        if (!res.ok) {
+          window.alert(res.message || "rename folder failed");
+          return;
+        }
+
+        const prefix = `folder=${encodeURIComponent(from)}`;
+        if (location.search.includes(prefix)) {
+          navigate(`/${panel}/symbols?folder=${encodeURIComponent(to)}`, { replace: true });
+        }
+      } else {
+        const res = await createSymbolFolder(pending.parentPath, name);
+        if (!res.ok) {
+          window.alert(res.message || "create folder failed");
+          return;
+        }
       }
+
       await refreshTree();
     },
-    [refreshTree],
+    [location.search, navigate, panel, refreshTree],
   );
 
-  const requestDeleteFolder = useCallback((node) => {
+  const requestDeleteSymbolFolder = useCallback((node) => {
     const path = symbolsNavFolderPath(node);
     if (!path || !isSymbolFolderNode(node)) return;
     setMenu(null);
     const count = node.count ?? 0;
-    setConfirmDelete({ path, count, cascade: count > 0 });
+    setConfirmDeleteSymbol({ path, count, cascade: count > 0 });
   }, []);
 
-  const doDeleteFolder = useCallback(async ({ path, cascade }) => {
+  const doDeleteSymbolFolder = useCallback(async ({ path, cascade }) => {
     const res = await deleteSymbolFolder(path, cascade);
     if (!res.ok) {
       window.alert(res.message || "delete folder failed");
@@ -332,6 +471,24 @@ export function NavTree({ nav, panel }) {
 
   const onContextMenu = useCallback(
     (node, e) => {
+      if (isGroupsNavNode(node)) {
+        const isFolder = isGroupFolderNode(node);
+        setMenu({
+          x: e.clientX,
+          y: e.clientY,
+          node,
+          items: groupsNavMenuItems({
+            canEdit: canEditGroups,
+            isFolder,
+            onAdd: () => startAddGroup(node),
+            onEdit: isFolder ? () => openGroupFolder(node) : undefined,
+            onDelete: isFolder ? () => requestDeleteGroupFolder(node) : undefined,
+            onRefresh: refreshGroupsTree,
+          }),
+        });
+        return;
+      }
+
       const isFolder = isSymbolFolderNode(node);
       setMenu({
         x: e.clientX,
@@ -341,13 +498,24 @@ export function NavTree({ nav, panel }) {
           canEdit: canEditSymbols,
           isFolder,
           onAdd: () => startAddFolder(node),
-          onEdit: isFolder ? () => openFolder(node) : undefined,
-          onDelete: isFolder ? () => requestDeleteFolder(node) : undefined,
+          onEdit: isFolder ? () => startEditFolder(node) : undefined,
+          onDelete: isFolder ? () => requestDeleteSymbolFolder(node) : undefined,
           onRefresh: refreshTree,
         }),
       });
     },
-    [canEditSymbols, openFolder, refreshTree, startAddFolder, requestDeleteFolder],
+    [
+      canEditGroups,
+      canEditSymbols,
+      openGroupFolder,
+      refreshGroupsTree,
+      refreshTree,
+      requestDeleteGroupFolder,
+      requestDeleteSymbolFolder,
+      startAddFolder,
+      startAddGroup,
+      startEditFolder,
+    ],
   );
 
   return (
@@ -370,12 +538,21 @@ export function NavTree({ nav, panel }) {
       {menu && (
         <ContextMenu x={menu.x} y={menu.y} items={menu.items} onClose={() => setMenu(null)} />
       )}
-      {confirmDelete && (
+      {confirmDeleteSymbol && (
         <DialogOverlay>
           <DeleteFolderConfirm
-            confirmDelete={confirmDelete}
-            onConfirm={doDeleteFolder}
-            onClose={() => setConfirmDelete(null)}
+            confirmDelete={confirmDeleteSymbol}
+            onConfirm={doDeleteSymbolFolder}
+            onClose={() => setConfirmDeleteSymbol(null)}
+          />
+        </DialogOverlay>
+      )}
+      {confirmDeleteGroup && (
+        <DialogOverlay>
+          <DeleteGroupFolderConfirm
+            confirmDelete={confirmDeleteGroup}
+            onConfirm={doDeleteGroupFolder}
+            onClose={() => setConfirmDeleteGroup(null)}
           />
         </DialogOverlay>
       )}

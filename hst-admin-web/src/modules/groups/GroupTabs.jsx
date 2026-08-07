@@ -1,19 +1,25 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { fetchLeverages } from "@/api/endpoints/leverages.js";
+import { fetchMailServers } from "@/api/endpoints/mailServers.js";
+import { newsLangSummary } from "@/constants/newsLanguages.js";
+import { NewsLanguagesDialog } from "./NewsLanguagesDialog.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
+import { FlagCombo } from "@/modules/symbols/SymbolTabs.jsx";
 import {
   AuthMode_name,
   Currency_options,
   FreeMarginMode_name,
   groupKind,
   HistoryLimit_name,
+  limitOptions,
+  demoLeverageOptions,
   MarginFlag_clearAcc,
   MarginFreeProfitMode_name,
   MarginMode_name,
   MarginMode_order,
   NewsMode_name,
-  NotifyMode_options,
+  NotifyFlag_labels,
   PermissionFlag_forceOtp,
   PermissionFlag_labels,
   PermissionFlag_notifyMask,
@@ -47,7 +53,7 @@ const enumOptions = (names, order) =>
 
 const decimals = (v, n) => (v == null || v === "" ? "" : Number(v).toFixed(n));
 
-function Field({ label, value, onChange, onBlur, wide, readOnly, suffix }) {
+function Field({ label, value, onChange, onBlur, wide, readOnly, suffix, disabled }) {
   return (
     <>
       <label>{label}</label>
@@ -55,6 +61,7 @@ function Field({ label, value, onChange, onBlur, wide, readOnly, suffix }) {
         <input
           type="text"
           readOnly={readOnly || !onChange}
+          disabled={disabled}
           value={value ?? ""}
           className={wide ? "wide" : ""}
           onBlur={onBlur}
@@ -171,7 +178,13 @@ export function GroupCommonTab({ g, set }) {
         <label>Push notifications</label>
         <span className="grp-suffixed">
           <span className="grp-notify-select">
-            <PropSelect fill value={notify} options={NotifyMode_options} onChange={setNotify} />
+            <FlagCombo
+              hideLabel
+              emptyLabel=""
+              labels={NotifyFlag_labels}
+              value={notify}
+              onChange={setNotify}
+            />
           </span>
           <span className="grp-suffix">sent from the trade server</span>
         </span>
@@ -220,6 +233,9 @@ export function GroupCompanyTab({ g, set }) {
 }
 
 export function GroupNewsMailTab({ g, set }) {
+  const newsOff = (g.news_mode ?? 0) === 0;
+  const [langsOpen, setLangsOpen] = useState(false);
+
   return (
     <>
       <GroupTabIntro>
@@ -227,12 +243,35 @@ export function GroupNewsMailTab({ g, set }) {
         mail system.
       </GroupTabIntro>
       <div className="form-grid">
-        <SelectField label="News" value={g.news_mode} names={NewsMode_name} onChange={(v) => set("news_mode", v)} />
-        <Field label="News categories" value={g.news_category} onChange={(v) => set("news_category", v)} wide />
-        <label>News languages</label>
-        <span className="grp-suffixed">
-          <input type="text" className="wide" readOnly value={g.news_langs?.length ? g.news_langs.join(", ") : "Auto select"} />
-          <button type="button" className="grp-change-btn" disabled>Change</button>
+        <SelectField
+          label="News"
+          value={g.news_mode}
+          names={NewsMode_name}
+          onChange={(v) => set("news_mode", v)}
+        />
+        <Field
+          label="News categories"
+          value={g.news_category ?? ""}
+          disabled={newsOff}
+          onChange={(v) => set("news_category", v)}
+          wide
+        />
+        <label className={newsOff ? "grp-check-disabled" : undefined}>News languages</label>
+        <span className="grp-suffixed grp-lang-picker">
+          <input
+            type="text"
+            readOnly
+            disabled={newsOff}
+            value={newsLangSummary(g.news_langs)}
+          />
+          <button
+            type="button"
+            className="grp-change-btn"
+            disabled={newsOff}
+            onClick={() => setLangsOpen(true)}
+          >
+            Change
+          </button>
         </span>
       </div>
       <div className="form-grid grp-check-stack">
@@ -245,12 +284,16 @@ export function GroupNewsMailTab({ g, set }) {
           Enable internal mail system
         </label>
       </div>
+      {langsOpen && (
+        <NewsLanguagesDialog
+          selected={g.news_langs ?? []}
+          onClose={() => setLangsOpen(false)}
+          onChange={(ids) => set("news_langs", ids)}
+        />
+      )}
     </>
   );
 }
-
-const unlimited = (v) => (v === 0 || v == null ? "unlimited" : String(v));
-const fromUnlimited = (v) => (v === "unlimited" || v === "" ? 0 : Number(v) || 0);
 
 // Blank means "the trader chooses", which is absent on the wire — not zero.
 const unset = (v) => (v.trim() === "" ? undefined : Number(v) || 0);
@@ -265,15 +308,44 @@ export function GroupPermissionsTab({ g, set }) {
       <GroupTabIntro>
         Please specify the group permissions for symbols, orders, use of Expert Advisors, etc.
       </GroupTabIntro>
-      <div className="form-grid sym-form-two-col">
-        <Field label="Maximum symbols" value={unlimited(g.limit_symbols)} onChange={(v) => set("limit_symbols", fromUnlimited(v))} />
-        <SelectField label="Available history" value={g.limit_history} names={HistoryLimit_name} onChange={(v) => set("limit_history", v)} />
-        <Field label="Maximum positions" value={unlimited(g.limit_positions)} onChange={(v) => set("limit_positions", fromUnlimited(v))} />
-        <Field label="Maximum orders" value={unlimited(g.limit_orders)} onChange={(v) => set("limit_orders", fromUnlimited(v))} />
-        <Field label="Deposit by default" value={g.demo_deposit} readOnly={!isDemo} onChange={isDemo ? (v) => set("demo_deposit", unset(v)) : undefined} />
-        <Field label="Leverage by default" value={g.demo_leverage} readOnly={!isDemo} onChange={isDemo ? (v) => set("demo_leverage", unset(v)) : undefined} />
-      </div>
-      <div className="form-grid">
+      <div className="form-grid sym-form-two-col grp-permissions-grid">
+        <SelectField
+          label="Maximum symbols"
+          value={g.limit_symbols ?? 0}
+          options={limitOptions(g.limit_symbols)}
+          onChange={(v) => set("limit_symbols", v)}
+        />
+        <SelectField
+          label="Available history"
+          value={g.limit_history}
+          names={HistoryLimit_name}
+          onChange={(v) => set("limit_history", v)}
+        />
+        <SelectField
+          label="Maximum positions"
+          value={g.limit_positions ?? 0}
+          options={limitOptions(g.limit_positions)}
+          onChange={(v) => set("limit_positions", v)}
+        />
+        <SelectField
+          label="Maximum orders"
+          value={g.limit_orders ?? 0}
+          options={limitOptions(g.limit_orders)}
+          onChange={(v) => set("limit_orders", v)}
+        />
+        <Field
+          label="Deposit by default"
+          value={g.demo_deposit ?? ""}
+          readOnly={!isDemo}
+          onChange={isDemo ? (v) => set("demo_deposit", unset(v)) : undefined}
+        />
+        <SelectField
+          label="Leverage by default"
+          value={g.demo_leverage ?? ""}
+          disabled={!isDemo}
+          options={demoLeverageOptions(g.demo_leverage)}
+          onChange={isDemo ? (v) => set("demo_leverage", v === "" ? undefined : v) : undefined}
+        />
         <DecField
           label="Annual interest rate"
           value={g.trade_interest_rate}
@@ -281,10 +353,12 @@ export function GroupPermissionsTab({ g, set }) {
           suffix="%"
           onChange={(v) => set("trade_interest_rate", v)}
         />
+      </div>
+      <div className="form-grid grp-permissions-wide">
         <SelectField label="Trading Signals" value={signals} options={SignalsMode_options} onChange={setSignals} />
         <SelectField label="Transfer of funds" value={g.trade_transfer_mode} names={TransferMode_name} onChange={(v) => set("trade_transfer_mode", v)} />
       </div>
-      <div className="form-grid grp-check-cols">
+      <div className="form-grid grp-check-cols grp-permissions-checks">
         {TradeFlag_labels.map(({ bit, label }) => (
           <TrailingCheck key={bit} flags={g.trade_flags} bit={bit} label={label} onChange={(v) => set("trade_flags", v)} />
         ))}
@@ -371,6 +445,14 @@ export function GroupMarginTab({ g, set }) {
 export function GroupReportsTab({ g, set }) {
   const disabled = (g.reports_mode ?? 0) === 0;
   const flags = g.reports_flags ?? 0;
+  const [mailServers, setMailServers] = useState(null);
+
+  useEffect(() => {
+    fetchMailServers().then((res) => {
+      if (res.ok) setMailServers(res.data || []);
+    });
+  }, []);
+
   const toggle = (bit) => set("reports_flags", flags ^ bit);
   const check = (bit, label) => (
     <label className={`sym-check${disabled ? " grp-check-disabled" : ""}`}>
@@ -379,6 +461,26 @@ export function GroupReportsTab({ g, set }) {
     </label>
   );
 
+  // MT5 stores the configured mail server name in ReportsEmail; ReportsSMTP is obsolete.
+  const mailServer = g.reports_email || g.reports_smtp || "";
+  const serverOptions = [{ value: "", label: "Default" }];
+  for (const row of mailServers || []) {
+    if (row.enabled !== false) serverOptions.push({ value: row.name, label: row.name });
+  }
+  if (mailServer && !serverOptions.some((o) => o.value === mailServer)) {
+    serverOptions.push({ value: mailServer, label: mailServer });
+  }
+
+  function setReportsMode(mode) {
+    set("reports_mode", mode);
+    if (mode === 0) set("reports_flags", 0);
+  }
+
+  function setMailServer(name) {
+    set("reports_email", name);
+    if (g.reports_smtp) set("reports_smtp", "");
+  }
+
   return (
     <>
       <GroupTabIntro>
@@ -386,7 +488,12 @@ export function GroupReportsTab({ g, set }) {
         data is used for generating daily statements and various reports for managers.
       </GroupTabIntro>
       <div className="form-grid">
-        <SelectField label="Generate report data" value={g.reports_mode} names={ReportsMode_name} onChange={(v) => set("reports_mode", v)} />
+        <SelectField
+          label="Generate report data"
+          value={g.reports_mode}
+          names={ReportsMode_name}
+          onChange={setReportsMode}
+        />
       </div>
       <div className="form-grid grp-check-stack">
         {check(ReportsFlag_statements, "Generate statements for clients")}
@@ -395,10 +502,10 @@ export function GroupReportsTab({ g, set }) {
       <div className="form-grid">
         <SelectField
           label="Mail server"
-          value={g.reports_smtp || ""}
-          disabled={disabled}
-          options={[{ value: "", label: "Default" }, ...(g.reports_smtp ? [{ value: g.reports_smtp, label: g.reports_smtp }] : [])]}
-          onChange={(v) => set("reports_smtp", v)}
+          value={mailServer}
+          disabled={disabled || !(flags & ReportsFlag_email)}
+          options={serverOptions}
+          onChange={setMailServer}
         />
       </div>
       <div className="form-grid grp-check-stack">{check(ReportsFlag_support, "Send copies to support email")}</div>

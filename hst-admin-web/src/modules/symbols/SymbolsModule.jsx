@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSymbols } from "@/hooks/useSymbols.js";
 import { useSession } from "@/hooks/useSession.js";
 import { useToolbox } from "@/hooks/useToolbox.jsx";
 import { useListShortcuts } from "@/hooks/useListShortcuts.js";
+import { useRegisterToolbarActions } from "@/hooks/useToolbarActions.jsx";
 import { ContextMenu, listMenuHead } from "@/components/ui/ContextMenu.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
@@ -103,14 +104,18 @@ export function SymbolsModule() {
     }
   }
 
-  function openEdit() {
+  const openAdd = useCallback(() => setDialog({ id: "new" }), []);
+
+  const openEditAction = useCallback(() => {
     if (!selectedRows.length) return;
     if (selectedRows.length === 1) {
       setDialog({ id: selectedRows[0].symbol_id });
     } else {
       setBulk(selectedRows.map((r) => r.symbol_id));
     }
-  }
+  }, [selectedRows]);
+
+  const openDelete = useCallback(() => setConfirm(true), []);
 
   async function doDelete() {
     const targets = selectedRows;
@@ -136,17 +141,26 @@ export function SymbolsModule() {
 
   const hasSelection = selected.length > 0;
   const head = listMenuHead({
-    onAdd: () => setDialog({ id: "new" }),
-    onEdit: openEdit,
-    onDelete: () => setConfirm(true),
+    onAdd: openAdd,
+    onEdit: openEditAction,
+    onDelete: openDelete,
     hasSelection,
   });
 
   useListShortcuts(rootRef, {
-    onAdd: canEdit ? () => setDialog({ id: "new" }) : undefined,
-    onEdit: canEdit && hasSelection ? openEdit : undefined,
-    onDelete: canEdit && hasSelection ? () => setConfirm(true) : undefined,
+    onAdd: canEdit ? openAdd : undefined,
+    onEdit: canEdit && hasSelection ? openEditAction : undefined,
+    onDelete: canEdit && hasSelection ? openDelete : undefined,
     onFind: () => rootRef.current?.querySelector(".sym-search-bar input")?.focus(),
+  });
+
+  useRegisterToolbarActions({
+    onAdd: canEdit ? openAdd : undefined,
+    onEdit: canEdit && hasSelection ? openEditAction : undefined,
+    onDelete: canEdit && hasSelection ? openDelete : undefined,
+    canAdd: canEdit,
+    canEdit: canEdit && hasSelection,
+    canDelete: canEdit && hasSelection,
   });
 
   const items = [

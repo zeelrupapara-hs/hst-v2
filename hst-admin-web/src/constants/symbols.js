@@ -189,7 +189,8 @@ export const FilterTicks_options = Array.from({ length: 10 }, (_, i) => i + 1);
 
 export const SubscriptionDelay_options = [0, 1, 5, 10, 15, 30, 60];
 
-export const Deviation_options = Array.from({ length: 21 }, (_, i) => i);
+// MT5 instant-execution deviation presets (0–5); any non-negative integer may be typed.
+export const Deviation_options = Array.from({ length: 6 }, (_, i) => i);
 
 // Internal volume units per lot on the admin symbol wire.
 export const VOLUME_UNITS = 10000;

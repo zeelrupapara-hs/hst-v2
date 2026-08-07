@@ -49,18 +49,22 @@ func New(database *db.PostgresDB, log *logger.Logger, templatesDir string, inter
 
 // Queue accepts a mail for delivery. It is written to the outbox rather than sent inline: a
 // welcome mail carries the only copy of a generated password, so a dead SMTP server must delay
-// it, never drop it.
+// it, never drop it. serverName is a mail_servers.name; empty uses the default server.
 func (m *Mailer) Queue(ctx context.Context, recipient, subject, body string) error {
-	// addressed to the default server at queue time, but the sender re-resolves if it has gone
-	var serverId int64
-	_ = m.DB.DB.QueryRow(ctx,
-		`SELECT mail_server_id FROM hst.mail_servers
-		  WHERE enabled AND is_default LIMIT 1`).Scan(&serverId)
+	return m.QueueWithServer(ctx, "", recipient, subject, body)
+}
 
-	_, err := m.DB.DB.Exec(ctx,
+// QueueWithServer queues mail on the named server, or the default when name is empty.
+func (m *Mailer) QueueWithServer(ctx context.Context, serverName, recipient, subject, body string) error {
+	server, err := m.serverByName(ctx, serverName)
+	if err != nil {
+		return err
+	}
+
+	_, err = m.DB.DB.Exec(ctx,
 		`INSERT INTO hst.outbox (mail_server_id, recipient, subject, body, state, created_at)
 		 VALUES ($1,$2,$3,$4,$5,$6)`,
-		serverId, recipient, subject, body, model.OutboxState_queued, time.Now().UnixNano())
+		server.MailServerId, recipient, subject, body, model.OutboxState_queued, time.Now().UnixNano())
 
 	return err
 }
@@ -141,6 +145,27 @@ func (m *Mailer) defaultServer(ctx context.Context) (*model.MailServer, error) {
 		Scan(&s.MailServerId, &s.SenderEmail, &s.SenderName,
 			&s.SmtpServer, &s.SmtpLogin, &s.SmtpPassword); err != nil {
 		return nil, ErrNoMailServer
+	}
+
+	return &s, nil
+}
+
+// serverByName resolves a configured mail server by name; empty name uses the default server.
+func (m *Mailer) serverByName(ctx context.Context, name string) (*model.MailServer, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return m.defaultServer(ctx)
+	}
+
+	var s model.MailServer
+	err := m.DB.DB.QueryRow(ctx,
+		`SELECT mail_server_id, sender_email, sender_name, smtp_server, smtp_login, smtp_password
+		   FROM hst.mail_servers
+		  WHERE enabled AND name = $1 LIMIT 1`, name).
+		Scan(&s.MailServerId, &s.SenderEmail, &s.SenderName,
+			&s.SmtpServer, &s.SmtpLogin, &s.SmtpPassword)
+	if err != nil {
+		return m.defaultServer(ctx)
 	}
 
 	return &s, nil

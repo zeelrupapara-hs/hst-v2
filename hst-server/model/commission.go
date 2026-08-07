@@ -6,16 +6,19 @@ type CommissionMode int32
 const (
 	CommissionMode_standard CommissionMode = 0
 	CommissionMode_agent    CommissionMode = 1
+	CommissionMode_fee      CommissionMode = 2
 )
 
 var (
 	CommissionMode_name = map[int32]string{
 		0: "standard",
 		1: "agent",
+		2: "fee",
 	}
 	CommissionMode_value = map[string]int32{
 		"standard": 0,
 		"agent":    1,
+		"fee":      2,
 	}
 )
 
