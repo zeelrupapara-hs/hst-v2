@@ -48,8 +48,6 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 	money.Apply(e.Account)
 
 	account := *e.Account
-	level := money.MarginLevel
-	margin := money.Margin
 
 	// what each position on the instrument that moved is now worth, for the client to paint
 	profits := make(map[int64]float64, 4)
@@ -88,8 +86,8 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 		_ = h.CookOrder(ctx, e, hit, t)
 	}
 
-	// stop out last: closing a position for a stop loss may have already fixed the level
-	if margin > 0 && level > 0 {
-		h.checkStopOut(ctx, e, r.Group, t)
-	}
+	// stop out last: closing a position for a stop loss may have already fixed the level.
+	// Unconditional: an account under water has a negative level, which is exactly when the
+	// check matters, and a fully covered book has no margin at all.
+	h.checkStopOut(ctx, e, r.Group, t)
 }

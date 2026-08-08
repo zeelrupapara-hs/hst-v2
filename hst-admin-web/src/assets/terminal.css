@@ -4838,3 +4838,6 @@ label.sym-check::after { content: none; }
 .df-journal-bar { display: flex; gap: 6px; padding: 6px 10px; border-top: 1px solid #d7d7d7; background: #f4f4f4; }
 .df-journal-bar input[type="text"] { width: 180px; }
 .df-journal-bar button { height: 22px; padding: 0 16px; }
+
+/* the margin pair must warn before it liquidates */
+.grp-margin-warn { margin: 2px 12px; font-size: 11px; }

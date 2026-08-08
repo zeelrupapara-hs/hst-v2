@@ -4,6 +4,7 @@ import (
 	"hstcore/internal/settings"
 
 	"context"
+	"fmt"
 	"sort"
 
 	"hstcore/internal/book"
@@ -13,9 +14,25 @@ import (
 
 // Both levels come from the group.
 
-// checkStopOut looks at where the account stands and closes positions if it must.
+// soLevel is the quantity the group's two levels are compared against: the margin level as a
+// percentage, or plain equity when the group reads its levels as money.
+func soLevel(g *model.Group, m Money) float64 {
+	if model.StopOutMode(g.MarginSOMode) == model.StopOutMode_money {
+		return m.Equity
+	}
+	return m.MarginLevel
+}
+
+// checkStopOut looks at where the account stands: a margin call warns once, a stop out deletes
+// margined pending orders first, then closes positions biggest loser first, one at a time,
+// until the account is back above the line.
 func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Group, t model.Tick) {
 	e.Lock()
+
+	if e.StopOutBusy {
+		e.Unlock()
+		return
+	}
 
 	money := h.CalculateAccountMargins(e)
 
@@ -23,26 +40,30 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 	// covered book: there the margin is zero while the equity can still go under
 	fullyHedged := g.TradeFlags&model.TradeFlagSOFullyHedged != 0 &&
 		model.MarginMode(g.MarginMode).Hedging()
+	hedgedUnder := money.Margin <= 0 && fullyHedged && money.Equity < 0
 
-	if money.Margin <= 0 && !(fullyHedged && money.Equity < 0) {
+	if money.Margin <= 0 && !hedgedUnder {
+		e.MarginCalled = false
+		e.StopOutStarved = false
 		e.Unlock()
 		return
 	}
 
 	call, stop := g.MarginCall, g.MarginStopOut
-	level := money.MarginLevel
-
-	// the levels can be read as money rather than a percentage
-	if model.StopOutMode(g.MarginSOMode) == model.StopOutMode_money {
-		level = money.Equity
-	}
+	level := soLevel(g, money)
 
 	switch {
-	case money.Margin <= 0 && fullyHedged && money.Equity < 0:
+	case hedgedUnder:
 		// a covered book with negative equity, which no level would ever catch
 	case stop > 0 && level <= stop:
 		// fall through and close
 	case call > 0 && level <= call:
+		// a warning state, not an action: the account may still trade; said once on the way in
+		if e.MarginCalled {
+			e.Unlock()
+			return
+		}
+		e.MarginCalled = true
 		login := e.Account.Login
 		e.Unlock()
 
@@ -51,38 +72,161 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 		h.PublishWS(model.SubjectAccountMarginCall(login), model.EventMarginCall, map[string]any{
 			"login": login, "margin_level": level, "call_level": call,
+			"so_mode": g.MarginSOMode,
 		})
 
 		return
 	default:
+		// a price wobbling on the line must not ring the bell on every crossing, so the state
+		// only clears once the account is safely above it
+		if level > call*1.05 {
+			e.MarginCalled = false
+		}
+		e.StopOutStarved = false
 		e.Unlock()
 		return
 	}
 
-	worst := h.stopOutOrder(e, g)
-
+	e.StopOutBusy = true
 	login := e.Account.Login
 	e.Unlock()
 
+	defer func() {
+		e.Lock()
+		e.StopOutBusy = false
+		e.Unlock()
+	}()
+
 	h.Log.Log(logger.TypeTrade, logger.CodeAtt, "stop out",
-		"login", login, "level", level, "stop_at", stop, "positions", len(worst))
+		"login", login, "level", level, "stop_at", stop)
 
-	for _, p := range worst {
-		h.logStopOut(ctx, e, p, money, stop)
-		h.CloseAtMarket(ctx, e, p, h.tickFor(h.rulesFor(e, p.Symbol), p.Symbol, t), model.OrderReason_so,
-			model.RouteFlags_stop_out_position)
+	if h.stopOutPendings(ctx, e, g, stop, hedgedUnder) {
+		h.CompensateNegativeBalance(ctx, e, g)
+		return
+	}
 
-		// stop as soon as the account is back above the line
+	h.stopOutPositions(ctx, e, g, t, stop, level, hedgedUnder)
+
+	h.CompensateNegativeBalance(ctx, e, g)
+}
+
+// soRecovered says whether the account is back above the stop line, on the same measure the
+// stop was declared on. A covered book recovers when its equity does.
+func soRecovered(g *model.Group, m Money, stop float64, hedgedUnder bool) bool {
+	if hedgedUnder {
+		return m.Equity >= 0
+	}
+	return m.Margin <= 0 || soLevel(g, m) > stop
+}
+
+// stopOutPendings deletes the working orders that reserve margin, the largest reservation
+// first, and reports whether that alone brought the account back.
+func (h *Handler) stopOutPendings(ctx context.Context, e *book.Entry, g *model.Group,
+	stop float64, hedgedUnder bool) bool {
+	type reservedOrder struct {
+		order    *model.Order
+		reserved float64
+	}
+
+	e.Lock()
+
+	candidates := make([]reservedOrder, 0, len(e.Orders))
+	for _, o := range e.Orders {
+		kind := o.Kind()
+		if !kind.IsPending() || !o.State.IsLive() || o.PriceOrder <= 0 {
+			continue
+		}
+		r, ok := h.Settings.For(e.Account.Group, o.Symbol)
+		if !ok || r.MarginRate.For(kind) <= 0 {
+			continue
+		}
+		reserved := MarginForType(r, model.Lots(o.VolumeCurrent), o.PriceOrder,
+			e.Account.Leverage, o.RateMargin, kind, false)
+		if reserved <= 0 {
+			// an order with no margin requirement is never deleted for a stop out
+			continue
+		}
+		candidates = append(candidates, reservedOrder{order: o, reserved: reserved})
+	}
+
+	e.Unlock()
+
+	sort.SliceStable(candidates, func(i, j int) bool {
+		if candidates[i].reserved != candidates[j].reserved {
+			return candidates[i].reserved > candidates[j].reserved
+		}
+		return candidates[i].order.OrderId < candidates[j].order.OrderId
+	})
+
+	for _, c := range candidates {
+		e.Lock()
+		if _, still := e.Orders[c.order.OrderId]; !still || !c.order.State.IsLive() {
+			e.Unlock()
+			continue
+		}
+		h.removeOrder(ctx, e, c.order, "stop out")
+
 		e.Lock()
 		after := h.CalculateAccountMargins(e)
 		e.Unlock()
 
-		if after.Margin <= 0 || after.MarginLevel > stop {
-			break
+		if soRecovered(g, after, stop, hedgedUnder) {
+			return true
 		}
 	}
 
-	h.CompensateNegativeBalance(ctx, e, g)
+	return false
+}
+
+// stopOutPositions closes the account's positions until it recovers, recording the level each
+// close happened at.
+func (h *Handler) stopOutPositions(ctx context.Context, e *book.Entry, g *model.Group,
+	t model.Tick, stop, level float64, hedgedUnder bool) {
+	e.Lock()
+	worst := h.stopOutOrder(e, g)
+	e.Unlock()
+
+	if len(worst) == 0 {
+		// everything left is excluded or untradable; said once, or every tick would repeat it
+		e.Lock()
+		starved := e.StopOutStarved
+		e.StopOutStarved = true
+		e.Unlock()
+		if !starved {
+			h.Log.Log(logger.TypeTrade, logger.CodeWarn, "stop out has nothing it may close",
+				"login", e.Account.Login, "level", level, "stop_at", stop)
+		}
+		return
+	}
+
+	comment := soComment(g, level)
+
+	for _, p := range worst {
+		// the level each close fires at, not the one the pass started with
+		e.Lock()
+		money := h.CalculateAccountMargins(e)
+		e.Unlock()
+
+		h.logStopOut(ctx, e, p, money, stop)
+		h.closeAtMarket(ctx, e, p, h.tickFor(h.rulesFor(e, p.Symbol), p.Symbol, t),
+			model.OrderReason_so, model.RouteFlags_stop_out_position, comment)
+
+		e.Lock()
+		after := h.CalculateAccountMargins(e)
+		e.Unlock()
+
+		if soRecovered(g, after, stop, hedgedUnder) {
+			break
+		}
+	}
+}
+
+// soComment is the history comment of a stop out close, carrying the level it fired at.
+func soComment(g *model.Group, level float64) string {
+	if model.StopOutMode(g.MarginSOMode) == model.StopOutMode_money {
+		return fmt.Sprintf("[so at %.2f]", level)
+	}
+	return fmt.Sprintf("[so at %.2f%%]", level)
 }
 
 // stopOutOrder is the order positions are taken off in: the biggest loser first, because it
@@ -116,7 +260,12 @@ func (h *Handler) stopOutOrder(e *book.Entry, g *model.Group) []*model.Position 
 		worst = append(worst, p)
 	}
 
-	sort.Slice(worst, func(i, j int) bool { return worst[i].Profit < worst[j].Profit })
+	sort.SliceStable(worst, func(i, j int) bool {
+		if worst[i].Profit != worst[j].Profit {
+			return worst[i].Profit < worst[j].Profit
+		}
+		return worst[i].PositionId < worst[j].PositionId
+	})
 
 	return worst
 }
@@ -129,10 +278,11 @@ func (h *Handler) CompensateNegativeBalance(ctx context.Context, e *book.Entry, 
 	}
 
 	e.Lock()
-	balance, credit, login := e.Account.Balance, e.Account.Credit, e.Account.Login
+	balance, login, open := e.Account.Balance, e.Account.Login, len(e.Positions)
 	e.Unlock()
 
-	if balance >= 0 {
+	// the reference compensates only once the stop out has taken the last position off
+	if balance >= 0 || open > 0 {
 		return
 	}
 
@@ -144,8 +294,19 @@ func (h *Handler) CompensateNegativeBalance(ctx context.Context, e *book.Entry, 
 		Comment:       "so compensation",
 	})
 
-	// the credit that backed the lost position goes with it
-	if g.TradeFlags&model.TradeFlagSOCompensationCredit != 0 && credit != 0 {
+	h.Log.Log(logger.TypeTrade, logger.CodeOK, "negative balance compensated after stop out",
+		"login", login, "amount", -balance)
+
+	if g.TradeFlags&model.TradeFlagSOCompensationCredit == 0 {
+		return
+	}
+
+	// the credit that backed the lost book goes with it, read after the compensation posted
+	e.Lock()
+	credit := e.Account.Credit
+	e.Unlock()
+
+	if credit != 0 {
 		h.NewBalance(ctx, &model.BalanceRequest{
 			Login:         login,
 			Action:        model.DealAction_so_compensation_credit,

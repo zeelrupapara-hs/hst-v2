@@ -418,6 +418,19 @@ var groupDefaults = struct {
 	SymbolPath:           "*",
 }
 
+// validateSOLevels refuses a margin pair the stop out would make nonsense of: in both modes the
+// level falls as risk grows, so the call must sit at or above the stop, and neither may be negative.
+func validateSOLevels(call, stop float64) error {
+	if call < 0 || stop < 0 {
+		return errors.New("margin_call and margin_stop_out must not be negative")
+	}
+	if stop > call {
+		return errors.New("margin_stop_out must not exceed margin_call: the warning must come before the liquidation")
+	}
+	return nil
+}
+
+
 // CreateGroup inserts a group template.
 //
 //	@Id			CreateGroup
@@ -449,6 +462,11 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 	// exchange margin is accepted by the schema but the engine still nets, so it would silently lie
 	if body.MarginMode != nil && *body.MarginMode == model.MarginMode_exchange {
 		return s.App.HttpResponseBadRequest(c, errors.New("margin_mode exchange is not supported yet; use retail netting or retail hedging"))
+	}
+
+	if err := validateSOLevels(v1.PtrOr(body.MarginCall, groupDefaults.MarginCall),
+		v1.PtrOr(body.MarginStopOut, groupDefaults.MarginStopOut)); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
 	}
 
 	flags := groupDefaults.PermissionFlags
@@ -585,6 +603,19 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 	// exchange margin is accepted by the schema but the engine still nets, so it would silently lie
 	if body.MarginMode != nil && *body.MarginMode == model.MarginMode_exchange {
 		return s.App.HttpResponseBadRequest(c, errors.New("margin_mode exchange is not supported yet; use retail netting or retail hedging"))
+	}
+
+	// the pair must stay sane after the patch, whichever half of it the patch carries
+	if body.MarginCall != nil || body.MarginStopOut != nil {
+		var call, stop float64
+		if err := s.DB.DB.QueryRow(c.UserContext(),
+			`SELECT margin_call, margin_stop_out FROM hst.groups WHERE group_id = $1`,
+			id).Scan(&call, &stop); err == nil {
+			if err := validateSOLevels(v1.PtrOr(body.MarginCall, call),
+				v1.PtrOr(body.MarginStopOut, stop)); err != nil {
+				return s.App.HttpResponseBadRequest(c, err)
+			}
+		}
 	}
 
 	flags := body.PermissionFlags

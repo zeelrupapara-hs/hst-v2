@@ -17,6 +17,13 @@ type Entry struct {
 
 	// sent is the last summary per instrument, so an uninteresting tick costs nothing; guarded by mu
 	sent map[string]Sent
+
+	// MarginCalled latches the margin call state so the warning fires once, on the way in.
+	MarginCalled bool
+	// StopOutBusy keeps two ticks from liquidating the same account at once.
+	StopOutBusy bool
+	// StopOutStarved remembers that a stop out found nothing it may close, so it is said once.
+	StopOutStarved bool
 }
 
 // Sent is one instrument's last published summary for an account.
