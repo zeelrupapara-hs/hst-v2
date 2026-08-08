@@ -1,13 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
-import { ContextMenu, listMenuHead } from "@/components/ui/ContextMenu.jsx";
+import { ContextMenu, gridMenuHead, gridMenuTail, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
+import { SymbolScopeSelectField } from "@/components/ui/SymbolScopeSelectField.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
-import { fetchSymbols } from "@/api/endpoints/symbols.js";
 import {
   createLeverage,
   deleteLeverage,
@@ -47,16 +47,19 @@ const tierSummary = (tiers = []) => {
 
 const ruleSummary = (r) => `${r.name}: ${r.path}`;
 
-const emptyTier = () => ({ range_to: "0", margin_rate_initial: "1.00", margin_rate_maintenance: "1.00" });
+const emptyTier = () => ({ range_to: "∞", margin_rate_initial: "1.00", margin_rate_maintenance: "1.00" });
 
 // the editor keeps every numeric cell as typed text, so "1." and "" survive keystrokes
 const toDraftRule = (rule) =>
   rule
-    ? { ...rule, tiers: (rule.tiers || []).map((t) => ({
-        range_to: Number(t.range_to) === INFINITY_TO ? "∞" : String(t.range_to),
-        margin_rate_initial: String(t.margin_rate_initial ?? 0),
-        margin_rate_maintenance: String(t.margin_rate_maintenance ?? 0),
-      })) }
+    ? {
+        ...rule,
+        tiers: (rule.tiers || []).map((t, i, arr) => ({
+          range_to: i === arr.length - 1 ? "∞" : String(Number(t.range_to) === INFINITY_TO ? 0 : t.range_to),
+          margin_rate_initial: String(t.margin_rate_initial ?? 0),
+          margin_rate_maintenance: String(t.margin_rate_maintenance ?? 0),
+        })),
+      }
     : { name: "", description: "", path: "*", range_mode: 0, range_value_currency: "", tiers: [emptyTier()] };
 
 const numOf = (v) => (v === "" || v === "∞" ? 0 : Number(v) || 0);
@@ -64,22 +67,55 @@ const numOf = (v) => (v === "" || v === "∞" ? 0 : Number(v) || 0);
 /** The rule editor: name, symbol mask, range mode and the tier ladder. */
 function RuleEditor({ rule, onSave, onClose }) {
   const [draft, setDraft] = useState(() => toDraftRule(rule));
-  const [paths, setPaths] = useState([]);
+  const [selectedTier, setSelectedTier] = useState(0);
+  const [selectAllTiers, setSelectAllTiers] = useState(false);
   const [menu, setMenu] = useState(null);
+  const tierInputRefs = useRef([]);
   const close = useDialogStack(onClose);
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
-
-  useEffect(() => {
-    fetchSymbols().then((res) => {
-      if (!res.ok) return;
-      setPaths([...new Set((res.data || []).map((s) => s.path || s.symbol).filter(Boolean))]);
-    });
-  }, []);
 
   const setTier = (i, key, value) =>
     set("tiers", draft.tiers.map((t, j) => (j === i ? { ...t, [key]: value } : t)));
 
-  const addTier = () => set("tiers", [...draft.tiers, emptyTier()]);
+  const addTier = () => {
+    setDraft((prev) => {
+      const tiers = [...prev.tiers];
+      const insertAt = tiers.length > 0 ? tiers.length - 1 : 0;
+      tiers.splice(insertAt, 0, { range_to: "10", margin_rate_initial: "1.00", margin_rate_maintenance: "1.00" });
+      setSelectedTier(insertAt);
+      setSelectAllTiers(false);
+      return { ...prev, tiers };
+    });
+  };
+
+  const deleteTier = (index) => {
+    if (draft.tiers.length < 2 || index >= draft.tiers.length - 1) return;
+    setDraft((prev) => ({ ...prev, tiers: prev.tiers.filter((_, j) => j !== index) }));
+    setSelectedTier((i) => Math.max(0, Math.min(i, draft.tiers.length - 2)));
+    setSelectAllTiers(false);
+  };
+
+  const openTierMenu = (e, index) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedTier(index);
+    setSelectAllTiers(false);
+    setMenu({ x: e.clientX, y: e.clientY, index });
+  };
+
+  const editTier = () => {
+    const el = tierInputRefs.current[menu?.index ?? selectedTier]?.[0];
+    el?.focus();
+    el?.select();
+  };
+
+  const copyTier = () => {
+    const i = menu?.index ?? selectedTier;
+    const t = draft.tiers[i];
+    if (!t) return;
+    const text = [t.range_to, t.margin_rate_initial, t.margin_rate_maintenance].join("\t");
+    navigator.clipboard?.writeText(text).catch(() => {});
+  };
 
   const currencyRequired = needsCurrency(draft.range_mode);
   const canSave =
@@ -90,8 +126,8 @@ function RuleEditor({ rule, onSave, onClose }) {
     onSave({
       ...draft,
       range_mode: Number(draft.range_mode),
-      tiers: draft.tiers.map((t) => ({
-        range_to: numOf(t.range_to),
+      tiers: draft.tiers.map((t, i) => ({
+        range_to: i === draft.tiers.length - 1 ? 0 : numOf(t.range_to),
         margin_rate_initial: numOf(t.margin_rate_initial),
         margin_rate_maintenance: numOf(t.margin_rate_maintenance),
       })),
@@ -123,19 +159,11 @@ function RuleEditor({ rule, onSave, onClose }) {
             <input type="text" className="wide" value={draft.name} onChange={(e) => set("name", e.target.value)} />
             <label>Description</label>
             <input type="text" className="wide" value={draft.description} onChange={(e) => set("description", e.target.value)} />
-            <label>Symbol</label>
-            <input
-              type="text"
-              className="wide"
-              list="lev-symbol-paths"
+            <SymbolScopeSelectField
+              label="Symbol"
               value={draft.path}
-              onChange={(e) => set("path", e.target.value)}
+              onChange={(v) => set("path", v)}
             />
-            <datalist id="lev-symbol-paths">
-              {paths.map((p) => (
-                <option key={p} value={p} />
-              ))}
-            </datalist>
             <label>Range</label>
             <PropSelect
               value={Number(draft.range_mode)}
@@ -150,7 +178,14 @@ function RuleEditor({ rule, onSave, onClose }) {
               onChange={(e) => set("range_value_currency", e.target.value.toUpperCase())}
             />
           </div>
-          <table className="data-table data-table-grid df-sub-table lev-tier-table">
+          <table
+            className="data-table data-table-grid df-sub-table lev-tier-table"
+            onContextMenu={(e) => {
+              const row = e.target.closest("tbody tr[data-tier-index]");
+              if (!row) return;
+              openTierMenu(e, Number(row.dataset.tierIndex));
+            }}
+          >
             <thead>
               <tr>
                 <th className="lev-icon-col" />
@@ -160,30 +195,56 @@ function RuleEditor({ rule, onSave, onClose }) {
               </tr>
             </thead>
             <tbody>
-              {draft.tiers.map((t, i) => (
-                <tr
-                  key={i}
-                  onContextMenu={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setMenu({ x: e.clientX, y: e.clientY, index: i });
-                  }}
-                >
-                  <td className="lev-icon-col">
-                    <Icon id="leverages" />
-                  </td>
-                  {["range_to", "margin_rate_initial", "margin_rate_maintenance"].map((key) => (
-                    <td key={key} className="num">
-                      <input
-                        type="text"
-                        className="df-cell-input lev-num-input"
-                        value={t[key]}
-                        onChange={(e) => setTier(i, key, e.target.value)}
-                      />
+              {draft.tiers.map((t, i) => {
+                const isLast = i === draft.tiers.length - 1;
+                if (!tierInputRefs.current[i]) tierInputRefs.current[i] = [];
+                return (
+                  <tr
+                    key={i}
+                    data-tier-index={i}
+                    className={selectAllTiers || i === selectedTier ? "selected" : ""}
+                    onClick={() => {
+                      setSelectedTier(i);
+                      setSelectAllTiers(false);
+                    }}
+                    onContextMenu={(e) => openTierMenu(e, i)}
+                  >
+                    <td className="lev-icon-col">
+                      <Icon id="leverages" />
                     </td>
-                  ))}
-                </tr>
-              ))}
+                    <td className="num">
+                      {isLast ? (
+                        <span className="lev-tier-infinity" title="No upper limit">∞</span>
+                      ) : (
+                        <input
+                          ref={(el) => {
+                            tierInputRefs.current[i][0] = el;
+                          }}
+                          type="text"
+                          className="df-cell-input lev-num-input"
+                          value={t.range_to}
+                          onContextMenu={(e) => openTierMenu(e, i)}
+                          onChange={(e) => setTier(i, "range_to", e.target.value)}
+                        />
+                      )}
+                    </td>
+                    {["margin_rate_initial", "margin_rate_maintenance"].map((key, col) => (
+                      <td key={key} className="num">
+                        <input
+                          ref={(el) => {
+                            tierInputRefs.current[i][col + 1] = el;
+                          }}
+                          type="text"
+                          className="df-cell-input lev-num-input"
+                          value={t[key]}
+                          onContextMenu={(e) => openTierMenu(e, i)}
+                          onChange={(e) => setTier(i, key, e.target.value)}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                );
+              })}
               <tr>
                 <td colSpan={4} className="df-cell-editable" onClick={addTier}>
                   + click to add…
@@ -192,11 +253,15 @@ function RuleEditor({ rule, onSave, onClose }) {
             </tbody>
           </table>
         </div>
-        <div className="sym-session-dialog-footer lev-footer-centered">
-          <button type="button" className="sym-session-ok" disabled={!canSave} onClick={submit}>
-            OK
-          </button>
-          <button type="button" className="sym-session-cancel lev-default-btn" onClick={close}>Cancel</button>
+        <div className="sym-session-dialog-footer">
+          <div className="sym-session-dialog-actions">
+            <button type="button" className="sym-session-ok" disabled={!canSave} onClick={submit}>
+              OK
+            </button>
+            <button type="button" className="sym-session-cancel" onClick={close}>
+              Cancel
+            </button>
+          </div>
         </div>
         {menu && (
           <ContextMenu
@@ -204,13 +269,23 @@ function RuleEditor({ rule, onSave, onClose }) {
             y={menu.y}
             onClose={() => setMenu(null)}
             items={[
-              { label: "Add", shortcut: "Ctrl+N", onClick: addTier },
-              {
-                label: "Delete",
-                shortcut: "Ctrl+D",
-                disabled: draft.tiers.length < 2,
-                onClick: () => set("tiers", draft.tiers.filter((_, j) => j !== menu.index)),
-              },
+              ...gridMenuHead({
+                onAdd: addTier,
+                onEdit: editTier,
+                onDelete: () => deleteTier(menu.index),
+                hasSelection: draft.tiers.length > 0,
+              }).map((item) =>
+                item.label === "Delete"
+                  ? {
+                      ...item,
+                      disabled: draft.tiers.length < 2 || menu.index >= draft.tiers.length - 1,
+                    }
+                  : item,
+              ),
+              ...gridMenuTail({
+                onSelectAll: () => setSelectAllTiers(true),
+                onCopy: copyTier,
+              }),
             ]}
           />
         )}
@@ -454,11 +529,12 @@ export function LeveragesModule() {
   }
 
   const menuItems = () => {
+    const hasRow = selected != null && selected !== "add";
     const head = listMenuHead({
       onAdd: () => setDialog({ id: "new" }),
       onEdit: () => setDialog({ id: rows[selected]?.leverage_id }),
       onDelete: () => onDelete(rows[selected]),
-      hasSelection: selected != null,
+      hasSelection: hasRow,
     });
     head.splice(2, 0, { label: "Edit Groups", disabled: true });
     return [
@@ -467,16 +543,16 @@ export function LeveragesModule() {
       { label: "Groups", disabled: true },
       { label: "Assign", items: maskItems("To") },
       { label: "Remove", items: maskItems("From") },
-      "sep",
-      { label: "Move Up", disabled: true },
-      { label: "Move Down", disabled: true },
-      {
-        label: "Sort Alphabetically",
-        onClick: () => setRows([...(rows || [])].sort((a, b) => a.name.localeCompare(b.name))),
-      },
-      "sep",
-      { label: "Enable", disabled: true },
-      { label: "Disable", disabled: true },
+      ...listMenuTail({
+        on: {
+          sort: () => setRows([...(rows || [])].sort((a, b) => a.name.localeCompare(b.name))),
+        },
+        extras: [
+          "sep",
+          { label: "Enable", disabled: true },
+          { label: "Disable", disabled: true },
+        ],
+      }),
     ];
   };
 
@@ -496,6 +572,12 @@ export function LeveragesModule() {
                 key={row.leverage_id}
                 className={selected === i ? "selected" : ""}
                 onClick={() => setSelected(i)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setSelected(i);
+                  setMenu({ x: e.clientX, y: e.clientY });
+                }}
                 onDoubleClick={() => canEdit && setDialog({ id: row.leverage_id })}
               >
                 <td>
@@ -504,9 +586,26 @@ export function LeveragesModule() {
                     {row.name}
                   </span>
                 </td>
-                <td className="lev-rules-cell">{(row.rules || []).map(ruleSummary).join(", ")}</td>
+                <td className="lev-rules-cell">{(row.rules || []).map(ruleSummary).join(", ") || "—"}</td>
               </tr>
             ))}
+            {rows && rows.length === 0 && (
+              <tr>
+                <td colSpan={2} className="df-empty">No leverage profiles configured</td>
+              </tr>
+            )}
+            {canEdit && (
+              <tr
+                className={`df-add-row${selected === "add" ? " selected" : ""}`}
+                onClick={() => setSelected("add")}
+                onDoubleClick={() => setDialog({ id: "new" })}
+              >
+                <td colSpan={2}>
+                  <span className="df-add-plus" aria-hidden="true">+</span>
+                  click to add…
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
