@@ -18,8 +18,10 @@ type Symbol struct {
 	TickSize     float64
 	Spread       int32
 	SpreadDiff   int32
-	StopsLevel   int32
-	FreezeLevel  int32
+	// SpreadDiffBalance skews the group widening between the two sides, MT-style signed split.
+	SpreadDiffBalance int32
+	StopsLevel        int32
+	FreezeLevel       int32
 
 	CurrencyBase   string
 	CurrencyProfit string

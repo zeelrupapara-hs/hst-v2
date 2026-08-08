@@ -3,6 +3,8 @@ package v1
 import (
 	"hstserver/model"
 	"hstserver/pkg/logger"
+
+	natscore "github.com/nats-io/nats.go"
 )
 
 // RegisterWSV1 binds every inbound socket event to its handler.
@@ -47,6 +49,15 @@ func (s *HttpServer) RegisterWSV1() {
 
 	// the panel greys symbols whose price stops flowing
 	s.StartSymbolLiveness()
+
+	// the stream is priced per group, and reprices the moment the configuration changes
+	s.loadSpreadBook()
+	for _, subject := range []string{"system.symbols.>", "system.group_symbols.>", "system.groups.>"} {
+		if _, err := s.Nats.NC.Subscribe(subject, func(*natscore.Msg) { s.loadSpreadBook() }); err != nil {
+			s.Log.Log(logger.TypeNet, logger.CodeErr, "could not watch config changes",
+				"subject", subject, "error", err.Error())
+		}
+	}
 
 	s.Log.Log(logger.TypeNet, logger.CodeOK, "websocket routes registered",
 		"routes", len(s.Hub.RouterMap))

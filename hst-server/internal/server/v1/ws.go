@@ -89,9 +89,16 @@ func (s *HttpServer) subjectsFor(c *ws.Client, rights model.ManagerRights, group
 		model.SubjectBroadcast(),
 	}
 
-	// a trading account hears about itself and nothing else: it holds no rights and covers no tree
+	// a trading account hears about itself, and about the settings it trades under: its group,
+	// its group's symbol overrides, and the symbols themselves
 	if !c.IsManager {
-		return append(subjects, model.SubjectTrader(c.Login))
+		subjects = append(subjects, model.SubjectTrader(c.Login), model.SubjectSymbol)
+		if group := s.groupOf(c.Login); group != "" {
+			subjects = append(subjects,
+				model.SubjectGroup(group),
+				model.SubjectGroupSymbol(group))
+		}
+		return subjects
 	}
 
 	// the journal is the staff record of who did what
@@ -426,4 +433,14 @@ func (s *HttpServer) NotifyClientIn(groups []string, event string, payload any) 
 	for _, g := range groups {
 		s.NotifyWS(model.SubjectClient(g), event, payload)
 	}
+}
+
+// groupOf is the group a login trades under, or empty when it cannot be read.
+func (s *HttpServer) groupOf(login int64) string {
+	var group string
+	if err := s.DB.DB.QueryRow(context.Background(),
+		`SELECT "group" FROM hst.users WHERE login = $1`, login).Scan(&group); err != nil {
+		return ""
+	}
+	return group
 }

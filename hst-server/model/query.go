@@ -39,9 +39,10 @@ type SymbolInfo struct {
 	VolumeLimit float64 `json:"volume_limit"`
 
 	// how far from the market an SL, TP or pending must sit, and how close it may no longer be moved
-	StopsLevel  int32 `json:"stops_level"`
-	FreezeLevel int32 `json:"freeze_level"`
-	SpreadDiff  int32 `json:"spread_diff"`
+	StopsLevel        int32 `json:"stops_level"`
+	FreezeLevel       int32 `json:"freeze_level"`
+	SpreadDiff        int32 `json:"spread_diff"`
+	SpreadDiffBalance int32 `json:"spread_diff_balance"`
 
 	CurrencyBase   string `json:"currency_base"`
 	CurrencyProfit string `json:"currency_profit"`

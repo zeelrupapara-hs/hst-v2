@@ -255,19 +255,35 @@ func (s *Server) resolveMySymbols(ctx context.Context, login int64) ([]model.Sym
 		return live, nil
 	}
 
-	// the group's overrides decide what this trader may see, so a symbol nobody granted it never appears
+	// the group's overrides decide what this trader may see, so a symbol nobody granted it never
+	// appears; the first override row in config order wins, an absent field inherits the symbol
 	rows, err := s.DB.DB.Query(ctx,
-		`SELECT s.symbol, s.path, s.description, s.digits, s.trade_mode,
-		        s.calc_mode, s.exec_mode, s.spread, s.contract_size, s.date_modified
+		`SELECT s.symbol, s.path, s.description, s.digits,
+		        COALESCE(o.trade_mode, s.trade_mode),
+		        s.calc_mode,
+		        COALESCE(o.exec_mode, s.exec_mode),
+		        COALESCE(o.spread_diff, s.spread_diff),
+		        COALESCE(o.spread_diff_balance, s.spread_diff_balance),
+		        COALESCE(o.stops_level, s.stops_level),
+		        COALESCE(NULLIF(COALESCE(o.volume_min_ext, s.volume_min_ext), 0) / 100000000.0,
+		                 COALESCE(o.volume_min, s.volume_min) / 10000.0),
+		        COALESCE(NULLIF(COALESCE(o.volume_max_ext, s.volume_max_ext), 0) / 100000000.0,
+		                 COALESCE(o.volume_max, s.volume_max) / 10000.0),
+		        COALESCE(NULLIF(COALESCE(o.volume_step_ext, s.volume_step_ext), 0) / 100000000.0,
+		                 COALESCE(o.volume_step, s.volume_step) / 10000.0),
+		        s.contract_size
 		   FROM hst.symbols s
-		  WHERE EXISTS (
-		        SELECT 1
+		   JOIN hst.users u ON u.login = $1
+		   JOIN hst.groups g ON g."group" = u."group"
+		   JOIN LATERAL (
+		        SELECT gs.trade_mode, gs.exec_mode, gs.spread_diff, gs.spread_diff_balance,
+		               gs.stops_level, gs.volume_min, gs.volume_max, gs.volume_step,
+		               gs.volume_min_ext, gs.volume_max_ext, gs.volume_step_ext
 		          FROM hst.groups_symbols gs
-		          JOIN hst.groups g ON g.group_id = gs.group_id
-		          JOIN hst.users u ON u."group" = g."group"
-		         WHERE u.login = $1
+		         WHERE gs.group_id = g.group_id
 		           AND (gs.path = '*' OR s.path = gs.path OR starts_with(s.path, rtrim(gs.path, '*')))
-		  )
+		         ORDER BY gs.config_index
+		         LIMIT 1) o ON TRUE
 		  ORDER BY s.symbol`, login)
 	if err != nil {
 		return nil, err
@@ -277,11 +293,10 @@ func (s *Server) resolveMySymbols(ctx context.Context, login int64) ([]model.Sym
 	out := []model.SymbolInfo{}
 	for rows.Next() {
 		var v model.SymbolInfo
-		var spread int32
-		var modified int64
 		if err := rows.Scan(&v.Symbol, &v.Path, &v.Description, &v.Digits,
-			&v.TradeMode, &v.CalcMode, &v.ExecMode, &spread, &v.ContractSize,
-			&modified); err != nil {
+			&v.TradeMode, &v.CalcMode, &v.ExecMode, &v.SpreadDiff, &v.SpreadDiffBalance,
+			&v.StopsLevel, &v.VolumeMin, &v.VolumeMax, &v.VolumeStep,
+			&v.ContractSize); err != nil {
 			return nil, err
 		}
 		out = append(out, v)

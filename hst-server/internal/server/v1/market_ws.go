@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,9 +29,97 @@ type marketWatcher struct {
 	client *ws.Client
 	// symbols is what this login's group grants it; nil means staff, scoped to no group list
 	symbols map[string]bool
+	// group prices the stream: its spread difference is added before the tick leaves
+	group string
 }
 
 var feed = &marketFeed{clients: make(map[string]*marketWatcher, 128)}
+
+// groupSpread is one group's price transform on one symbol: the difference is split around the
+// mid and the balance shifts the split, exactly as the engine charges it.
+type groupSpread struct {
+	diff    int32
+	balance int32
+	digits  int32
+}
+
+// spreadBook is every group's spread transform, reloaded whenever symbols or overrides change.
+type spreadBook struct {
+	mu sync.RWMutex
+	// by group, then symbol; only symbols with a non-zero transform are held
+	groups map[string]map[string]groupSpread
+}
+
+var spreads = &spreadBook{groups: make(map[string]map[string]groupSpread, 16)}
+
+func (b *spreadBook) forGroup(group, symbol string) (groupSpread, bool) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+	gs, ok := b.groups[group][symbol]
+	return gs, ok
+}
+
+// loadSpreadBook resolves each group's spread pair the way the engine does: the first override
+// row in config order wins, an absent field inherits the symbol's own value.
+func (s *HttpServer) loadSpreadBook() {
+	rows, err := s.DB.DB.Query(context.Background(),
+		`SELECT g."group", sym.symbol, sym.digits,
+		        COALESCE(o.spread_diff, sym.spread_diff),
+		        COALESCE(o.spread_diff_balance, sym.spread_diff_balance)
+		   FROM hst.groups g
+		   JOIN hst.symbols sym ON TRUE
+		   JOIN LATERAL (
+		        SELECT gs.spread_diff, gs.spread_diff_balance
+		          FROM hst.groups_symbols gs
+		         WHERE gs.group_id = g.group_id
+		           AND (gs.path = '*' OR sym.path = gs.path OR sym.symbol = gs.path
+		                OR starts_with(sym.path, rtrim(gs.path, '*')))
+		         ORDER BY gs.config_index
+		         LIMIT 1) o ON TRUE`)
+	if err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeWarn, "spread book load failed", "error", err.Error())
+		return
+	}
+	defer rows.Close()
+
+	next := make(map[string]map[string]groupSpread, 16)
+	for rows.Next() {
+		var group, symbol string
+		var digits, diff, balance int32
+		if err := rows.Scan(&group, &symbol, &digits, &diff, &balance); err != nil {
+			s.Log.Log(logger.TypeNet, logger.CodeWarn, "spread book scan failed", "error", err.Error())
+			return
+		}
+		if diff == 0 && balance == 0 {
+			continue
+		}
+		if next[group] == nil {
+			next[group] = make(map[string]groupSpread, 8)
+		}
+		next[group][symbol] = groupSpread{diff: diff, balance: balance, digits: digits}
+	}
+
+	spreads.mu.Lock()
+	spreads.groups = next
+	spreads.mu.Unlock()
+}
+
+// applyGroupSpread is the engine's CalculateAccountSpread, applied to the outgoing stream so a
+// terminal renders the exact price its orders fill at.
+func applyGroupSpread(gs groupSpread, t model.Tick) model.Tick {
+	pt := math.Pow(10, -float64(gs.digits))
+	d := float64(gs.diff)
+	b := float64(gs.balance)
+
+	t.Bid = roundTo(t.Bid-(d/2-b)*pt, gs.digits)
+	t.Ask = roundTo(t.Ask+(d/2+b)*pt, gs.digits)
+	return t
+}
+
+func roundTo(v float64, digits int32) float64 {
+	p := math.Pow(10, float64(digits))
+	return math.Round(v*p) / p
+}
 
 // symLiveness knows when each symbol last ticked; the panel greys the ones that fell silent.
 type symLiveness struct {
@@ -155,8 +244,13 @@ func (s *HttpServer) StartMyMarketFeed(c *ws.Ctx) error {
 		return err
 	}
 
+	group := ""
+	if !c.Client.IsManager {
+		group = s.groupOf(c.Client.Login)
+	}
+
 	feed.mu.Lock()
-	feed.clients[c.Client.SessionId] = &marketWatcher{client: c.Client, symbols: granted}
+	feed.clients[c.Client.SessionId] = &marketWatcher{client: c.Client, symbols: granted, group: group}
 	watching := len(feed.clients)
 	feed.mu.Unlock()
 
@@ -194,6 +288,8 @@ func (s *HttpServer) MarketFeedHandler(msg *natscore.Msg) {
 	symLive.Touch(t.Symbol, t.Time)
 
 	line := TickLine(&t)
+	// one adjusted line per group on this tick; most groups share the raw line
+	byGroup := map[string]string{"": line}
 
 	feed.mu.RLock()
 	defer feed.mu.RUnlock()
@@ -204,7 +300,18 @@ func (s *HttpServer) MarketFeedHandler(msg *natscore.Msg) {
 			continue
 		}
 
-		w.client.Send(&model.Event{Type: model.EventMarketFeed, Payload: []byte(line), Format: model.FormatBinary})
+		out, ok := byGroup[w.group]
+		if !ok {
+			if gs, has := spreads.forGroup(w.group, t.Symbol); has {
+				adj := applyGroupSpread(gs, t)
+				out = TickLine(&adj)
+			} else {
+				out = line
+			}
+			byGroup[w.group] = out
+		}
+
+		w.client.Send(&model.Event{Type: model.EventMarketFeed, Payload: []byte(out), Format: model.FormatBinary})
 	}
 }
 

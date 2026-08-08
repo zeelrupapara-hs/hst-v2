@@ -162,9 +162,10 @@ func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
 		VolumeStep:  model.Lots(r.VolumeStep),
 		VolumeLimit: model.Lots(r.VolumeLimit),
 
-		StopsLevel:  r.StopsLevel,
-		FreezeLevel: r.FreezeLevel,
-		SpreadDiff:  r.SpreadDiff,
+		StopsLevel:        r.StopsLevel,
+		FreezeLevel:       r.FreezeLevel,
+		SpreadDiff:        r.SpreadDiff,
+		SpreadDiffBalance: r.SpreadDiffBalance,
 
 		CurrencyBase:   r.CurrencyBase,
 		CurrencyProfit: r.CurrencyProfit,
