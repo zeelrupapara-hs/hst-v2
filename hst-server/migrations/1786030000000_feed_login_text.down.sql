@@ -1,4 +1,4 @@
-ALTER TABLE datafeeds
+ALTER TABLE hst.datafeeds
     ALTER COLUMN feed_login TYPE BIGINT
         USING COALESCE(NULLIF(regexp_replace(feed_login, '\D', '', 'g'), ''), '0')::bigint,
     ALTER COLUMN feed_login SET DEFAULT 0,

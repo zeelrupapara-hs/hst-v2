@@ -33,7 +33,7 @@ type Datafeed struct {
 	Enable        DatafeedEnable        `db:"enable"`
 	Mode          FeederFlags           `db:"mode"`
 	FeedServer    string                `db:"feed_server"`
-	FeedLogin     int64                 `db:"feed_login"`
+	FeedLogin     string                `db:"feed_login"`
 	FeedPassword  string                `db:"feed_password"`
 	SysConnection DatafeedSysConnection `db:"sys_connection"`
 	SysLastTime   int64                 `db:"sys_last_time"`

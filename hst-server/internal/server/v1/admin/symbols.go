@@ -36,48 +36,48 @@ type CrtSymbolSession struct {
 
 // CrtSymbol is the create payload; zero values pick schema-like defaults in prepareCreateSymbol.
 type CrtSymbol struct {
-	Symbol                         string             `json:"symbol" validate:"required,max=64"`
-	Path                           string             `json:"path" validate:"required,max=255"`
-	Description                    string             `json:"description" validate:"max=255"`
-	ISIN                           string             `json:"isin" validate:"max=32"`
-	International                  string             `json:"international" validate:"max=64"`
-	Category                       string             `json:"category" validate:"max=128"`
-	Exchange                       string             `json:"exchange" validate:"max=128"`
-	Cfi                            string             `json:"cfi" validate:"max=16"`
-	Sector                         int16              `json:"sector" validate:"gte=0"`
-	Industry                       int32              `json:"industry" validate:"gte=0"`
-	Country                        string             `json:"country" validate:"max=64"`
-	Basis                          string             `json:"basis" validate:"max=64"`
-	Source                         string             `json:"source" validate:"max=128"`
-	Page                           string             `json:"page" validate:"max=255"`
-	CurrencyBase                   string             `json:"currency_base" validate:"required,max=16"`
-	CurrencyBaseDigits             int32              `json:"currency_base_digits" validate:"gte=0,lte=12"`
-	CurrencyProfit                 string             `json:"currency_profit" validate:"required,max=16"`
-	CurrencyProfitDigits           int32              `json:"currency_profit_digits" validate:"gte=0,lte=12"`
-	CurrencyMargin                 string             `json:"currency_margin" validate:"required,max=16"`
-	CurrencyMarginDigits           int32              `json:"currency_margin_digits" validate:"gte=0,lte=12"`
-	Color                          int64              `json:"color"`
-	ColorBackground                int64              `json:"color_background"`
-	Digits                         int32              `json:"digits" validate:"gte=0,lte=12"`
-	TickFlags                      int32              `json:"tick_flags" validate:"gte=0"`
+	Symbol               string `json:"symbol" validate:"required,max=64"`
+	Path                 string `json:"path" validate:"required,max=255"`
+	Description          string `json:"description" validate:"max=255"`
+	ISIN                 string `json:"isin" validate:"max=32"`
+	International        string `json:"international" validate:"max=64"`
+	Category             string `json:"category" validate:"max=128"`
+	Exchange             string `json:"exchange" validate:"max=128"`
+	Cfi                  string `json:"cfi" validate:"max=16"`
+	Sector               int16  `json:"sector" validate:"gte=0"`
+	Industry             int32  `json:"industry" validate:"gte=0"`
+	Country              string `json:"country" validate:"max=64"`
+	Basis                string `json:"basis" validate:"max=64"`
+	Source               string `json:"source" validate:"max=128"`
+	Page                 string `json:"page" validate:"max=255"`
+	CurrencyBase         string `json:"currency_base" validate:"required,max=16"`
+	CurrencyBaseDigits   int32  `json:"currency_base_digits" validate:"gte=0,lte=12"`
+	CurrencyProfit       string `json:"currency_profit" validate:"required,max=16"`
+	CurrencyProfitDigits int32  `json:"currency_profit_digits" validate:"gte=0,lte=12"`
+	CurrencyMargin       string `json:"currency_margin" validate:"required,max=16"`
+	CurrencyMarginDigits int32  `json:"currency_margin_digits" validate:"gte=0,lte=12"`
+	Color                int64  `json:"color"`
+	ColorBackground      int64  `json:"color_background"`
+	Digits               int32  `json:"digits" validate:"gte=0,lte=12"`
+	TickFlags            int32  `json:"tick_flags" validate:"gte=0"`
 	// TickBookDepth is exchange DOM levels per side (0 = off). When > 0, Spread and SpreadBalance
 	// are stored but ignored at quote time; see validateMarketDepthSpread on patch.
-	TickBookDepth                  int32              `json:"tick_book_depth" validate:"gte=0"`
-	TickBookVolume                 int32              `json:"tick_book_volume" validate:"gte=0"`
-	FilterSoft                     int32              `json:"filter_soft" validate:"gte=0"`
-	FilterSoftTicks                int32              `json:"filter_soft_ticks" validate:"gte=0"`
-	FilterHard                     int32              `json:"filter_hard" validate:"gte=0"`
-	FilterHardTicks                int32              `json:"filter_hard_ticks" validate:"gte=0"`
-	FilterDiscard                  int32              `json:"filter_discard" validate:"gte=0"`
-	FilterSpreadMax                int32              `json:"filter_spread_max" validate:"gte=0"`
-	FilterSpreadMin                int32              `json:"filter_spread_min" validate:"gte=0"`
-	SubscriptionsDelay             int32              `json:"subscriptions_delay" validate:"gte=0"`
-	TradeMode                      int16              `json:"trade_mode" validate:"gte=0,lte=4"`
-	CalcMode                       int16              `json:"calc_mode" validate:"gte=0"`
-	ExecMode                       int16              `json:"exec_mode" validate:"gte=0,lte=3"`
-	GTCMode                        int16              `json:"gtc_mode" validate:"gte=0,lte=2"`
-	FillFlags                      int32              `json:"fill_flags" validate:"gte=0"`
-	ExpirFlags                     int32              `json:"expir_flags" validate:"gte=0"`
+	TickBookDepth      int32 `json:"tick_book_depth" validate:"gte=0"`
+	TickBookVolume     int32 `json:"tick_book_volume" validate:"gte=0"`
+	FilterSoft         int32 `json:"filter_soft" validate:"gte=0"`
+	FilterSoftTicks    int32 `json:"filter_soft_ticks" validate:"gte=0"`
+	FilterHard         int32 `json:"filter_hard" validate:"gte=0"`
+	FilterHardTicks    int32 `json:"filter_hard_ticks" validate:"gte=0"`
+	FilterDiscard      int32 `json:"filter_discard" validate:"gte=0"`
+	FilterSpreadMax    int32 `json:"filter_spread_max" validate:"gte=0"`
+	FilterSpreadMin    int32 `json:"filter_spread_min" validate:"gte=0"`
+	SubscriptionsDelay int32 `json:"subscriptions_delay" validate:"gte=0"`
+	TradeMode          int16 `json:"trade_mode" validate:"gte=0,lte=4"`
+	CalcMode           int16 `json:"calc_mode" validate:"gte=0"`
+	ExecMode           int16 `json:"exec_mode" validate:"gte=0,lte=3"`
+	GTCMode            int16 `json:"gtc_mode" validate:"gte=0,lte=2"`
+	FillFlags          int32 `json:"fill_flags" validate:"gte=0"`
+	ExpirFlags         int32 `json:"expir_flags" validate:"gte=0"`
 	// Spread / SpreadBalance apply only when TickBookDepth is 0 (MT5 Common tab).
 	Spread                         int32              `json:"spread"`
 	SpreadBalance                  int32              `json:"spread_balance"`
@@ -162,47 +162,47 @@ type CrtSymbol struct {
 
 // UptSymbol patches a symbol, and sending sessions replaces every row.
 type UptSymbol struct {
-	Symbol                         *string                  `json:"symbol"`
-	Path                           *string                  `json:"path"`
-	Isin                           *string                  `json:"isin"`
-	Description                    *string                  `json:"description"`
-	International                  *string                  `json:"international"`
-	Category                       *string                  `json:"category"`
-	Exchange                       *string                  `json:"exchange"`
-	Cfi                            *string                  `json:"cfi"`
-	Sector                         *model.SymbolSector      `json:"sector"`
-	Industry                       *model.SymbolIndustry    `json:"industry"`
-	Country                        *string                  `json:"country"`
-	Basis                          *string                  `json:"basis"`
-	Source                         *string                  `json:"source"`
-	Page                           *string                  `json:"page"`
-	CurrencyBase                   *string                  `json:"currency_base"`
-	CurrencyBaseDigits             *int32                   `json:"currency_base_digits"`
-	CurrencyProfit                 *string                  `json:"currency_profit"`
-	CurrencyProfitDigits           *int32                   `json:"currency_profit_digits"`
-	CurrencyMargin                 *string                  `json:"currency_margin"`
-	CurrencyMarginDigits           *int32                   `json:"currency_margin_digits"`
-	Color                          *int64                   `json:"color"`
-	ColorBackground                *int64                   `json:"color_background"`
-	Digits                         *int32                   `json:"digits"`
-	TickFlags                      *model.TickFlags         `json:"tick_flags"`
+	Symbol               *string               `json:"symbol"`
+	Path                 *string               `json:"path"`
+	Isin                 *string               `json:"isin"`
+	Description          *string               `json:"description"`
+	International        *string               `json:"international"`
+	Category             *string               `json:"category"`
+	Exchange             *string               `json:"exchange"`
+	Cfi                  *string               `json:"cfi"`
+	Sector               *model.SymbolSector   `json:"sector"`
+	Industry             *model.SymbolIndustry `json:"industry"`
+	Country              *string               `json:"country"`
+	Basis                *string               `json:"basis"`
+	Source               *string               `json:"source"`
+	Page                 *string               `json:"page"`
+	CurrencyBase         *string               `json:"currency_base"`
+	CurrencyBaseDigits   *int32                `json:"currency_base_digits"`
+	CurrencyProfit       *string               `json:"currency_profit"`
+	CurrencyProfitDigits *int32                `json:"currency_profit_digits"`
+	CurrencyMargin       *string               `json:"currency_margin"`
+	CurrencyMarginDigits *int32                `json:"currency_margin_digits"`
+	Color                *int64                `json:"color"`
+	ColorBackground      *int64                `json:"color_background"`
+	Digits               *int32                `json:"digits"`
+	TickFlags            *model.TickFlags      `json:"tick_flags"`
 	// TickBookDepth > 0 enables exchange DOM; spread markup fields are locked on patch.
-	TickBookDepth                  *int32                   `json:"tick_book_depth"`
-	TickBookVolume                 *int32                   `json:"tick_book_volume"`
-	FilterSoft                     *int32                   `json:"filter_soft"`
-	FilterSoftTicks                *int32                   `json:"filter_soft_ticks"`
-	FilterHard                     *int32                   `json:"filter_hard"`
-	FilterHardTicks                *int32                   `json:"filter_hard_ticks"`
-	FilterDiscard                  *int32                   `json:"filter_discard"`
-	FilterSpreadMax                *int32                   `json:"filter_spread_max"`
-	FilterSpreadMin                *int32                   `json:"filter_spread_min"`
-	SubscriptionsDelay             *int32                   `json:"subscriptions_delay"`
-	TradeMode                      *model.TradeMode         `json:"trade_mode"`
-	CalcMode                       *model.CalcMode          `json:"calc_mode"`
-	ExecMode                       *model.ExecMode          `json:"exec_mode"`
-	GtcMode                        *model.GTCMode           `json:"gtc_mode"`
-	FillFlags                      *model.FillingFlags      `json:"fill_flags"`
-	ExpirFlags                     *model.ExpirationFlags   `json:"expir_flags"`
+	TickBookDepth      *int32                 `json:"tick_book_depth"`
+	TickBookVolume     *int32                 `json:"tick_book_volume"`
+	FilterSoft         *int32                 `json:"filter_soft"`
+	FilterSoftTicks    *int32                 `json:"filter_soft_ticks"`
+	FilterHard         *int32                 `json:"filter_hard"`
+	FilterHardTicks    *int32                 `json:"filter_hard_ticks"`
+	FilterDiscard      *int32                 `json:"filter_discard"`
+	FilterSpreadMax    *int32                 `json:"filter_spread_max"`
+	FilterSpreadMin    *int32                 `json:"filter_spread_min"`
+	SubscriptionsDelay *int32                 `json:"subscriptions_delay"`
+	TradeMode          *model.TradeMode       `json:"trade_mode"`
+	CalcMode           *model.CalcMode        `json:"calc_mode"`
+	ExecMode           *model.ExecMode        `json:"exec_mode"`
+	GtcMode            *model.GTCMode         `json:"gtc_mode"`
+	FillFlags          *model.FillingFlags    `json:"fill_flags"`
+	ExpirFlags         *model.ExpirationFlags `json:"expir_flags"`
 	// Ignored at quote time when TickBookDepth > 0; cannot be changed via PATCH while DOM is on.
 	Spread                         *int32                   `json:"spread"`
 	SpreadBalance                  *int32                   `json:"spread_balance"`

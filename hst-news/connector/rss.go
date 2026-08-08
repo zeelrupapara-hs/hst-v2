@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -57,8 +56,8 @@ func (r *RSS) Fetch(ctx context.Context, feed model.NewsFeed) ([]RawItem, int64,
 
 	if pwd := strings.TrimSpace(feed.Datafeed.FeedPassword); pwd != "" {
 		user := feed.Param("Feed login")
-		if user == "" && feed.Datafeed.FeedLogin != 0 {
-			user = strconv.FormatInt(feed.Datafeed.FeedLogin, 10)
+		if user == "" && feed.Datafeed.FeedLogin != "" {
+			user = feed.Datafeed.FeedLogin
 		}
 		if user != "" {
 			req.SetBasicAuth(user, pwd)

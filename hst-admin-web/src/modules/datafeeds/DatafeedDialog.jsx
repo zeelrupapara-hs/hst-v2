@@ -24,6 +24,12 @@ import {
   DatafeedTimeoutsTab,
   DatafeedTranslationsTab,
 } from "./DatafeedTabs.jsx";
+import {
+  datafeedCreateBody,
+  datafeedPatchBody,
+  newDatafeedDraft,
+  normalizeDatafeedDraft,
+} from "./datafeedPayload.js";
 
 const TABS = [
   { id: "common", label: "Common", Panel: DatafeedCommonTab },
@@ -33,36 +39,10 @@ const TABS = [
   { id: "timeouts", label: "Timeouts", Panel: DatafeedTimeoutsTab },
 ];
 
-const MAIN_FIELDS = [
-  "name", "module", "enable", "mode", "gateway_server", "feed_server", "feed_login",
-  "feed_password", "gateway_login", "gateway_password", "timeout", "timeout_reconnect",
-  "timeout_sleep", "attempts_sleep", "company", "issuer", "allow_import_symbols",
-];
-
-const newDraft = () => ({
-  name: "",
-  module: "",
-  enable: 1,
-  mode: 1,
-  feed_server: "",
-  feed_login: 0,
-  gateway_server: "",
-  gateway_login: 0,
-  timeout: 0,
-  timeout_reconnect: 5,
-  timeout_sleep: 60,
-  attempts_sleep: 10,
-  feed_symbols: [],
-  translates: [],
-  params: [],
-});
-
-// A scope row edits as one text (mask or symbol); the wire splits it into symbol vs path.
 const toScopeRow = (row) => ({ ...row, scope: row.path || row.symbol || "*" });
 const fromScope = (scope) =>
   /[\\*!]/.test(scope) ? { symbol: "", path: scope } : { symbol: scope, path: "" };
 
-/** Post-OK sync of one sub-list: new rows POST, missing DELETE, changed PATCH (or replace). */
 async function syncRows(before, after, key, { create, update, remove }) {
   const beforeById = new Map(before.map((r) => [r[key], r]));
   const seen = new Set();
@@ -85,11 +65,20 @@ async function syncRows(before, after, key, { create, update, remove }) {
   for (const id of beforeById.keys()) if (!seen.has(id)) await remove(id);
 }
 
+async function syncParamPriorities(before, after, updateParam) {
+  for (let i = 0; i < after.length; i++) {
+    const row = after[i];
+    if (!row.param_id) continue;
+    const beforeIdx = before.findIndex((p) => p.param_id === row.param_id);
+    if (beforeIdx !== i) await updateParam(row.param_id, { priority: i });
+  }
+}
+
 /** @param {{feedId: number|"new", onClose: Function, onSaved: Function}} props */
 export function DatafeedDialog({ feedId, onClose, onSaved }) {
   const isNew = feedId === "new";
   const [activeTab, setActiveTab] = useState("common");
-  const [draft, setDraft] = useState(isNew ? newDraft() : null);
+  const [draft, setDraft] = useState(isNew ? newDatafeedDraft() : null);
   const [original, setOriginal] = useState(null);
   const [modules, setModules] = useState([]);
   const [error, setError] = useState("");
@@ -97,40 +86,64 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
   const close = useDialogStack(onClose);
 
   useEffect(() => {
-    fetchDatafeedModules(1).then((res) => res.ok && setModules(res.data || []));
     if (isNew) return;
     fetchDatafeed(feedId).then((res) => {
       if (!res.ok) {
         setError(res.message || "failed to load data feed");
         return;
       }
-      const detail = { ...res.data, feed_symbols: (res.data.feed_symbols || []).map(toScopeRow) };
+      const detail = normalizeDatafeedDraft({
+        ...res.data,
+        feed_symbols: (res.data.feed_symbols || []).map(toScopeRow),
+      });
       setDraft(detail);
       setOriginal(detail);
     });
   }, [feedId, isNew]);
 
-  const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
+  useEffect(() => {
+    if (!draft) return;
+    const mode = draft.mode === 2 ? 2 : 1;
+    fetchDatafeedModules(mode).then((res) => {
+      if (!res.ok) return;
+      const next = res.data || [];
+      setModules(next);
+      setDraft((prev) => {
+        if (!prev) return prev;
+        const names = new Set(next.map((m) => m.module));
+        if (prev.module && names.has(prev.module)) return prev;
+        const fallback = next[0]?.module || "";
+        if (!fallback) return prev.module ? { ...prev, module: "" } : prev;
+        return { ...prev, module: fallback };
+      });
+    });
+  }, [draft?.mode]);
+
+  const set = (key, value) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+    if (error && (key === "name" || key === "module")) setError("");
+  };
 
   async function handleOk() {
-    if (!draft.name?.trim() || !draft.module) {
+    setError("");
+    const module = draft.module || modules[0]?.module || "";
+    if (!draft.name?.trim() || !module) {
       setError("Name and module are required");
       return;
     }
+    const payload =
+      module !== draft.module ? normalizeDatafeedDraft({ ...draft, module }) : normalizeDatafeedDraft(draft);
 
     let id = feedId;
     if (isNew) {
-      const res = await createDatafeed(Object.fromEntries(MAIN_FIELDS.map((k) => [k, draft[k]]).filter(([, v]) => v !== undefined)));
+      const res = await createDatafeed(datafeedCreateBody(payload));
       if (!res.ok) {
         setError(res.message || "create failed");
         return;
       }
       id = res.data?.datafeed_id;
     } else {
-      const patch = {};
-      for (const key of MAIN_FIELDS) {
-        if (draft[key] !== undefined && draft[key] !== original[key]) patch[key] = draft[key];
-      }
+      const patch = datafeedPatchBody(payload, original);
       if (Object.keys(patch).length) {
         const res = await updateDatafeed(id, patch);
         if (!res.ok) {
@@ -168,6 +181,9 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
         updateDatafeedParam(id, rowId, { param_key: row.param_key, value: String(row.value ?? "") }),
       remove: (rowId) => deleteDatafeedParam(id, rowId),
     });
+    await syncParamPriorities(original?.params || [], draft.params || [], (rowId, patch) =>
+      updateDatafeedParam(id, rowId, patch)
+    );
 
     onSaved();
     close();
@@ -219,7 +235,7 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
           {draft &&
             TABS.map(({ id: tabId, Panel }) => (
               <div key={tabId} className={`config-panel${activeTab === tabId ? " active" : ""}`}>
-                <Panel d={draft} set={set} modules={modules} />
+                <Panel d={draft} set={set} modules={modules} feedId={feedId} isNew={isNew} />
               </div>
             ))}
         </SettingsDialog>

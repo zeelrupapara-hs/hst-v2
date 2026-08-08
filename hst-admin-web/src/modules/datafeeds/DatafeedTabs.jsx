@@ -1,11 +1,11 @@
 import { useState } from "react";
+import { loginField } from "./datafeedPayload.js";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { DatafeedTabIntro, DfListPanel, DfRowIcon, ParamTypeIcon } from "./DfListPanel.jsx";
 
 const MODE_OPTIONS = [
   { value: 1, label: "Quotes" },
   { value: 2, label: "News" },
-  { value: 3, label: "Quotes and News" },
 ];
 
 const RECONNECT_OPTIONS = [1, 2, 3, 5, 10, 15, 30, 60];
@@ -57,7 +57,11 @@ export function DatafeedCommonTab({ d, set, modules }) {
           <PropSelect fill value={d.mode ?? 1} options={MODE_OPTIONS} onChange={(v) => set("mode", Number(v))} />
         </div>
         <Field label="Feed server" value={d.feed_server} onChange={(v) => set("feed_server", v)} width="wide" />
-        <Field label="Feed login" value={d.feed_login} onChange={(v) => set("feed_login", v)} />
+        <Field
+          label="Feed login"
+          value={loginField(d.feed_login)}
+          onChange={(v) => set("feed_login", v)}
+        />
         <Field
           label="Password"
           type="password"
@@ -78,7 +82,7 @@ export function DatafeedCommonTab({ d, set, modules }) {
             />
             <Field
               label="Gateway login"
-              value={d.gateway_login}
+              value={loginField(d.gateway_login)}
               onChange={(v) => set("gateway_login", v)}
             />
             <Field

@@ -3,7 +3,7 @@ import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
-import { SymbolPathSelectField } from "@/components/ui/SymbolPathSelectField.jsx";
+import { SymbolScopeSelectField } from "@/components/ui/SymbolScopeSelectField.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { createGroupCommission, updateGroupCommission } from "@/api/endpoints/groups.js";
 import { GroupTabIntro } from "./GroupTabs.jsx";
@@ -124,7 +124,7 @@ export function CommissionDialog({ groupId, commission, onClose, onSaved }) {
 
               <div className="grp-comm-body">
                 <div className="grp-comm-left">
-                  <SymbolPathSelectField
+                  <SymbolScopeSelectField
                     label="Symbol"
                     value={draft.path ?? "*"}
                     onChange={(v) => set("path", v || "*")}

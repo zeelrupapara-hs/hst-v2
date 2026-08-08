@@ -571,33 +571,33 @@ var (
 
 // Symbol is the server-wide instrument master.
 type Symbol struct {
-	SymbolId                       int64             `db:"symbol_id" json:"symbol_id"`
-	Symbol                         string            `db:"symbol" json:"symbol"`
-	Path                           string            `db:"path" json:"path"`
-	Isin                           string            `db:"isin" json:"isin"`
-	Description                    string            `db:"description" json:"description"`
-	International                  string            `db:"international" json:"international"`
-	Category                       string            `db:"category" json:"category"`
-	Exchange                       string            `db:"exchange" json:"exchange"`
-	Cfi                            string            `db:"cfi" json:"cfi"`
-	Sector                         SymbolSector      `db:"sector" json:"sector"`
-	Industry                       SymbolIndustry    `db:"industry" json:"industry"`
-	Country                        string            `db:"country" json:"country"`
-	Basis                          string            `db:"basis" json:"basis"`
-	Source                         string            `db:"source" json:"source"`
-	Page                           string            `db:"page" json:"page"`
-	CurrencyBase                   string            `db:"currency_base" json:"currency_base"`
-	CurrencyBaseDigits             int32             `db:"currency_base_digits" json:"currency_base_digits"`
-	CurrencyProfit                 string            `db:"currency_profit" json:"currency_profit"`
-	CurrencyProfitDigits           int32             `db:"currency_profit_digits" json:"currency_profit_digits"`
-	CurrencyMargin                 string            `db:"currency_margin" json:"currency_margin"`
-	CurrencyMarginDigits           int32             `db:"currency_margin_digits" json:"currency_margin_digits"`
-	Color                          int64             `db:"color" json:"color"`
-	ColorBackground                int64             `db:"color_background" json:"color_background"`
-	Digits                         int32             `db:"digits" json:"digits"`
-	Point                          float64           `db:"point" json:"point"`
-	Multiply                       float64           `db:"multiply" json:"multiply"`
-	TickFlags                      TickFlags         `db:"tick_flags" json:"tick_flags"`
+	SymbolId             int64          `db:"symbol_id" json:"symbol_id"`
+	Symbol               string         `db:"symbol" json:"symbol"`
+	Path                 string         `db:"path" json:"path"`
+	Isin                 string         `db:"isin" json:"isin"`
+	Description          string         `db:"description" json:"description"`
+	International        string         `db:"international" json:"international"`
+	Category             string         `db:"category" json:"category"`
+	Exchange             string         `db:"exchange" json:"exchange"`
+	Cfi                  string         `db:"cfi" json:"cfi"`
+	Sector               SymbolSector   `db:"sector" json:"sector"`
+	Industry             SymbolIndustry `db:"industry" json:"industry"`
+	Country              string         `db:"country" json:"country"`
+	Basis                string         `db:"basis" json:"basis"`
+	Source               string         `db:"source" json:"source"`
+	Page                 string         `db:"page" json:"page"`
+	CurrencyBase         string         `db:"currency_base" json:"currency_base"`
+	CurrencyBaseDigits   int32          `db:"currency_base_digits" json:"currency_base_digits"`
+	CurrencyProfit       string         `db:"currency_profit" json:"currency_profit"`
+	CurrencyProfitDigits int32          `db:"currency_profit_digits" json:"currency_profit_digits"`
+	CurrencyMargin       string         `db:"currency_margin" json:"currency_margin"`
+	CurrencyMarginDigits int32          `db:"currency_margin_digits" json:"currency_margin_digits"`
+	Color                int64          `db:"color" json:"color"`
+	ColorBackground      int64          `db:"color_background" json:"color_background"`
+	Digits               int32          `db:"digits" json:"digits"`
+	Point                float64        `db:"point" json:"point"`
+	Multiply             float64        `db:"multiply" json:"multiply"`
+	TickFlags            TickFlags      `db:"tick_flags" json:"tick_flags"`
 	// TickBookDepth > 0: exchange DOM; Spread/SpreadBalance are not applied (see hst-quote ApplySpread).
 	TickBookDepth                  int32             `db:"tick_book_depth" json:"tick_book_depth"`
 	TickBookVolume                 int32             `db:"tick_book_volume" json:"tick_book_volume"`

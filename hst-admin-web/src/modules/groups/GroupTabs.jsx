@@ -5,15 +5,18 @@ import { fetchMailServers } from "@/api/endpoints/mailServers.js";
 import { newsLangSummary } from "@/constants/newsLanguages.js";
 import { NewsLanguagesDialog } from "./NewsLanguagesDialog.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
-import { FlagCombo } from "@/modules/symbols/SymbolTabs.jsx";
+import { FlagCombo, EditableSelectField } from "@/modules/symbols/SymbolTabs.jsx";
 import {
   AuthMode_name,
   Currency_options,
   FreeMarginMode_name,
-  groupKind,
+  isDemoGroup,
   HistoryLimit_name,
-  limitOptions,
-  demoLeverageOptions,
+  limitStrictOptions,
+  limitSymbolsOptions,
+  formatLimit,
+  parseLimit,
+  DemoLeverage_options,
   MarginFlag_clearAcc,
   MarginFreeProfitMode_name,
   MarginMode_name,
@@ -114,6 +117,19 @@ function SelectField({ label, value, names, order, options, onChange, disabled }
         onChange={onChange}
       />
     </>
+  );
+}
+
+function LimitSelectField({ label, value, options, onChange, demoSymbols = false }) {
+  return (
+    <EditableSelectField
+      label={label}
+      value={value ?? 0}
+      options={options}
+      format={(v) => formatLimit(v, { demoSymbols })}
+      parse={parseLimit}
+      onChange={onChange}
+    />
   );
 }
 
@@ -299,7 +315,7 @@ export function GroupNewsMailTab({ g, set }) {
 const unset = (v) => (v.trim() === "" ? undefined : Number(v) || 0);
 
 export function GroupPermissionsTab({ g, set }) {
-  const isDemo = groupKind(g.group ?? "") === "demo";
+  const isDemo = isDemoGroup(g.group ?? "");
   const signals = (g.trade_flags ?? 0) & TradeFlag_signalsMask;
   const setSignals = (v) => set("trade_flags", ((g.trade_flags ?? 0) & ~TradeFlag_signalsMask) | v);
 
@@ -309,10 +325,11 @@ export function GroupPermissionsTab({ g, set }) {
         Please specify the group permissions for symbols, orders, use of Expert Advisors, etc.
       </GroupTabIntro>
       <div className="form-grid sym-form-two-col grp-permissions-grid">
-        <SelectField
+        <LimitSelectField
           label="Maximum symbols"
           value={g.limit_symbols ?? 0}
-          options={limitOptions(g.limit_symbols)}
+          options={limitSymbolsOptions(g.limit_symbols, { demo: isDemo })}
+          demoSymbols={isDemo}
           onChange={(v) => set("limit_symbols", v)}
         />
         <SelectField
@@ -321,16 +338,16 @@ export function GroupPermissionsTab({ g, set }) {
           names={HistoryLimit_name}
           onChange={(v) => set("limit_history", v)}
         />
-        <SelectField
+        <LimitSelectField
           label="Maximum positions"
           value={g.limit_positions ?? 0}
-          options={limitOptions(g.limit_positions)}
+          options={limitStrictOptions()}
           onChange={(v) => set("limit_positions", v)}
         />
-        <SelectField
+        <LimitSelectField
           label="Maximum orders"
           value={g.limit_orders ?? 0}
-          options={limitOptions(g.limit_orders)}
+          options={limitStrictOptions()}
           onChange={(v) => set("limit_orders", v)}
         />
         <Field
@@ -343,7 +360,7 @@ export function GroupPermissionsTab({ g, set }) {
           label="Leverage by default"
           value={g.demo_leverage ?? ""}
           disabled={!isDemo}
-          options={demoLeverageOptions(g.demo_leverage)}
+          options={DemoLeverage_options}
           onChange={isDemo ? (v) => set("demo_leverage", v === "" ? undefined : v) : undefined}
         />
         <DecField

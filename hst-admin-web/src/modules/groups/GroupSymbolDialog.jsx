@@ -4,7 +4,7 @@ import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
-import { SymbolPathSelectField } from "@/components/ui/SymbolPathSelectField.jsx";
+import { SymbolScopeSelectField } from "@/components/ui/SymbolScopeSelectField.jsx";
 import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
 import { useSymbols } from "@/hooks/useSymbols.js";
 import { fetchSymbolSwaps } from "@/api/endpoints/symbols.js";
@@ -518,7 +518,7 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
           useDefault[clusterId] && root ? (WILDCARD_DISPLAY[key] ?? CATALOG_DEFAULTS[key] ?? 0) : null;
         return (
           <div className="form-grid sym-form-two-col grp-sym-form grp-sym-common">
-            <SymbolPathSelectField
+            <SymbolScopeSelectField
               label="Symbol"
               className="grp-sym-symbol-wide"
               value={draft.path ?? "*"}

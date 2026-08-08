@@ -246,6 +246,7 @@ export function EditableSelectField({
   placeholder,
   liveCommit = false,
   hideLabel = false,
+  allowCustomOption = false,
 }) {
   const locked = disabled || lockField?.(fieldKey);
   const [open, setOpen] = useState(false);
@@ -260,11 +261,21 @@ export function EditableSelectField({
   const par = parse ?? ((text) => Number(text) || 0);
   const items = options ?? [];
   const display = raw ?? fmt(value);
-  const needle = String(raw ?? fmt(value) ?? "").trim().toLowerCase();
-  const visibleItems =
-    filterOptions && needle
+  const filtering = filterOptions && raw !== null;
+  const needle = filtering ? String(raw).trim().toLowerCase() : "";
+  const filtered =
+    filtering && needle
       ? items.filter((o) => String(o.label ?? o.value ?? "").toLowerCase().includes(needle))
       : items;
+  const parsedNeedle = allowCustomOption && filtering && needle ? par(String(raw)) : null;
+  const customOption =
+    allowCustomOption &&
+    parsedNeedle != null &&
+    parsedNeedle > 0 &&
+    !items.some((o) => Number(o.value) === Number(parsedNeedle))
+      ? [{ value: parsedNeedle, label: fmt(parsedNeedle) }]
+      : [];
+  const visibleItems = filtering && needle ? [...filtered, ...customOption] : items;
 
   useEffect(() => {
     openRef.current = open;
@@ -301,6 +312,7 @@ export function EditableSelectField({
       setOpen(false);
       return;
     }
+    setRaw(null);
     announceOpen();
     const r = rootRef.current.getBoundingClientRect();
     setPos({ top: r.bottom, left: r.left, width: Math.max(r.width, 180) });
@@ -320,9 +332,6 @@ export function EditableSelectField({
           value={display}
           placeholder={placeholder}
           disabled={locked}
-          onFocus={() => {
-            setRaw(fmt(value));
-          }}
           onBlur={(e) => {
             if (btnRef.current?.contains(e.relatedTarget)) return;
             commit(e.target.value);

@@ -61,27 +61,53 @@ export const HistoryLimit_name = {
   6: "3 years",
 };
 
-/** MT5 limit dropdown presets — 0 means unlimited on the wire. */
-export const Limit_preset_options = [
+/** Strict MT5 presets for orders/positions — dropdown only; any value may be typed. */
+export const Limit_strict_options = [
   { value: 0, label: "unlimited" },
   { value: 10, label: "10" },
   { value: 30, label: "30" },
   { value: 50, label: "50" },
-  { value: 100, label: "100" },
-  { value: 200, label: "200" },
-  { value: 500, label: "500" },
-  { value: 1000, label: "1000" },
 ];
 
-export function limitOptions(current) {
+/** Demo Maximum symbols shows blank when unlimited. */
+export const Limit_demo_symbols_options = [
+  { value: 0, label: "" },
+  { value: 10, label: "10" },
+  { value: 30, label: "30" },
+  { value: 50, label: "50" },
+];
+
+function appendCustomLimit(base, current) {
   const n = Number(current) || 0;
-  if (n !== 0 && !Limit_preset_options.some((o) => o.value === n)) {
-    return [...Limit_preset_options, { value: n, label: String(n) }];
-  }
-  return Limit_preset_options;
+  const next = n !== 0 && !base.some((o) => o.value === n)
+    ? [...base, { value: n, label: String(n) }]
+    : [...base];
+  return next.sort((a, b) => a.value - b.value);
 }
 
-/** Demo account default leverage presets (MT5 "1 : N" display). */
+export function limitStrictOptions() {
+  return Limit_strict_options;
+}
+
+export function limitSymbolsOptions(current, { demo = false } = {}) {
+  const base = demo ? Limit_demo_symbols_options : Limit_strict_options;
+  return appendCustomLimit(base, current);
+}
+
+export function formatLimit(value, { demoSymbols = false } = {}) {
+  const n = Number(value) || 0;
+  if (n === 0) return demoSymbols ? "" : "unlimited";
+  return String(n);
+}
+
+export function parseLimit(text) {
+  const raw = String(text ?? "").trim();
+  if (raw === "" || raw.toLowerCase() === "unlimited") return 0;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+/** Demo account default leverage presets (MT5 "1 : N" display) — strict dropdown only. */
 export const DemoLeverage_options = [
   { value: "", label: "" },
   { value: 1, label: "1 : 1" },
@@ -93,14 +119,6 @@ export const DemoLeverage_options = [
   { value: 500, label: "1 : 500" },
   { value: 1000, label: "1 : 1000" },
 ];
-
-export function demoLeverageOptions(current) {
-  const n = current == null || current === "" ? "" : Number(current);
-  if (n !== "" && !DemoLeverage_options.some((o) => o.value === n)) {
-    return [...DemoLeverage_options, { value: n, label: `1 : ${n}` }];
-  }
-  return DemoLeverage_options;
-}
 
 export const PermissionFlag_labels = [
   { bit: 2, label: "Enable connections" },
@@ -163,10 +181,19 @@ export const ReportsFlag_support = 2;
 /** The reference offers these deposit currencies; the field stays free-form on the wire. */
 export const Currency_options = ["USD", "EUR", "GBP", "JPY", "CHF", "AUD", "CAD", "RUR"];
 
-/** The platform derives the group type from a case-sensitive substring of the path. */
+/** Demo groups live under a top-level `demo\\...` path in MT5. */
+export function isDemoGroup(path) {
+  const first = String(path ?? "").split("\\").filter(Boolean)[0]?.toLowerCase() ?? "";
+  return first === "demo";
+}
+
+/** The platform derives the group type from the first path segment. */
 export function groupKind(path) {
-  for (const kind of ["demo", "manager", "contest", "coverage", "preliminary"]) {
-    if (path.includes(kind)) return kind;
-  }
+  const first = String(path ?? "").split("\\").filter(Boolean)[0]?.toLowerCase() ?? "";
+  if (first === "demo") return "demo";
+  if (first === "manager" || first === "managers") return "manager";
+  if (first === "contest") return "contest";
+  if (first === "coverage") return "coverage";
+  if (first === "preliminary") return "preliminary";
   return "real";
 }
