@@ -91,6 +91,49 @@ function PasswordRow({ login, kind }) {
 }
 
 // the reference opens the dialog with the two passwords already generated
+// the reference's ladder of leverages; anything else can simply be typed
+const LEVERAGE_STEPS = [5000, 1000, 500, 400, 300, 200, 175, 150, 125, 100, 80, 75, 66, 50, 40, 33, 25, 20, 15, 10, 5, 3, 2, 1];
+
+/** An editable combo: pick a standard leverage from the list or type a custom one. */
+function LeverageCombo({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <label>Leverage</label>
+      <span className="acc-leverage">
+        <input
+          value={`1 : ${value ?? 100}`}
+          onChange={(e) => {
+            // the ratio's own leading 1 is not part of the number
+            const tail = e.target.value.split(":").pop();
+            onChange(Number(tail.replace(/[^0-9]/g, "")) || 1);
+          }}
+        />
+        <button type="button" aria-label="standard leverages" onClick={() => setOpen(!open)}>
+          ▾
+        </button>
+        {open && (
+          <span className="acc-leverage-list">
+            {LEVERAGE_STEPS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={n === value ? "active" : ""}
+                onClick={() => {
+                  onChange(n);
+                  setOpen(false);
+                }}
+              >
+                1 : {n}
+              </button>
+            ))}
+          </span>
+        )}
+      </span>
+    </>
+  );
+}
+
 function NewPassword({ label, value, onChange }) {
   return (
     <>
@@ -304,11 +347,7 @@ export function AccountDialog({ login, onClose, onSaved }) {
             <div className="form-grid">
               <label>Group</label>
               <PropSelect fill value={draft.group} options={groupOptions} onChange={(v) => set("group", v)} />
-              <Field
-                label="Leverage"
-                value={`1 : ${draft.leverage ?? 100}`}
-                onChange={(v) => set("leverage", Number(v.replace(/[^0-9]/g, "")) || 100)}
-              />
+              <LeverageCombo value={draft.leverage} onChange={(v) => set("leverage", v)} />
             </div>
             <div className="form-grid grp-check-stack">
               {AccountRight_checks.map((def) => (

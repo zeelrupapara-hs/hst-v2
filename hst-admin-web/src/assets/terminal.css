@@ -4853,3 +4853,32 @@ label.sym-check::after { content: none; }
 .acc-new-pass button { width: 22px; padding: 0; flex: 0 0 auto; }
 .acc-new-address { grid-column: 2 / -1; }
 .acc-new-address input { width: 100%; max-width: none; }
+
+/* ── leverage: the standard ladder in a dropdown, any other ratio typed by hand ── */
+.acc-leverage { position: relative; display: flex; gap: 2px; max-width: 180px; }
+.acc-leverage > input { flex: 1 1 auto; width: 100%; }
+.acc-leverage > button { width: 22px; padding: 0; flex: 0 0 auto; }
+.acc-leverage-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #7f9db9;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+}
+.acc-leverage-list button {
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.acc-leverage-list button:hover { background: #316ac5; color: #fff; }
+.acc-leverage-list button.active { background: #316ac5; color: #fff; }
