@@ -52,6 +52,11 @@ type SymbolInfo struct {
 	MarginMaintenance float64 `json:"margin_maintenance"`
 	MarginHedged      float64 `json:"margin_hedged"`
 
+	MarginRateInitialBuy      float64 `json:"margin_rate_initial_buy"`
+	MarginRateInitialSell     float64 `json:"margin_rate_initial_sell"`
+	MarginRateMaintenanceBuy  float64 `json:"margin_rate_maintenance_buy"`
+	MarginRateMaintenanceSell float64 `json:"margin_rate_maintenance_sell"`
+
 	SwapMode  int32   `json:"swap_mode"`
 	SwapLong  float64 `json:"swap_long"`
 	SwapShort float64 `json:"swap_short"`
