@@ -4,7 +4,7 @@ import { signOut } from "@/api/endpoints/auth.js";
 import { fetchNavigation } from "@/api/endpoints/navigation.js";
 import { SessionContext } from "@/hooks/useSession.js";
 import { onEvent, startSocket, stopSocket } from "@/api/socket.js";
-import { reloadSymbols } from "@/hooks/useSymbols.js";
+import { applySymbolLiveness, reloadSymbols } from "@/hooks/useSymbols.js";
 import { reloadSymbolFolders } from "@/hooks/useSymbolFolders.js";
 import { reloadGroups } from "@/hooks/useGroups.js";
 import { reloadDatafeeds, applyDatafeedRuntime } from "@/hooks/useDatafeeds.js";
@@ -57,6 +57,7 @@ export function SessionProvider({ children }) {
     startSocket();
     const offConfig = onEvent("*", (event) => {
       if (event.type === "datafeed_status_updated" || event.type === "datafeed_stats_updated") return;
+      if (event.type === "symbol_liveness_updated") return;
       if (!/_created$|_updated$|_deleted$/.test(event.type)) return;
       if (event.type.startsWith("symbol")) {
         reloadSymbols();
@@ -71,12 +72,16 @@ export function SessionProvider({ children }) {
     const offStats = onEvent("datafeed_stats_updated", (event) => {
       applyDatafeedRuntime(event.payload);
     });
+    const offLiveness = onEvent("symbol_liveness_updated", (event) => {
+      applySymbolLiveness(event.payload?.live);
+    });
     const offBalance = onEvent("balance_create", refreshNav);
     const offRevoked = onEvent("session.revoked", logout);
     return () => {
       offConfig();
       offStatus();
       offStats();
+      offLiveness();
       offBalance();
       offRevoked();
     };

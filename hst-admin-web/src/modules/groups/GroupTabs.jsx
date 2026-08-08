@@ -407,6 +407,11 @@ export function GroupMarginTab({ g, set }) {
         <label>in</label>
         <PropSelect fill value={g.margin_so_mode ?? 0} options={enumOptions(StopOutMode_name)} onChange={(v) => set("margin_so_mode", v)} />
       </div>
+      {Number(g.margin_stop_out ?? 0) > Number(g.margin_call ?? 0) && (
+        <p className="login-error grp-margin-warn">
+          The stop out level must not exceed the margin call level: the warning comes before the liquidation.
+        </p>
+      )}
       <div className="form-grid grp-check-stack">
         <FlagCheck
           flags={g.trade_flags}

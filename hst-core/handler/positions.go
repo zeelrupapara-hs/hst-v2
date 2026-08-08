@@ -366,6 +366,13 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 // CloseAtMarket is the engine's own close: a stop loss, a take profit or a stop out.
 func (h *Handler) CloseAtMarket(ctx context.Context, e *book.Entry, p *model.Position,
 	t model.Tick, reason model.OrderReason, kind model.RouteFlags) {
+	h.closeAtMarket(ctx, e, p, t, reason, kind, closeComment(reason))
+}
+
+// closeAtMarket is CloseAtMarket with the history comment chosen by the caller, which the stop
+// out uses to record the level it fired at.
+func (h *Handler) closeAtMarket(ctx context.Context, e *book.Entry, p *model.Position,
+	t model.Tick, reason model.OrderReason, kind model.RouteFlags, comment string) {
 	e.Lock()
 
 	// it may already have gone: two ticks can pick up the same level
@@ -382,7 +389,7 @@ func (h *Handler) CloseAtMarket(ctx context.Context, e *book.Entry, p *model.Pos
 		return
 	}
 
-	o := h.closingOrder(p, r, reason, p.Volume, closeComment(reason))
+	o := h.closingOrder(p, r, reason, p.Volume, comment)
 
 	decision := h.Route(&Request{
 		Kind: kind, Order: o, Entry: e, Rules: r, Tick: t,

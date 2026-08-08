@@ -4826,3 +4826,52 @@ label.sym-check::after { content: none; }
 .symtree-item:hover .symtree-desc { color: #dfe8f6; }
 .symtree-desc { color: #808080; }
 .symtree-empty { padding: 4px 10px; font-size: 11px; color: #808080; }
+
+/* a symbol whose price stopped flowing shows a grey coin until it ticks again */
+.sym-icon-stale { filter: grayscale(1) opacity(0.55); }
+
+/* ── data feed status page: the read-only per-feed view with live counters ── */
+.df-status-page { display: flex; flex-direction: column; height: 100%; background: #fff; }
+.df-status-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: #eaf2fb;
+  border-bottom: 1px solid #c9d6e4;
+}
+.df-status-head .df-section-title { display: flex; align-items: center; gap: 8px; margin: 0; }
+.df-status-enable { display: flex; align-items: center; gap: 10px; font-size: 11px; }
+.df-btn-disable, .df-btn-enable {
+  height: 24px;
+  padding: 0 18px;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+}
+.df-btn-disable { background: #43a047; }
+.df-btn-enable { background: #e53935; }
+.df-status-body { display: flex; gap: 48px; padding: 18px 24px; overflow: auto; flex: 1 1 auto; }
+.df-status-block h3 { font-size: 12px; margin: 0 0 8px; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
+.df-status-block dl {
+  display: grid;
+  grid-template-columns: 120px auto;
+  row-gap: 4px;
+  font-size: 11px;
+  margin: 0;
+}
+.df-status-block dt { color: #444; }
+.df-status-block dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.df-status-journal { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.df-status-journal .table-wrap { flex: 1 1 auto; }
+.df-journal-time { white-space: nowrap; }
+.df-journal-code { display: inline-block; width: 14px; text-align: center; margin-right: 4px; }
+.df-journal-code-err { color: #c62828; font-weight: 700; }
+.df-journal-code-warn { color: #ef6c00; font-weight: 700; }
+.df-journal-code-info { color: #90a4ae; }
+.df-journal-bar { display: flex; gap: 6px; padding: 6px 10px; border-top: 1px solid #d7d7d7; background: #f4f4f4; }
+.df-journal-bar input[type="text"] { width: 180px; }
+.df-journal-bar button { height: 22px; padding: 0 16px; }
+
+/* the margin pair must warn before it liquidates */
+.grp-margin-warn { margin: 2px 12px; font-size: 11px; }

@@ -162,17 +162,22 @@ func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
 		VolumeStep:  model.Lots(r.VolumeStep),
 		VolumeLimit: model.Lots(r.VolumeLimit),
 
-		StopsLevel:  r.StopsLevel,
-		FreezeLevel: r.FreezeLevel,
-		SpreadDiff:  r.SpreadDiff,
+		StopsLevel:        r.StopsLevel,
+		FreezeLevel:       r.FreezeLevel,
+		SpreadDiff:        r.SpreadDiff,
+		SpreadDiffBalance: r.SpreadDiffBalance,
 
 		CurrencyBase:   r.CurrencyBase,
 		CurrencyProfit: r.CurrencyProfit,
 		CurrencyMargin: r.CurrencyMargin,
 
-		MarginInitial:     r.MarginInitial,
-		MarginMaintenance: r.MarginMaintenance,
-		MarginHedged:      r.MarginHedged,
+		MarginInitial:             r.MarginInitial,
+		MarginRateInitialBuy:      r.MarginRate.For(model.OrderType_buy),
+		MarginRateInitialSell:     r.MarginRate.For(model.OrderType_sell),
+		MarginRateMaintenanceBuy:  r.MarginRateMaintenance.For(model.OrderType_buy),
+		MarginRateMaintenanceSell: r.MarginRateMaintenance.For(model.OrderType_sell),
+		MarginMaintenance:         r.MarginMaintenance,
+		MarginHedged:              r.MarginHedged,
 
 		SwapMode:  r.SwapMode,
 		SwapLong:  r.SwapLong,

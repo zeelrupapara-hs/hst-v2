@@ -225,15 +225,17 @@ func Points(diff float64, point float64) float64 {
 // instrument trade at different prices. The engine keeps one raw book, so the markup is applied
 // here, at each price the group is about to be charged, and never written back to the book.
 func CalculateAccountSpread(r *settings.Rules, t model.Tick) model.Tick {
-	if r == nil || r.SpreadDiff == 0 || r.Point <= 0 {
+	if r == nil || r.Point <= 0 || (r.SpreadDiff == 0 && r.SpreadDiffBalance == 0) {
 		return t
 	}
 
-	// half either side, so the mid the client sees is the mid the feed sent
-	half := float64(r.SpreadDiff) * r.Point / 2
+	// the difference is split evenly and the balance shifts the split: D=4 B=0 is -2/+2,
+	// B=-1 is -3/+1, B=+1 is -1/+3, as the reference defines it
+	d := float64(r.SpreadDiff)
+	b := float64(r.SpreadDiffBalance)
 
-	t.Bid = NormalisePrice(t.Bid-half, r.Digits)
-	t.Ask = NormalisePrice(t.Ask+half, r.Digits)
+	t.Bid = NormalisePrice(t.Bid-(d/2-b)*r.Point, r.Digits)
+	t.Ask = NormalisePrice(t.Ask+(d/2+b)*r.Point, r.Digits)
 
 	return t
 }

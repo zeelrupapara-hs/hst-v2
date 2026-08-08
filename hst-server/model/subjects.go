@@ -172,8 +172,10 @@ const (
 	EventGroupCommissionDeleted = "group_commission_deleted"
 
 	EventSymbolCreated = "symbol_created"
-	EventSymbolUpdated = "symbol_updated"
-	EventSymbolDeleted = "symbol_deleted"
+	// EventSymbolLivenessUpdated carries the full symbol -> is-price-flowing map.
+	EventSymbolLivenessUpdated = "symbol_liveness_updated"
+	EventSymbolUpdated         = "symbol_updated"
+	EventSymbolDeleted         = "symbol_deleted"
 
 	EventMailServerCreated = "mail_server_created"
 	EventMailServerUpdated = "mail_server_updated"

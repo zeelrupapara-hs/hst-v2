@@ -102,9 +102,10 @@ type GroupSymbol struct {
 	FillFlags  *int32
 	ExpirFlags *int32
 
-	SpreadDiff  *int32
-	StopsLevel  *int32
-	FreezeLevel *int32
+	SpreadDiff        *int32
+	SpreadDiffBalance *int32
+	StopsLevel        *int32
+	FreezeLevel       *int32
 
 	VolumeMin   *int64
 	VolumeMax   *int64

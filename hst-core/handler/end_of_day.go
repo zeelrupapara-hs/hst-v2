@@ -254,7 +254,9 @@ func (h *Handler) CalculateSwaps(r *settings.Rules, p *model.Position, a *model.
 		swap = factor * (lots * r.ContractSize * p.PriceOpen) * (rate / 100) / float64(r.SwapYearDay)
 	}
 
-	swap = h.ConvertCurrency(swap, r.CurrencyProfit, a.Currency, p.IsBuy())
+	if rate, ok := h.crossRate(a.Group, r.CurrencyProfit, a.Currency, p.IsBuy()); ok {
+		swap *= rate
+	}
 
 	return NormalisePrice(swap, a.CurrencyDigits)
 }

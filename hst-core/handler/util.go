@@ -55,29 +55,22 @@ func (h *Handler) IsHoliday(r *settings.Rules, at time.Time) bool {
 	return h.Holidays.Covers(r.Symbol.Path, r.Symbol.Symbol, at)
 }
 
-func (h *Handler) ConvertCurrency(amount float64, from, to string, buy bool) float64 {
-	if amount == 0 || from == "" || from == to {
-		return amount
-	}
-
-	rate, ok := h.CrossRate(from, to, buy)
-	if !ok {
-		return amount
-	}
-
-	return amount * rate
+func (h *Handler) CrossRate(from, to string, buy bool) (float64, bool) {
+	return h.crossRate("", from, to, buy)
 }
 
-func (h *Handler) CrossRate(from, to string, buy bool) (float64, bool) {
+// crossRate prices the conversion leg; with a group it charges that group's own spread on the
+// conversion pair, so a marked-up instrument converts at marked-up prices too.
+func (h *Handler) crossRate(group, from, to string, buy bool) (float64, bool) {
 	if from == to {
 		return 1, true
 	}
 
-	if t, ok := h.Quotes.Get(from + to); ok && t.Ok() {
+	if t, ok := h.quoteForPair(group, from+to); ok && t.Ok() {
 		return t.OpenPrice(buy), true
 	}
 
-	if t, ok := h.Quotes.Get(to + from); ok && t.Ok() {
+	if t, ok := h.quoteForPair(group, to+from); ok && t.Ok() {
 		if p := t.OpenPrice(buy); p > 0 {
 			return 1 / p, true
 		}
@@ -86,8 +79,22 @@ func (h *Handler) CrossRate(from, to string, buy bool) (float64, bool) {
 	return 0, false
 }
 
+func (h *Handler) quoteForPair(group, pair string) (model.Tick, bool) {
+	t, ok := h.Quotes.Get(pair)
+	if !ok {
+		return t, false
+	}
+	if group == "" {
+		return t, true
+	}
+	if r, ok := h.Settings.For(group, pair); ok {
+		return CalculateAccountSpread(r, t), true
+	}
+	return t, true
+}
+
 func (h *Handler) RateProfit(r *settings.Rules, a *model.Account, buy bool) float64 {
-	rate, ok := h.CrossRate(r.CurrencyProfit, a.Currency, buy)
+	rate, ok := h.crossRate(a.Group, r.CurrencyProfit, a.Currency, buy)
 	if !ok {
 		return 1
 	}
@@ -95,7 +102,7 @@ func (h *Handler) RateProfit(r *settings.Rules, a *model.Account, buy bool) floa
 }
 
 func (h *Handler) RateMargin(r *settings.Rules, a *model.Account, buy bool) float64 {
-	rate, ok := h.CrossRate(r.CurrencyMargin, a.Currency, buy)
+	rate, ok := h.crossRate(a.Group, r.CurrencyMargin, a.Currency, buy)
 	if !ok {
 		return 1
 	}

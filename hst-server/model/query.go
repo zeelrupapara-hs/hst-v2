@@ -39,9 +39,10 @@ type SymbolInfo struct {
 	VolumeLimit float64 `json:"volume_limit"`
 
 	// how far from the market an SL, TP or pending must sit, and how close it may no longer be moved
-	StopsLevel  int32 `json:"stops_level"`
-	FreezeLevel int32 `json:"freeze_level"`
-	SpreadDiff  int32 `json:"spread_diff"`
+	StopsLevel        int32 `json:"stops_level"`
+	FreezeLevel       int32 `json:"freeze_level"`
+	SpreadDiff        int32 `json:"spread_diff"`
+	SpreadDiffBalance int32 `json:"spread_diff_balance"`
 
 	CurrencyBase   string `json:"currency_base"`
 	CurrencyProfit string `json:"currency_profit"`
@@ -50,6 +51,11 @@ type SymbolInfo struct {
 	MarginInitial     float64 `json:"margin_initial"`
 	MarginMaintenance float64 `json:"margin_maintenance"`
 	MarginHedged      float64 `json:"margin_hedged"`
+
+	MarginRateInitialBuy      float64 `json:"margin_rate_initial_buy"`
+	MarginRateInitialSell     float64 `json:"margin_rate_initial_sell"`
+	MarginRateMaintenanceBuy  float64 `json:"margin_rate_maintenance_buy"`
+	MarginRateMaintenanceSell float64 `json:"margin_rate_maintenance_sell"`
 
 	SwapMode  int32   `json:"swap_mode"`
 	SwapLong  float64 `json:"swap_long"`

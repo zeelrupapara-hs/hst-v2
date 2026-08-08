@@ -26,9 +26,10 @@ type Rules struct {
 	TickSize     float64
 	CalcMode     model.CalcMode
 
-	SpreadDiff  int32
-	StopsLevel  int32
-	FreezeLevel int32
+	SpreadDiff        int32
+	SpreadDiffBalance int32
+	StopsLevel        int32
+	FreezeLevel       int32
 
 	VolumeMin   int64
 	VolumeMax   int64
@@ -234,9 +235,10 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		FillFlags:  pick(o.FillFlags, sym.FillFlags),
 		ExpirFlags: pick(o.ExpirFlags, sym.ExpirFlags),
 
-		SpreadDiff:  pick(o.SpreadDiff, sym.SpreadDiff),
-		StopsLevel:  pick(o.StopsLevel, sym.StopsLevel),
-		FreezeLevel: pick(o.FreezeLevel, sym.FreezeLevel),
+		SpreadDiff:        pick(o.SpreadDiff, sym.SpreadDiff),
+		SpreadDiffBalance: pick(o.SpreadDiffBalance, sym.SpreadDiffBalance),
+		StopsLevel:        pick(o.StopsLevel, sym.StopsLevel),
+		FreezeLevel:       pick(o.FreezeLevel, sym.FreezeLevel),
 
 		// the extended column wins where it is set, and the coarse one is read up to the same
 		// scale where it is not, so every comparison happens in one unit

@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 	"sync"
@@ -66,6 +67,36 @@ func (s *HttpServer) StartAlerts() {
 	if _, err := s.Nats.NC.Subscribe("websocket.accounts.*.summary", s.AlertSummaryHandler); err != nil {
 		s.Log.Log(logger.TypeNet, logger.CodeErr, "could not watch account summaries for alerts",
 			"error", err.Error())
+	}
+
+	// a margin call is worth a line in the record, and the engine has no journal of its own
+	if _, err := s.Nats.NC.Subscribe("websocket.accounts.*.margin_call", s.MarginCallHandler); err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeErr, "could not watch margin calls",
+			"error", err.Error())
+	}
+}
+
+// MarginCallHandler keeps a journal line for each margin call the engine declares.
+func (s *HttpServer) MarginCallHandler(msg *natscore.Msg) {
+	var evt struct {
+		Login       int64   `json:"login"`
+		MarginLevel float64 `json:"margin_level"`
+		CallLevel   float64 `json:"call_level"`
+	}
+	if err := json.Unmarshal(msg.Data, &evt); err != nil || evt.Login == 0 {
+		return
+	}
+
+	entry := &model.Journal{
+		Type:    int32(logger.TypeTrade),
+		Code:    int32(logger.CodeWarn),
+		Login:   evt.Login,
+		Channel: "system",
+		Message: fmt.Sprintf("%d: margin call, level %.2f under %.2f", evt.Login, evt.MarginLevel, evt.CallLevel),
+	}
+	if err := s.Journal.Entry(context.Background(), entry); err != nil {
+		s.Log.Log(logger.TypeTrade, logger.CodeWarn, "could not journal a margin call",
+			"login", evt.Login, "error", err.Error())
 	}
 }
 

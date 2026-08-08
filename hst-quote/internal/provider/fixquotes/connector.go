@@ -39,6 +39,8 @@ type Connector struct {
 
 	shutdown  chan struct{}
 	logons    atomic.Uint64
+	// OnSession, when set, hears every FIX logon and logout; set before Run.
+	OnSession func(connected bool, detail string)
 	initiator *quickfix.Initiator
 	connected bool
 	mu        sync.Mutex
@@ -190,7 +192,12 @@ func (c *Connector) OnCreate(sessionID quickfix.SessionID) {}
 func (c *Connector) OnLogon(sessionID quickfix.SessionID) {
 	c.mu.Lock()
 	c.connected = true
+	onSession := c.OnSession
 	c.mu.Unlock()
+
+	if onSession != nil {
+		onSession(true, fmt.Sprintf("fix session logged on, %d symbols requested", len(c.symbols)))
+	}
 
 	// the link was down, so what follows is a break in the stream and cannot be filtered
 	c.logons.Add(1)
@@ -210,7 +217,12 @@ func (c *Connector) OnLogon(sessionID quickfix.SessionID) {
 func (c *Connector) OnLogout(sessionID quickfix.SessionID) {
 	c.mu.Lock()
 	c.connected = false
+	onSession := c.OnSession
 	c.mu.Unlock()
+
+	if onSession != nil {
+		onSession(false, "fix session logged out")
+	}
 }
 
 func (c *Connector) FromAdmin(msg *quickfix.Message, sessionID quickfix.SessionID) quickfix.MessageRejectError {

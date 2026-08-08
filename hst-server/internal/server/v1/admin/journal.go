@@ -32,6 +32,7 @@ const journalColumns = `journal_id, created_at, type, code, login,
 //	@Param		type	query		int		false	"event type, 0 for all"		Enums(0, 1, 2, 3, 4, 5, 6, 7, 8)
 //	@Param		mode	query		string	false	"which entries to return"	Enums(full, without_logins, errors_only)
 //	@Param		search	query		string	false	"matches message, case sensitive"
+//	@Param		channel	query		string	false	"a channel's own trail, e.g. datafeed:3; the login filter drops"
 //	@Param		sort_by	query		string	false	"journal_id, created_at, type, code"	Enums(journal_id, created_at, type, code)
 //	@Param		order	query		string	false	"asc or desc"							Enums(asc, desc)
 //	@Success	200		{object}	Response{data=[]model.Journal}
@@ -70,13 +71,13 @@ func (s *Server) MyJournal(c *fiber.Ctx) error {
 		  WHERE ($1 = 0 OR created_at >= $1)
 		    AND ($2 = 0 OR created_at <= $2)
 		    AND ($3 = 0 OR type = $3)
-		    AND login = $4
+		    AND (($9 = '' AND login = $4) OR ($9 <> '' AND channel = $9))
 		    AND ($5 = '' OR message LIKE '%'||$5||'%')
 		    AND ($6 = 0 OR ($6 = 1 AND code <> 4) OR ($6 = 2 AND code IN (2, 3)))
 		  ORDER BY `+q.SortBy+`
 		  LIMIT $7 OFFSET $8`,
 		c.QueryInt("from", 0), c.QueryInt("to", 0), typ, snap.Login,
-		q.Search, mode, q.Limit, q.Offset)
+		q.Search, mode, q.Limit, q.Offset, c.Query("channel"))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}

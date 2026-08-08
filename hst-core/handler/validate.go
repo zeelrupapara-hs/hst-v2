@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"hstcore/pkg/logger"
 	"math"
 	"time"
 
@@ -510,6 +511,10 @@ func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t
 
 	money := h.CalculateAccountMargins(e)
 	if money.FreeMargin < need {
+		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "money check refused",
+			"login", e.Account.Login, "need", need, "free", money.FreeMargin,
+			"balance", money.Balance, "margin", money.Margin, "leverage", e.Account.Leverage,
+			"rate", o.RateMargin)
 		return model.RetTradeNoMoney
 	}
 

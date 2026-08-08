@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -135,6 +136,7 @@ func (f *Feeds) reload(ctx context.Context) error {
 		if _, keep := want[id]; !keep {
 			f.stopRunnerLocked(id, runner)
 			f.status.Disconnected(id)
+			f.status.Journal(id, status.JournalInfo, "disconnected: feed removed or disabled")
 			delete(f.runners, id)
 			delete(f.liveFeeds, id)
 		}
@@ -167,12 +169,20 @@ func (f *Feeds) startRunnerLocked(ctx context.Context, id int64, feed model.Quot
 	}
 	done := make(chan struct{})
 	f.runners[id] = feedRunner{cancel: cancel, conn: conn, done: done}
-	f.status.Connected(feed.Datafeed.DatafeedID)
+	f.status.Journal(id, status.JournalInfo,
+		fmt.Sprintf("connecting to %s (%s)", feed.Datafeed.FeedServer, feed.Datafeed.Module))
+	// a FIX feed reports Connected on logon, not on process start
+	if conn.Type() != provider.TypeFIX {
+		f.status.Connected(feed.Datafeed.DatafeedID)
+		f.status.Journal(id, status.JournalInfo, "connected")
+	}
 	f.h.Go(func() {
 		defer close(done)
 		if err := conn.Run(runCtx); err != nil && runCtx.Err() == nil {
 			f.h.Log.Log(logger.TypeNet, logger.CodeErr, "quote feed stopped",
 				"datafeed_id", feed.Datafeed.DatafeedID, "error", err.Error())
+			f.status.Disconnected(feed.Datafeed.DatafeedID)
+			f.status.Journal(id, status.JournalErr, "feed stopped: "+err.Error())
 		}
 	})
 }
@@ -273,8 +283,19 @@ func (f *Feeds) newConnector(feedPtr *atomic.Pointer[model.QuoteFeed]) streamCon
 				"datafeed_id", feed.Datafeed.DatafeedID, "error", err.Error())
 			return nil
 		}
+		inner := fixquotes.NewConnector(settings, cfgPath, fixconfig.ExternalSymbols(*feed), f.h.Log, tickCh)
+		id := feed.Datafeed.DatafeedID
+		inner.OnSession = func(connected bool, detail string) {
+			if connected {
+				f.status.Connected(id)
+				f.status.Journal(id, status.JournalInfo, detail)
+				return
+			}
+			f.status.Disconnected(id)
+			f.status.Journal(id, status.JournalWarn, detail)
+		}
 		return &fixConnector{
-			inner: fixquotes.NewConnector(settings, cfgPath, fixconfig.ExternalSymbols(*feed), f.h.Log, tickCh),
+			inner: inner,
 			feed:  feedPtr,
 			ticks: tickCh,
 			state: filter.New(),
