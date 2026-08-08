@@ -91,6 +91,17 @@ const (
 	DatafeedSysConnection_connected DatafeedSysConnection = 1
 )
 
+// DatafeedRuntime is live session telemetry pushed to admin websockets.
+type DatafeedRuntime struct {
+	DatafeedID    int64                  `json:"datafeed_id"`
+	SysConnection *DatafeedSysConnection `json:"sys_connection,omitempty"`
+	SysLastTime   int64                  `json:"sys_last_time,omitempty"`
+	TicksCount    int64                  `json:"ticks_count,omitempty"`
+	BooksCount    int64                  `json:"books_count,omitempty"`
+	NewsCount     int64                  `json:"news_count,omitempty"`
+	BytesReceived int64                  `json:"bytes_received,omitempty"`
+}
+
 // Datafeed is MT5 data feed configuration plus runtime session counters.
 type Datafeed struct {
 	DatafeedID         int64                 `db:"datafeed_id" json:"datafeed_id"`

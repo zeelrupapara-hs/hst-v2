@@ -9,6 +9,7 @@ import {
   deleteDatafeed,
   fetchDatafeedModules,
   reorderDatafeeds,
+  resolveDatafeedSymbols,
   updateDatafeed,
 } from "@/api/endpoints/datafeeds.js";
 import { formatNs } from "@/lib/time.js";
@@ -29,6 +30,12 @@ const statusLabel = (row) =>
 // the reference writes dates with dot separators
 const lastActive = (ns) => (ns ? formatNs(ns).replace(/-/g, ".") : "");
 
+const symbolCountLabel = (counts, feed) => {
+  const id = feed.datafeed_id;
+  if (counts[id] === undefined) return "…";
+  return String(counts[id]);
+};
+
 /** Data feeds list: priority order, live state, dialog on double-click. */
 export function DatafeedsModule() {
   const { datafeeds, loading, reload } = useDatafeeds();
@@ -40,6 +47,7 @@ export function DatafeedsModule() {
   const [menu, setMenu] = useState(null);
   const [pane, setPane] = useState("selected");
   const [modules, setModules] = useState([]);
+  const [symbolCounts, setSymbolCounts] = useState({});
   const canEdit = session.can?.right_cfg_datafeeds !== false;
   // feed_index is the priority order the server restarts feeds in
   const feeds = [...datafeeds].sort((a, b) => (a.feed_index ?? 0) - (b.feed_index ?? 0));
@@ -53,6 +61,24 @@ export function DatafeedsModule() {
       setModules([...merged.values()]);
     });
   }, [pane, modules.length]);
+
+  useEffect(() => {
+    if (!datafeeds.length) return;
+    let cancelled = false;
+    Promise.all(
+      datafeeds.map(async (feed) => {
+        const res = await resolveDatafeedSymbols(feed.datafeed_id);
+        if (!res.ok) return [feed.datafeed_id, 0];
+        return [feed.datafeed_id, res.data?.count ?? 0];
+      })
+    ).then((rows) => {
+      if (cancelled) return;
+      setSymbolCounts(Object.fromEntries(rows));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [datafeeds]);
 
   async function onDelete(target) {
     if (!window.confirm(`Delete data feed '${target.name}'?`)) return;
@@ -155,7 +181,7 @@ export function DatafeedsModule() {
                   </td>
                   <td>{sourceLabel(feed)}</td>
                   <td>{feed.feed_server}</td>
-                  <td className="num">*</td>
+                  <td className="num">{symbolCountLabel(symbolCounts, feed)}</td>
                   <td className="num">{lastActive(feed.sys_last_time)}</td>
                   <td
                     className={

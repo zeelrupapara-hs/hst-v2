@@ -7,7 +7,7 @@ import { onEvent, startSocket, stopSocket } from "@/api/socket.js";
 import { reloadSymbols } from "@/hooks/useSymbols.js";
 import { reloadSymbolFolders } from "@/hooks/useSymbolFolders.js";
 import { reloadGroups } from "@/hooks/useGroups.js";
-import { reloadDatafeeds } from "@/hooks/useDatafeeds.js";
+import { reloadDatafeeds, applyDatafeedRuntime } from "@/hooks/useDatafeeds.js";
 
 /**
  * Session = the token plus what the navigator answered: who this is, which panel,
@@ -56,6 +56,7 @@ export function SessionProvider({ children }) {
     }
     startSocket();
     const offConfig = onEvent("*", (event) => {
+      if (event.type === "datafeed_status_updated" || event.type === "datafeed_stats_updated") return;
       if (!/_created$|_updated$|_deleted$/.test(event.type)) return;
       if (event.type.startsWith("symbol")) {
         reloadSymbols();
@@ -64,10 +65,18 @@ export function SessionProvider({ children }) {
       else if (event.type.startsWith("datafeed")) reloadDatafeeds();
       refreshNav();
     });
+    const offStatus = onEvent("datafeed_status_updated", (event) => {
+      applyDatafeedRuntime(event.payload);
+    });
+    const offStats = onEvent("datafeed_stats_updated", (event) => {
+      applyDatafeedRuntime(event.payload);
+    });
     const offBalance = onEvent("balance_create", refreshNav);
     const offRevoked = onEvent("session.revoked", logout);
     return () => {
       offConfig();
+      offStatus();
+      offStats();
       offBalance();
       offRevoked();
     };

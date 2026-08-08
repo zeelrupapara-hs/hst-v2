@@ -116,6 +116,12 @@ type ViewDatafeedDetail struct {
 	Translates  []ViewDatafeedTranslate `json:"translates"`
 }
 
+// ViewDatafeedRef identifies a data feed that no longer exists.
+type ViewDatafeedRef struct {
+	DatafeedID int64  `json:"datafeed_id"`
+	Name       string `json:"name"`
+}
+
 // ViewDatafeedScopeResolve is the expanded effective symbol scope (debug/preview).
 type ViewDatafeedScopeResolve struct {
 	Count   int                          `json:"count"`
@@ -616,6 +622,7 @@ func (s *HttpServer) CreateDatafeed(c *fiber.Ctx) error {
 
 	s.publishDatafeedEvent(events.SubjectDatafeedCreated, int64(id), detail.Enable, detail.Mode)
 	s.publishWorkerConfigSnapshot(ctx, int64(id))
+	s.notifyDatafeedWS(model.EventDatafeedCreated, detail.ViewDatafeed)
 
 	return s.App.HttpResponseCreated(c, detail)
 }
@@ -788,6 +795,7 @@ func (s *HttpServer) UpdateDatafeed(c *fiber.Ctx) error {
 
 	s.publishDatafeedEvent(events.SubjectDatafeedUpdated, int64(id), detail.Enable, detail.Mode)
 	s.publishWorkerConfigSnapshot(ctx, int64(id))
+	s.notifyDatafeedWS(model.EventDatafeedUpdated, detail.ViewDatafeed)
 
 	return s.App.HttpResponseOK(c, detail)
 }
@@ -827,6 +835,7 @@ func (s *HttpServer) DeleteDatafeed(c *fiber.Ctx) error {
 		"actor", snap.Login, "target", name, "datafeed_id", id)
 
 	s.publishDatafeedEvent(events.SubjectDatafeedDeleted, int64(id), model.DatafeedEnable_disabled, mode)
+	s.notifyDatafeedWS(model.EventDatafeedDeleted, ViewDatafeedRef{DatafeedID: int64(id), Name: name})
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -873,6 +882,7 @@ func (s *HttpServer) ActivateDatafeed(c *fiber.Ctx) error {
 
 	s.publishDatafeedEvent(events.SubjectDatafeedUpdated, int64(id), detail.Enable, detail.Mode)
 	s.publishWorkerConfigSnapshot(ctx, int64(id))
+	s.notifyDatafeedWS(model.EventDatafeedUpdated, detail.ViewDatafeed)
 
 	return s.App.HttpResponseOK(c, detail)
 }
@@ -884,6 +894,10 @@ func (s *HttpServer) publishDatafeedEvent(subject string, datafeedID int64, enab
 	}
 }
 
+func (s *HttpServer) notifyDatafeedWS(event string, payload any) {
+	s.NotifyWS(model.SubjectDatafeed, event, payload)
+}
+
 func (s *HttpServer) notifyDatafeedConfigChanged(datafeedID int64) {
 	ctx := context.Background()
 	v, err := scanViewDatafeed(s.DB.DB.QueryRow(ctx,
@@ -893,6 +907,7 @@ func (s *HttpServer) notifyDatafeedConfigChanged(datafeedID int64) {
 	}
 	s.publishDatafeedEvent(events.SubjectDatafeedUpdated, datafeedID, v.Enable, v.Mode)
 	s.publishWorkerConfigSnapshot(ctx, datafeedID)
+	s.notifyDatafeedWS(model.EventDatafeedUpdated, *v)
 }
 
 // ListDatafeedParams lists parameters for one data feed.

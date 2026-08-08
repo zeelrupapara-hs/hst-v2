@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"hstserver/model"
 	errs "hstserver/pkg/errors"
 	"hstserver/pkg/events"
 	"hstserver/pkg/logger"
@@ -184,6 +185,7 @@ func (s *Server) ReorderDatafeed(c *fiber.Ctx) error {
 		"actor", snap.Login, "count", len(body.DatafeedIds))
 
 	s.NotifySystem(events.SubjectDatafeedUpdated, body)
+	s.NotifyWS(model.SubjectDatafeed, model.EventDatafeedUpdated, body)
 
 	return s.App.HttpResponseNoContent(c)
 }

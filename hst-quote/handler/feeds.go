@@ -415,7 +415,10 @@ func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *fil
 		f.influx.WriteTick(*tick)
 	}
 
-	f.publishTick(*tick)
+	payload := f.publishTick(*tick)
+	if f.status != nil && len(payload) > 0 {
+		f.status.Tick(tick.DatafeedID, int64(len(payload)))
+	}
 }
 
 func (f *Feeds) isQuoteSessionOpen(feed model.QuoteFeed, symbolID int64) bool {
@@ -435,16 +438,17 @@ func (f *Feeds) isQuoteSessionOpen(feed model.QuoteFeed, symbolID int64) bool {
 	return session.IsQuoteOpen(symbolID, windows, time.Now().UTC())
 }
 
-func (f *Feeds) publishTick(tick model.Tick) {
+func (f *Feeds) publishTick(tick model.Tick) []byte {
 	payload, err := json.Marshal(tick)
 	if err != nil {
-		return
+		return nil
 	}
 	subject := model.SubjectTick(tick.Symbol)
 	if err := f.h.Nats.NC.Publish(subject, payload); err != nil {
 		f.h.Log.Log(logger.TypeNet, logger.CodeErr, "tick publish failed",
 			"subject", subject, "error", err.Error())
 	}
+	return payload
 }
 
 func (f *Feeds) onDatafeedEvent(msg *natscore.Msg) {

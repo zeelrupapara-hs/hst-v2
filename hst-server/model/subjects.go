@@ -98,6 +98,7 @@ const (
 	SubjectLeverage   = "websocket.broker.leverages_update"
 	SubjectManager    = "websocket.broker.managers_update"
 	SubjectMailServer = "websocket.broker.mail_servers_update"
+	SubjectDatafeed   = "websocket.broker.datafeeds_update"
 )
 
 // From the api to the other services.
@@ -194,6 +195,12 @@ const (
 	EventManagerCreated = "manager_created"
 	EventManagerUpdated = "manager_updated"
 	EventManagerDeleted = "manager_deleted"
+
+	EventDatafeedCreated       = "datafeed_created"
+	EventDatafeedUpdated       = "datafeed_updated"
+	EventDatafeedDeleted       = "datafeed_deleted"
+	EventDatafeedStatusUpdated = "datafeed_status_updated"
+	EventDatafeedStatsUpdated  = "datafeed_stats_updated"
 
 	EventJournal = "journal"
 )

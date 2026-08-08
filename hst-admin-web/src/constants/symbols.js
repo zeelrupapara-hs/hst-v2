@@ -157,10 +157,11 @@ export const colorToCss = (v) => {
   return `#${(n & 0xff).toString(16).padStart(2, "0")}${((n >> 8) & 0xff).toString(16).padStart(2, "0")}${((n >> 16) & 0xff).toString(16).padStart(2, "0")}`;
 };
 
-/** Row/cell background from symbol settings; null when unset ("None"). */
+/** Row/cell background from symbol settings; null when unset ("None" or schema default 0). */
 export const symbolBackgroundCss = (colorBackground) => {
   const n = Number(colorBackground);
-  if (colorBackground == null || Number.isNaN(n) || (n >>> 0) === COLOR_NONE) return null;
+  const u = n >>> 0;
+  if (colorBackground == null || Number.isNaN(n) || u === COLOR_NONE || u === 0) return null;
   return colorToCss(colorBackground);
 };
 

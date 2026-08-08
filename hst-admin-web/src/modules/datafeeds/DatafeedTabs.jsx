@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { loginField } from "./datafeedPayload.js";
+import { resolveDatafeedSymbols } from "@/api/endpoints/datafeeds.js";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { DatafeedTabIntro, DfListPanel, DfRowIcon, ParamTypeIcon } from "./DfListPanel.jsx";
 
@@ -93,12 +94,36 @@ export function DatafeedCommonTab({ d, set, modules }) {
             />
           </>
         )}
+        <Field label="Company" value={d.company} onChange={(v) => set("company", v)} width="wide" />
+        <Field label="Issuer" value={d.issuer} onChange={(v) => set("issuer", v)} width="wide" />
+        <Field
+          label="Timeout"
+          value={d.timeout ?? 0}
+          onChange={(v) => set("timeout", Number(v) || 0)}
+          suffix="seconds"
+        />
       </div>
     </>
   );
 }
 
-export function DatafeedSymbolsTab({ d, set }) {
+export function DatafeedSymbolsTab({ d, set, feedId, isNew }) {
+  const [resolveMsg, setResolveMsg] = useState("");
+
+  async function onResolve() {
+    if (isNew || !feedId) {
+      setResolveMsg("Save the feed first to resolve scope.");
+      return;
+    }
+    setResolveMsg("Resolving…");
+    const res = await resolveDatafeedSymbols(feedId);
+    if (!res.ok) {
+      setResolveMsg(res.message || "resolve failed");
+      return;
+    }
+    setResolveMsg(`${res.data?.count ?? 0} symbols in scope`);
+  }
+
   return (
     <DfListPanel
       intro="Please specify the symbols for which the data feed will translate quotes."
@@ -110,15 +135,25 @@ export function DatafeedSymbolsTab({ d, set }) {
       headless
       showAddRow
       beforeTable={
-        <label className="no-colon df-check-cell df-symbols-import">
-          <input
-            type="checkbox"
-            className="df-checkbox"
-            checked={d.allow_import_symbols === 1}
-            onChange={(e) => set("allow_import_symbols", e.target.checked ? 1 : 0)}
-          />
-          Allow importing symbol settings
-        </label>
+        <>
+          <label className="no-colon df-check-cell df-symbols-import">
+            <input
+              type="checkbox"
+              className="df-checkbox"
+              checked={d.allow_import_symbols === 1}
+              onChange={(e) => set("allow_import_symbols", e.target.checked ? 1 : 0)}
+            />
+            Allow importing symbol settings
+          </label>
+          {!isNew && (
+            <div className="df-symbols-resolve">
+              <button type="button" className="df-link" onClick={onResolve}>
+                Resolve symbol scope
+              </button>
+              {resolveMsg && <span className="df-symbols-resolve-msg">{resolveMsg}</span>}
+            </div>
+          )}
+        </>
       }
       onChangeRows={(next) => set("feed_symbols", next)}
       emptyLabel=""

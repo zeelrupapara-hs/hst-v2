@@ -26,6 +26,7 @@ var rightSubjects = []struct {
 	{model.MgrRightCfgHolidays, model.SubjectHoliday},
 	{model.MgrRightCfgGroups, model.SubjectLeverage},
 	{model.MgrRightCfgManagers, model.SubjectManager},
+	{model.MgrRightCfgDatafeeds, model.SubjectDatafeed},
 }
 
 // ServeWS upgrades an authenticated request and attaches it to the hub.

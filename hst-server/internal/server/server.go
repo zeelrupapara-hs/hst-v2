@@ -62,6 +62,9 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 		}
 	}
 
+	workerStatus := workerstatus.New(database, log)
+	workerStatus.SetNotifier(web.NotifyWS)
+
 	return &Server{
 		App:          app,
 		Middleware:   newMiddleware,
@@ -72,7 +75,7 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 		Redis:        rds,
 		OAuth2:       oauth,
 		Cfg:          cfg,
-		WorkerStatus: workerstatus.New(database, log),
+		WorkerStatus: workerStatus,
 	}
 }
 
