@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSession } from "@/hooks/useSession.js";
+import { useRegisterToolbarActions } from "@/hooks/useToolbarActions.jsx";
 import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { deleteUser, fetchUsers } from "@/api/endpoints/users.js";
 import { formatNs } from "@/lib/time.js";
@@ -25,6 +26,15 @@ export function AccountsModule() {
   useEffect(() => {
     load();
   }, []);
+
+  useRegisterToolbarActions({
+    onAdd: canEdit ? () => setDialog({ login: "new" }) : undefined,
+    onEdit: canEdit && selected != null ? () => setDialog({ login: rows[selected]?.login }) : undefined,
+    onDelete: canEdit && selected != null ? () => onDelete(rows[selected]) : undefined,
+    canAdd: canEdit,
+    canEdit: canEdit && selected != null,
+    canDelete: canEdit && selected != null,
+  });
 
   async function onDelete(row) {
     if (!window.confirm(`Delete account ${row.login} '${row.name}'?`)) return;

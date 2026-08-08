@@ -430,7 +430,6 @@ func validateSOLevels(call, stop float64) error {
 	return nil
 }
 
-
 // CreateGroup inserts a group template.
 //
 //	@Id			CreateGroup

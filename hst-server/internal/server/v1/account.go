@@ -3,6 +3,7 @@ package v1
 import (
 	"context"
 	"errors"
+	"hstserver/utils"
 	"strings"
 	"sync"
 	"time"
@@ -17,19 +18,26 @@ import (
 // NewLogin is a login to open, from a manager creating one or from a public signup.
 type NewLogin struct {
 	ClientId         *int64
+	Login            *int64
 	Group            string
 	Rights           int64
 	Name             string
 	FirstName        string
 	LastName         string
+	MiddleName       string
+	Company          string
 	Email            string
 	Phone            string
 	Country          string
+	State            string
+	ZipCode          string
 	City             string
+	Address          string
 	Comment          string
 	PasswordMain     string
 	PasswordInvestor string
 	PasswordApi      string
+	PasswordPhone    string
 }
 
 // OpenLogin creates a login and the account row that holds its money, in one transaction.
@@ -41,7 +49,7 @@ func (s *HttpServer) OpenLogin(ctx context.Context, n NewLogin) (int64, int, err
 	}
 
 	// hash before opening the transaction.
-	hashes, err := s.hashPasswords(n.PasswordMain, n.PasswordInvestor, n.PasswordApi)
+	hashes, err := s.hashPasswords(n.PasswordMain, n.PasswordInvestor, n.PasswordApi, n.PasswordPhone)
 	if err != nil {
 		return 0, nethttp.StatusInternalServerError, err
 	}
@@ -54,18 +62,30 @@ func (s *HttpServer) OpenLogin(ctx context.Context, n NewLogin) (int64, int, err
 
 	now := time.Now().UnixNano()
 
+	// a preferred number is honoured when it is free; otherwise the sequence assigns one
+	var preferred any
+	if n.Login != nil && *n.Login > 0 {
+		preferred = *n.Login
+	}
+
 	var login int64
 	if err := tx.QueryRow(ctx,
 		`INSERT INTO hst.users
-		   (client_id, "group", rights, name, first_name, last_name, email, phone,
-		    country, city, comment, leverage,
-		    password_main, password_investor, password_api,
+		   (login, client_id, "group", rights, name, first_name, last_name, middle_name,
+		    company, email, phone, country, state, zip_code, city, address, comment, leverage,
+		    password_main, password_investor, password_api, password_phone,
 		    registration, last_pass_change, updated_at, balance)
-		 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$16,$16,$17)
+		 VALUES (COALESCE($1::bigint, nextval('hst.users_login_seq')),
+		         $2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
+		         $19,$20,$21,$22,$23,$23,$23,$24)
 		 RETURNING login`,
-		n.ClientId, n.Group, n.Rights, n.Name, n.FirstName, n.LastName,
-		n.Email, n.Phone, n.Country, n.City, n.Comment, leverage,
-		hashes[0], hashes[1], hashes[2], now, deposit).Scan(&login); err != nil {
+		preferred, n.ClientId, n.Group, n.Rights, n.Name, n.FirstName, n.LastName,
+		n.MiddleName, n.Company, n.Email, n.Phone, n.Country, n.State, n.ZipCode,
+		n.City, n.Address, n.Comment, leverage,
+		hashes[0], hashes[1], hashes[2], hashes[3], now, deposit).Scan(&login); err != nil {
+		if utils.IsUniqueViolation(err) {
+			return 0, nethttp.StatusConflict, errors.New("login is already taken")
+		}
 		return 0, nethttp.StatusInternalServerError, err
 	}
 

@@ -9,6 +9,7 @@ import { useGroups } from "@/hooks/useGroups.js";
 import { createUser, fetchUser, resetUserPassword, updateUser } from "@/api/endpoints/users.js";
 import { AccountRight_checks, LimitRight_checks } from "@/constants/users.js";
 import { AccountOverviewTab } from "./AccountOverviewTab.jsx";
+import { generatePassword } from "@/lib/passwords.js";
 
 const EDIT_TABS = ["Overview", "Personal", "Account", "Limits", "Security"];
 const NEW_TABS = ["Personal", "Account", "Limits", "Security"];
@@ -59,21 +60,6 @@ const PASSWORD_KINDS = [
   { kind: "api", label: "API password", note: "used for access to the server through the web API" },
 ];
 
-const CLASSES = ["abcdefghijkmnopqrstuvwxyz", "ABCDEFGHJKLMNPQRSTUVWXYZ", "23456789", "!@#$%^&*-_=+"];
-
-/** One character from each class, then filler, then shuffled — 4 classes guaranteed. */
-function generatePassword() {
-  const rand = (s) => s[Math.floor(Math.random() * s.length)];
-  const all = CLASSES.join("");
-  const chars = CLASSES.map(rand);
-  while (chars.length < 12) chars.push(rand(all));
-  for (let i = chars.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [chars[i], chars[j]] = [chars[j], chars[i]];
-  }
-  return chars.join("");
-}
-
 function PasswordRow({ login, kind }) {
   const [value, setValue] = useState("");
   const [status, setStatus] = useState("");
@@ -104,19 +90,39 @@ function PasswordRow({ login, kind }) {
   );
 }
 
+// the reference opens the dialog with the two passwords already generated
+function NewPassword({ label, value, onChange }) {
+  return (
+    <>
+      <label>{label}</label>
+      <span className="acc-new-pass">
+        <input value={value} onChange={(e) => onChange(e.target.value)} />
+        <button type="button" title="Generate" onClick={() => onChange(generatePassword())}>
+          ↻
+        </button>
+      </span>
+    </>
+  );
+}
+
 const newDraft = (group) => ({
-  login: null,
+  login: "next",
   group: group || "",
   name: "",
+  last_name: "",
+  middle_name: "",
+  company: "",
   email: "",
   phone: "",
   country: "",
+  zip_code: "",
+  state: "",
   city: "",
-  comment: "",
-  leverage: 100,
+  address: "",
   rights: 0x0001 | 0x0002 | 0x0020 | 0x0040 | 0x0100,
-  password_main: "",
-  password_investor: "",
+  password_main: generatePassword(),
+  password_investor: generatePassword(),
+  password_phone: "",
 });
 
 /** The trading account dialog; "new" creates via CrtUser, edits diff through UptUser. */
@@ -148,26 +154,36 @@ export function AccountDialog({ login, onClose, onSaved }) {
   async function handleOk() {
     if (!draft) return;
     if (isNew) {
-      if (!draft.name.trim() || !draft.email.trim() || !draft.group) {
-        setError("Name, email and group are required");
+      if (!draft.group || !draft.name.trim()) {
+        setError("Group and first name are required");
         return;
       }
       if (draft.password_main.length < 8 || draft.password_investor.length < 8) {
         setError("Passwords need at least 8 characters");
         return;
       }
-      const res = await createUser({
+      const body = {
         group: draft.group,
         name: draft.name.trim(),
+        last_name: draft.last_name,
+        middle_name: draft.middle_name,
+        company: draft.company,
         email: draft.email.trim(),
         phone: draft.phone,
         country: draft.country,
+        state: draft.state,
+        zip_code: draft.zip_code,
         city: draft.city,
-        comment: draft.comment,
+        address: draft.address,
         rights: draft.rights,
         password_main: draft.password_main,
         password_investor: draft.password_investor,
-      });
+      };
+      // the literal next means the closest free number
+      const preferred = Number(draft.login);
+      if (Number.isInteger(preferred) && preferred > 0) body.login = preferred;
+      if (draft.password_phone) body.password_phone = draft.password_phone;
+      const res = await createUser(body);
       if (!res.ok) {
         setError(res.message || "create failed");
         return;
@@ -189,7 +205,72 @@ export function AccountDialog({ login, onClose, onSaved }) {
     close();
   }
 
-  const groupOptions = groups.map((g) => ({ value: g.group, label: g.group }));
+  // sorted so a folder's groups sit together, labelled with the full path as the reference shows
+  const groupOptions = [...groups]
+    .sort((a, b) => a.group.localeCompare(b.group))
+    .map((g) => ({ value: g.group, label: g.group }));
+
+  // the reference's New Account window: one page, the password block beside the name rows
+  function newAccountPage() {
+    return (
+      <div className="config-panel active">
+        <div className="form-grid acc-new-grid">
+          <label>Preferred login</label>
+          <span className="acc-new-cell">
+            <input value={draft.login ?? ""} onChange={(e) => set("login", e.target.value)} />
+          </span>
+          <span className="acc-new-gap" />
+          <span className="acc-new-gap" />
+
+          <label>Group</label>
+          <PropSelect fill value={draft.group} options={groupOptions} onChange={(v) => set("group", v)} />
+          <span className="acc-new-gap" />
+          <span className="acc-new-gap" />
+
+          <Field label="First name" value={draft.name} onChange={(v) => set("name", v)} />
+          <span className="acc-new-pass-head no-colon">Passwords</span>
+
+          <Field label="Last name" value={draft.last_name} onChange={(v) => set("last_name", v)} />
+          <NewPassword label="Master" value={draft.password_main} onChange={(v) => set("password_main", v)} />
+
+          <Field label="Middle name" value={draft.middle_name} onChange={(v) => set("middle_name", v)} />
+          <NewPassword label="Investor" value={draft.password_investor} onChange={(v) => set("password_investor", v)} />
+
+          <Field label="Company" value={draft.company} onChange={(v) => set("company", v)} />
+          <NewPassword label="Phone" value={draft.password_phone} onChange={(v) => set("password_phone", v)} />
+
+          <Field label="Email" value={draft.email} onChange={(v) => set("email", v)} />
+          <span className="acc-new-gap" />
+          <span className="acc-new-gap" />
+
+          <Field label="Phone" value={draft.phone} onChange={(v) => set("phone", v)} />
+          <span className="acc-new-gap" />
+          <span className="acc-new-gap" />
+
+          <Field label="Country" value={draft.country} onChange={(v) => set("country", v)} />
+          <span className="acc-new-gap" />
+          <span className="acc-new-gap" />
+
+          <Field label="Zip code" value={draft.zip_code} onChange={(v) => set("zip_code", v)} />
+          <span className="acc-new-gap" />
+          <span className="acc-new-gap" />
+
+          <Field label="State" value={draft.state} onChange={(v) => set("state", v)} />
+          <span className="acc-new-gap" />
+          <span className="acc-new-gap" />
+
+          <Field label="City" value={draft.city} onChange={(v) => set("city", v)} />
+          <span className="acc-new-gap" />
+          <span className="acc-new-gap" />
+
+          <label>Address</label>
+          <span className="acc-new-address">
+            <input value={draft.address ?? ""} onChange={(e) => set("address", e.target.value)} />
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   function panel(tab) {
     if (!draft) return null;
@@ -277,23 +358,26 @@ export function AccountDialog({ login, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          height={560}
+          width={isNew ? 700 : 613}
+          height={isNew ? 560 : 560}
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
-          title={isNew ? "Account: New" : `Account: ${login} — ${draft?.name ?? "…"}`}
+          title={isNew ? "New Account" : `Account: ${login} — ${draft?.name ?? "…"}`}
           tabs={
-            <div className="config-tabs">
-              {TABS.map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  className={activeTab === tab ? "active" : ""}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  {tab}
-                </button>
-              ))}
-            </div>
+            isNew ? null : (
+              <div className="config-tabs">
+                {TABS.map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className={activeTab === tab ? "active" : ""}
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </div>
+            )
           }
           footer={
             <div className="config-actions">
@@ -304,11 +388,13 @@ export function AccountDialog({ login, onClose, onSaved }) {
             </div>
           }
         >
-          {TABS.map((tab) => (
-            <div key={tab} className={`config-panel${activeTab === tab ? " active" : ""}`}>
-              {activeTab === tab && panel(tab)}
-            </div>
-          ))}
+          {isNew
+            ? draft && newAccountPage()
+            : TABS.map((tab) => (
+                <div key={tab} className={`config-panel${activeTab === tab ? " active" : ""}`}>
+                  {activeTab === tab && panel(tab)}
+                </div>
+              ))}
         </SettingsDialog>
       </div>
     </DialogOverlay>

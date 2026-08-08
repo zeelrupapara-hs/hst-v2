@@ -4841,3 +4841,15 @@ label.sym-check::after { content: none; }
 
 /* the margin pair must warn before it liquidates */
 .grp-margin-warn { margin: 2px 12px; font-size: 11px; }
+
+/* ── the New Account window: one grid, the password block beside the name rows ── */
+.settings-dialog .acc-new-grid { grid-template-columns: 100px minmax(0, 1fr) 70px 170px; }
+.acc-new-grid input { width: 100%; max-width: none; }
+.acc-new-cell input { max-width: 150px; }
+.acc-new-gap { min-height: 1px; }
+.acc-new-pass-head { text-align: center; font-weight: 600; grid-column: 3 / -1; align-self: end; }
+.acc-new-pass { display: flex; gap: 3px; }
+.acc-new-pass input { flex: 1 1 auto; }
+.acc-new-pass button { width: 22px; padding: 0; flex: 0 0 auto; }
+.acc-new-address { grid-column: 2 / -1; }
+.acc-new-address input { width: 100%; max-width: none; }
