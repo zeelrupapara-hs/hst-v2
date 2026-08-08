@@ -45,6 +45,9 @@ func (s *HttpServer) RegisterWSV1() {
 	s.Log.Log(logger.TypeNet, logger.CodeOK, "watching the price stream",
 		"subject", model.SubjectTickAll)
 
+	// the panel greys symbols whose price stops flowing
+	s.StartSymbolLiveness()
+
 	s.Log.Log(logger.TypeNet, logger.CodeOK, "websocket routes registered",
 		"routes", len(s.Hub.RouterMap))
 }

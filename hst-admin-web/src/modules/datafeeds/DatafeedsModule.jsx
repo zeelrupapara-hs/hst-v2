@@ -14,6 +14,7 @@ import {
 } from "@/api/endpoints/datafeeds.js";
 import { formatNs } from "@/lib/time.js";
 import { DatafeedDialog } from "./DatafeedDialog.jsx";
+import { DatafeedStatusPage } from "./DatafeedStatusPage.jsx";
 
 const sourceLabel = (row) => {
   const mode = row.mode ?? 1;
@@ -116,6 +117,16 @@ export function DatafeedsModule() {
   function saved() {
     reload();
     session.refreshNav?.();
+  }
+
+  const statusFeed = highlight == null ? null : feeds.find((f) => f.datafeed_id === highlight);
+  // picking the feed in the navigator opens its status page, as the reference does
+  if (statusFeed) {
+    return (
+      <div className="module-root">
+        <DatafeedStatusPage feed={statusFeed} canEdit={canEdit} onSaved={saved} />
+      </div>
+    );
   }
 
   return (

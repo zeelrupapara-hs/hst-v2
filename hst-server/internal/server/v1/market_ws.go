@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"hstserver/model"
 	"hstserver/pkg/logger"
@@ -30,6 +31,122 @@ type marketWatcher struct {
 }
 
 var feed = &marketFeed{clients: make(map[string]*marketWatcher, 128)}
+
+// symLiveness knows when each symbol last ticked; the panel greys the ones that fell silent.
+type symLiveness struct {
+	mu   sync.Mutex
+	last map[string]int64
+	live map[string]bool
+}
+
+var symLive = &symLiveness{last: make(map[string]int64, 128), live: make(map[string]bool, 128)}
+
+// symbolStaleFloor guards against a feed whose timeout is unset: 0 would grey everything.
+const symbolStaleFloor = 30 * time.Second
+
+const symbolLivenessSweep = 10 * time.Second
+
+// Touch records that a symbol just ticked.
+func (l *symLiveness) Touch(symbol string, timeNs int64) {
+	l.mu.Lock()
+	if timeNs > l.last[symbol] {
+		l.last[symbol] = timeNs
+	}
+	l.mu.Unlock()
+}
+
+// StartSymbolLiveness seeds last-tick times from the quote cache and keeps the panel told.
+func (s *HttpServer) StartSymbolLiveness() {
+	s.seedSymbolLiveness()
+	go s.sweepSymbolLiveness()
+}
+
+// the quote service keeps every symbol's last tick in redis; a restart must not grey the world
+func (s *HttpServer) seedSymbolLiveness() {
+	ctx := context.Background()
+	iter := s.Redis.Client.Scan(ctx, 0, "hstquote:last:*", 500).Iterator()
+
+	seeded := 0
+	for iter.Next(ctx) {
+		raw, err := s.Redis.Client.Get(ctx, iter.Val()).Result()
+		if err != nil {
+			continue
+		}
+		var t model.Tick
+		if json.Unmarshal([]byte(raw), &t) != nil || t.Symbol == "" {
+			continue
+		}
+		symLive.Touch(t.Symbol, t.Time)
+		seeded++
+	}
+
+	s.Log.Log(logger.TypeNet, logger.CodeOK, "symbol liveness seeded", "symbols", seeded)
+}
+
+// symbolStaleBounds is each symbol with how long its serving feed waits for a quote.
+func (s *HttpServer) symbolStaleBounds(ctx context.Context) (map[string]time.Duration, error) {
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT s.symbol,
+		        COALESCE((SELECT MAX(d.timeout)
+		                    FROM hst.datafeeds d
+		                   WHERE d.enable = 1
+		                     AND EXISTS (SELECT 1
+		                                   FROM hst.datafeed_symbols ds
+		                                  WHERE ds.datafeed_id = d.datafeed_id
+		                                    AND ds.exclude = 0
+		                                    AND (ds.path = '*'
+		                                         OR ds.symbol = s.symbol
+		                                         OR s.path = ds.path
+		                                         OR starts_with(s.path, rtrim(ds.path, '*'))))), 0)
+		   FROM hst.symbols s`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := make(map[string]time.Duration, 128)
+	for rows.Next() {
+		var symbol string
+		var timeout int32
+		if err := rows.Scan(&symbol, &timeout); err != nil {
+			return nil, err
+		}
+		bound := time.Duration(timeout) * time.Second
+		if bound < symbolStaleFloor {
+			bound = symbolStaleFloor
+		}
+		out[symbol] = bound
+	}
+
+	return out, rows.Err()
+}
+
+// sweepSymbolLiveness recomputes who is live and pushes the whole map; a fresh terminal has the
+// full picture within one sweep, so there is no snapshot call to serve.
+func (s *HttpServer) sweepSymbolLiveness() {
+	ticker := time.NewTicker(symbolLivenessSweep)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		bounds, err := s.symbolStaleBounds(context.Background())
+		if err != nil {
+			s.Log.Log(logger.TypeNet, logger.CodeWarn, "symbol liveness sweep failed", "error", err.Error())
+			continue
+		}
+
+		now := time.Now().UTC().UnixNano()
+		next := make(map[string]bool, len(bounds))
+
+		symLive.mu.Lock()
+		for symbol, bound := range bounds {
+			next[symbol] = now-symLive.last[symbol] <= bound.Nanoseconds()
+		}
+		symLive.live = next
+		symLive.mu.Unlock()
+
+		s.NotifyWS(model.SubjectSymbol, model.EventSymbolLivenessUpdated, map[string]any{"live": next})
+	}
+}
 
 // StartMyMarketFeed puts the caller on the price stream.
 func (s *HttpServer) StartMyMarketFeed(c *ws.Ctx) error {
@@ -73,6 +190,8 @@ func (s *HttpServer) MarketFeedHandler(msg *natscore.Msg) {
 	}
 
 	s.AlertsOnTick(&t)
+
+	symLive.Touch(t.Symbol, t.Time)
 
 	line := TickLine(&t)
 

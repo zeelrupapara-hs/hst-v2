@@ -35,6 +35,28 @@ export function reloadSymbols() {
   return load();
 }
 
+// The server pushes the full symbol -> is-price-flowing map every sweep; null until the first.
+let liveness = null;
+const livenessListeners = new Set();
+
+export function applySymbolLiveness(map) {
+  liveness = map || {};
+  livenessListeners.forEach((fn) => fn(liveness));
+}
+
+/** @returns {{isLive: (symbol: string) => boolean}} everything is live until the first sweep */
+export function useSymbolLiveness() {
+  const [map, setMap] = useState(liveness);
+
+  useEffect(() => {
+    const fn = (m) => setMap({ ...m });
+    livenessListeners.add(fn);
+    return () => livenessListeners.delete(fn);
+  }, []);
+
+  return { isLive: (symbol) => (map ? map[symbol] === true : true) };
+}
+
 /** @returns {{symbols: Array, loading: boolean, reload: () => Promise<Array>}} */
 export function useSymbols() {
   const [symbols, setSymbols] = useState(cache || []);

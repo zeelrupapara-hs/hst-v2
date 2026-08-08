@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useSymbols } from "@/hooks/useSymbols.js";
+import { useSymbolLiveness, useSymbols } from "@/hooks/useSymbols.js";
 import { useSession } from "@/hooks/useSession.js";
 import { useToolbox } from "@/hooks/useToolbox.jsx";
 import { useListShortcuts } from "@/hooks/useListShortcuts.js";
@@ -54,6 +54,7 @@ function DeleteConfirm({ selectedRows, selected, onConfirm, onClose }) {
 /** Symbols list: table filtered by ?folder, mask search, dialog on double-click. */
 export function SymbolsModule() {
   const { symbols, loading, reload } = useSymbols();
+  const { isLive } = useSymbolLiveness();
   const session = useSession();
   const toolbox = useToolbox();
   const rootRef = useRef(null);
@@ -241,7 +242,7 @@ export function SymbolsModule() {
                 <td>
                   <span className="sym-symbol-cell">
                     <span
-                      className={bg ? "sym-color-swatch sym-list-swatch" : "sym-coin-icon"}
+                      className={(bg ? "sym-color-swatch sym-list-swatch" : "sym-coin-icon") + (isLive(row.symbol) ? "" : " sym-icon-stale")}
                       style={bg ? { background: bg } : undefined}
                       aria-hidden="true"
                     />
