@@ -63,15 +63,16 @@ export const SocketProvider = ({ children }) => {
     // symbol,bid,ask,last,volume,ts,open,high,low,close,change,change_percent
     const [symbolId, last_bid, last_ask, , , , , high_bid, low_bid, tickClose] =
       utf8Text.split(",");
-    const { digits } = symbols?.[symbolId] || {};
+    const meta = symbols?.[symbolId] || liveSymbols?.[symbolId] || {};
+    const { digits } = meta;
 
     // the tick carries the session close, so the change is right even before the rest loads
-    const close = Number(tickClose) || symbols?.[symbolId]?.close;
+    const close = Number(tickClose) || meta.close;
 
     const { newBid, newAsk, newSpread } = calculateSpread({
-      ...symbols?.[symbolId],
       last_bid,
       last_ask,
+      digits,
     });
 
     const updatedData = {

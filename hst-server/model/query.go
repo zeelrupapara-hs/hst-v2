@@ -31,6 +31,9 @@ type SymbolInfo struct {
 	FillFlags    int32   `json:"fill_flags"`
 	ExpirFlags   int32   `json:"expir_flags"`
 	OrderFlags   int32   `json:"order_flags"`
+	Sector       int32   `json:"sector"`
+	GtcMode      int32   `json:"gtc_mode"`
+	TickChartMode int32  `json:"tick_chart_mode"`
 
 	// the volume limits are lots, already folded up from the extended units the engine counts in
 	VolumeMin   float64 `json:"volume_min"`
@@ -39,10 +42,8 @@ type SymbolInfo struct {
 	VolumeLimit float64 `json:"volume_limit"`
 
 	// how far from the market an SL, TP or pending must sit, and how close it may no longer be moved
-	StopsLevel        int32 `json:"stops_level"`
-	FreezeLevel       int32 `json:"freeze_level"`
-	SpreadDiff        int32 `json:"spread_diff"`
-	SpreadDiffBalance int32 `json:"spread_diff_balance"`
+	StopsLevel  int32 `json:"stops_level"`
+	FreezeLevel int32 `json:"freeze_level"`
 
 	CurrencyBase   string `json:"currency_base"`
 	CurrencyProfit string `json:"currency_profit"`
@@ -57,9 +58,21 @@ type SymbolInfo struct {
 	MarginRateMaintenanceBuy  float64 `json:"margin_rate_maintenance_buy"`
 	MarginRateMaintenanceSell float64 `json:"margin_rate_maintenance_sell"`
 
+	MarginSpec *SymbolMarginSpec `json:"margin_spec,omitempty"`
+
 	SwapMode  int32   `json:"swap_mode"`
 	SwapLong  float64 `json:"swap_long"`
 	SwapShort float64 `json:"swap_short"`
+
+	SwapRateSunday    float64 `json:"swap_rate_sunday"`
+	SwapRateMonday    float64 `json:"swap_rate_monday"`
+	SwapRateTuesday   float64 `json:"swap_rate_tuesday"`
+	SwapRateWednesday float64 `json:"swap_rate_wednesday"`
+	SwapRateThursday  float64 `json:"swap_rate_thursday"`
+	SwapRateFriday    float64 `json:"swap_rate_friday"`
+	SwapRateSaturday  float64 `json:"swap_rate_saturday"`
+	SwapYearDay       int32   `json:"swap_year_day"`
+	SwapFlags         int32   `json:"swap_flags"`
 
 	// the live quote, zero when the instrument has not printed since the engine started
 	Bid      float64 `json:"bid"`
@@ -76,6 +89,22 @@ type SymbolInfo struct {
 	Close         float64 `json:"close"`
 	Change        float64 `json:"change"`
 	ChangePercent float64 `json:"change_percent"`
+}
+
+// SymbolMarginSpec is the floating leverage ladder that applies to this symbol for the group.
+type SymbolMarginSpec struct {
+	Floating  bool               `json:"floating"`
+	RangeMode int32              `json:"range_mode"`
+	RulePath  string             `json:"rule_path"`
+	Tiers     []SymbolMarginTier `json:"tiers,omitempty"`
+}
+
+// SymbolMarginTier is one band of a floating margin rule; RangeTo 0 means infinity.
+type SymbolMarginTier struct {
+	RangeFrom             float64 `json:"range_from"`
+	RangeTo               float64 `json:"range_to"`
+	MarginRateInitial     float64 `json:"margin_rate_initial"`
+	MarginRateMaintenance float64 `json:"margin_rate_maintenance"`
 }
 
 type QueryWhat int32

@@ -8,7 +8,7 @@ const ChartSlot = ({ chartId }) => {
   const setChartSymbol = useGlobalStore((state) => state.setChartSymbol);
   const isDrag = useGlobalStore((state) => state.isDrag);
 
-  const symbolId = chartSymbols[chartId];
+  const symbolId = chartSymbols?.[chartId];
   const isLive = useSymbolLive(symbolId);
 
   const handleDrop = (e) => {

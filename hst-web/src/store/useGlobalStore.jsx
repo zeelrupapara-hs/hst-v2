@@ -13,7 +13,7 @@ const useGlobalStore = create(
       },
       visibleColumns: ["symbol", "bid", "ask", "spread"],
       chartLayout: 1,
-      chartSymbols: null,
+      chartSymbols: {},
       isDrag: false,
       oneClick: false,
       symbolOneClick: false,
@@ -40,11 +40,11 @@ const useGlobalStore = create(
 
         const { chartSymbols, chartLayout } = get();
 
-        const liveCharts = Object.values(chartSymbols)?.slice(0, chartLayout);
+        const liveCharts = Object.values(chartSymbols ?? {})?.slice(0, chartLayout);
         if (liveCharts?.includes(String(symbolId))) return;
 
         set((state) => ({
-          chartSymbols: { ...state.chartSymbols, [chartId]: String(symbolId) },
+          chartSymbols: { ...(state.chartSymbols ?? {}), [chartId]: String(symbolId) },
         }));
       },
 

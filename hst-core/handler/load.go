@@ -107,7 +107,8 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 
 	rows, err = h.DB.DB.Query(ctx,
 		`SELECT symbol_id, symbol, path, description, digits, point, calc_mode, trade_mode, exec_mode,
-		        fill_flags, expir_flags, contract_size, tick_value, tick_size,
+		        fill_flags, expir_flags, sector, gtc_mode, tick_chart_mode,
+		        contract_size, tick_value, tick_size,
 		        spread, spread_diff, spread_diff_balance, stops_level, freeze_level,
 		        currency_base, currency_base_digits, currency_profit, currency_profit_digits,
 		        currency_margin, currency_margin_digits,
@@ -135,6 +136,7 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 		s := &model.Symbol{}
 		if err := rows.Scan(&s.SymbolId, &s.Symbol, &s.Path, &s.Description, &s.Digits, &s.Point,
 			&s.CalcMode, &s.TradeMode, &s.ExecMode, &s.FillFlags, &s.ExpirFlags,
+			&s.Sector, &s.GtcMode, &s.TickChartMode,
 			&s.ContractSize, &s.TickValue, &s.TickSize,
 			&s.Spread, &s.SpreadDiff, &s.SpreadDiffBalance, &s.StopsLevel, &s.FreezeLevel,
 			&s.CurrencyBase, &s.CurrencyBaseDigits, &s.CurrencyProfit, &s.CurrencyProfitDigits,
