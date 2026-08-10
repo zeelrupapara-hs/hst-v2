@@ -13,32 +13,53 @@ type BalanceEvent struct {
 
 // Amount is signed: a withdrawal, a charge and a negative correction are all negative.
 type BalanceRequest struct {
-	RequestId string  `json:"request_id"`
-	Login     int64   `json:"login"`
-	Action    int32   `json:"action"`
-	Amount    float64 `json:"amount"`
-	Comment   string  `json:"comment"`
-	Dealer    int64   `json:"dealer"`
-	ExpertId  int64   `json:"expert_id"`
+	RequestId string     `json:"request_id"`
+	Login     int64      `json:"login"`
+	Action    DealAction `json:"action"`
+	Amount    float64    `json:"amount"`
+	Comment   string     `json:"comment"`
+	Dealer    int64      `json:"dealer"`
+	ExpertId  int64      `json:"expert_id"`
 	// Deposit refuses the operation when it would take the balance below zero.
 	AllowNegative bool `json:"allow_negative"`
 }
 
-func BalanceActionName(action int32) string {
-	if n, ok := DealAction_name[action]; ok {
-		return n
-	}
-	return "balance"
+func BalanceActionName(action DealAction) string { return DealActionName(action) }
+
+// AffectsCredit reports whether the action moves credit rather than balance.
+func AffectsCredit(action DealAction) bool {
+	return action == DealAction_credit || action == DealAction_bonus ||
+		action == DealAction_so_compensation_credit
 }
 
 // IsBalanceAction reports whether an action is a money operation rather than a trade.
-func IsBalanceAction(action int32) bool {
+func IsBalanceAction(action DealAction) bool {
 	switch DealAction(action) {
-	case DealAction_balance, DealAction_credit, DealAction_charge, DealAction_correction,
-		DealAction_bonus, DealAction_commission, DealAction_interest, DealAction_dividend,
-		DealAction_dividend_franked, DealAction_tax, DealAction_agent,
-		DealAction_so_compensation:
+	case DealAction_balance, DealAction_credit, DealAction_charge, DealAction_correction, DealAction_bonus,
+		DealAction_commission, DealAction_interest, DealAction_so_compensation, DealAction_so_compensation_credit:
 		return true
 	}
 	return false
+}
+
+func DealActionName(action DealAction) string {
+	switch DealAction(action) {
+	case DealAction_balance:
+		return "balance"
+	case DealAction_credit:
+		return "credit"
+	case DealAction_charge:
+		return "charge"
+	case DealAction_correction:
+		return "correction"
+	case DealAction_bonus:
+		return "bonus"
+	case DealAction_commission:
+		return "commission"
+	case DealAction_interest:
+		return "interest"
+	case DealAction_so_compensation:
+		return "so_compensation"
+	}
+	return "balance"
 }

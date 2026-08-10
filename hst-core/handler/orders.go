@@ -315,6 +315,21 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 	}
 
 	if hit.toLimit {
+		// the reference gives a triggered stop limit its own request kind
+		decision := h.Route(&Request{
+			Kind: model.RouteFlags_stop_limit, Order: o, Entry: e, Rules: r, Tick: t,
+			Gapped: h.Quotes.Gapped(o.Symbol),
+		})
+		if !decision.Executes() {
+			if decision.Action == model.RouteAction_cancel_order {
+				h.removeOrder(ctx, e, o, "deleted [by routing rule]")
+				return nil
+			}
+			e.Unlock()
+			h.Log.Log(logger.TypeTrade, logger.CodeWarn, "a stop limit trigger was not admitted by any rule",
+				"login", o.Login, "order", o.OrderId)
+			return nil
+		}
 		h.cookStopLimit(ctx, e, o, r)
 		return nil
 	}

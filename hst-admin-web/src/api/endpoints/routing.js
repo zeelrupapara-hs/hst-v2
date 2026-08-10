@@ -14,3 +14,9 @@ export const addRoutingDealer = (id, login) =>
   request(`/api/v1/routing/${id}/dealers`, { method: "POST", body: { login } });
 export const removeRoutingDealer = (id, login) =>
   request(`/api/v1/routing/${id}/dealers/${login}`, { method: "DELETE" });
+
+export const moveRoutingDealer = (id, login, dealerIndex) =>
+  request(`/api/v1/routing/${id}/dealers/${login}/move`, {
+    method: "PUT",
+    body: { dealer_index: dealerIndex },
+  });

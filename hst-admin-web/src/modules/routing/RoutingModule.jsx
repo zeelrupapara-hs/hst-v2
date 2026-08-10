@@ -16,6 +16,7 @@ import {
   fetchRoutingDealers,
   fetchRoutingRule,
   moveRoutingRule,
+  moveRoutingDealer,
   removeRoutingDealer,
   updateRoutingRule,
 } from "@/api/endpoints/routing.js";
@@ -131,6 +132,20 @@ function DealersTab({ ruleId }) {
     load();
   }
 
+  // the list order is the order a request is offered in, so it can be rearranged
+  async function onMove(delta) {
+    const row = rows?.[selected];
+    const to = selected + delta;
+    if (!row || to < 0 || to >= rows.length) return;
+    const res = await moveRoutingDealer(ruleId, row.login, rows[to].dealer_index ?? to);
+    if (!res.ok) {
+      window.alert(res.message || "move failed");
+      return;
+    }
+    setSelected(to);
+    load();
+  }
+
   const options = managers.map((m) => ({ value: m.login, label: `${m.name} (${m.login})` }));
 
   return (
@@ -145,12 +160,23 @@ function DealersTab({ ruleId }) {
         <p className="module-note">Save the rule first, then assign dealers here.</p>
       ) : (
         <div className="routing-grid-row">
-          <StackButtons
-            hasSelection={selected != null}
-            onAdd={() => setEditing({ login: 0 })}
-            onEdit={() => setEditing(rows[selected])}
-            onDelete={onDelete}
-          />
+          <div className="routing-btn-col">
+            <button type="button" disabled={selected == null || selected === 0} onClick={() => onMove(-1)}>
+              Up
+            </button>
+            <button
+              type="button"
+              disabled={selected == null || selected >= (rows?.length ?? 0) - 1}
+              onClick={() => onMove(1)}
+            >
+              Down
+            </button>
+            <button type="button" onClick={() => setEditing({ login: 0 })}>Add</button>
+            <button type="button" disabled={selected == null} onClick={() => setEditing(rows[selected])}>
+              Edit
+            </button>
+            <button type="button" disabled={selected == null} onClick={onDelete}>Delete</button>
+          </div>
           <table
             className="data-table data-table-grid df-sub-table"
             onKeyDown={(e) => e.key === "Delete" && onDelete()}
@@ -204,7 +230,6 @@ const newDraft = () => ({
   mode: 1,
   request: 0,
   type: 0,
-  flags: 0,
   action: 1006,
   action_value: "",
   conditions: [],
@@ -270,7 +295,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
       }
     } else {
       const patch = { conditions };
-      for (const key of ["name", "mode", "request", "type", "flags", "action", "action_value"]) {
+      for (const key of ["name", "mode", "request", "type", "action", "action_value"]) {
         if (draft[key] !== original[key]) patch[key] = draft[key];
       }
       const res = await updateRoutingRule(ruleId, patch);

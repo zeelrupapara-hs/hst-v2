@@ -53,8 +53,13 @@ type Request struct {
 func (h *Handler) Route(req *Request) Decision {
 	var d Decision
 
-	for i := range h.rules {
-		rule := &h.rules[i]
+	// the reload swaps the slice whole, so a snapshot under the lock is a consistent list
+	h.mu.RLock()
+	rules := h.rules
+	h.mu.RUnlock()
+
+	for i := range rules {
+		rule := &rules[i]
 
 		if !rule.Enabled() || !h.ruleMatches(rule, req) {
 			continue
@@ -62,9 +67,9 @@ func (h *Handler) Route(req *Request) Decision {
 
 		action := model.RouteAction(rule.Action)
 
-		// a non-terminal action changes the request and the walk carries on below it
+		// a non-terminal action marks the request and the walk carries on below it
 		if !action.Terminal() {
-			h.applySoftAction(action, rule, req, &d)
+			h.applySoftAction(action, rule, &d)
 			continue
 		}
 
@@ -81,6 +86,16 @@ func (h *Handler) Route(req *Request) Decision {
 		d.Action = action
 		d.Reason = rule.ActionValue
 
+		// the stripped levels land only now: a request no rule settles keeps what it asked for
+		if req.Order != nil {
+			if d.ClearSL {
+				req.Order.PriceSL = 0
+			}
+			if d.ClearTP {
+				req.Order.PriceTP = 0
+			}
+		}
+
 		return d
 	}
 
@@ -89,8 +104,7 @@ func (h *Handler) Route(req *Request) Decision {
 }
 
 // applySoftAction handles the actions that let the request carry on.
-func (h *Handler) applySoftAction(action model.RouteAction, rule *model.RoutingRule,
-	req *Request, d *Decision) {
+func (h *Handler) applySoftAction(action model.RouteAction, rule *model.RoutingRule, d *Decision) {
 	switch action {
 	case model.RouteAction_delay_time:
 		if ms, err := strconv.Atoi(rule.ActionValue); err == nil && ms > 0 {
@@ -105,15 +119,12 @@ func (h *Handler) applySoftAction(action model.RouteAction, rule *model.RoutingR
 
 	case model.RouteAction_clear_tp:
 		d.ClearTP = true
-		req.Order.PriceTP = 0
 
 	case model.RouteAction_clear_sl:
 		d.ClearSL = true
-		req.Order.PriceSL = 0
 
 	case model.RouteAction_clear_sltp:
 		d.ClearSL, d.ClearTP = true, true
-		req.Order.PriceSL, req.Order.PriceTP = 0, 0
 	}
 }
 
@@ -170,6 +181,17 @@ func (h *Handler) conditionHolds(c *model.RoutingCondition, req *Request) bool {
 		return compareBool(c, req.Order != nil && req.Order.ExpertId != 0)
 	case model.RouteCondition_request_price:
 		return compareNumber(c, priceOf(req))
+	case model.RouteCondition_value:
+		// the request's worth in the instrument's base currency: lots by contract size
+		if req.Rules == nil {
+			return false
+		}
+		return compareNumber(c, model.Lots(volumeOf(req))*req.Rules.ContractSize)
+	case model.RouteCondition_dealer_login:
+		if req.Order == nil {
+			return false
+		}
+		return compareNumber(c, float64(req.Order.Dealer))
 	case model.RouteCondition_reason:
 		if req.Order == nil {
 			return false
@@ -205,6 +227,14 @@ func (h *Handler) conditionHolds(c *model.RoutingCondition, req *Request) bool {
 		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return a.MarginLevel }))
 	case model.RouteCondition_profit:
 		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return a.Floating }))
+	case model.RouteCondition_country:
+		return matchText(c, accountText(req, func(a *model.Account) string { return a.Country }))
+	case model.RouteCondition_city:
+		return matchText(c, accountText(req, func(a *model.Account) string { return a.City }))
+	case model.RouteCondition_status:
+		return matchText(c, accountText(req, func(a *model.Account) string { return a.Status }))
+	case model.RouteCondition_client_id:
+		return compareNumber(c, accountNumber(req, func(a *model.Account) float64 { return float64(a.ClientId) }))
 
 	// positions and orders
 	case model.RouteCondition_position_total:
@@ -225,6 +255,12 @@ func (h *Handler) conditionHolds(c *model.RoutingCondition, req *Request) bool {
 		return compareNumber(c, model.Lots(volumeOnSymbol(req)))
 	case model.RouteCondition_position_profit:
 		return compareNumber(c, profitOnSymbol(req))
+	case model.RouteCondition_position_value:
+		return compareNumber(c, valueOnSymbol(req))
+	case model.RouteCondition_position_age:
+		return compareNumber(c, positionSeconds(req, func(p *model.Position) int64 { return p.TimeCreate }))
+	case model.RouteCondition_position_modify_time:
+		return compareNumber(c, positionSeconds(req, func(p *model.Position) int64 { return p.TimeUpdate }))
 	}
 
 	// a condition the engine does not know how to read must not silently pass.
@@ -404,6 +440,13 @@ func pointOf(r *Request) float64 {
 	return 0
 }
 
+func accountText(r *Request, pick func(*model.Account) string) string {
+	if r.Entry == nil {
+		return ""
+	}
+	return pick(r.Entry.Account)
+}
+
 func accountNumber(r *Request, pick func(*model.Account) float64) float64 {
 	if r.Entry == nil {
 		return 0
@@ -463,6 +506,56 @@ func volumeOnSymbol(r *Request) int64 {
 	}
 
 	return v
+}
+
+// valueOnSymbol is what the account's positions on the request's symbol are worth at the market.
+func valueOnSymbol(r *Request) float64 {
+	if r.Entry == nil {
+		return 0
+	}
+
+	symbol := symbolOf(r)
+	var v float64
+
+	for _, p := range r.Entry.Positions {
+		if p.Symbol == symbol {
+			v += model.Lots(p.Volume) * contractOf(r) * p.PriceCurrent
+		}
+	}
+
+	return v
+}
+
+func contractOf(r *Request) float64 {
+	if r.Rules != nil {
+		return r.Rules.ContractSize
+	}
+	return 0
+}
+
+// positionSeconds is the age in seconds of the oldest stamp among the symbol's positions.
+func positionSeconds(r *Request, stamp func(*model.Position) int64) float64 {
+	if r.Entry == nil {
+		return 0
+	}
+
+	symbol := symbolOf(r)
+	var oldest int64
+
+	for _, p := range r.Entry.Positions {
+		if p.Symbol != symbol {
+			continue
+		}
+		if at := stamp(p); oldest == 0 || at < oldest {
+			oldest = at
+		}
+	}
+
+	if oldest == 0 {
+		return 0
+	}
+
+	return float64(Now()-oldest) / 1e9
 }
 
 // profitOnSymbol is the account's floating profit on the request's symbol.

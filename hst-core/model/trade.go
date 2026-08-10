@@ -187,6 +187,12 @@ type Account struct {
 	VirtualCredit float64 `json:"virtual_credit"`
 
 	Rights int64 `json:"rights"`
+
+	// the routing conditions read who the client is, so the profile rides with the money
+	Country  string `json:"country"`
+	City     string `json:"city"`
+	Status   string `json:"status"`
+	ClientId int64  `json:"client_id"`
 }
 
 type Direction int32
