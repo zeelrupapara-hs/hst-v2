@@ -22,7 +22,7 @@ Shared infra: run `make up` in **hst-server** (postgres, nats, redis). hst-news 
 
 Supported **`module`** values depend on **`mode`**. List options:
 
-- Quotes: `GET /api/v1/datafeeds/modules?mode=1` → `fix44`, `fix43`, `QuoteSimulator`
+- Quotes: `GET /api/v1/datafeeds/modules?mode=1` → `fix44`, `fix43`
 - News: `GET /api/v1/datafeeds/modules?mode=2` → `RSSNewsFeeder`
 
 Create a datafeed with `mode: 2` (news), `module: "RSSNewsFeeder"`, and `feed_server` set to the RSS URL. Optional params:

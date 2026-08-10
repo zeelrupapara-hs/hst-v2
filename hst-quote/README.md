@@ -1,13 +1,12 @@
 # hst-quote
 
-Live quote ingestion for hst-v2. Connects to configured FIX feeds (or a built-in simulator), applies symbol translates/markups, caches latest ticks in Redis, stores tick history in InfluxDB, and publishes on NATS.
+Live quote ingestion for hst-v2. Connects to configured FIX feeds, applies symbol translates/markups, caches latest ticks in Redis, stores tick history in InfluxDB, and publishes on NATS.
 
 MetaTrader5Feeder (copy quotes from another MT5 server) is intentionally **not** supported.
 
 ## Phase 1 scope
 
 - **FIX 4.3 / 4.4** connector (QuickFIX Go initiator)
-- **QuoteSimulator** for local dev without an LP
 - Config from `hst-server` internal API + NATS config snapshots (no Postgres)
 - NATS publish: `hstquote.tick.{symbol}`
 - InfluxDB tick history (shared `marketwatch` bucket, measurement per platform symbol ID)
@@ -20,36 +19,6 @@ cp .env.example .env
 make up
 make run
 ```
-
-## Simulator example (no FIX LP required)
-
-Create a datafeed via hst-server:
-
-```json
-{
-  "name": "sim-quotes",
-  "module": "QuoteSimulator",
-  "mode": 1,
-  "enable": 1
-}
-```
-
-Add translates:
-
-```json
-POST /api/v1/datafeeds/{id}/translates
-{
-  "symbol": "EURUSD",
-  "source": "EUR/USD",
-  "bid_markup": 0,
-  "ask_markup": 0,
-  "digits": 5
-}
-```
-
-Activate: `POST /api/v1/datafeeds/{id}/activate`
-
-No extra params are required for the simulator. The `source` in translates is the LP-side symbol key the simulator emits (defaults to `symbol` when `source` is empty).
 
 ## Configuration: feed fields vs params vs translates
 
@@ -82,12 +51,12 @@ Supported **`module`** values depend on **`mode`**. Use `GET /api/v1/datafeeds/m
 
 | `mode` | Supported modules |
 |--------|-------------------|
-| `1` (quotes) | `fix44`, `fix43`, `QuoteSimulator` |
+| `1` (quotes) | `fix44`, `fix43` |
 | `2` (news) | `RSSNewsFeeder` |
 
 | Field | Example | Used for |
 |-------|---------|----------|
-| `module` | `fix44`, `fix43`, `QuoteSimulator` | Connector type + dialect defaults |
+| `module` | `fix44`, `fix43` | Connector type + dialect defaults |
 | `mode` | `1` | Quotes flag (`FeederFlags_quotes`) |
 | `enable` | `1` | Must be enabled |
 | `feed_server` | `fixsim.hstrader.com:6002` | `host:port` → QuickFIX `SocketConnectHost/Port` |
