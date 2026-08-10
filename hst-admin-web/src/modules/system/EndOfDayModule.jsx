@@ -7,7 +7,7 @@ import {
   runEndOfDay,
   updateEndOfDay,
   updateTimeSettings,
-} from "@/api/endpoints/endofday.js";
+} from "@/api/endpoints/endOfDay.js";
 
 // the browser already ships the IANA list; older engines get a single safe zone
 const ZONES = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : ["UTC"];

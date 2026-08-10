@@ -14,7 +14,6 @@ import (
 	"hstquote/internal/fixconfig"
 	"hstquote/internal/provider"
 	"hstquote/internal/provider/fixquotes"
-	"hstquote/internal/provider/simulator"
 	"hstquote/internal/session"
 	"hstquote/internal/status"
 	"hstquote/internal/tickcache"
@@ -262,14 +261,6 @@ func (f *Feeds) newConnector(feedPtr *atomic.Pointer[model.QuoteFeed]) streamCon
 	typ, _ := provider.ModuleType(feed.Datafeed.Module)
 
 	switch typ {
-	case provider.TypeSimulator:
-		return &simConnector{
-			inner: simulator.NewConnector(*feed, tickCh),
-			feed:  feedPtr,
-			ticks: tickCh,
-			state: filter.New(),
-			f:     f,
-		}
 	case provider.TypeFIX:
 		settings, err := fixconfig.FromFeed(*feed)
 		if err != nil {
@@ -350,44 +341,6 @@ func (c *fixConnector) Run(ctx context.Context) error {
 }
 
 func (c *fixConnector) Close() error { return c.inner.Close() }
-
-type simConnector struct {
-	inner *simulator.Connector
-	feed  *atomic.Pointer[model.QuoteFeed]
-	ticks <-chan provider.RawTick
-	state *filter.State
-	f     *Feeds
-}
-
-func (c *simConnector) Type() provider.ConnectorType { return c.inner.Type() }
-
-func (c *simConnector) Run(ctx context.Context) error {
-	errCh := make(chan error, 1)
-	go func() {
-		errCh <- c.inner.Run(ctx)
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			_ = c.inner.Close()
-			select {
-			case <-errCh:
-			case <-time.After(runnerStopTimeout):
-			}
-			return ctx.Err()
-		case err := <-errCh:
-			return err
-		case raw, ok := <-c.ticks:
-			if !ok {
-				return nil
-			}
-			c.f.handleRawTick(ctx, *c.feed.Load(), c.state, raw)
-		}
-	}
-}
-
-func (c *simConnector) Close() error { return c.inner.Close() }
 
 func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *filter.State, raw provider.RawTick) {
 	tick, ok := translate.ApplyMarkup(feed, raw)

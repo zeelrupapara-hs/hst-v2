@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
-import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { useGroups } from "@/hooks/useGroups.js";
@@ -10,6 +9,7 @@ import { createUser, fetchUser, resetUserPassword, updateUser } from "@/api/endp
 import { AccountRight_checks, LimitRight_checks } from "@/constants/users.js";
 import { AccountOverviewTab } from "./AccountOverviewTab.jsx";
 import { generatePassword } from "@/lib/passwords.js";
+import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
 
 const EDIT_TABS = ["Overview", "Personal", "Account", "Limits", "Security"];
 const NEW_TABS = ["Personal", "Account", "Limits", "Security"];
@@ -250,10 +250,6 @@ export function AccountDialog({ login, onClose, onSaved }) {
     close();
   }
 
-  // sorted so a folder's groups sit together, labelled with the full path as the reference shows
-  const groupOptions = [...groups]
-    .sort((a, b) => a.group.localeCompare(b.group))
-    .map((g) => ({ value: g.group, label: g.group }));
 
   // the reference's New Account window: one page, the password block beside the name rows
   function newAccountPage() {
@@ -268,7 +264,7 @@ export function AccountDialog({ login, onClose, onSaved }) {
           <span className="acc-new-gap" />
 
           <label>Group</label>
-          <PropSelect fill value={draft.group} options={groupOptions} onChange={(v) => set("group", v)} />
+          <GroupTreeSelect value={draft.group} onChange={(v) => set("group", v)} />
           <span className="acc-new-gap" />
           <span className="acc-new-gap" />
 
@@ -348,7 +344,7 @@ export function AccountDialog({ login, onClose, onSaved }) {
             </Intro>
             <div className="form-grid">
               <label>Group</label>
-              <PropSelect fill value={draft.group} options={groupOptions} onChange={(v) => set("group", v)} />
+              <GroupTreeSelect value={draft.group} onChange={(v) => set("group", v)} />
               <LeverageCombo value={draft.leverage} onChange={(v) => set("leverage", v)} />
             </div>
             <div className="form-grid grp-check-stack">

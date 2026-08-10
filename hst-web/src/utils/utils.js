@@ -56,9 +56,14 @@ export const sortByNumber = (data, key, order = "desc") => {
 
 export const defaultRender = (value) => (value ?? "--");
 
-export const formateProfit = (number) => {
-  if (!number) return "$0";
-  const formattedNumber = Number(Math.abs(number)).toFixed(2);
+// Money is shown to as many decimals as the account's group says, so every amount goes through
+// here rather than a toFixed(2) spelled out at each render site.
+export const formatMoney = (value, digits = 2) =>
+  Number(value ?? 0).toFixed(Number.isInteger(digits) && digits >= 0 ? digits : 2);
+
+export const formateProfit = (number, digits = 2) => {
+  if (!number) return `$${formatMoney(0, digits)}`;
+  const formattedNumber = formatMoney(Math.abs(number), digits);
   if (number < 0) return `-$${formattedNumber}`;
   else return `$${formattedNumber}`;
 };

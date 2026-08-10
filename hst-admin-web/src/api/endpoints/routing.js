@@ -8,6 +8,8 @@ export const updateRoutingRule = (id, patch) =>
 export const deleteRoutingRule = (id) => request(`/api/v1/routing/${id}`, { method: "DELETE" });
 export const moveRoutingRule = (id, dir) =>
   request(`/api/v1/routing/${id}/move-${dir}`, { method: "POST" });
+export const reorderRouting = (order) =>
+  request("/api/v1/routing/order", { method: "PUT", body: { routing_ids: order } });
 
 export const fetchRoutingDealers = (id) => request(`/api/v1/routing/${id}/dealers`);
 export const addRoutingDealer = (id, login) =>

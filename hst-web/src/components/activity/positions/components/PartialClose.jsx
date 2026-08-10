@@ -7,10 +7,12 @@ import Volume from "../../../order/components/Volume";
 import { validateOrderField } from "../../../../utils/validation";
 import { SOCKET_EVENTS } from "../../../../socket/events";
 import Icon from "../../../common/Icon";
+import { formatMoney } from "../../../../utils/utils";
 
 const PartialClose = ({ record }) => {
   const { sendEvent } = useSocket();
   const profit = usePositionStore((state) => state.positionPL[record?.id]);
+  const digits = usePositionStore((state) => state.currencyDigits);
   const [form] = Form.useForm();
   const [newValue, setNewValue] = useState(null);
   const [error, setError] = useState(false);
@@ -69,7 +71,7 @@ const PartialClose = ({ record }) => {
       <div className="flex items-center justify-between gap-2 pb-2 text-xs">
         <span>Partial P/L</span>
         <span className={`${partialProfit >= 0 ? "text-green" : "text-red"}`}>
-          {partialProfit?.toFixed(2)}
+          {formatMoney(partialProfit, digits)}
         </span>
       </div>
 

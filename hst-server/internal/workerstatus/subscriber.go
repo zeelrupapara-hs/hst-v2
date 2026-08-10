@@ -23,8 +23,9 @@ const (
 	groupNewsStatus     = "hstserver-news-status"
 	groupQuoteJournal   = "hstserver-quote-journal"
 
-	wsThrottle  = time.Second
-	flushPeriod = 5 * time.Second
+	wsThrottle   = time.Second
+	flushPeriod  = 5 * time.Second
+	statusPeriod = 10 * time.Second
 )
 
 // Event is runtime telemetry published by ingestion workers.
@@ -62,6 +63,7 @@ type feedState struct {
 	pendingBooks int64
 	pendingBytes int64
 	sysLastTime  int64
+	sysConn      *model.DatafeedSysConnection
 	lastNotify   time.Time
 }
 
@@ -217,11 +219,13 @@ func (s *Subscriber) applyConnection(evt Event) {
 			"datafeed_id", evt.DatafeedID, "error", err.Error())
 		return
 	}
+	s.mu.Lock()
+	st := s.feed(evt.DatafeedID)
+	st.sysConn = &conn
 	if evt.SysLastTime > 0 {
-		s.mu.Lock()
-		s.feed(evt.DatafeedID).sysLastTime = evt.SysLastTime
-		s.mu.Unlock()
+		st.sysLastTime = evt.SysLastTime
 	}
+	s.mu.Unlock()
 	s.notifyRuntime(model.EventDatafeedStatusUpdated, model.DatafeedRuntime{
 		DatafeedID:    evt.DatafeedID,
 		SysConnection: &conn,
@@ -285,13 +289,33 @@ func (s *Subscriber) notifyRuntime(event string, payload model.DatafeedRuntime) 
 func (s *Subscriber) flushLoop() {
 	ticker := time.NewTicker(flushPeriod)
 	defer ticker.Stop()
+	status := time.NewTicker(statusPeriod)
+	defer status.Stop()
 	for {
 		select {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
 			s.flushAll(context.Background())
+		case <-status.C:
+			s.publishAllStatus()
 		}
+	}
+}
+
+// publishAllStatus pushes every feed's runtime on a fixed beat so the panel never goes stale.
+func (s *Subscriber) publishAllStatus() {
+	s.mu.Lock()
+	batch := make([]model.DatafeedRuntime, 0, len(s.feeds))
+	for id, st := range s.feeds {
+		rt := s.runtimeLocked(id, st)
+		rt.SysConnection = st.sysConn
+		batch = append(batch, rt)
+	}
+	s.mu.Unlock()
+
+	for _, rt := range batch {
+		s.notifyRuntime(model.EventDatafeedStatusUpdated, rt)
 	}
 }
 

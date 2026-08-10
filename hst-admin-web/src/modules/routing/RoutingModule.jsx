@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
+import { SymbolTreeSelect } from "@/components/ui/SymbolTreeSelect.jsx";
+import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
+import { COUNTRY_options } from "@/constants/countries.js";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
@@ -16,6 +20,7 @@ import {
   fetchRoutingDealers,
   fetchRoutingRule,
   moveRoutingRule,
+  reorderRouting,
   moveRoutingDealer,
   removeRoutingDealer,
   updateRoutingRule,
@@ -96,17 +101,6 @@ function FlagSelect({ labels, value, onChange }) {
   );
 }
 
-/** Add / Edit / Delete stacked beside a grid, as the reference dialogs have them. */
-function StackButtons({ onAdd, onEdit, onDelete, hasSelection }) {
-  return (
-    <div className="routing-btn-col">
-      <button type="button" onClick={onAdd}>Add</button>
-      <button type="button" disabled={!hasSelection} onClick={onEdit}>Edit</button>
-      <button type="button" disabled={!hasSelection} onClick={onDelete}>Delete</button>
-    </div>
-  );
-}
-
 function DealersTab({ ruleId }) {
   const [rows, setRows] = useState(null);
   const [managers, setManagers] = useState([]);
@@ -151,7 +145,7 @@ function DealersTab({ ruleId }) {
     load();
   }
 
-  const options = managers.map((m) => ({ value: m.login, label: `${m.name} (${m.login})` }));
+  const options = managers.map((m) => ({ value: m.login, label: `${m.login}, ${m.name}` }));
 
   return (
     <>
@@ -186,6 +180,7 @@ function DealersTab({ ruleId }) {
               <button type="button" disabled={selected == null} onClick={onDelete}>Delete</button>
             </div>
           </div>
+          <div className="routing-dealers-box">
           <table
             className="data-table data-table-grid df-sub-table"
             onKeyDown={(e) => e.key === "Delete" && onDelete()}
@@ -215,14 +210,17 @@ function DealersTab({ ruleId }) {
                 </tr>
               ))}
               {editing && (
-                <tr>
+                <tr className="routing-dealer-editing">
                   <td colSpan={2}>
-                    <PropSelect
-                      fill
-                      value={editing.login || options[0]?.value}
-                      options={options}
-                      onChange={commit}
-                    />
+                    <span className="routing-dealer-pick">
+                      <span className="routing-dealer-icon" aria-hidden="true">👤</span>
+                      <PropSelect
+                        className="routing-dealer-combo"
+                        value={editing.login || options[0]?.value}
+                        options={options}
+                        onChange={commit}
+                      />
+                    </span>
                   </td>
                 </tr>
               )}
@@ -233,6 +231,7 @@ function DealersTab({ ruleId }) {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </>
@@ -245,67 +244,160 @@ function condGlyph(id) {
   return <span className="routing-glyph-01">01</span>;
 }
 
+const WEEKDAY_options = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  .map((d, i) => ({ value: String(i), label: d }));
+
+// the stored value shown the way the editor collected it
+function condValueLabel(c) {
+  const v = c.value ?? "";
+  switch (c.condition) {
+    case 0:
+      return v ? new Date(Number(v) * 1000).toISOString().replace("T", " ").slice(0, 19) : "";
+    case 4:
+      return v === "" ? "" : `${String(Math.floor(v / 60)).padStart(2, "0")}:${String(v % 60).padStart(2, "0")}`;
+    case 5:
+      return WEEKDAY_options[Number(v)]?.label ?? v;
+    case 7:
+    case 12:
+      return v === "" ? "" : String(v) === "1" ? "Yes" : "No";
+    default:
+      return v;
+  }
+}
+
+const YESNO_options = [
+  { value: "1", label: "Yes" },
+  { value: "0", label: "No" },
+];
+
+/**
+ * Each condition gets the editor its value calls for, as the reference does: the symbol tree
+ * for symbols, the group list for groups, a calendar for dates; a plain box for the rest.
+ */
+function CondValueEditor({ condition, value, onChange, onDone }) {
+
+  switch (condition) {
+    case 1: // symbols: the tree, a folder is a mask, a leaf is one symbol; the row stays editable
+      return <SymbolTreeSelect value={value} onCommit={(v) => onChange(v)} onCancel={() => {}} />;
+
+    case 1001: // group: the tree, a folder is a mask, and any mask can be typed
+      return <GroupTreeSelect maskable value={value ?? ""} onChange={onChange} />;
+
+    case 1002: // country
+      return (
+        <PropSelect
+          fill
+          value={value ?? ""}
+          options={COUNTRY_options}
+          onChange={(v) => { onChange(v); onDone(); }}
+        />
+      );
+
+    case 0: // date and time, stored as unix seconds
+      return (
+        <input
+          type="datetime-local"
+          className="df-cell-input"
+          value={value ? new Date(Number(value) * 1000).toISOString().slice(0, 16) : ""}
+          onChange={(e) => onChange(String(Math.floor(new Date(e.target.value).getTime() / 1000)))}
+        />
+      );
+
+    case 4: // time of day, stored as minutes since midnight
+      return (
+        <input
+          type="time"
+          className="df-cell-input"
+          value={value ? `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}` : ""}
+          onChange={(e) => {
+            const [h, m] = e.target.value.split(":").map(Number);
+            onChange(String(h * 60 + m));
+          }}
+        />
+      );
+
+    case 5: // weekday
+      return <PropSelect fill value={String(value ?? "")} options={WEEKDAY_options} onChange={(v) => { onChange(v); onDone(); }} />;
+
+    case 7: // placed by expert
+    case 12: // gap
+      return <PropSelect fill value={String(value ?? "")} options={YESNO_options} onChange={(v) => { onChange(v); onDone(); }} />;
+
+    default:
+      return (
+        <input
+          type="text"
+          className="df-cell-input"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onDone()}
+        />
+      );
+  }
+}
+
 /** The condition picker as the reference draws it: Request leaves on top, the other branches fold. */
 function CondTypeSelect({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const [folded, setFolded] = useState({ Account: true, Position: true, Order: true });
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+  const [folded, setFolded] = useState({ Request: false, Account: true, Position: true, Order: true, Symbol: true });
   const byGroup = {};
   for (const [id, label] of Object.entries(RouteCondition_name)) {
     const g = routeConditionGroup(Number(id));
     (byGroup[g] ??= []).push({ id: Number(id), label });
   }
 
+  function toggle(e) {
+    e?.stopPropagation();
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 1, left: r.left, minWidth: r.width });
+    }
+    setOpen(!open);
+  }
+
   return (
     <span className="routing-cond-select">
-      <button type="button" className="routing-cond-current" onClick={() => setOpen(!open)}>
+      <button ref={btnRef} type="button" className="routing-cond-current" onClick={toggle} onDoubleClick={(e) => e.stopPropagation()}>
         {condGlyph(value)}
-        <span>{RouteCondition_name[value] ?? value}</span>
+        <span>{routeConditionGroup(value)}\{RouteCondition_name[value] ?? value}</span>
         <span className="routing-cond-arrow">▾</span>
       </button>
-      {open && (
-        <span className="routing-cond-pop">
-          {RouteConditionGroups.map((g) =>
-            g === "Request" ? (
-              byGroup[g]?.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={c.id === value ? "active" : ""}
-                  onClick={() => {
-                    onChange(c.id);
-                    setOpen(false);
-                  }}
-                >
-                  {condGlyph(c.id)} {c.label}
-                </button>
-              ))
-            ) : (
-              <span key={g} className="routing-cond-branch">
-                <button
-                  type="button"
-                  className="routing-cond-folder"
-                  onClick={() => setFolded({ ...folded, [g]: !folded[g] })}
-                >
-                  {folded[g] ? "▸" : "▾"} <span className="routing-folder-icon">📁</span> {g}
-                </button>
-                {!folded[g] &&
-                  byGroup[g]?.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className={`routing-cond-leaf${c.id === value ? " active" : ""}`}
-                      onClick={() => {
-                        onChange(c.id);
-                        setOpen(false);
-                      }}
-                    >
-                      {condGlyph(c.id)} {c.label}
-                    </button>
-                  ))}
-              </span>
-            )
-          )}
-        </span>
+      {open &&
+        pos &&
+        createPortal(
+        <span className="routing-cond-pop" style={{ position: "fixed", ...pos }}>
+          <span className="routing-cond-root">
+            <span className="routing-folder-icon">📁</span> Conditions
+          </span>
+          {RouteConditionGroups.map((g) => (
+            <span key={g} className="routing-cond-branch">
+              <button
+                type="button"
+                className="routing-cond-folder"
+                onClick={() => setFolded({ ...folded, [g]: !folded[g] })}
+              >
+                {folded[g] ? "▸" : "▾"} <span className="routing-folder-icon">📁</span> {g}
+              </button>
+              {!folded[g] &&
+                byGroup[g]?.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`routing-cond-leaf${c.id === value ? " active" : ""}`}
+                    onClick={() => {
+                      onChange(c.id);
+                      setOpen(false);
+                    }}
+                  >
+                    {condGlyph(c.id)} {c.label}
+                  </button>
+                ))}
+            </span>
+          ))}
+        </span>,
+        document.body,
       )}
     </span>
   );
@@ -350,10 +442,12 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
     set("conditions", draft.conditions.map((c, j) => (j === i ? { ...c, [key]: value } : c)));
 
   function addCond() {
-    const next = [...(draft.conditions || []), { condition: 1, rule: 0, value: "" }];
-    set("conditions", next);
-    setSelCond(next.length - 1);
-    setEditCond(next.length - 1);
+    setDraft((prev) => {
+      const next = [...(prev.conditions || []), { condition: 1, rule: 0, value: "" }];
+      setSelCond(next.length - 1);
+      setEditCond(next.length - 1);
+      return { ...prev, conditions: next };
+    });
   }
 
   function deleteCond() {
@@ -402,8 +496,8 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          width={640}
-          height={680}
+          width={620}
+          height={560}
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Routing: New" : `Routing: ${draft?.name ?? "…"}`}
@@ -440,7 +534,6 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                     </p>
                   </div>
                   <div className="form-grid">
-                    <span />
                     <label className="sym-check routing-enable">
                       <input
                         type="checkbox"
@@ -476,14 +569,19 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                     <FlagSelect labels={RouteFlags_labels} value={draft.request} onChange={(v) => set("request", v)} />
                     <label>Where order is</label>
                     <FlagSelect labels={TypeFlags_labels} value={draft.type} onChange={(v) => set("type", v)} />
-                    <label>Where conditions are</label>
-                    <div className="routing-grid-row">
-                      <StackButtons
-                        hasSelection={selCond != null}
-                        onAdd={addCond}
-                        onEdit={() => setEditCond(selCond)}
-                        onDelete={deleteCond}
-                      />
+                  </div>
+                  <div className="routing-conds-section">
+                    <div className="routing-conds-left">
+                      <span className="routing-conds-caption">Where conditions are:</span>
+                      <div className="routing-conds-btns">
+                        <button type="button" onClick={addCond}>Add</button>
+                        <button type="button" disabled={selCond == null} onClick={() => setEditCond(selCond)}>
+                          Edit
+                        </button>
+                        <button type="button" disabled={selCond == null} onClick={deleteCond}>Delete</button>
+                      </div>
+                    </div>
+                    <div className="routing-conds-box">
                       <table
                         className="data-table data-table-grid df-sub-table"
                         tabIndex={0}
@@ -506,20 +604,18 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                             >
                               {editCond === i ? (
                                 <>
-                                  <td>
+                                  <td onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
                                     <CondTypeSelect value={c.condition} onChange={(v) => setCond(i, "condition", v)} />
                                   </td>
                                   <td>
                                     <PropSelect fill value={c.rule} options={enumOptions(ConditionRule_name)} onChange={(v) => setCond(i, "rule", v)} />
                                   </td>
                                   <td>
-                                    <input
-                                      type="text"
-                                      className="df-cell-input"
-                                      value={c.value ?? ""}
-                                      onChange={(e) => setCond(i, "value", e.target.value)}
-                                      onBlur={() => setEditCond(null)}
-                                      onKeyDown={(e) => e.key === "Enter" && setEditCond(null)}
+                                    <CondValueEditor
+                                      condition={c.condition}
+                                      value={c.value}
+                                      onChange={(v) => setCond(i, "value", v)}
+                                      onDone={() => setEditCond(null)}
                                     />
                                   </td>
                                 </>
@@ -532,7 +628,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                                     </span>
                                   </td>
                                   <td>{ConditionRule_name[c.rule] ?? c.rule}</td>
-                                  <td className="num">{c.value}</td>
+                                  <td className="num">{condValueLabel(c)}</td>
                                 </>
                               )}
                             </tr>
@@ -561,6 +657,8 @@ export function RoutingModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const [dragFrom, setDragFrom] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
   const canEdit = session.can?.right_cfg_requests !== false;
 
   const load = () =>
@@ -602,6 +700,21 @@ export function RoutingModule() {
 
   const row = selected == null ? null : rows?.[selected];
 
+  // a rule dragged onto another takes its place; the list order IS the priority
+  async function onDrop(from, to) {
+    if (from === to || from == null || to == null) return;
+    const ids = rows.map((r) => r.routing_id);
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+    const res = await reorderRouting(ids);
+    if (!res.ok) {
+      window.alert(res.message || "reorder failed");
+      return;
+    }
+    setSelected(to);
+    load();
+  }
+
   return (
     <div className="module-root">
       <p className="module-note">
@@ -621,7 +734,27 @@ export function RoutingModule() {
             {(rows || []).map((r, i) => (
               <tr
                 key={r.routing_id}
-                className={`${selected === i ? "selected" : ""}${r.mode === 1 ? "" : " nav-feed-disabled"}`}
+                className={`${selected === i ? "selected" : ""}${r.mode === 1 ? "" : " nav-feed-disabled"}${dragOver === i ? " routing-drop-target" : ""}`}
+                draggable={canEdit}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  setDragFrom(i);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (dragOver !== i) setDragOver(i);
+                }}
+                onDragLeave={() => dragOver === i && setDragOver(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  onDrop(dragFrom, i);
+                  setDragFrom(null);
+                  setDragOver(null);
+                }}
+                onDragEnd={() => {
+                  setDragFrom(null);
+                  setDragOver(null);
+                }}
                 onClick={() => setSelected(i)}
                 onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ id: r.routing_id })}

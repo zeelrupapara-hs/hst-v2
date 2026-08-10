@@ -1,6 +1,12 @@
 import { useMemo } from "react";
 import useSymbolStore from "../store/useSymbolStore";
-import { defaultRender, formatDate, getOrderType } from "../utils/utils";
+import usePositionStore from "../store/usePositionStore";
+import {
+  defaultRender,
+  formatDate,
+  formatMoney,
+  getOrderType,
+} from "../utils/utils";
 import { LuArrowRight } from "react-icons/lu";
 import Icon from "../components/common/Icon";
 import Bid from "../components/marketWatch/components/Bid";
@@ -12,6 +18,7 @@ import { getSide } from "../utils/validation";
 
 const usePositions = () => {
   const symbols = useSymbolStore((state) => state.symbols);
+  const currencyDigits = usePositionStore((state) => state.currencyDigits);
 
   const columns = [
     {
@@ -95,7 +102,7 @@ const usePositions = () => {
       title: "Swap",
       dataIndex: "swaps",
       key: "swaps",
-      render: defaultRender,
+      render: (value) => formatMoney(value, currencyDigits),
     },
     {
       title: "Open Time",
@@ -128,7 +135,9 @@ const usePositions = () => {
     },
   ];
 
-  return useMemo(() => columns, []);
+  // the render closures capture these, so a memo that never re-runs would keep showing the old
+  // symbol list and the old currency digits
+  return useMemo(() => columns, [symbols, currencyDigits]);
 };
 
 export default usePositions;

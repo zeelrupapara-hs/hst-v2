@@ -26,6 +26,7 @@ func (h *Handler) subscribe() error {
 		model.SubjectSystemCommissions,
 		model.SubjectSystemRules,
 		model.SubjectSystemLeverages,
+		model.SubjectSystemManagers,
 	} {
 		if err := h.Subscribe(subject, h.ConfigSystemEventHandler); err != nil {
 			return err
@@ -129,6 +130,10 @@ func (h *Handler) ConfigSystemEventHandler(msg *natscore.Msg) {
 	}
 	if err := h.LoadCommission(ctx); err != nil {
 		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not reload commissions", "error", err.Error())
+		return
+	}
+	if err := h.LoadManagerGroups(ctx); err != nil {
+		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not reload manager groups", "error", err.Error())
 		return
 	}
 

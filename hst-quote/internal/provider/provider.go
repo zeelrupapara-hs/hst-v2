@@ -9,8 +9,7 @@ import (
 type ConnectorType string
 
 const (
-	TypeFIX       ConnectorType = "fix"
-	TypeSimulator ConnectorType = "simulator"
+	TypeFIX ConnectorType = "fix"
 )
 
 // RawTick is a tick from an external source before translation.
@@ -51,8 +50,6 @@ func ModuleType(module string) (ConnectorType, bool) {
 		return TypeFIX, true
 	case "fix43", "fix_43", "fix4.3":
 		return TypeFIX, true
-	case "QuoteSimulator", "SimulatorFeeder", "simulator":
-		return TypeSimulator, true
 	default:
 		return "", false
 	}

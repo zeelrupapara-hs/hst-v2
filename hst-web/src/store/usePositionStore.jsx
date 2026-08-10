@@ -9,6 +9,8 @@ const usePositionStore = create((set, get) => ({
   positions: [],
   positionPL: {},
   summary: {},
+  // how many decimals money is shown to, decided by the account's group and changeable by an admin
+  currencyDigits: 2,
   orders: [],
   loading: false,
   error: null,
@@ -55,7 +57,10 @@ const usePositionStore = create((set, get) => ({
       const { data } = await getAccountDetails();
       if (!data?.data) return;
 
-      set({ summary: data?.data });
+      set({
+        summary: data?.data,
+        currencyDigits: data?.data?.currency_digits ?? 2,
+      });
     } catch (error) {
       set({ error: error?.response?.data?.message || error?.message });
     } finally {
@@ -110,8 +115,15 @@ const usePositionStore = create((set, get) => ({
     set((state) => ({ positionPL: { ...state.positionPL, [id]: profitLoss } }));
   },
 
-  updateSummary: (partial) =>
-    set((state) => ({ summary: { ...state.summary, ...partial } })),
+  // merged, not replaced: the live frame carries the money only, and would otherwise drop the
+  // fields the http account call supplied
+  updateSummary: (summary) =>
+    set((state) => ({ summary: { ...state.summary, ...summary } })),
+
+  setCurrencyDigits: (digits) => {
+    const d = Number(digits);
+    set({ currencyDigits: Number.isInteger(d) && d >= 0 ? d : 2 });
+  },
 
   addOrder: (order) => {
     set((state) => ({ orders: [...state.orders, order] }));
