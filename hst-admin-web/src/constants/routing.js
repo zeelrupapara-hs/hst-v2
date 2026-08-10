@@ -104,6 +104,19 @@ export const RouteCondition_name = {
 // text-valued conditions get the "ab" glyph, everything else the numeric "01" one
 export const RouteCondition_text = new Set([1, 6, 1001, 1002, 1003, 1008]);
 
+// calendar-valued conditions get the date glyph, as the reference draws them
+export const RouteCondition_date = new Set([0, 4, 5]);
+
+// the reference names each condition under its branch: Request \ Account \ Position \ Order
+export function routeConditionGroup(id) {
+  if (id >= 4007 && id <= 4008) return "Order";
+  if (id >= 4000) return "Position";
+  if (id >= 1000) return "Account";
+  return "Request";
+}
+
+export const RouteConditionGroups = ["Request", "Account", "Position", "Order"];
+
 export const ConditionRule_name = {
   0: "Equal (=)",
   1: "Not equal (!=)",

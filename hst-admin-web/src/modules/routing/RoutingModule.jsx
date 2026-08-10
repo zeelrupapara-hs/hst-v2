@@ -22,6 +22,9 @@ import {
 } from "@/api/endpoints/routing.js";
 import {
   ConditionRule_name,
+  RouteCondition_date,
+  RouteConditionGroups,
+  routeConditionGroup,
   RouteAction_name,
   RouteActions_dealer,
   RouteActions_withValue,
@@ -64,7 +67,9 @@ function FlagSelect({ labels, value, onChange }) {
       <div className="prop-select prop-select-fill">
         <div className="prop-select-box" onClick={() => setOpen((o) => !o)}>
           <span className="prop-select-value" title={text}>{text}</span>
-          <button type="button" className="prop-select-btn" aria-label="Open list" onClick={() => setOpen((o) => !o)} />
+          <span className="prop-select-btn-wrap">
+            <button type="button" className="prop-select-btn" aria-label="Open list" tabIndex={-1} />
+          </span>
         </div>
       </div>
       {open && (
@@ -159,23 +164,27 @@ function DealersTab({ ruleId }) {
       {ruleId === "new" ? (
         <p className="module-note">Save the rule first, then assign dealers here.</p>
       ) : (
-        <div className="routing-grid-row">
-          <div className="routing-btn-col">
-            <button type="button" disabled={selected == null || selected === 0} onClick={() => onMove(-1)}>
-              Up
-            </button>
-            <button
-              type="button"
-              disabled={selected == null || selected >= (rows?.length ?? 0) - 1}
-              onClick={() => onMove(1)}
-            >
-              Down
-            </button>
-            <button type="button" onClick={() => setEditing({ login: 0 })}>Add</button>
-            <button type="button" disabled={selected == null} onClick={() => setEditing(rows[selected])}>
-              Edit
-            </button>
-            <button type="button" disabled={selected == null} onClick={onDelete}>Delete</button>
+        <div className="routing-grid-row routing-dealers-row">
+          <div className="routing-btn-col routing-btn-col-split">
+            <div className="routing-btn-group">
+              <button type="button" disabled={selected == null || selected === 0} onClick={() => onMove(-1)}>
+                Up
+              </button>
+              <button
+                type="button"
+                disabled={selected == null || selected >= (rows?.length ?? 0) - 1}
+                onClick={() => onMove(1)}
+              >
+                Down
+              </button>
+            </div>
+            <div className="routing-btn-group">
+              <button type="button" onClick={() => setEditing({ login: 0 })}>Add</button>
+              <button type="button" disabled={selected == null} onClick={() => setEditing(rows[selected])}>
+                Edit
+              </button>
+              <button type="button" disabled={selected == null} onClick={onDelete}>Delete</button>
+            </div>
           </div>
           <table
             className="data-table data-table-grid df-sub-table"
@@ -196,7 +205,12 @@ function DealersTab({ ruleId }) {
                   onClick={() => setSelected(i)}
                   onDoubleClick={() => setEditing(d)}
                 >
-                  <td>{d.login}</td>
+                  <td>
+                    <span className="sym-symbol-cell">
+                      <span className="routing-dealer-icon" aria-hidden="true">🖊</span>
+                      {d.login}
+                    </span>
+                  </td>
                   <td>{d.name || "—"}</td>
                 </tr>
               ))}
@@ -222,6 +236,78 @@ function DealersTab({ ruleId }) {
         </div>
       )}
     </>
+  );
+}
+
+function condGlyph(id) {
+  if (RouteCondition_date.has(id)) return <span className="routing-glyph-dt">📅</span>;
+  if (RouteCondition_text.has(id)) return <span className="routing-glyph-ab">ab</span>;
+  return <span className="routing-glyph-01">01</span>;
+}
+
+/** The condition picker as the reference draws it: Request leaves on top, the other branches fold. */
+function CondTypeSelect({ value, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [folded, setFolded] = useState({ Account: true, Position: true, Order: true });
+  const byGroup = {};
+  for (const [id, label] of Object.entries(RouteCondition_name)) {
+    const g = routeConditionGroup(Number(id));
+    (byGroup[g] ??= []).push({ id: Number(id), label });
+  }
+
+  return (
+    <span className="routing-cond-select">
+      <button type="button" className="routing-cond-current" onClick={() => setOpen(!open)}>
+        {condGlyph(value)}
+        <span>{RouteCondition_name[value] ?? value}</span>
+        <span className="routing-cond-arrow">▾</span>
+      </button>
+      {open && (
+        <span className="routing-cond-pop">
+          {RouteConditionGroups.map((g) =>
+            g === "Request" ? (
+              byGroup[g]?.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  className={c.id === value ? "active" : ""}
+                  onClick={() => {
+                    onChange(c.id);
+                    setOpen(false);
+                  }}
+                >
+                  {condGlyph(c.id)} {c.label}
+                </button>
+              ))
+            ) : (
+              <span key={g} className="routing-cond-branch">
+                <button
+                  type="button"
+                  className="routing-cond-folder"
+                  onClick={() => setFolded({ ...folded, [g]: !folded[g] })}
+                >
+                  {folded[g] ? "▸" : "▾"} <span className="routing-folder-icon">📁</span> {g}
+                </button>
+                {!folded[g] &&
+                  byGroup[g]?.map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className={`routing-cond-leaf${c.id === value ? " active" : ""}`}
+                      onClick={() => {
+                        onChange(c.id);
+                        setOpen(false);
+                      }}
+                    >
+                      {condGlyph(c.id)} {c.label}
+                    </button>
+                  ))}
+              </span>
+            )
+          )}
+        </span>
+      )}
+    </span>
   );
 }
 
@@ -421,7 +507,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                               {editCond === i ? (
                                 <>
                                   <td>
-                                    <PropSelect fill value={c.condition} options={enumOptions(RouteCondition_name)} onChange={(v) => setCond(i, "condition", v)} />
+                                    <CondTypeSelect value={c.condition} onChange={(v) => setCond(i, "condition", v)} />
                                   </td>
                                   <td>
                                     <PropSelect fill value={c.rule} options={enumOptions(ConditionRule_name)} onChange={(v) => setCond(i, "rule", v)} />
@@ -441,10 +527,8 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                                 <>
                                   <td>
                                     <span className="sym-symbol-cell">
-                                      <span className={RouteCondition_text.has(c.condition) ? "routing-glyph-ab" : "routing-glyph-01"}>
-                                        {RouteCondition_text.has(c.condition) ? "ab" : "01"}
-                                      </span>
-                                      {RouteCondition_name[c.condition] ?? c.condition}
+                                      {condGlyph(c.condition)}
+                                      {routeConditionGroup(c.condition)}\{RouteCondition_name[c.condition] ?? c.condition}
                                     </span>
                                   </td>
                                   <td>{ConditionRule_name[c.rule] ?? c.rule}</td>

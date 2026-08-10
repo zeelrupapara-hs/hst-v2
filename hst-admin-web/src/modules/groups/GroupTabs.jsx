@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { fetchLeverages } from "@/api/endpoints/leverages.js";
-import { fetchMailServers } from "@/api/endpoints/mailServers.js";
+import { fetchMailServers } from "@/api/endpoints/mailservers.js";
 import { newsLangSummary } from "@/constants/newsLanguages.js";
 import { NewsLanguagesDialog } from "./NewsLanguagesDialog.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
