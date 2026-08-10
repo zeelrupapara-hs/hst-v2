@@ -97,17 +97,6 @@ function FlagSelect({ labels, value, onChange }) {
   );
 }
 
-/** Add / Edit / Delete stacked beside a grid, as the reference dialogs have them. */
-function StackButtons({ onAdd, onEdit, onDelete, hasSelection }) {
-  return (
-    <div className="routing-btn-col">
-      <button type="button" onClick={onAdd}>Add</button>
-      <button type="button" disabled={!hasSelection} onClick={onEdit}>Edit</button>
-      <button type="button" disabled={!hasSelection} onClick={onDelete}>Delete</button>
-    </div>
-  );
-}
-
 function DealersTab({ ruleId }) {
   const [rows, setRows] = useState(null);
   const [managers, setManagers] = useState([]);
@@ -476,15 +465,19 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                     <FlagSelect labels={RouteFlags_labels} value={draft.request} onChange={(v) => set("request", v)} />
                     <label>Where order is</label>
                     <FlagSelect labels={TypeFlags_labels} value={draft.type} onChange={(v) => set("type", v)} />
-                    <label>Where conditions are</label>
-                    <div className="routing-grid-row routing-conds-row">
-                      <StackButtons
-                        hasSelection={selCond != null}
-                        onAdd={addCond}
-                        onEdit={() => setEditCond(selCond)}
-                        onDelete={deleteCond}
-                      />
-                      <div className="routing-conds-box">
+                  </div>
+                  <div className="routing-conds-section">
+                    <div className="routing-conds-left">
+                      <span className="routing-conds-caption">Where conditions are:</span>
+                      <div className="routing-conds-btns">
+                        <button type="button" onClick={addCond}>Add</button>
+                        <button type="button" disabled={selCond == null} onClick={() => setEditCond(selCond)}>
+                          Edit
+                        </button>
+                        <button type="button" disabled={selCond == null} onClick={deleteCond}>Delete</button>
+                      </div>
+                    </div>
+                    <div className="routing-conds-box">
                       <table
                         className="data-table data-table-grid df-sub-table"
                         tabIndex={0}
@@ -540,7 +533,6 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                           ))}
                         </tbody>
                       </table>
-                      </div>
                     </div>
                   </div>
                 </>

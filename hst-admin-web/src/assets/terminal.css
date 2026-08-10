@@ -3460,7 +3460,7 @@ select {
 .routing-action-row { display: flex; align-items: center; gap: 8px; }
 .routing-action-row .prop-select { flex: 0 1 55%; }
 .routing-action-row input[type="text"] { flex: 1 1 40%; }
-.routing-enable { grid-column: 1 / -1; justify-self: center; }
+.settings-dialog .form-grid > .sym-check.routing-enable { grid-column: 2; justify-self: start; padding-left: 0; }
 .routing-btn-col button { width: 74px; height: 22px; font-size: 11px; }
 .routing-grid-row td .df-cell-input { height: 16px; }
 .routing-grid-row { display: flex; align-items: flex-start; gap: 8px; }
@@ -4949,8 +4949,19 @@ label.sym-check::after { content: none; }
 /* the conditions grid keeps to the dialog: fixed columns, editors sized to their cells */
 .routing-grid-row { min-width: 0; }
 .routing-grid-row table { table-layout: fixed; width: 100%; min-width: 0; }
-.routing-conds-box { height: 150px; overflow-y: auto; border: 1px solid #d7d7d7; background: #fff; flex: 1; }
-.routing-conds-box table { border: none; }
+.routing-conds-box { height: 178px; overflow-y: auto; border: 1px solid #d7d7d7; background: #fff; flex: 1; min-width: 0; }
+.routing-conds-box table { border: none; table-layout: fixed; width: 100%; }
+.routing-conds-box th:nth-child(1) { width: 38%; }
+.routing-conds-box th:nth-child(2) { width: 30%; }
+.routing-conds-box td { overflow: hidden; padding: 1px 2px; }
+.routing-conds-box td .df-cell-input { width: 100%; box-sizing: border-box; height: 16px; }
+.routing-conds-box td .prop-select, .routing-conds-box td .prop-select-fill { max-width: none; width: 100%; }
+.routing-conds-box td .prop-select-box { height: 18px; }
+.routing-conds-section { display: flex; gap: 10px; padding: 2px 22px 2px 12px; }
+.routing-conds-left { flex: 0 0 150px; display: flex; flex-direction: column; gap: 26px; }
+.routing-conds-caption { font-size: 11px; text-align: right; }
+.routing-conds-btns { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.routing-conds-btns button { width: 74px; height: 22px; font-size: 11px; }
 .routing-grid-row th:nth-child(1) { width: 38%; }
 .routing-grid-row th:nth-child(2) { width: 30%; }
 .routing-grid-row td { overflow: hidden; padding: 1px 2px; }
