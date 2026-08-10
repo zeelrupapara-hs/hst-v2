@@ -494,7 +494,7 @@ func (s *Server) CreateManager(c *fiber.Ctx) error {
 		"actor", snap.Login, "target", body.Login)
 
 	return s.getManager(c, body.Login, s.NotifyManager(model.EventManagerCreated,
-		model.SubjectSystemManagerCreated, journal.ManagerCreatedMsg(snap.Login, body.Login), true))
+		model.SubjectSystemManagerCreated, journal.ManagerCreatedMsg(body.Login), true))
 }
 
 // UpdateManager replaces the name, groups and the whole right set of a manager.
@@ -567,7 +567,7 @@ func (s *Server) UpdateManager(c *fiber.Ctx) error {
 		"actor", snap.Login, "target", login)
 
 	return s.getManager(c, int64(login), s.NotifyManager(model.EventManagerUpdated,
-		model.SubjectSystemManagerUpdated, journal.ManagerUpdatedMsg(snap.Login, int64(login)), false))
+		model.SubjectSystemManagerUpdated, journal.ManagerUpdatedMsg(int64(login)), false))
 }
 
 // DeleteManager removes the staff role.
@@ -618,7 +618,7 @@ func (s *Server) DeleteManager(c *fiber.Ctx) error {
 	ref := v1.ViewManagerRef{Login: int64(login)}
 	s.NotifyWS(model.SubjectManager, model.EventManagerDeleted, ref)
 	s.NotifySystem(model.SubjectSystemManagerDeleted, ref)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.ManagerDeletedMsg(snap.Login, int64(login)), ref)
+	s.JournalEntry(c, model.JournalType_managers, logger.CodeWarn, journal.ManagerDeletedMsg(int64(login)), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -643,7 +643,7 @@ func (s *Server) NotifyManager(event, systemSubject, message string, created boo
 	return func(c *fiber.Ctx, v interface{}) error {
 		s.NotifyWS(model.SubjectManager, event, v)
 		s.NotifySystem(systemSubject, v)
-		s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, message, v)
+		s.JournalEntry(c, model.JournalType_managers, logger.CodeOK, message, v)
 
 		if created {
 			return s.App.HttpResponseCreated(c, v)

@@ -5273,3 +5273,7 @@ tr[draggable="true"] { cursor: grab; }
 .mgr-tree-arrow:hover { color: #316ac5; }
 .mgr-tree-spacer { flex: 0 0 14px; }
 .mgr-tree-row .sym-check { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
+
+/* Journal columns: the message takes the room, the rest stay tight */
+.journal-table th:nth-child(-n + 5) { white-space: nowrap; width: 1%; }
+.journal-table td:nth-child(-n + 5) { white-space: nowrap; }

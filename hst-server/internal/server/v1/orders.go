@@ -459,7 +459,7 @@ func (s *HttpServer) journalAsked(c *fiber.Ctx, res *Accepted, err error) {
 
 	// the message a trader reads, not the route that carried it: the same request sent over the
 	// socket is already written this way, and the two should not read differently
-	s.JournalEntry(c, logger.TypeTrade, code, fmt.Sprintf("%d: %s", login, outcome), res)
+	s.JournalEntry(c, model.JournalType_trade, code, fmt.Sprintf("trade request on account #%d: %s", login, outcome), res)
 }
 
 // answer writes the engine's reply, carrying the result even when it is a refusal.
@@ -509,7 +509,7 @@ func (s *HttpServer) journalTrade(c *fiber.Ctx, res *model.TradeResult, err erro
 		login = res.Login
 	}
 
-	s.JournalEntry(c, logger.TypeTrade, code, fmt.Sprintf("%d: %s", login, outcome), res)
+	s.JournalEntry(c, model.JournalType_trade, code, fmt.Sprintf("trade request on account #%d: %s", login, outcome), res)
 }
 
 // inReach answers false and writes the refusal itself when the account is outside the manager's masks.

@@ -365,9 +365,8 @@ func (s *Server) ResetUserPassword(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeUser, logger.CodeWarn, "password reset by staff",
 		"actor", snap.Login, "login", login, "kind", body.Kind)
-	s.JournalEntry(c, logger.TypeUser, logger.CodeWarn,
-		strconv.FormatInt(snap.Login, 10)+": "+body.Kind+" password reset on "+
-			strconv.FormatInt(int64(login), 10), nil)
+	s.JournalEntry(c, model.JournalType_auth, logger.CodeWarn,
+		body.Kind+" password of account #"+strconv.FormatInt(int64(login), 10)+" was reset", nil)
 
 	return s.App.HttpResponseNoContent(c)
 }

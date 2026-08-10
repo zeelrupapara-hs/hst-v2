@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { fetchJournal, searchJournal } from "@/api/endpoints/journal.js";
 import { useToolbox } from "@/hooks/useToolbox.jsx";
 import { formatNs } from "@/lib/time.js";
+import { JournalType_name } from "@/constants/journal.js";
 
 const toNs = (local) => (local ? new Date(local).getTime() * 1e6 : undefined);
 
@@ -11,6 +12,8 @@ function JournalRows({ rows, message }) {
       <thead>
         <tr>
           <th>Time</th>
+          <th>Source</th>
+          <th>Type</th>
           <th>Channel</th>
           <th>IP</th>
           <th>Message</th>
@@ -20,6 +23,8 @@ function JournalRows({ rows, message }) {
         {(rows ?? []).map((r) => (
           <tr key={r.journal_id}>
             <td>{formatNs(r.created_at)}</td>
+            <td>{r.login ? r.login : "server"}</td>
+            <td>{JournalType_name[r.type] ?? r.type}</td>
             <td>{r.channel}</td>
             <td>{r.ip}</td>
             <td>{r.message}</td>
@@ -27,7 +32,7 @@ function JournalRows({ rows, message }) {
         ))}
         {rows !== null && rows.length === 0 && (
           <tr>
-            <td colSpan={4}>{message || "No journal entries."}</td>
+            <td colSpan={6}>{message || "No journal entries."}</td>
           </tr>
         )}
       </tbody>

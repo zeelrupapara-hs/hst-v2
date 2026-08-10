@@ -43,7 +43,7 @@ func (s *HttpServer) CreateBalance(c *fiber.Ctx) error {
 		return s.App.HttpResponseStatus(c, status, err)
 	}
 
-	s.journalBalance(c, snap.Login, &body)
+	s.journalBalance(c, &body)
 
 	return s.answer(c, res, status, err)
 }
@@ -171,7 +171,7 @@ func (s *HttpServer) balanceAs(c *fiber.Ctx, body *CrtBalance) error {
 		return s.App.HttpResponseStatus(c, status, err)
 	}
 
-	s.journalBalance(c, snap.Login, body)
+	s.journalBalance(c, body)
 
 	return s.answer(c, res, status, err)
 }

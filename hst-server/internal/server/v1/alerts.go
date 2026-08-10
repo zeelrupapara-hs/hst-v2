@@ -88,11 +88,11 @@ func (s *HttpServer) MarginCallHandler(msg *natscore.Msg) {
 	}
 
 	entry := &model.Journal{
-		Type:    int32(logger.TypeTrade),
+		Type:    int32(model.JournalType_trade),
 		Code:    int32(logger.CodeWarn),
 		Login:   evt.Login,
 		Channel: "system",
-		Message: fmt.Sprintf("%d: margin call, level %.2f under %.2f", evt.Login, evt.MarginLevel, evt.CallLevel),
+		Message: fmt.Sprintf("margin call was declared on account #%d, margin level %.2f fell under %.2f", evt.Login, evt.MarginLevel, evt.CallLevel),
 	}
 	if err := s.Journal.Entry(context.Background(), entry); err != nil {
 		s.Log.Log(logger.TypeTrade, logger.CodeWarn, "could not journal a margin call",

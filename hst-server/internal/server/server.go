@@ -62,7 +62,7 @@ func NewServer(log *logger.Logger, database *db.PostgresDB, nats *nats.Nats, rds
 		}
 	}
 
-	workerStatus := workerstatus.New(database, log)
+	workerStatus := workerstatus.New(database, log, web.Journal)
 	workerStatus.SetNotifier(web.NotifyWS)
 
 	return &Server{

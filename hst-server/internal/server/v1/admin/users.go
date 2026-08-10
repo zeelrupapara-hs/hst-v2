@@ -312,7 +312,7 @@ func (s *Server) UpdateUser(c *fiber.Ctx) error {
 	if oldGroup != "" {
 		s.NotifyWS(model.SubjectUser(oldGroup), model.EventUserMoved,
 			v1.ViewUserRef{Login: int64(login), Group: oldGroup})
-		s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.UserMovedMsg(snap.Login, int64(login)), oldGroup)
+		s.JournalEntry(c, model.JournalType_accounts, logger.CodeOK, journal.UserMovedMsg(int64(login)), oldGroup)
 	}
 
 	return s.getUserByLogin(c, int64(login), s.NotifyUser(model.EventUserUpdated))
@@ -370,7 +370,7 @@ func (s *Server) DeleteUser(c *fiber.Ctx) error {
 	s.NotifyWS(model.SubjectUser(gone), model.EventUserDeleted, ref)
 	s.NotifyWS(model.SubjectTraderProfile(int64(login)), model.EventUserDeleted, ref)
 	s.NotifySystem(model.SubjectSystemUserDeleted, ref)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.UserDeletedMsg(snap.Login, int64(login)), ref)
+	s.JournalEntry(c, model.JournalType_accounts, logger.CodeWarn, journal.UserDeletedMsg(int64(login)), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }
@@ -383,7 +383,7 @@ func (s *Server) NotifyUser(event string) func(*fiber.Ctx, interface{}) error {
 			// the account itself is told about its own record, on the root only it can hear
 			s.NotifyWS(model.SubjectTraderProfile(u.Login), event, u)
 			s.NotifySystem(SystemUserSubject(event), u)
-			s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, UserMsg(c, event, u), u)
+			s.JournalEntry(c, model.JournalType_accounts, logger.CodeOK, UserMsg(c, event, u), u)
 		}
 		body := v
 		if u, ok := v.(*ViewUser); ok {
@@ -488,15 +488,8 @@ func SystemUserSubject(event string) string {
 
 // UserMsg is the journal line for a user event.
 func UserMsg(c *fiber.Ctx, event string, u *ViewUser) string {
-	snap, _ := utils.GetClient(c)
-
-	var actor int64
-	if snap != nil {
-		actor = snap.Login
-	}
-
 	if event == model.EventUserCreated {
-		return journal.UserCreatedMsg(actor, u.Login)
+		return journal.UserCreatedMsg(u.Login)
 	}
-	return journal.UserUpdatedMsg(actor, u.Login)
+	return journal.UserUpdatedMsg(u.Login)
 }

@@ -519,7 +519,7 @@ func (s *Server) CreateGroupSymbol(c *fiber.Ctx) error {
 	GroupPath := s.GroupPath(c, groupID)
 	s.NotifyWS(model.SubjectGroupSymbol(GroupPath), model.EventGroupSymbolCreated, v)
 	s.NotifySystem(model.SubjectSystemGroupSymbolCreated, v)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.GroupSymbolCreatedMsg(snap.Login, GroupPath), v)
+	s.JournalEntry(c, model.JournalType_groups, logger.CodeOK, journal.GroupSymbolCreatedMsg(GroupPath), v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -677,7 +677,7 @@ func (s *Server) UpdateGroupSymbol(c *fiber.Ctx) error {
 	path := s.GroupPath(c, groupID)
 	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolUpdated, v)
 	s.NotifySystem(model.SubjectSystemGroupSymbolUpdated, v)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.GroupSymbolUpdatedMsg(snap.Login, path), v)
+	s.JournalEntry(c, model.JournalType_groups, logger.CodeOK, journal.GroupSymbolUpdatedMsg(path), v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -723,7 +723,7 @@ func (s *Server) DeleteGroupSymbol(c *fiber.Ctx) error {
 	ref := v1.ViewGroupSymbolRef{GroupID: groupID, SymbolID: symbolID}
 	s.NotifyWS(model.SubjectGroupSymbol(path), model.EventGroupSymbolDeleted, ref)
 	s.NotifySystem(model.SubjectSystemGroupSymbolDeleted, ref)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.GroupSymbolDeletedMsg(snap.Login, path), ref)
+	s.JournalEntry(c, model.JournalType_groups, logger.CodeWarn, journal.GroupSymbolDeletedMsg(path), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

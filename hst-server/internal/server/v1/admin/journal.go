@@ -16,7 +16,7 @@ var journalSortBy = utils.NewSortable("journal_id", "created_at", "type", "code"
 // host() drops the /32 that inet carries into text, and pgx has no string plan
 // for inet either way
 const journalColumns = `journal_id, created_at, type, code, login,
-	coalesce(host(ip), ''), message, coalesce(detail, '{}'::jsonb)`
+	coalesce(host(ip), ''), channel, os, message, coalesce(detail, '{}'::jsonb)`
 
 // MyJournal returns a page of the caller's own journal entries, newest first.
 // The login comes from the session, never from the request, so one manager
@@ -29,7 +29,7 @@ const journalColumns = `journal_id, created_at, type, code, login,
 //	@Param		limit	query		int		false	"rows per page, max 500"
 //	@Param		from	query		int		false	"created_at lower bound, unix nanoseconds"
 //	@Param		to		query		int		false	"created_at upper bound, unix nanoseconds"
-//	@Param		type	query		int		false	"event type, 0 for all"		Enums(0, 1, 2, 3, 4, 5, 6, 7, 8)
+//	@Param		type	query		int		false	"module type, 0 for all"	Enums(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12)
 //	@Param		mode	query		string	false	"which entries to return"	Enums(full, without_logins, errors_only)
 //	@Param		search	query		string	false	"matches message, case sensitive"
 //	@Param		channel	query		string	false	"a channel's own trail, e.g. datafeed:3; the login filter drops"
@@ -53,8 +53,8 @@ func (s *Server) MyJournal(c *fiber.Ctx) error {
 	}
 
 	typ := c.QueryInt("type", 0)
-	if typ < 0 || typ > 8 {
-		return s.App.HttpResponseBadQueryParams(c, fmt.Errorf("type %d is not an event type", typ))
+	if typ < 0 || typ > 12 {
+		return s.App.HttpResponseBadQueryParams(c, fmt.Errorf("type %d is not a module type", typ))
 	}
 
 	mode, ok := model.JournalMode_value[c.Query("mode", "full")]
@@ -87,7 +87,7 @@ func (s *Server) MyJournal(c *fiber.Ctx) error {
 	for rows.Next() {
 		var v model.Journal
 		if err := rows.Scan(&v.JournalId, &v.CreatedAt, &v.Type, &v.Code, &v.Login,
-			&v.Ip, &v.Message, &v.Detail); err != nil {
+			&v.Ip, &v.Channel, &v.Os, &v.Message, &v.Detail); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
 		out = append(out, v)

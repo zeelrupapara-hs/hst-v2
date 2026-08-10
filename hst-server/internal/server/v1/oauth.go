@@ -188,7 +188,7 @@ func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 		"login", login, "ip", ip, "connection_type", body.ConnectionType)
 
 	s.WriteJournalFrom(ctx, login, ip, connType.Channel(), utils.OperatingSystem(utils.GetUserAgent(c)),
-		logger.TypeUser, logger.CodeLogin, journal.SignedInMsg(login, ip), view)
+		model.JournalType_auth, logger.CodeLogin, journal.SignedInMsg(ip), view)
 
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }

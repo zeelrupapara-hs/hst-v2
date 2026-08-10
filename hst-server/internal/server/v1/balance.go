@@ -73,7 +73,7 @@ func (s *HttpServer) sendBalance(ctx context.Context, login int64, e *model.Bala
 	return s.request(ctx, model.SubjectSystemBalance, e)
 }
 
-func (s *HttpServer) journalBalance(c *fiber.Ctx, actor int64, body *CrtBalance) {
-	s.JournalEntry(c, logger.TypeTrade, logger.CodeOK, journal.BalanceMsg(actor, body.Login,
+func (s *HttpServer) journalBalance(c *fiber.Ctx, body *CrtBalance) {
+	s.JournalEntry(c, model.JournalType_trade, logger.CodeOK, journal.BalanceMsg(body.Login,
 		model.BalanceActionName(body.Action), body.Amount), body)
 }

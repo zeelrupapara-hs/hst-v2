@@ -191,8 +191,8 @@ func (s *Server) CreateSymbolFolder(c *fiber.Ctx) error {
 
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "symbol folder created", "actor", snap.Login, "path", path)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK,
-		fmt.Sprintf("%d: symbol folder %s created", snap.Login, path), ViewSymbolFolder{Path: path})
+	s.JournalEntry(c, model.JournalType_symbols, logger.CodeOK,
+		fmt.Sprintf("symbol folder '%s' was created", path), ViewSymbolFolder{Path: path})
 
 	return s.App.HttpResponseCreated(c, ViewSymbolFolder{Path: path})
 }
@@ -290,8 +290,8 @@ func (s *Server) RenameSymbolFolder(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "symbol folder renamed",
 		"actor", snap.Login, "from", from, "to", to)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK,
-		fmt.Sprintf("%d: symbol folder %s renamed to %s", snap.Login, from, to), ViewSymbolFolder{Path: to})
+	s.JournalEntry(c, model.JournalType_symbols, logger.CodeOK,
+		fmt.Sprintf("symbol folder '%s' was renamed to '%s'", from, to), ViewSymbolFolder{Path: to})
 
 	return s.App.HttpResponseOK(c, ViewSymbolFolder{Path: to})
 }
@@ -387,13 +387,13 @@ func (s *Server) DeleteSymbolFolder(c *fiber.Ctx) error {
 	for _, ref := range deleted {
 		s.NotifyWS(model.SubjectSymbol, model.EventSymbolDeleted, ref)
 		s.NotifySystem(model.SubjectSystemSymbolDeleted, ref)
-		s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.SymbolDeletedMsg(snap.Login, ref.Symbol), ref)
+		s.JournalEntry(c, model.JournalType_symbols, logger.CodeWarn, journal.SymbolDeletedMsg(ref.Symbol), ref)
 	}
 
 	s.Log.Log(logger.TypeCfg, logger.CodeWarn, "symbol folder deleted",
 		"actor", snap.Login, "path", path, "symbols", len(deleted), "cascade", body.Cascade)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn,
-		fmt.Sprintf("%d: symbol folder %s deleted", snap.Login, path), ViewSymbolFolder{Path: path})
+	s.JournalEntry(c, model.JournalType_symbols, logger.CodeWarn,
+		fmt.Sprintf("symbol folder '%s' was deleted", path), ViewSymbolFolder{Path: path})
 
 	return s.App.HttpResponseNoContent(c)
 }

@@ -73,19 +73,21 @@ type wireEntry struct {
 	CreatedAt int64  `json:"created_at"`
 	Type      int32  `json:"type"`
 	Code      int32  `json:"code"`
+	Login     int64  `json:"login"`
 	Channel   string `json:"channel"`
 	Os        string `json:"os"`
 	Ip        string `json:"ip"`
 	Message   string `json:"message"`
 }
 
-// channelOr keeps the column honest for entries the platform writes to itself.
+// channelOr keeps the column honest: anything outside the known terminals is the platform itself.
 func channelOr(c string) string {
-	if c == "" {
-		return "system"
+	switch c {
+	case "web", "desktop", "mobile", "api", "system":
+		return c
 	}
 
-	return c
+	return "system"
 }
 
 // publishMsg announces an entry and reports whether the broker actually holds it.
@@ -95,6 +97,7 @@ func (j *Journal) publishMsg(entry *model.Journal) error {
 		CreatedAt: entry.CreatedAt,
 		Type:      entry.Type,
 		Code:      entry.Code,
+		Login:     entry.Login,
 		Channel:   channelOr(entry.Channel),
 		Os:        entry.Os,
 		Ip:        entry.Ip,

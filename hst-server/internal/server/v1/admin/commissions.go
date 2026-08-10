@@ -321,7 +321,7 @@ func (s *Server) CreateGroupCommission(c *fiber.Ctx) error {
 	path := s.GroupPath(c, groupID)
 	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionCreated, v)
 	s.NotifySystem(model.SubjectSystemGroupCommissionCreated, v)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.GroupCommissionCreatedMsg(snap.Login, path), v)
+	s.JournalEntry(c, model.JournalType_groups, logger.CodeOK, journal.GroupCommissionCreatedMsg(path), v)
 
 	return s.App.HttpResponseCreated(c, v)
 }
@@ -427,7 +427,7 @@ func (s *Server) UpdateGroupCommission(c *fiber.Ctx) error {
 	path := s.GroupPath(c, groupID)
 	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionUpdated, v)
 	s.NotifySystem(model.SubjectSystemGroupCommissionUpdated, v)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.GroupCommissionUpdatedMsg(snap.Login, path), v)
+	s.JournalEntry(c, model.JournalType_groups, logger.CodeOK, journal.GroupCommissionUpdatedMsg(path), v)
 
 	return s.App.HttpResponseOK(c, v)
 }
@@ -473,7 +473,7 @@ func (s *Server) DeleteGroupCommission(c *fiber.Ctx) error {
 	ref := v1.ViewCommissionRef{GroupID: groupID, CommissionID: commissionID}
 	s.NotifyWS(model.SubjectGroupCommission(path), model.EventGroupCommissionDeleted, ref)
 	s.NotifySystem(model.SubjectSystemGroupCommissionDeleted, ref)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeWarn, journal.GroupCommissionDeletedMsg(snap.Login, path), ref)
+	s.JournalEntry(c, model.JournalType_groups, logger.CodeWarn, journal.GroupCommissionDeletedMsg(path), ref)
 
 	return s.App.HttpResponseNoContent(c)
 }

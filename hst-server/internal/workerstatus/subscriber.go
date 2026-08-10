@@ -9,6 +9,7 @@ import (
 
 	"hstserver/model"
 	"hstserver/pkg/db"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/pkg/nats"
 
@@ -71,6 +72,7 @@ type feedState struct {
 type Subscriber struct {
 	db       *db.PostgresDB
 	log      *logger.Logger
+	journal  *journal.Journal
 	subs     []*natscore.Subscription
 	notify   Notifier
 	feeds    map[int64]*feedState
@@ -79,12 +81,13 @@ type Subscriber struct {
 	stopOnce sync.Once
 }
 
-func New(database *db.PostgresDB, log *logger.Logger) *Subscriber {
+func New(database *db.PostgresDB, log *logger.Logger, jrn *journal.Journal) *Subscriber {
 	return &Subscriber{
-		db:     database,
-		log:    log,
-		feeds:  make(map[int64]*feedState),
-		stopCh: make(chan struct{}),
+		db:      database,
+		log:     log,
+		journal: jrn,
+		feeds:   make(map[int64]*feedState),
+		stopCh:  make(chan struct{}),
 	}
 }
 
@@ -196,7 +199,7 @@ func (s *Subscriber) onQuoteJournal(msg *natscore.Msg) {
 	_, err := s.db.DB.Exec(context.Background(),
 		`INSERT INTO hst.journal (created_at, type, code, login, ip, channel, os, message, detail)
 		 VALUES ($1, $2, $3, 0, NULL, $4, '', $5, '{}'::jsonb)`,
-		at, int32(logger.TypeNet), evt.Code, fmt.Sprintf("datafeed:%d", evt.DatafeedID), evt.Message)
+		at, int32(model.JournalType_datafeeds), evt.Code, fmt.Sprintf("datafeed:%d", evt.DatafeedID), evt.Message)
 	if err != nil {
 		s.log.Log(logger.TypeNet, logger.CodeWarn, "feed journal write failed",
 			"datafeed_id", evt.DatafeedID, "error", err.Error())
@@ -221,16 +224,51 @@ func (s *Subscriber) applyConnection(evt Event) {
 	}
 	s.mu.Lock()
 	st := s.feed(evt.DatafeedID)
+	prev := st.sysConn
 	st.sysConn = &conn
 	if evt.SysLastTime > 0 {
 		st.sysLastTime = evt.SysLastTime
 	}
 	s.mu.Unlock()
+
+	// only a flip is worth a journal line; the first status after boot counts when it is a connect
+	if (prev == nil && evt.Connected) || (prev != nil && *prev != conn) {
+		s.journalConnection(evt.DatafeedID, evt.Connected)
+	}
 	s.notifyRuntime(model.EventDatafeedStatusUpdated, model.DatafeedRuntime{
 		DatafeedID:    evt.DatafeedID,
 		SysConnection: &conn,
 		SysLastTime:   evt.SysLastTime,
 	})
+}
+
+// journalConnection writes the connect or disconnect transition to the server journal.
+func (s *Subscriber) journalConnection(id int64, connected bool) {
+	if s.journal == nil {
+		return
+	}
+
+	name := fmt.Sprintf("datafeed #%d", id)
+	var dbName string
+	if err := s.db.DB.QueryRow(context.Background(),
+		`SELECT name FROM hst.datafeeds WHERE datafeed_id = $1`, id).Scan(&dbName); err == nil {
+		name = dbName
+	}
+
+	code, message := int32(logger.CodeOK), journal.DatafeedConnectedMsg(name)
+	if !connected {
+		code, message = int32(logger.CodeWarn), journal.DatafeedDisconnectedMsg(name)
+	}
+
+	if err := s.journal.Entry(context.Background(), &model.Journal{
+		Type:    int32(model.JournalType_datafeeds),
+		Code:    code,
+		Channel: "system",
+		Message: message,
+	}); err != nil {
+		s.log.Log(logger.TypeNet, logger.CodeWarn, "feed connection journal write failed",
+			"datafeed_id", id, "error", err.Error())
+	}
 }
 
 func (s *Subscriber) applyStats(evt Event, ticks, news, books, bytes int64) {

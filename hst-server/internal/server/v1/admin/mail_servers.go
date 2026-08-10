@@ -242,8 +242,8 @@ func (s *Server) CreateMailServer(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectMailServer, model.EventMailServerCreated, view)
 	s.NotifySystem(model.SubjectSystemMailServerCreated, view)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK,
-		journal.MailServerCreatedMsg(snap.Login, int(out.MailServerId)), view)
+	s.JournalEntry(c, model.JournalType_mail, logger.CodeOK,
+		journal.MailServerCreatedMsg(int(out.MailServerId)), view)
 
 	return s.App.HttpResponseCreated(c, view)
 }
@@ -333,8 +333,8 @@ func (s *Server) UpdateMailServer(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectMailServer, model.EventMailServerUpdated, view)
 	s.NotifySystem(model.SubjectSystemMailServerUpdated, view)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK,
-		journal.MailServerUpdatedMsg(snap.Login, int(out.MailServerId)), view)
+	s.JournalEntry(c, model.JournalType_mail, logger.CodeOK,
+		journal.MailServerUpdatedMsg(int(out.MailServerId)), view)
 
 	return s.App.HttpResponseOK(c, view)
 }
@@ -373,7 +373,7 @@ func (s *Server) DeleteMailServer(c *fiber.Ctx) error {
 
 	s.NotifyWS(model.SubjectMailServer, model.EventMailServerDeleted, view)
 	s.NotifySystem(model.SubjectSystemMailServerDeleted, view)
-	s.JournalEntry(c, logger.TypeCfg, logger.CodeOK, journal.MailServerDeletedMsg(snap.Login, id), view)
+	s.JournalEntry(c, model.JournalType_mail, logger.CodeOK, journal.MailServerDeletedMsg(id), view)
 
 	return s.App.HttpResponseOK(c, view)
 }

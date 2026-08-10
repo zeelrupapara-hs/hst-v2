@@ -2,104 +2,115 @@ package journal
 
 import "fmt"
 
-// Journal messages. The first argument is the manager who acted, the second names the record; the rest is in the detail.
+// Journal messages. The acting login lives in the login column, so the text only names the record.
 var (
 
 	// What a trader does with their own account, written in the words the terminal uses.
-	SignedInMsg  = func(login int64, ip string) string { return fmt.Sprintf("%d: signed in from %s", login, ip) }
-	SignedOutMsg = func(login int64) string { return fmt.Sprintf("%d: signed out", login) }
+	SignedInMsg  = func(ip string) string { return fmt.Sprintf("signed in from %s", ip) }
+	SignedOutMsg = func() string { return "signed out" }
 
-	OrderAskedMsg = func(login int64, kind, symbol string, lots float64) string {
-		return fmt.Sprintf("%d: %s %.2f %s requested", login, kind, lots, symbol)
+	OrderAskedMsg = func(kind, symbol string, lots float64) string {
+		return fmt.Sprintf("%s order for %.2f lots of %s was requested", kind, lots, symbol)
 	}
-	OrderChangedMsg   = func(login, order int64) string { return fmt.Sprintf("%d: order #%d modified", login, order) }
-	OrderCancelledMsg = func(login, order int64) string { return fmt.Sprintf("%d: order #%d cancelled", login, order) }
+	OrderChangedMsg   = func(order int64) string { return fmt.Sprintf("order #%d was modified", order) }
+	OrderCancelledMsg = func(order int64) string { return fmt.Sprintf("order #%d was cancelled", order) }
 
-	PositionStopsMsg = func(login, position int64, sl, tp float64) string {
-		return fmt.Sprintf("%d: position #%d stops set, sl %g tp %g", login, position, sl, tp)
+	PositionStopsMsg = func(position int64, sl, tp float64) string {
+		return fmt.Sprintf("stop levels on position #%d were set to sl %g and tp %g", position, sl, tp)
 	}
-	PositionClosedMsg = func(login, position int64, lots float64) string {
+	PositionClosedMsg = func(position int64, lots float64) string {
 		if lots <= 0 {
-			return fmt.Sprintf("%d: position #%d close requested", login, position)
+			return fmt.Sprintf("close of position #%d was requested", position)
 		}
-		return fmt.Sprintf("%d: position #%d close requested, %.2f lots", login, position, lots)
+		return fmt.Sprintf("close of %.2f lots on position #%d was requested", lots, position)
 	}
-	PositionClosedByMsg = func(login, position, by int64) string {
-		return fmt.Sprintf("%d: position #%d closed by #%d", login, position, by)
-	}
-
-	MailSentMsg  = func(login int64, subject string) string { return fmt.Sprintf("%d: mail sent, %q", login, subject) }
-	MailDraftMsg = func(login int64, subject string) string { return fmt.Sprintf("%d: draft saved, %q", login, subject) }
-
-	PasswordChangedMsg = func(login int64) string { return fmt.Sprintf("%d: password changed", login) }
-
-	RegisteredMsg = func(login int64, accountType string) string {
-		return fmt.Sprintf("%d: %s account registered", login, accountType)
+	PositionClosedByMsg = func(position, by int64) string {
+		return fmt.Sprintf("position #%d was closed by position #%d", position, by)
 	}
 
-	GroupCreatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group created", login, path) }
-	GroupUpdatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group updated", login, path) }
+	MailSentMsg  = func(subject string) string { return fmt.Sprintf("mail %q was sent", subject) }
+	MailDraftMsg = func(subject string) string { return fmt.Sprintf("mail draft %q was saved", subject) }
 
-	EndOfDayTimeMsg = func(login int64, at string) string {
-		return fmt.Sprintf("%d: end of day moved to %s", login, at)
-	}
-	EndOfDayRunMsg  = func(login int64) string { return fmt.Sprintf("%d: end of day run by hand", login) }
-	GroupDeletedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group deleted", login, path) }
+	PasswordChangedMsg = func() string { return "account password was changed" }
 
-	GroupSymbolCreatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group symbol created", login, path) }
-	GroupSymbolUpdatedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group symbol updated", login, path) }
-	GroupSymbolDeletedMsg = func(login int64, path string) string { return fmt.Sprintf("%d: %s group symbol deleted", login, path) }
-
-	UserCreatedMsg = func(login, user int64) string { return fmt.Sprintf("%d: %d user created", login, user) }
-	UserUpdatedMsg = func(login, user int64) string { return fmt.Sprintf("%d: %d user updated", login, user) }
-	UserDeletedMsg = func(login, user int64) string { return fmt.Sprintf("%d: %d user deleted", login, user) }
-	UserMovedMsg   = func(login, user int64) string { return fmt.Sprintf("%d: %d user moved", login, user) }
-
-	ClientCreatedMsg = func(login, client int64) string { return fmt.Sprintf("%d: %d client created", login, client) }
-	ClientUpdatedMsg = func(login, client int64) string { return fmt.Sprintf("%d: %d client updated", login, client) }
-	ClientDeletedMsg = func(login, client int64) string { return fmt.Sprintf("%d: %d client deleted", login, client) }
-
-	ManagerCreatedMsg = func(login, manager int64) string { return fmt.Sprintf("%d: %d manager created", login, manager) }
-	ManagerUpdatedMsg = func(login, manager int64) string { return fmt.Sprintf("%d: %d manager updated", login, manager) }
-	ManagerDeletedMsg = func(login, manager int64) string { return fmt.Sprintf("%d: %d manager deleted", login, manager) }
-	ManagerGrantedMsg = func(login, manager int64) string { return fmt.Sprintf("%d: %d manager group granted", login, manager) }
-
-	GroupCommissionCreatedMsg = func(login int64, path string) string {
-		return fmt.Sprintf("%d: %s group commission created", login, path)
-	}
-	GroupCommissionUpdatedMsg = func(login int64, path string) string {
-		return fmt.Sprintf("%d: %s group commission updated", login, path)
-	}
-	GroupCommissionDeletedMsg = func(login int64, path string) string {
-		return fmt.Sprintf("%d: %s group commission deleted", login, path)
+	RegisteredMsg = func(accountType string) string {
+		return fmt.Sprintf("new %s account was registered", accountType)
 	}
 
-	SymbolCreatedMsg = func(login int64, symbol string) string { return fmt.Sprintf("%d: %s symbol created", login, symbol) }
-	SymbolUpdatedMsg = func(login int64, symbol string) string { return fmt.Sprintf("%d: %s symbol updated", login, symbol) }
-	SymbolDeletedMsg = func(login int64, symbol string) string { return fmt.Sprintf("%d: %s symbol deleted", login, symbol) }
+	GroupCreatedMsg = func(path string) string { return fmt.Sprintf("group '%s' was created", path) }
+	GroupUpdatedMsg = func(path string) string { return fmt.Sprintf("group '%s' configuration was updated", path) }
+	GroupDeletedMsg = func(path string) string { return fmt.Sprintf("group '%s' was deleted", path) }
 
-	MailServerCreatedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d mail server created", login, id) }
-	MailServerUpdatedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d mail server updated", login, id) }
-	MailServerDeletedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d mail server deleted", login, id) }
-
-	HolidayCreatedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d holiday created", login, id) }
-	HolidayUpdatedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d holiday updated", login, id) }
-	HolidayDeletedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d holiday deleted", login, id) }
-	HolidayReorderedMsg = func(login int64) string { return fmt.Sprintf("%d: holidays reordered", login) }
-
-	LeverageCreatedMsg = func(login int64, name string) string {
-		return fmt.Sprintf("%d: %s leverage profile created", login, name)
+	EndOfDayTimeMsg = func(at string) string {
+		return fmt.Sprintf("end of day processing was rescheduled to %s", at)
 	}
-	LeverageUpdatedMsg = func(login int64, name string) string {
-		return fmt.Sprintf("%d: %s leverage profile updated", login, name)
+	EndOfDayRunMsg = func() string { return "end of day processing was started manually" }
+
+	GroupSymbolCreatedMsg = func(path string) string { return fmt.Sprintf("group symbol '%s' was created", path) }
+	GroupSymbolUpdatedMsg = func(path string) string { return fmt.Sprintf("group symbol '%s' was updated", path) }
+	GroupSymbolDeletedMsg = func(path string) string { return fmt.Sprintf("group symbol '%s' was deleted", path) }
+
+	UserCreatedMsg = func(user int64) string { return fmt.Sprintf("trading account #%d was created", user) }
+	UserUpdatedMsg = func(user int64) string { return fmt.Sprintf("trading account #%d was updated", user) }
+	UserDeletedMsg = func(user int64) string { return fmt.Sprintf("trading account #%d was deleted", user) }
+	UserMovedMsg   = func(user int64) string { return fmt.Sprintf("trading account #%d was moved to another group", user) }
+
+	ClientCreatedMsg = func(client int64) string { return fmt.Sprintf("client #%d was created", client) }
+	ClientUpdatedMsg = func(client int64) string { return fmt.Sprintf("client #%d was updated", client) }
+	ClientDeletedMsg = func(client int64) string { return fmt.Sprintf("client #%d was deleted", client) }
+
+	ManagerCreatedMsg = func(manager int64) string { return fmt.Sprintf("manager account #%d was created", manager) }
+	ManagerUpdatedMsg = func(manager int64) string { return fmt.Sprintf("manager account #%d was updated", manager) }
+	ManagerDeletedMsg = func(manager int64) string { return fmt.Sprintf("manager account #%d was deleted", manager) }
+	ManagerGrantedMsg = func(manager int64) string {
+		return fmt.Sprintf("group access of manager account #%d was granted", manager)
 	}
-	LeverageDeletedMsg     = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage profile deleted", login, id) }
-	LeverageRuleCreatedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rule created", login, id) }
-	LeverageRuleUpdatedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rule updated", login, id) }
-	LeverageRuleDeletedMsg = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rule deleted", login, id) }
-	LeverageReorderedMsg   = func(login int64, id int) string { return fmt.Sprintf("%d: %d leverage rules reordered", login, id) }
+
+	GroupCommissionCreatedMsg = func(path string) string {
+		return fmt.Sprintf("commission for group '%s' was created", path)
+	}
+	GroupCommissionUpdatedMsg = func(path string) string {
+		return fmt.Sprintf("commission for group '%s' was updated", path)
+	}
+	GroupCommissionDeletedMsg = func(path string) string {
+		return fmt.Sprintf("commission for group '%s' was deleted", path)
+	}
+
+	SymbolCreatedMsg = func(symbol string) string { return fmt.Sprintf("symbol '%s' was created", symbol) }
+	SymbolUpdatedMsg = func(symbol string) string { return fmt.Sprintf("symbol '%s' was updated", symbol) }
+	SymbolDeletedMsg = func(symbol string) string { return fmt.Sprintf("symbol '%s' was deleted", symbol) }
+
+	MailServerCreatedMsg = func(id int) string { return fmt.Sprintf("mail server #%d was created", id) }
+	MailServerUpdatedMsg = func(id int) string { return fmt.Sprintf("mail server #%d was updated", id) }
+	MailServerDeletedMsg = func(id int) string { return fmt.Sprintf("mail server #%d was deleted", id) }
+
+	HolidayCreatedMsg   = func(id int) string { return fmt.Sprintf("holiday #%d was created", id) }
+	HolidayUpdatedMsg   = func(id int) string { return fmt.Sprintf("holiday #%d was updated", id) }
+	HolidayDeletedMsg   = func(id int) string { return fmt.Sprintf("holiday #%d was deleted", id) }
+	HolidayReorderedMsg = func() string { return "the holiday list was reordered" }
+
+	LeverageCreatedMsg = func(name string) string {
+		return fmt.Sprintf("leverage profile '%s' was created", name)
+	}
+	LeverageUpdatedMsg = func(name string) string {
+		return fmt.Sprintf("leverage profile '%s' was updated", name)
+	}
+	LeverageDeletedMsg     = func(id int) string { return fmt.Sprintf("leverage profile #%d was deleted", id) }
+	LeverageRuleCreatedMsg = func(id int) string { return fmt.Sprintf("leverage rule #%d was created", id) }
+	LeverageRuleUpdatedMsg = func(id int) string { return fmt.Sprintf("leverage rule #%d was updated", id) }
+	LeverageRuleDeletedMsg = func(id int) string { return fmt.Sprintf("leverage rule #%d was deleted", id) }
+	LeverageReorderedMsg   = func(id int) string {
+		return fmt.Sprintf("rules of leverage profile #%d were reordered", id)
+	}
+
+	DatafeedConnectedMsg = func(name string) string {
+		return fmt.Sprintf("datafeed '%s' established a connection to its source", name)
+	}
+	DatafeedDisconnectedMsg = func(name string) string {
+		return fmt.Sprintf("datafeed '%s' lost the connection to its source", name)
+	}
 )
 
-var BalanceMsg = func(actor, login int64, action string, amount float64) string {
-	return fmt.Sprintf("%d: %s %.2f on %d", actor, action, amount, login)
+var BalanceMsg = func(login int64, action string, amount float64) string {
+	return fmt.Sprintf("%s of %.2f was applied to account #%d", action, amount, login)
 }
