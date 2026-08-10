@@ -21,6 +21,7 @@ import {
   ManagerLimit_options,
   ManagerRightDeps,
   ManagerRightsTree,
+  ManagerRoleTemplates,
   treeRightKeys,
 } from "@/constants/managerRights.js";
 
@@ -186,7 +187,7 @@ function ManagerDialog({ manager, onClose, onSaved }) {
 
   function saveRole(name) {
     const v = name.trim();
-    if (!v) return setRoleNaming(null);
+    if (!v || ManagerRoleTemplates[v]) return setRoleNaming(null);
     const next = {
       ...roles,
       [v]: Object.entries(rights).filter(([, on]) => on).map(([key]) => key),
@@ -199,14 +200,16 @@ function ManagerDialog({ manager, onClose, onSaved }) {
 
   function applyRole(name) {
     setRole(name);
-    if (!roles[name]) return;
+    const template = ManagerRoleTemplates[name];
+    const keys = template === "*" ? treeRightKeys() : template || roles[name];
+    if (!keys) return;
     const next = {};
-    roles[name].forEach((k) => (next[k] = true));
+    keys.forEach((k) => (next[k] = true));
     setRights(next);
   }
 
   function deleteRole() {
-    if (!role) return;
+    if (!role || ManagerRoleTemplates[role]) return;
     const next = { ...roles };
     delete next[role];
     localStorage.setItem(ROLES_KEY, JSON.stringify(next));
@@ -371,7 +374,11 @@ function ManagerDialog({ manager, onClose, onSaved }) {
                 <div className="mgr-role-row">
                   <label>Role:</label>
                   {roleNaming == null ? (
-                    <PropSelect value={role} options={["", ...Object.keys(roles)]} onChange={applyRole} />
+                    <PropSelect
+                      value={role}
+                      options={["", ...Object.keys(ManagerRoleTemplates), ...Object.keys(roles).filter((n) => !ManagerRoleTemplates[n])]}
+                      onChange={applyRole}
+                    />
                   ) : (
                     <input
                       autoFocus
@@ -385,7 +392,7 @@ function ManagerDialog({ manager, onClose, onSaved }) {
                   <button type="button" onClick={() => (roleNaming == null ? setRoleNaming("") : saveRole(roleNaming))}>
                     Save As
                   </button>
-                  <button type="button" disabled={!role} onClick={deleteRole}>
+                  <button type="button" disabled={!role || !!ManagerRoleTemplates[role]} onClick={deleteRole}>
                     Delete
                   </button>
                 </div>

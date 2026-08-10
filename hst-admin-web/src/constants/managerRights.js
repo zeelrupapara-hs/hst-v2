@@ -120,3 +120,42 @@ export const ManagerRightDeps = {
 export function treeRightKeys(nodes = ManagerRightsTree) {
   return nodes.flatMap((n) => (n.children ? treeRightKeys(n.children) : [n.key]));
 }
+
+// Built-in role templates, kept in the frontend as the reference keeps them in the terminal.
+// "*" grants the whole tree; the rest are the classic staff shapes.
+export const ManagerRoleTemplates = {
+  Administrator: "*",
+  Manager: [
+    "right_manager", "right_acc_read", "right_acc_manager", "right_acc_online",
+    "right_acc_details_name", "right_acc_details_location", "right_acc_details_address",
+    "right_acc_details_id", "right_acc_details_email", "right_acc_details_phone",
+    "right_acc_details_general", "right_trades_read", "right_notifications",
+    "right_email", "right_reports",
+  ],
+  Dealer: [
+    "right_manager", "right_acc_read", "right_trades_read", "right_trades_manager",
+    "right_trades_dealer", "right_quotes", "right_quotes_raw", "right_reports",
+  ],
+  "Risk Manager": [
+    "right_manager", "right_risk_manager", "right_acc_read", "right_trades_read",
+    "right_quotes_raw", "right_srv_journals", "right_reports",
+  ],
+  Accountant: [
+    "right_manager", "right_accountant", "right_acc_read", "right_acc_details_name",
+    "right_acc_details_id", "right_acc_details_general", "right_cfg_payments",
+    "right_reports",
+  ],
+  "Back Office": [
+    "right_manager", "right_acc_read", "right_acc_details_name", "right_acc_details_location",
+    "right_acc_details_address", "right_acc_details_id", "right_acc_details_email",
+    "right_acc_details_phone", "right_acc_details_general", "right_clients_access",
+    "right_clients_create", "right_clients_edit", "right_clients_kyc",
+    "right_clients_details_name", "right_clients_details_location",
+    "right_clients_details_address", "right_clients_details_id",
+    "right_clients_details_email", "right_clients_details_phone",
+    "right_clients_details_general", "right_documents_access", "right_documents_create",
+    "right_documents_edit", "right_documents_files_add", "right_comments_access",
+    "right_comments_create",
+  ],
+  Support: ["right_manager", "right_acc_read", "right_acc_online", "right_trades_read"],
+};
