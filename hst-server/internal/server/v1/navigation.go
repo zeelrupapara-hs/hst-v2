@@ -127,7 +127,7 @@ var adminTree = []navNode{
 	{key: "routing", label: "Routing", icon: "git-branch", route: "/routing", section: "config",
 		needs: []uint{model.MgrRightCfgRequests}, counter: "routing"},
 
-	{key: "datafeeds", label: "Data Feeds", icon: "rss", route: "/datafeeds", section: "feeds",
+	{key: "datafeeds", label: "Data Feeds", icon: "rss", route: "/datafeeds", section: "config",
 		needs: []uint{model.MgrRightCfgDatafeeds}, counter: "datafeeds"},
 
 	{key: "mail_servers", label: "Mail Servers", icon: "mail", route: "/mail-servers", section: "feeds",
