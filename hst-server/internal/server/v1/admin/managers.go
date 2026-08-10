@@ -44,10 +44,24 @@ type UptManager struct {
 
 // ViewManagerRights is the decoded right set, for the admin UI.
 type ViewManagerRights struct {
-	Login  int64           `json:"login"`
-	Name   string          `json:"name"`
-	Groups []string        `json:"groups"`
-	Rights map[string]bool `json:"rights"`
+	Login   int64           `json:"login"`
+	Name    string          `json:"name"`
+	Mailbox string          `json:"mailbox"`
+	Groups  []string        `json:"groups"`
+	Rights  map[string]bool `json:"rights"`
+}
+
+// permitsSomething refuses a prohibition-only ruleset: "!demo*" alone can never match anyone.
+func permitsSomething(groups []string) bool {
+	if len(groups) == 0 {
+		return true
+	}
+	for _, g := range groups {
+		if g != "" && g[0] != '!' {
+			return true
+		}
+	}
+	return false
 }
 
 // GetManager returns the whole manager record.
@@ -148,7 +162,7 @@ func (s *Server) ListManagers(c *fiber.Ctx) error {
 	}
 
 	rows, err := s.DB.DB.Query(c.UserContext(),
-		`SELECT m.login, m.name, m.groups
+		`SELECT m.login, m.name, m.mailbox, m.groups
 		   FROM hst.managers m
 		  WHERE ($1 = '' OR m.name ILIKE '%'||$1||'%')
 		  ORDER BY m.`+q.SortBy+`
@@ -161,7 +175,7 @@ func (s *Server) ListManagers(c *fiber.Ctx) error {
 	out := []ViewManagerRights{}
 	for rows.Next() {
 		var v ViewManagerRights
-		if err := rows.Scan(&v.Login, &v.Name, &v.Groups); err != nil {
+		if err := rows.Scan(&v.Login, &v.Name, &v.Mailbox, &v.Groups); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
 		out = append(out, v)
@@ -439,6 +453,9 @@ func (s *Server) CreateManager(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseBadRequest(c, errs.ErrUnknownManagerRight)
 	}
+	if !permitsSomething(body.Groups) {
+		return s.App.HttpResponseBadRequest(c, errs.ErrProhibitionOnlyGroups)
+	}
 
 	if err := s.withinOwnScope(c, body.Groups, rights); err != nil {
 		return s.App.HttpResponseForbidden(c, err)
@@ -522,6 +539,9 @@ func (s *Server) UpdateManager(c *fiber.Ctx) error {
 	rights, ok := packRightNames(body.Rights)
 	if !ok {
 		return s.App.HttpResponseBadRequest(c, errs.ErrUnknownManagerRight)
+	}
+	if !permitsSomething(body.Groups) {
+		return s.App.HttpResponseBadRequest(c, errs.ErrProhibitionOnlyGroups)
 	}
 
 	if err := s.withinOwnScope(c, body.Groups, rights); err != nil {

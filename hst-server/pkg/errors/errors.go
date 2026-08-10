@@ -33,6 +33,7 @@ const (
 	DeleteWhileNotEmpty          = "you can't delete a record while it's not empty"
 	SessionStoreUnavailable      = "the session store is unavailable"
 	UnknownManagerRight          = "unknown manager right"
+	ProhibitionOnlyGroups        = "the group list must permit at least one group"
 	ClientHasFundedAccounts      = "this client has trading accounts holding funds, close or move them first"
 	ManagerIpBlocked             = "this ip address is not permitted for the manager"
 	LeverageNameExists           = "a leverage profile with this name already exists"
@@ -108,6 +109,7 @@ var (
 	ErrDeleteWhileNotEmpty          = errors.New(DeleteWhileNotEmpty)
 	ErrSessionStoreUnavailable      = errors.New(SessionStoreUnavailable)
 	ErrUnknownManagerRight          = errors.New(UnknownManagerRight)
+	ErrProhibitionOnlyGroups        = errors.New(ProhibitionOnlyGroups)
 	ErrClientHasFundedAccounts      = errors.New(ClientHasFundedAccounts)
 	ErrManagerIpBlocked             = errors.New(ManagerIpBlocked)
 	ErrLeverageNameExists           = errors.New(LeverageNameExists)
