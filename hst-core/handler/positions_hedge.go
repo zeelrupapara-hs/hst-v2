@@ -117,66 +117,46 @@ func (h *Handler) SpreadMargin(e *book.Entry, symbol string, total float64) {
 // RemargeAccount recomputes every instrument the account holds. Called after anything that
 // changes what is open, because one new position can change the margin on all of them.
 func (h *Handler) RemargeAccount(e *book.Entry) float64 {
-	seen := make(map[string]bool, len(e.Positions))
+	br := h.accountMarginBreakdown(e, nil)
 
-	var initial, maintenance float64
-
-	for _, p := range e.Positions {
-		if seen[p.Symbol] {
+	seen := make(map[string]bool, len(br.bySymbol))
+	for symbol, margin := range br.bySymbol {
+		if seen[symbol] {
 			continue
 		}
-		seen[p.Symbol] = true
-
-		r, ok := h.Settings.For(e.Account.Group, p.Symbol)
-		if !ok {
-			continue
-		}
-
-		margin := h.MarginForSymbol(e, p.Symbol, r, false)
-		h.SpreadMargin(e, p.Symbol, margin)
-
-		initial += margin
-		maintenance += h.MarginForSymbol(e, p.Symbol, r, true) * maintenanceRate(r)
+		seen[symbol] = true
+		h.SpreadMargin(e, symbol, margin)
 	}
 
-	// a pending order reserves margin of its own where the instrument gives its type a rate
-	pending, pendingMaintenance := h.pendingMargin(e)
+	var maintenance float64
+	for symbol, m := range br.maintenanceBySymbol {
+		r, ok := h.Settings.For(e.Account.Group, symbol)
+		if !ok {
+			maintenance += m
+			continue
+		}
+		if model.MatchLeverageRule(r.Group, symbol, r.Symbol.Path) != nil {
+			maintenance += m
+			continue
+		}
+		maintenance += m * maintenanceRate(r)
+	}
 
-	e.Account.MarginInitial = initial + pending
-	e.Account.MarginMaintenance = maintenance + pendingMaintenance
+	e.Account.MarginInitial = br.totalInitial()
+	e.Account.MarginMaintenance = maintenance + br.pendingMaintenance
 
 	if g, ok := h.Settings.Group(e.Account.Group); ok {
 		e.Account.VirtualCredit = g.TradeVirtualCredit
 	}
 
-	return pending
+	return br.pendingInitial
 }
 
 // pendingMargin is what the working orders reserve. An order type whose rate is zero reserves
 // nothing, which is what leaving the rate alone means.
 func (h *Handler) pendingMargin(e *book.Entry) (initial, maintenance float64) {
-	for _, o := range e.Orders {
-		kind := o.Kind()
-		if !kind.IsPending() || !o.State.IsLive() {
-			continue
-		}
-
-		r, ok := h.Settings.For(e.Account.Group, o.Symbol)
-		if !ok || r.MarginRate.For(kind) <= 0 {
-			continue
-		}
-
-		price := o.PriceOrder
-		if price <= 0 {
-			continue
-		}
-
-		lots := model.Lots(o.VolumeCurrent)
-		initial += MarginForType(r, lots, price, e.Account.Leverage, o.RateMargin, kind, false)
-		maintenance += MarginForType(r, lots, price, e.Account.Leverage, o.RateMargin, kind, true)
-	}
-
-	return initial, maintenance
+	br := h.accountMarginBreakdown(e, nil)
+	return br.pendingInitial, br.pendingMaintenance
 }
 
 // maintenanceRate is what share of the initial margin has to stay covered to avoid a margin

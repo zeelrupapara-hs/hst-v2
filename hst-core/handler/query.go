@@ -124,13 +124,15 @@ func (h *Handler) GetAllSymbols(login int64) ([]model.SymbolInfo, bool) {
 	names := h.Settings.SymbolNames()
 	out := make([]model.SymbolInfo, 0, len(names))
 
+	g, _ := h.Settings.Group(group)
+
 	for _, name := range names {
 		r, ok := h.Settings.For(group, name)
 		if !ok {
 			continue
 		}
 
-		out = append(out, h.symbolInfo(r))
+		out = append(out, h.symbolInfo(r, g))
 	}
 
 	sort.Slice(out, func(i, j int) bool { return out[i].Symbol < out[j].Symbol })
@@ -139,7 +141,7 @@ func (h *Handler) GetAllSymbols(login int64) ([]model.SymbolInfo, bool) {
 }
 
 // symbolInfo flattens one resolved rule set, in the units a terminal reads.
-func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
+func (h *Handler) symbolInfo(r *settings.Rules, g *model.Group) model.SymbolInfo {
 	v := model.SymbolInfo{
 		Symbol:      r.Symbol.Symbol,
 		Path:        r.Symbol.Path,
@@ -156,16 +158,17 @@ func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
 		FillFlags:    r.FillFlags,
 		ExpirFlags:   r.ExpirFlags,
 		OrderFlags:   r.OrderFlags,
+		Sector:       r.Symbol.Sector,
+		GtcMode:      r.Symbol.GtcMode,
+		TickChartMode: r.Symbol.TickChartMode,
 
 		VolumeMin:   model.Lots(r.VolumeMin),
 		VolumeMax:   model.Lots(r.VolumeMax),
 		VolumeStep:  model.Lots(r.VolumeStep),
 		VolumeLimit: model.Lots(r.VolumeLimit),
 
-		StopsLevel:        r.StopsLevel,
-		FreezeLevel:       r.FreezeLevel,
-		SpreadDiff:        r.SpreadDiff,
-		SpreadDiffBalance: r.SpreadDiffBalance,
+		StopsLevel:  r.StopsLevel,
+		FreezeLevel: r.FreezeLevel,
 
 		CurrencyBase:   r.CurrencyBase,
 		CurrencyProfit: r.CurrencyProfit,
@@ -182,6 +185,22 @@ func (h *Handler) symbolInfo(r *settings.Rules) model.SymbolInfo {
 		SwapMode:  r.SwapMode,
 		SwapLong:  r.SwapLong,
 		SwapShort: r.SwapShort,
+
+		SwapRateSunday:    r.SwapRate[0],
+		SwapRateMonday:    r.SwapRate[1],
+		SwapRateTuesday:   r.SwapRate[2],
+		SwapRateWednesday: r.SwapRate[3],
+		SwapRateThursday:  r.SwapRate[4],
+		SwapRateFriday:    r.SwapRate[5],
+		SwapRateSaturday:  r.SwapRate[6],
+		SwapYearDay:       r.SwapYearDay,
+		SwapFlags:         r.SwapFlags,
+	}
+
+	if g != nil {
+		if rule := model.MatchLeverageRule(g, r.Symbol.Symbol, r.Symbol.Path); rule != nil {
+			v.MarginSpec = marginSpecFromRule(rule)
+		}
 	}
 
 	if t, ok := h.QuoteFor(r, r.Symbol.Symbol); ok {
@@ -208,4 +227,36 @@ func (h *Handler) quoteIsCurrent(at int64) bool {
 	}
 
 	return time.Since(time.Unix(0, at)) <= max
+}
+
+func marginSpecFromRule(rule *model.LeverageRule) *model.SymbolMarginSpec {
+	if rule == nil || len(rule.Tiers) == 0 {
+		return nil
+	}
+
+	spec := &model.SymbolMarginSpec{
+		Floating:  true,
+		RangeMode: rule.RangeMode,
+		RulePath:  rule.Path,
+		Tiers:     make([]model.SymbolMarginTier, 0, len(rule.Tiers)),
+	}
+
+	var cursor float64
+	for i, t := range rule.Tiers {
+		tier := model.SymbolMarginTier{
+			RangeFrom:             cursor,
+			RangeTo:               t.RangeTo,
+			MarginRateInitial:     t.MarginRateInitial,
+			MarginRateMaintenance: t.MarginRateMaintenance,
+		}
+		if i == len(rule.Tiers)-1 {
+			tier.RangeTo = 0
+		}
+		spec.Tiers = append(spec.Tiers, tier)
+		if t.RangeTo > 0 {
+			cursor = t.RangeTo
+		}
+	}
+
+	return spec
 }

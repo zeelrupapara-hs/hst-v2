@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon.jsx";
+import { useDismissLayer } from "@/hooks/useDialogStack.jsx";
 
 /**
  * The list context menu. An item is {label, icon?, shortcut?, checked?, disabled?, items?, onClick}
@@ -8,16 +9,14 @@ import { Icon } from "@/components/ui/Icon.jsx";
  */
 export function ContextMenu({ x, y, items, onClose }) {
   const [openSub, setOpenSub] = useState(null);
+  useDismissLayer(true, onClose);
 
   useEffect(() => {
     const close = () => onClose();
-    const onKey = (e) => e.key === "Escape" && onClose();
     const t = setTimeout(() => document.addEventListener("mousedown", close), 0);
-    document.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(t);
       document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
 
@@ -28,7 +27,7 @@ export function ContextMenu({ x, y, items, onClose }) {
   };
 
   return createPortal(
-    <ul className="ctx-menu" style={{ position: "fixed", top: y, left: x, zIndex: 1000 }}>
+    <ul className="ctx-menu ctx-menu-front" style={{ position: "fixed", top: y, left: x }}>
       {items.map((item, i) =>
         item === "sep" ? (
           <li key={`sep-${i}`} className="ctx-sep" />
@@ -105,5 +104,27 @@ export function listMenuHead({ addLabel = "Add", onAdd, onEdit, onDelete, hasSel
     { label: addLabel, icon: "add", shortcut: "Ctrl+N", onClick: onAdd },
     { label: "Edit", icon: "edit", shortcut: "Ctrl+U", disabled: !hasSelection, onClick: onEdit },
     { label: "Delete", icon: "delete", shortcut: "Ctrl+D", disabled: !hasSelection, onClick: onDelete },
+  ];
+}
+
+/** Grid/table context menu head — MT5 uses Insert / Enter / Delete on editable tables. */
+export function gridMenuHead({ onAdd, onEdit, onDelete, hasSelection }) {
+  return [
+    { label: "Add", icon: "add", shortcut: "Insert", onClick: onAdd },
+    { label: "Edit", icon: "edit", shortcut: "Enter", disabled: !hasSelection, onClick: onEdit },
+    { label: "Delete", icon: "delete", shortcut: "Delete", disabled: !hasSelection, onClick: onDelete },
+  ];
+}
+
+/** Grid/table context menu tail — Select All, Copy, Find. Handlers optional; missing ones render greyed. */
+export function gridMenuTail({ onSelectAll, onCopy, onFind, onFindNext, onFindPrev } = {}) {
+  return [
+    "sep",
+    { label: "Select All", shortcut: "Ctrl+A", disabled: !onSelectAll, onClick: onSelectAll },
+    { label: "Copy", shortcut: "Ctrl+C", disabled: !onCopy, onClick: onCopy },
+    "sep",
+    { label: "Find", shortcut: "Ctrl+F", disabled: !onFind, onClick: onFind },
+    { label: "Find Next", shortcut: "F3", disabled: !onFindNext, onClick: onFindNext },
+    { label: "Find Previous", shortcut: "Shift+F3", disabled: !onFindPrev, onClick: onFindPrev },
   ];
 }

@@ -1,9 +1,12 @@
-import useLiveSymbolStore from '../../../store/useLiveSymbolStore';
+import useLiveSymbolStore from "../../../store/useLiveSymbolStore";
 
 const Spread = ({ symbolId }) => {
-    const spread = useLiveSymbolStore((state) => state.liveSymbols?.[symbolId]?.newSpread);
+  const spread = useLiveSymbolStore(
+    (state) => state.liveSymbols?.[symbolId]?.newSpread
+  );
 
-    return spread
-}
+  if (spread == null) return "—";
+  return spread;
+};
 
-export default Spread
+export default Spread;

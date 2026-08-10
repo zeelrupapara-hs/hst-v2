@@ -22,12 +22,20 @@ build:
 
 ## up: start the tick store and the services
 up: influx
-	@for s in $(SERVICES); do \
+	@pgrep -f "$(BIN)/hst-server" >/dev/null 2>&1 || { \
+		(cd hst-server && set -a && . ./.env && set +a && nohup $(BIN)/hst-server > $(LOGS)/hst-server.log 2>&1 &); \
+		echo "  started hst-server"; \
+	}
+	@for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do \
+		curl -sf http://127.0.0.1:8080/auth/trader/v1/login -u '1:x' -H 'Content-Type: application/json' -d '{"connection_type":1}' >/dev/null 2>&1 && break; \
+		sleep 1; \
+	done
+	@for s in hst-core hst-quote; do \
 		pgrep -f "$(BIN)/$$s" >/dev/null 2>&1 && echo "  $$s already running" && continue; \
 		(cd $$s && set -a && . ./.env && set +a && nohup $(BIN)/$$s > $(LOGS)/$$s.log 2>&1 &) ; \
 		echo "  started $$s"; \
 	done
-	@sleep 6
+	@sleep 4
 
 ## influx: the tick store, which the charts read and hst-quote writes
 influx:

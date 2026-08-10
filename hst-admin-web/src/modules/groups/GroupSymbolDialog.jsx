@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
-import { useDialogStack } from "@/hooks/useDialogStack.jsx";
+import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { SymbolScopeSelectField } from "@/components/ui/SymbolScopeSelectField.jsx";
@@ -351,7 +351,9 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
   const [selectedSwapDay, setSelectedSwapDay] = useState(0);
   const { symbols, reload } = useSymbols();
   const { offset, onTitlePointerDown } = useDialogDrag(row?.symbol_id ?? "new");
-  const close = useDialogStack(onClose);
+  const close = useDialogStack(onClose, {
+    onEscape: () => prevTabEscape(TABS, activeTab, setActiveTab),
+  });
 
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
   const bit = (key, mask) => (draft[key] == null ? false : (draft[key] & mask) !== 0);

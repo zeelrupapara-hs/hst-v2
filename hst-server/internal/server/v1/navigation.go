@@ -115,14 +115,17 @@ var adminTree = []navNode{
 				needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}},
 		}},
 
+	{key: "holidays", label: "Holidays", icon: "calendar", route: "/holidays", section: "config",
+		needs: []uint{model.MgrRightCfgHolidays}, counter: "holidays"},
+
+	{key: "leverages", label: "Leverages", icon: "percent", route: "/leverage-profiles",
+		section: "config", needs: []uint{model.MgrRightCfgGroups}, counter: "leverages"},
+
 	{key: "groups", label: "Groups", icon: "folder-tree", route: "/groups", section: "config",
 		needs: []uint{model.MgrRightCfgGroups}, counter: "groups"},
 
 	{key: "symbols", label: "Symbols", icon: "tag", route: "/symbols", section: "config",
 		needs: []uint{model.MgrRightCfgSymbols}, counter: "symbols"},
-
-	{key: "leverages", label: "Leverages", icon: "percent", route: "/leverage-profiles",
-		section: "config", needs: []uint{model.MgrRightCfgGroups}, counter: "leverages"},
 
 	{key: "routing", label: "Routing", icon: "git-branch", route: "/routing", section: "config",
 		needs: []uint{model.MgrRightCfgRequests}, counter: "routing"},
@@ -132,9 +135,6 @@ var adminTree = []navNode{
 
 	{key: "mail_servers", label: "Mail Servers", icon: "mail", route: "/mail-servers", section: "feeds",
 		needs: []uint{model.MgrRightCfgMails}, counter: "mail_servers"},
-
-	{key: "holidays", label: "Holidays", icon: "calendar", route: "/holidays", section: "config",
-		needs: []uint{model.MgrRightCfgHolidays}, counter: "holidays"},
 
 	{key: "end_of_day", label: "End of Day", icon: "clock", route: "/system/end-of-day", section: "config",
 		needs: []uint{model.MgrRightCfgTime}},

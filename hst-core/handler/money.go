@@ -15,17 +15,21 @@ func MarginForPosition(r *settings.Rules, p *model.Position, price float64, leve
 		kind = model.OrderType_sell
 	}
 
-	return MarginForType(r, p.Lots(), price, leverage, p.RateMargin, kind, false)
+	return MarginForTypePlain(r, p.Lots(), price, leverage, p.RateMargin, kind, false)
 }
 
 // MarginForType is the same for a named order type, which decides the multiplier applied at the end.
 //
-// The order of the stages is the platform's: the formula runs in the instrument's margin currency,
-// the result is converted to the deposit currency, and only then is the rate applied. A rate of zero
-// is not a missing setting, it is the instruction to charge nothing for that type.
+// Floating leverage tiers are applied at account level; this path is the plain instrument margin.
 func MarginForType(r *settings.Rules, lots float64, price float64, leverage int32, rate float64,
 	kind model.OrderType, maintenance bool) float64 {
-	base := marginBase(r, lots, price, leverage, rate)
+	return MarginForTypePlain(r, lots, price, leverage, rate, kind, maintenance)
+}
+
+// MarginForTypePlain is instrument margin without floating leverage tiers.
+func MarginForTypePlain(r *settings.Rules, lots float64, price float64, leverage int32, rate float64,
+	kind model.OrderType, maintenance bool) float64 {
+	base := marginBasePlain(r, lots, price, leverage, rate)
 
 	multiplier := r.MarginRate.For(kind)
 	if maintenance {
@@ -38,19 +42,12 @@ func MarginForType(r *settings.Rules, lots float64, price float64, leverage int3
 	return base * multiplier
 }
 
-func marginBase(r *settings.Rules, lots float64, price float64, leverage int32, rate float64) float64 {
+func marginBasePlain(r *settings.Rules, lots float64, price float64, leverage int32, rate float64) float64 {
 	if leverage <= 0 {
 		leverage = 1
 	}
 
-	// a floating leverage tier states the fraction of the notional to reserve, which is the flat
-	// leverage the other way up, so it stands in for it wherever the formula divides
 	divisor := float64(leverage)
-	if r.Group != nil && r.Symbol != nil {
-		if rate, ok := r.Group.MarginRateFor(r.Symbol.Symbol, r.Symbol.Path, lots); ok && rate > 0 {
-			divisor = 1 / rate
-		}
-	}
 
 	var base float64
 

@@ -1,20 +1,21 @@
-export const calculateSpread = (symbol) => {
-  const { last_bid, last_ask } = symbol;
-  const digits = symbol?.digits || 0;
-  const power = Math.pow(10, digits);
-  const spread = Number(symbol?.spread || 0);
-  const spreadBalance = Number(symbol?.spread_balance || 0);
+const inferDigits = (bid, ask, digits) => {
+  const d = Number(digits);
+  if (Number.isFinite(d) && d > 0) return d;
+  const sample = String(bid ?? ask ?? "");
+  const dot = sample.indexOf(".");
+  return dot >= 0 ? sample.length - dot - 1 : 0;
+};
 
-  const rawBid = Number(last_bid) + spreadBalance * (1 / power);
-  const rawAsk = Number(last_ask) + (spread + spreadBalance) * (1 / power);
-
-  const newBid = Number(rawBid.toFixed(digits));
-  const newAsk = Number(rawAsk.toFixed(digits));
-
-  const diffSpread = newAsk * power - newBid * power;
-  const newSpread = Math.max(0, Math.round(diffSpread));
-
-  return { newBid, newAsk, newSpread };
+export const calculateSpread = ({ last_bid, last_ask, digits = 0 }) => {
+  const bid = Number(last_bid);
+  const ask = Number(last_ask);
+  if (!Number.isFinite(bid) || !Number.isFinite(ask)) {
+    return { newBid: bid, newAsk: ask, newSpread: null };
+  }
+  const power = 10 ** inferDigits(bid, ask, digits);
+  // MT5 spread in points: distance between bid and ask (always non-negative).
+  const newSpread = Math.abs(Math.round(ask * power - bid * power));
+  return { newBid: bid, newAsk: ask, newSpread };
 };
 
 export const calculateNetValue = (data) => {

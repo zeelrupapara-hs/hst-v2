@@ -262,8 +262,6 @@ func (s *Server) resolveMySymbols(ctx context.Context, login int64) ([]model.Sym
 		        COALESCE(o.trade_mode, s.trade_mode),
 		        s.calc_mode,
 		        COALESCE(o.exec_mode, s.exec_mode),
-		        COALESCE(o.spread_diff, s.spread_diff),
-		        COALESCE(o.spread_diff_balance, s.spread_diff_balance),
 		        COALESCE(o.stops_level, s.stops_level),
 		        COALESCE(NULLIF(COALESCE(o.volume_min_ext, s.volume_min_ext), 0) / 100000000.0,
 		                 COALESCE(o.volume_min, s.volume_min) / 10000.0),
@@ -276,7 +274,7 @@ func (s *Server) resolveMySymbols(ctx context.Context, login int64) ([]model.Sym
 		   JOIN hst.users u ON u.login = $1
 		   JOIN hst.groups g ON g."group" = u."group"
 		   JOIN LATERAL (
-		        SELECT gs.trade_mode, gs.exec_mode, gs.spread_diff, gs.spread_diff_balance,
+		        SELECT gs.trade_mode, gs.exec_mode,
 		               gs.stops_level, gs.volume_min, gs.volume_max, gs.volume_step,
 		               gs.volume_min_ext, gs.volume_max_ext, gs.volume_step_ext
 		          FROM hst.groups_symbols gs
@@ -294,7 +292,7 @@ func (s *Server) resolveMySymbols(ctx context.Context, login int64) ([]model.Sym
 	for rows.Next() {
 		var v model.SymbolInfo
 		if err := rows.Scan(&v.Symbol, &v.Path, &v.Description, &v.Digits,
-			&v.TradeMode, &v.CalcMode, &v.ExecMode, &v.SpreadDiff, &v.SpreadDiffBalance,
+			&v.TradeMode, &v.CalcMode, &v.ExecMode,
 			&v.StopsLevel, &v.VolumeMin, &v.VolumeMax, &v.VolumeStep,
 			&v.ContractSize); err != nil {
 			return nil, err

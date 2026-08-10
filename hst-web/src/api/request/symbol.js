@@ -5,6 +5,9 @@ import { adaptSymbol, mapList } from "../adapt";
 export const getAllSymbols = () =>
   api.get("/symbols").then((r) => mapList(r, adaptSymbol));
 
+export const getSymbolSessions = (symbol) =>
+  api.get(`/symbols/${encodeURIComponent(symbol)}/sessions`).then((r) => r.data?.data);
+
 // The chart suffixes its resolutions before sending; ours keys on the plain TradingView value,
 // so they are put back. Minutes carry no suffix, days and above keep their letter.
 const RESOLUTION = {

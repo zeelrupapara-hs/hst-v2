@@ -13,6 +13,9 @@ type Symbol struct {
 	ExecMode     int32
 	FillFlags    int32
 	ExpirFlags   int32
+	Sector       int32
+	GtcMode      int32
+	TickChartMode int32
 	ContractSize float64
 	TickValue    float64
 	TickSize     float64

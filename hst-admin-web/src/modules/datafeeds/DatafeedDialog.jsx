@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
-import { useDialogStack } from "@/hooks/useDialogStack.jsx";
+import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import {
   createDatafeed,
@@ -83,7 +83,9 @@ export function DatafeedDialog({ feedId, onClose, onSaved }) {
   const [modules, setModules] = useState([]);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(feedId);
-  const close = useDialogStack(onClose);
+  const close = useDialogStack(onClose, {
+    onEscape: () => prevTabEscape(TABS, activeTab, setActiveTab),
+  });
 
   useEffect(() => {
     if (isNew) return;

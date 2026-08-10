@@ -500,16 +500,17 @@ func (h *Handler) checkMoney(e *book.Entry, o *model.Order, r *settings.Rules, t
 		return model.RetOK
 	}
 
-	price := o.PriceOrder
-	if price <= 0 {
-		price = t.OpenPrice(o.Kind().IsBuy())
+	// only the part that opens exposure is charged; floating tiers can shift margin across the
+	// whole rule scope, so compare the account total with and without this order
+	money := h.CalculateAccountMargins(e)
+	extra := h.hypotheticalOrderExposure(e, o, r, t)
+	if extra == nil {
+		return model.RetOK
 	}
 
-	// only the part that opens exposure is charged, and the order's own type decides the
-	// multiplier, so a pending type rated zero costs nothing
-	need := MarginForType(r, model.Lots(opening), price, e.Account.Leverage, o.RateMargin, o.Kind(), false)
-
-	money := h.CalculateAccountMargins(e)
+	after := h.accountMarginBreakdown(e, extra)
+	before := h.accountMarginBreakdown(e, nil)
+	need := after.totalInitial() - before.totalInitial()
 	if money.FreeMargin < need {
 		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "money check refused",
 			"login", e.Account.Login, "need", need, "free", money.FreeMargin,

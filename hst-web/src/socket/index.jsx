@@ -55,44 +55,50 @@ export const SocketProvider = ({ children }) => {
     const utf8Text = await blobToUtf8(blob);
     const type = utf8Text.split(",")[0];
 
-    if (type !== "summary") {
-      // symbol,bid,ask,last,volume,ts,open,high,low,close,change,change_percent
-      const [symbolId, last_bid, last_ask, , , , , high_bid, low_bid, tickClose] =
-        utf8Text.split(",");
-      const { digits } = symbols?.[symbolId] || {};
-
-      // the tick carries the session close, so the change is right even before the rest loads
-      const close = Number(tickClose) || symbols?.[symbolId]?.close;
-
-      const { newBid, newAsk, newSpread } = calculateSpread({
-        ...symbols?.[symbolId],
-        last_bid,
-        last_ask,
-      });
-
-      const updatedData = {
-        high_bid,
-        low_bid,
-        newSpread,
-        last_bid: newBid,
-        last_ask: newAsk,
-        netChange: (newBid - close).toFixed(digits),
-        percentChange: (((newBid - close) / close) * 100).toFixed(2),
-        ...(liveSymbols?.[symbolId]?.last_bid > newBid
-          ? { bidColor: "red" }
-          : { bidColor: "green" }),
-        ...(liveSymbols?.[symbolId]?.last_ask < newAsk
-          ? { askColor: "red" }
-          : { askColor: "green" }),
-      };
-      lastTickAt.current = Date.now();
-      updateSymbolPrice(symbolId, updatedData);
-      publishNewTick({ ...updatedData, ts: Date.now() }, symbolId);
+    if (type === "summary") {
+      handleSummary(utf8Text);
+      return;
     }
+
+    // symbol,bid,ask,last,volume,ts,open,high,low,close,change,change_percent
+    const [symbolId, last_bid, last_ask, , , , , high_bid, low_bid, tickClose] =
+      utf8Text.split(",");
+    const meta = symbols?.[symbolId] || liveSymbols?.[symbolId] || {};
+    const { digits } = meta;
+
+    // the tick carries the session close, so the change is right even before the rest loads
+    const close = Number(tickClose) || meta.close;
+
+    const { newBid, newAsk, newSpread } = calculateSpread({
+      last_bid,
+      last_ask,
+      digits,
+    });
+
+    const updatedData = {
+      high_bid,
+      low_bid,
+      newSpread,
+      last_bid: newBid,
+      last_ask: newAsk,
+      netChange: (newBid - close).toFixed(digits),
+      percentChange: (((newBid - close) / close) * 100).toFixed(2),
+      ...(liveSymbols?.[symbolId]?.last_bid > newBid
+        ? { bidColor: "red" }
+        : { bidColor: "green" }),
+      ...(liveSymbols?.[symbolId]?.last_ask < newAsk
+        ? { askColor: "red" }
+        : { askColor: "green" }),
+    };
+    lastTickAt.current = Date.now();
+    updateSymbolPrice(symbolId, updatedData);
+    publishNewTick({ ...updatedData, ts: Date.now() }, symbolId);
   };
 
   const handleSummary = (data) => {
-    const dataArray = data?.split(",");
+    if (!data?.startsWith("summary,")) return;
+
+    const dataArray = data.split(",");
 
     const keys = [
       "ignored1",
@@ -108,7 +114,11 @@ export const SocketProvider = ({ children }) => {
 
     const summary = keys.reduce((acc, key, index) => {
       if (!key.startsWith("ignored")) {
-        acc[key] = dataArray[index];
+        let value = dataArray[index];
+        if (key === "margin_level" && typeof value === "string") {
+          value = value.replace("%", "");
+        }
+        acc[key] = value;
       }
       return acc;
     }, {});
@@ -129,6 +139,8 @@ export const SocketProvider = ({ children }) => {
   useEffect(() => {
     if (lastMessage?.data instanceof Blob) {
       handleBlob(lastMessage?.data);
+    } else if (lastMessage?.data instanceof ArrayBuffer) {
+      handleBlob(new Blob([lastMessage.data]));
     } else {
       const type = lastMessage?.data?.split?.(",")?.[0];
       if (type === "summary") handleSummary(lastMessage?.data);
@@ -136,6 +148,11 @@ export const SocketProvider = ({ children }) => {
   }, [lastMessage]);
 
   useEffect(() => {
+    if (lastJsonMessage?.type === "account_summary") {
+      const payload = lastJsonMessage.payload;
+      if (typeof payload === "string") handleSummary(payload);
+      return;
+    }
     if (lastJsonMessage) handleSocketMessage(lastJsonMessage);
   }, [lastJsonMessage]);
 

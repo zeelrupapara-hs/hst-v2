@@ -40,7 +40,11 @@ const useSymbolStore = create((set, get) => ({
       }
 
       const symbols = list.reduce((acc, symbol) => {
-        const { newSpread } = calculateSpread(symbol);
+        const { newSpread } = calculateSpread({
+          last_bid: symbol.last_bid,
+          last_ask: symbol.last_ask,
+          digits: symbol.digits,
+        });
         acc[symbol.id] = { ...symbol, newSpread };
         return acc;
       }, {});
