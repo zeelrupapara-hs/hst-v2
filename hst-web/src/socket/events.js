@@ -28,4 +28,6 @@ export const SOCKET_EVENTS = {
   REPORT_CREATE: "report_create",
   REPORT_STATUS: "report_status",
   REPORT_DELETE: "report_delete",
+
+  GROUP_UPDATED: "group_updated",
 };
