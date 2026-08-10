@@ -3458,9 +3458,11 @@ select {
   gap: 2px;
 }
 .routing-action-row { display: flex; align-items: center; gap: 8px; }
-.routing-action-row .prop-select { flex: 1 1 50%; }
+.routing-action-row .prop-select { flex: 0 1 55%; }
 .routing-action-row input[type="text"] { flex: 1 1 40%; }
-.routing-enable { justify-self: center; }
+.routing-enable { grid-column: 1 / -1; justify-self: center; }
+.routing-btn-col button { width: 74px; height: 22px; font-size: 11px; }
+.routing-grid-row td .df-cell-input { height: 16px; }
 .routing-grid-row { display: flex; align-items: flex-start; gap: 8px; }
 .routing-grid-row table { flex: 1; }
 .routing-btn-col { display: flex; flex-direction: column; gap: 6px; width: 80px; }
@@ -4888,21 +4890,20 @@ label.sym-check::after { content: none; }
 .routing-cond-current {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   width: 100%;
-  height: 20px;
-  padding: 0 4px;
+  height: 18px;
+  padding: 0 3px;
   background: #fff;
   border: 1px solid #7f9db9;
   font-size: 11px;
   cursor: pointer;
+  overflow: hidden;
+  white-space: nowrap;
 }
 .routing-cond-arrow { margin-left: auto; color: #444; font-size: 9px; }
 .routing-cond-pop {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  z-index: 40;
+  z-index: 1001;
   display: flex;
   flex-direction: column;
   min-width: 240px;
@@ -4933,10 +4934,10 @@ label.sym-check::after { content: none; }
 .routing-glyph-ab { color: #c46a00; font-weight: 700; font-size: 9px; width: 14px; }
 .routing-glyph-01 { color: #1b6ec2; font-weight: 700; font-size: 9px; width: 14px; }
 .routing-glyph-dt { width: 14px; }
-.routing-btn-col-split { display: flex; flex-direction: column; justify-content: space-between; min-height: 320px; }
+.routing-btn-col-split { display: flex; flex-direction: column; justify-content: space-between; min-height: 300px; }
 .routing-grid-row table { align-self: stretch; }
-.routing-dealers-row { min-height: 320px; }
-.routing-dealers-row table { height: 320px; }
+.routing-dealers-row { min-height: 300px; }
+.routing-dealers-row table { height: 300px; }
 .routing-btn-group { display: flex; flex-direction: column; gap: 4px; }
 .routing-dealer-icon { font-size: 10px; }
 
@@ -4944,3 +4945,21 @@ label.sym-check::after { content: none; }
 .settings-dialog .routing-multi { width: 100%; }
 .settings-dialog .routing-multi .prop-select-fill { max-width: none; }
 .settings-dialog .routing-action-row .prop-select { max-width: none; }
+
+/* the conditions grid keeps to the dialog: fixed columns, editors sized to their cells */
+.routing-grid-row { min-width: 0; }
+.routing-grid-row table { table-layout: fixed; width: 100%; min-width: 0; }
+.routing-conds-box { height: 150px; overflow-y: auto; border: 1px solid #d7d7d7; background: #fff; flex: 1; }
+.routing-conds-box table { border: none; }
+.routing-grid-row th:nth-child(1) { width: 38%; }
+.routing-grid-row th:nth-child(2) { width: 30%; }
+.routing-grid-row td { overflow: hidden; padding: 1px 2px; }
+.routing-grid-row td .prop-select-box { height: 18px; }
+.routing-grid-row td .df-cell-input { width: 100%; box-sizing: border-box; }
+.routing-grid-row td .prop-select, .routing-grid-row td .prop-select-fill { max-width: none; width: 100%; }
+.routing-cond-pop { width: max-content; }
+
+.routing-cond-root { display: flex; align-items: center; gap: 5px; padding: 1px 6px; font-size: 11px; font-weight: 600; }
+.routing-cond-folder { padding-left: 16px !important; font-weight: 400 !important; }
+.routing-cond-leaf { padding-left: 44px !important; }
+

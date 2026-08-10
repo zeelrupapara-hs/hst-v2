@@ -109,13 +109,14 @@ export const RouteCondition_date = new Set([0, 4, 5]);
 
 // the reference names each condition under its branch: Request \ Account \ Position \ Order
 export function routeConditionGroup(id) {
+  if (id === 12 || id === 16) return "Symbol";
   if (id >= 4007 && id <= 4008) return "Order";
   if (id >= 4000) return "Position";
   if (id >= 1000) return "Account";
   return "Request";
 }
 
-export const RouteConditionGroups = ["Request", "Account", "Position", "Order"];
+export const RouteConditionGroups = ["Request", "Account", "Position", "Order", "Symbol"];
 
 export const ConditionRule_name = {
   0: "Equal (=)",

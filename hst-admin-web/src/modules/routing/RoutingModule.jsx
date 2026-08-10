@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
@@ -248,64 +249,64 @@ function condGlyph(id) {
 /** The condition picker as the reference draws it: Request leaves on top, the other branches fold. */
 function CondTypeSelect({ value, onChange }) {
   const [open, setOpen] = useState(false);
-  const [folded, setFolded] = useState({ Account: true, Position: true, Order: true });
+  const [pos, setPos] = useState(null);
+  const btnRef = useRef(null);
+  const [folded, setFolded] = useState({ Request: false, Account: true, Position: true, Order: true, Symbol: true });
   const byGroup = {};
   for (const [id, label] of Object.entries(RouteCondition_name)) {
     const g = routeConditionGroup(Number(id));
     (byGroup[g] ??= []).push({ id: Number(id), label });
   }
 
+  function toggle() {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 1, left: r.left, minWidth: r.width });
+    }
+    setOpen(!open);
+  }
+
   return (
     <span className="routing-cond-select">
-      <button type="button" className="routing-cond-current" onClick={() => setOpen(!open)}>
+      <button ref={btnRef} type="button" className="routing-cond-current" onClick={toggle}>
         {condGlyph(value)}
-        <span>{RouteCondition_name[value] ?? value}</span>
+        <span>{routeConditionGroup(value)}\{RouteCondition_name[value] ?? value}</span>
         <span className="routing-cond-arrow">▾</span>
       </button>
-      {open && (
-        <span className="routing-cond-pop">
-          {RouteConditionGroups.map((g) =>
-            g === "Request" ? (
-              byGroup[g]?.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={c.id === value ? "active" : ""}
-                  onClick={() => {
-                    onChange(c.id);
-                    setOpen(false);
-                  }}
-                >
-                  {condGlyph(c.id)} {c.label}
-                </button>
-              ))
-            ) : (
-              <span key={g} className="routing-cond-branch">
-                <button
-                  type="button"
-                  className="routing-cond-folder"
-                  onClick={() => setFolded({ ...folded, [g]: !folded[g] })}
-                >
-                  {folded[g] ? "▸" : "▾"} <span className="routing-folder-icon">📁</span> {g}
-                </button>
-                {!folded[g] &&
-                  byGroup[g]?.map((c) => (
-                    <button
-                      key={c.id}
-                      type="button"
-                      className={`routing-cond-leaf${c.id === value ? " active" : ""}`}
-                      onClick={() => {
-                        onChange(c.id);
-                        setOpen(false);
-                      }}
-                    >
-                      {condGlyph(c.id)} {c.label}
-                    </button>
-                  ))}
-              </span>
-            )
-          )}
-        </span>
+      {open &&
+        pos &&
+        createPortal(
+        <span className="routing-cond-pop" style={{ position: "fixed", ...pos }}>
+          <span className="routing-cond-root">
+            <span className="routing-folder-icon">📁</span> Conditions
+          </span>
+          {RouteConditionGroups.map((g) => (
+            <span key={g} className="routing-cond-branch">
+              <button
+                type="button"
+                className="routing-cond-folder"
+                onClick={() => setFolded({ ...folded, [g]: !folded[g] })}
+              >
+                {folded[g] ? "▸" : "▾"} <span className="routing-folder-icon">📁</span> {g}
+              </button>
+              {!folded[g] &&
+                byGroup[g]?.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className={`routing-cond-leaf${c.id === value ? " active" : ""}`}
+                    onClick={() => {
+                      onChange(c.id);
+                      setOpen(false);
+                    }}
+                  >
+                    {condGlyph(c.id)} {c.label}
+                  </button>
+                ))}
+            </span>
+          ))}
+        </span>,
+        document.body,
       )}
     </span>
   );
@@ -402,8 +403,8 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          width={640}
-          height={680}
+          width={620}
+          height={500}
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Routing: New" : `Routing: ${draft?.name ?? "…"}`}
@@ -440,7 +441,6 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                     </p>
                   </div>
                   <div className="form-grid">
-                    <span />
                     <label className="sym-check routing-enable">
                       <input
                         type="checkbox"
@@ -477,13 +477,14 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                     <label>Where order is</label>
                     <FlagSelect labels={TypeFlags_labels} value={draft.type} onChange={(v) => set("type", v)} />
                     <label>Where conditions are</label>
-                    <div className="routing-grid-row">
+                    <div className="routing-grid-row routing-conds-row">
                       <StackButtons
                         hasSelection={selCond != null}
                         onAdd={addCond}
                         onEdit={() => setEditCond(selCond)}
                         onDelete={deleteCond}
                       />
+                      <div className="routing-conds-box">
                       <table
                         className="data-table data-table-grid df-sub-table"
                         tabIndex={0}
@@ -539,6 +540,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   </div>
                 </>
