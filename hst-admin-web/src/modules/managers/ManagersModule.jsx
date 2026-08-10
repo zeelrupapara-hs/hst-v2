@@ -314,9 +314,16 @@ function ManagerDialog({ manager, onClose, onSaved }) {
                         {groups.map((mask, i) =>
                           groupEdit?.index === i ? (
                             <tr key={i}>
-                              <td onClick={(e) => e.stopPropagation()}>
-                                <GroupTreeSelect maskable value={groupEdit.value} onChange={(v) => setGroupEdit({ index: i, value: v })} />
-                                <button type="button" className="mgr-row-ok" onClick={() => commitGroupRow(groupEdit.value)}>OK</button>
+                              <td
+                                className="mgr-group-editing"
+                                onClick={(e) => e.stopPropagation()}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") commitGroupRow(groupEdit.value);
+                                  if (e.key === "Escape") setGroupEdit(null);
+                                }}
+                              >
+                                <Icon id="groups" size={14} />
+                                <GroupTreeSelect maskable value={groupEdit.value} onChange={(v) => setGroupEdit({ index: i, value: v })} onPick={commitGroupRow} />
                               </td>
                             </tr>
                           ) : (
@@ -337,9 +344,16 @@ function ManagerDialog({ manager, onClose, onSaved }) {
                         )}
                         {groupEdit?.index === groups.length && (
                           <tr>
-                            <td onClick={(e) => e.stopPropagation()}>
-                              <GroupTreeSelect maskable value={groupEdit.value} onChange={(v) => setGroupEdit({ index: groups.length, value: v })} />
-                              <button type="button" className="mgr-row-ok" onClick={() => commitGroupRow(groupEdit.value)}>OK</button>
+                            <td
+                              className="mgr-group-editing"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") commitGroupRow(groupEdit.value);
+                                if (e.key === "Escape") setGroupEdit(null);
+                              }}
+                            >
+                              <Icon id="groups" size={14} />
+                              <GroupTreeSelect maskable value={groupEdit.value} onChange={(v) => setGroupEdit({ index: groups.length, value: v })} onPick={commitGroupRow} />
                             </td>
                           </tr>
                         )}

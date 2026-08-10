@@ -4994,9 +4994,52 @@ label.sym-check::after { content: none; }
 tr[draggable="true"] { cursor: grab; }
 
 /* ── the group tree, wherever a group is chosen ── */
-.grptree-select { display: flex; align-items: stretch; width: 100%; }
-.grptree-select > input { flex: 1 1 auto; width: 100%; max-width: none; }
-.grptree-drop { width: 18px; padding: 0; font-size: 9px; border: 1px solid var(--chrome-border); background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); }
+.grptree-select {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+  border: 1px solid #adadad;
+  background: #fff;
+  box-sizing: border-box;
+}
+.grptree-select > input {
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: none;
+  border: none;
+  outline: none;
+  padding: 0 6px;
+  background: transparent;
+}
+.grptree-drop {
+  width: 17px;
+  flex: 0 0 17px;
+  padding: 1px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0;
+  position: relative;
+}
+.grptree-drop::before {
+  content: "";
+  position: absolute;
+  inset: 1px;
+  border: 1px solid #adadad;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+}
+.grptree-drop::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid #000;
+  pointer-events: none;
+}
 .grptree-pop {
   z-index: 1001;
   max-height: 280px;
@@ -5036,17 +5079,9 @@ tr[draggable="true"] { cursor: grab; }
 .mgr-groups-box table { width: 100%; border-collapse: collapse; table-layout: fixed; }
 .mgr-groups-box td { padding: 2px 4px; }
 .mgr-groups-box tr.selected td { background: #316ac5; color: #fff; }
-.mgr-groups-box .grptree-select { width: calc(100% - 34px); display: inline-flex; }
-.mgr-groups-box .grptree-select input { width: 100%; height: 18px; }
-.mgr-row-ok {
-  width: 28px;
-  height: 20px;
-  margin-left: 4px;
-  border: 1px solid #adadad;
-  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
-  font-size: 11px;
-  padding: 0;
-}
+.mgr-group-editing { display: flex; align-items: center; gap: 4px; }
+.mgr-group-editing .grptree-select { flex: 1; display: inline-flex; }
+.mgr-group-editing .grptree-select input { width: 100%; height: 18px; font-size: 11px; }
 .mgr-role-row {
   display: grid;
   grid-template-columns: 95px 1fr 74px 74px;

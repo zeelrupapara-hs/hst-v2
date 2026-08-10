@@ -84,7 +84,7 @@ function Branch({ node, path, depth, open, toggle, onPick, maskable }) {
  * The group picker as a tree, everywhere a group is chosen. A leaf picks that group; with
  * maskable set, a folder picks its whole branch as a mask, and the field can be typed into.
  */
-export function GroupTreeSelect({ value, onChange, maskable = false }) {
+export function GroupTreeSelect({ value, onChange, onPick, maskable = false }) {
   const { groups } = useGroups();
   const [openList, setOpenList] = useState(false);
   const [open, setOpen] = useState(() => new Set([""]));
@@ -128,6 +128,7 @@ export function GroupTreeSelect({ value, onChange, maskable = false }) {
   const pick = (v) => {
     onChange(v);
     setOpenList(false);
+    onPick?.(v);
   };
 
   return (
