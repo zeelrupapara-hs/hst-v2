@@ -110,7 +110,8 @@ const usePositionStore = create((set, get) => ({
     set((state) => ({ positionPL: { ...state.positionPL, [id]: profitLoss } }));
   },
 
-  updateSummary: (summary) => set({ summary }),
+  updateSummary: (partial) =>
+    set((state) => ({ summary: { ...state.summary, ...partial } })),
 
   addOrder: (order) => {
     set((state) => ({ orders: [...state.orders, order] }));

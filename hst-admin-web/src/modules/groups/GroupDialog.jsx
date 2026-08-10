@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
-import { useDialogStack } from "@/hooks/useDialogStack.jsx";
+import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { createGroup, fetchGroup, updateGroup } from "@/api/endpoints/groups.js";
 import {
@@ -80,7 +80,9 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
   const [original, setOriginal] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(groupId);
-  const close = useDialogStack(onClose);
+  const close = useDialogStack(onClose, {
+    onEscape: () => prevTabEscape(TABS, activeTab, setActiveTab),
+  });
 
   useEffect(() => {
     if (isNew) return;

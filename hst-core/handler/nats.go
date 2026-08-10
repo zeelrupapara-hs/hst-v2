@@ -25,6 +25,7 @@ func (h *Handler) subscribe() error {
 		model.SubjectSystemSymbols,
 		model.SubjectSystemCommissions,
 		model.SubjectSystemRules,
+		model.SubjectSystemLeverages,
 	} {
 		if err := h.Subscribe(subject, h.ConfigSystemEventHandler); err != nil {
 			return err
@@ -157,6 +158,15 @@ func (h *Handler) ResettleAccounts(ctx context.Context) {
 
 		h.CalculateAccountMargins(e).Apply(e.Account)
 
+		groupPath := e.Account.Group
+		e.Unlock()
+
+		if g, ok := h.Settings.Group(groupPath); ok {
+			// margin call and stop out must react to a profile change, not wait for the next tick
+			h.checkStopOut(ctx, e, g, model.Tick{})
+		}
+
+		e.Lock()
 		account := *e.Account
 		e.Unlock()
 

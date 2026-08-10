@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useId } from "react";
+import { useDismissLayer } from "@/hooks/useDialogStack.jsx";
 
 const OPEN_EVENT = "hst:exclusive-dropdown";
 
@@ -14,6 +15,8 @@ export function announceExclusiveDropdown(id) {
  */
 export function useExclusiveDropdown(open, setOpen) {
   const id = useId();
+  const close = useCallback(() => setOpen(false), [setOpen]);
+  useDismissLayer(open, close);
 
   useEffect(() => {
     function onOtherOpen(e) {

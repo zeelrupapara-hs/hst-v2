@@ -34,8 +34,8 @@ func (s *Seeder) SeedGroups(ctx context.Context) error {
 	for _, g := range startingGroups {
 		tag, err := s.DB.DB.Exec(ctx,
 			`INSERT INTO hst.groups ("group", currency, company, demo_deposit, demo_leverage,
-			                         margin_call, margin_stop_out, updated_at)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			                         margin_call, margin_stop_out, margin_free_mode, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8)
 			 ON CONFLICT ("group") DO NOTHING`,
 			g.Group, g.Currency, g.Company, g.Deposit, g.Leverage, g.Call, g.StopOut, now)
 		if err != nil {
@@ -46,6 +46,12 @@ func (s *Seeder) SeedGroups(ctx context.Context) error {
 		}
 
 		s.Log.Log(logger.TypeSys, logger.CodeOK, "seed group created", "group", g.Group)
+	}
+
+	// demo was seeded before margin_free_mode defaulted to use floating P/L; align it with MT5.
+	if _, err := s.DB.DB.Exec(ctx,
+		`UPDATE hst.groups SET margin_free_mode = 1 WHERE "group" = 'demo' AND margin_free_mode = 0`); err != nil {
+		return err
 	}
 
 	return nil

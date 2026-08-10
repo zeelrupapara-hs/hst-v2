@@ -239,6 +239,7 @@ func scanViewGroup(row pgx.Row) (*ViewGroup, error) {
 	if v.NewsLangs == nil {
 		v.NewsLangs = []int32{}
 	}
+	v.Exists = true
 	v.Status = model.GroupStatusFromFlags(v.PermissionFlags)
 	return v, nil
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "@/components/ui/Icon.jsx";
+import { useDismissLayer } from "@/hooks/useDialogStack.jsx";
 
 /**
  * The list context menu. An item is {label, icon?, shortcut?, checked?, disabled?, items?, onClick}
@@ -8,16 +9,14 @@ import { Icon } from "@/components/ui/Icon.jsx";
  */
 export function ContextMenu({ x, y, items, onClose }) {
   const [openSub, setOpenSub] = useState(null);
+  useDismissLayer(true, onClose);
 
   useEffect(() => {
     const close = () => onClose();
-    const onKey = (e) => e.key === "Escape" && onClose();
     const t = setTimeout(() => document.addEventListener("mousedown", close), 0);
-    document.addEventListener("keydown", onKey);
     return () => {
       clearTimeout(t);
       document.removeEventListener("mousedown", close);
-      document.removeEventListener("keydown", onKey);
     };
   }, [onClose]);
 

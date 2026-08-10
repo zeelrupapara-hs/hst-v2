@@ -15,6 +15,10 @@ import {
   fetchLeverages,
   updateLeverage,
 } from "@/api/endpoints/leverages.js";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog.jsx";
+import { fetchGroups, updateGroup } from "@/api/endpoints/groups.js";
+import { reloadGroups } from "@/hooks/useGroups.js";
+import { groupsMatchingMask, realGroups } from "@/lib/groupMask.js";
 
 // mirrors model.RangeMode_name
 const RANGE_MODE_NAME = {
@@ -64,35 +68,85 @@ const toDraftRule = (rule) =>
 
 const numOf = (v) => (v === "" || v === "∞" ? 0 : Number(v) || 0);
 
+/** Suggest the next finite tier boundary before infinity (MT5-style step from prior tiers). */
+const nextTierRangeTo = (tiersBeforeInfinity) => {
+  const finite = tiersBeforeInfinity
+    .map((t) => numOf(t.range_to))
+    .filter((n) => n > 0);
+  if (finite.length === 0) return "10";
+  const last = finite[finite.length - 1];
+  if (finite.length >= 2) {
+    const step = last - finite[finite.length - 2];
+    if (step > 0) return String(last + step);
+  }
+  return String(Math.max(last * 2, last + 10));
+};
+
 /** The rule editor: name, symbol mask, range mode and the tier ladder. */
 function RuleEditor({ rule, onSave, onClose }) {
   const [draft, setDraft] = useState(() => toDraftRule(rule));
   const [selectedTier, setSelectedTier] = useState(0);
   const [selectAllTiers, setSelectAllTiers] = useState(false);
   const [menu, setMenu] = useState(null);
+  const [pendingDeleteTier, setPendingDeleteTier] = useState(null);
   const tierInputRefs = useRef([]);
+  const focusTierRef = useRef(null);
   const close = useDialogStack(onClose);
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
 
   const setTier = (i, key, value) =>
-    set("tiers", draft.tiers.map((t, j) => (j === i ? { ...t, [key]: value } : t)));
+    setDraft((prev) => ({
+      ...prev,
+      tiers: prev.tiers.map((t, j) => (j === i ? { ...t, [key]: value } : t)),
+    }));
+
+  useEffect(() => {
+    if (focusTierRef.current == null) return;
+    const i = focusTierRef.current;
+    focusTierRef.current = null;
+    requestAnimationFrame(() => {
+      const el = tierInputRefs.current[i]?.[0];
+      el?.focus();
+      el?.select();
+    });
+  }, [draft.tiers.length]);
 
   const addTier = () => {
     setDraft((prev) => {
       const tiers = [...prev.tiers];
-      const insertAt = tiers.length > 0 ? tiers.length - 1 : 0;
-      tiers.splice(insertAt, 0, { range_to: "10", margin_rate_initial: "1.00", margin_rate_maintenance: "1.00" });
+      const insertAt = Math.max(0, tiers.length - 1);
+      const before = tiers.slice(0, insertAt);
+      const prevTier = before[before.length - 1];
+      const rateOf = (t, key) => {
+        const v = t?.[key];
+        return v != null && v !== "" && numOf(v) > 0 ? String(v) : "1.00";
+      };
+      tiers.splice(insertAt, 0, {
+        range_to: nextTierRangeTo(before),
+        margin_rate_initial: rateOf(prevTier, "margin_rate_initial"),
+        margin_rate_maintenance: rateOf(prevTier, "margin_rate_maintenance"),
+      });
+      focusTierRef.current = insertAt;
       setSelectedTier(insertAt);
       setSelectAllTiers(false);
       return { ...prev, tiers };
     });
   };
 
-  const deleteTier = (index) => {
+  const requestDeleteTier = (index) => {
     if (draft.tiers.length < 2 || index >= draft.tiers.length - 1) return;
-    setDraft((prev) => ({ ...prev, tiers: prev.tiers.filter((_, j) => j !== index) }));
-    setSelectedTier((i) => Math.max(0, Math.min(i, draft.tiers.length - 2)));
+    setMenu(null);
+    setPendingDeleteTier(index);
+  };
+
+  const deleteTier = (index) => {
+    setDraft((prev) => {
+      if (prev.tiers.length < 2 || index >= prev.tiers.length - 1) return prev;
+      return { ...prev, tiers: prev.tiers.filter((_, j) => j !== index) };
+    });
+    setSelectedTier((i) => Math.max(0, i >= index ? i - 1 : i));
     setSelectAllTiers(false);
+    setPendingDeleteTier(null);
   };
 
   const openTierMenu = (e, index) => {
@@ -146,7 +200,7 @@ function RuleEditor({ rule, onSave, onClose }) {
         <div className="sym-session-dialog-body">
           <div className="sym-sessions-intro">
             <span className="sym-tab-intro-icon" aria-hidden="true">
-              <Icon id="leverages" size={48} />
+              <Icon id="leverages" size={40} />
             </span>
             <p>
               Set up a <b>leverage rule</b>. Select a symbol and specify leverage levels based on
@@ -154,7 +208,7 @@ function RuleEditor({ rule, onSave, onClose }) {
               symbols or a separate symbol by selecting the corresponding range option.
             </p>
           </div>
-          <div className="form-grid">
+          <div className="form-grid lev-rule-form">
             <label>Name</label>
             <input type="text" className="wide" value={draft.name} onChange={(e) => set("name", e.target.value)} />
             <label>Description</label>
@@ -166,6 +220,7 @@ function RuleEditor({ rule, onSave, onClose }) {
             />
             <label>Range</label>
             <PropSelect
+              fill
               value={Number(draft.range_mode)}
               options={Object.keys(RANGE_MODE_NAME).map((v) => ({ value: Number(v), label: rangeLabel(v) }))}
               onChange={(v) => set("range_mode", v)}
@@ -173,85 +228,93 @@ function RuleEditor({ rule, onSave, onClose }) {
             <label>Currency</label>
             <input
               type="text"
+              className="wide"
               disabled={!currencyRequired}
               value={draft.range_value_currency}
               onChange={(e) => set("range_value_currency", e.target.value.toUpperCase())}
             />
           </div>
-          <table
-            className="data-table data-table-grid df-sub-table lev-tier-table"
-            onContextMenu={(e) => {
-              const row = e.target.closest("tbody tr[data-tier-index]");
-              if (!row) return;
-              openTierMenu(e, Number(row.dataset.tierIndex));
-            }}
-          >
-            <thead>
-              <tr>
-                <th className="lev-icon-col" />
-                <th className="num">To</th>
-                <th className="num">Initial margin rate</th>
-                <th className="num">Maintenance margin rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {draft.tiers.map((t, i) => {
-                const isLast = i === draft.tiers.length - 1;
-                if (!tierInputRefs.current[i]) tierInputRefs.current[i] = [];
-                return (
-                  <tr
-                    key={i}
-                    data-tier-index={i}
-                    className={selectAllTiers || i === selectedTier ? "selected" : ""}
-                    onClick={() => {
-                      setSelectedTier(i);
-                      setSelectAllTiers(false);
-                    }}
-                    onContextMenu={(e) => openTierMenu(e, i)}
-                  >
-                    <td className="lev-icon-col">
-                      <Icon id="leverages" />
-                    </td>
-                    <td className="num">
-                      {isLast ? (
-                        <span className="lev-tier-infinity" title="No upper limit">∞</span>
-                      ) : (
-                        <input
-                          ref={(el) => {
-                            tierInputRefs.current[i][0] = el;
-                          }}
-                          type="text"
-                          className="df-cell-input lev-num-input"
-                          value={t.range_to}
-                          onContextMenu={(e) => openTierMenu(e, i)}
-                          onChange={(e) => setTier(i, "range_to", e.target.value)}
-                        />
-                      )}
-                    </td>
-                    {["margin_rate_initial", "margin_rate_maintenance"].map((key, col) => (
-                      <td key={key} className="num">
-                        <input
-                          ref={(el) => {
-                            tierInputRefs.current[i][col + 1] = el;
-                          }}
-                          type="text"
-                          className="df-cell-input lev-num-input"
-                          value={t[key]}
-                          onContextMenu={(e) => openTierMenu(e, i)}
-                          onChange={(e) => setTier(i, key, e.target.value)}
-                        />
-                      </td>
-                    ))}
+          <div className="df-table-panel lev-tier-panel">
+            <div className="df-table-main">
+              <table
+                className="data-table data-table-grid df-sub-table lev-tier-table"
+                onContextMenu={(e) => {
+                  const row = e.target.closest("tbody tr[data-tier-index]");
+                  if (!row) return;
+                  openTierMenu(e, Number(row.dataset.tierIndex));
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th className="lev-icon-col" />
+                    <th className="num">To</th>
+                    <th className="num">Initial margin rate</th>
+                    <th className="num">Maintenance margin rate</th>
                   </tr>
-                );
-              })}
-              <tr>
-                <td colSpan={4} className="df-cell-editable" onClick={addTier}>
-                  + click to add…
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                </thead>
+                <tbody>
+                  {draft.tiers.map((t, i) => {
+                    const isLast = i === draft.tiers.length - 1;
+                    if (!tierInputRefs.current[i]) tierInputRefs.current[i] = [];
+                    return (
+                      <tr
+                        key={i}
+                        data-tier-index={i}
+                        className={selectAllTiers || i === selectedTier ? "selected" : ""}
+                        onClick={() => {
+                          setSelectedTier(i);
+                          setSelectAllTiers(false);
+                        }}
+                        onContextMenu={(e) => openTierMenu(e, i)}
+                      >
+                        <td className="lev-icon-col">
+                          <Icon id="leverages" />
+                        </td>
+                        <td className="num">
+                          {isLast ? (
+                            <span className="lev-tier-infinity" title="No upper limit">∞</span>
+                          ) : (
+                            <input
+                              ref={(el) => {
+                                tierInputRefs.current[i][0] = el;
+                              }}
+                              type="text"
+                              autoComplete="off"
+                              className="df-cell-input lev-num-input"
+                              value={t.range_to}
+                              onContextMenu={(e) => openTierMenu(e, i)}
+                              onChange={(e) => setTier(i, "range_to", e.target.value)}
+                            />
+                          )}
+                        </td>
+                        {["margin_rate_initial", "margin_rate_maintenance"].map((key, col) => (
+                          <td key={key} className="num">
+                            <input
+                              ref={(el) => {
+                                tierInputRefs.current[i][col + 1] = el;
+                              }}
+                              type="text"
+                              autoComplete="off"
+                              className="df-cell-input lev-num-input"
+                              value={t[key]}
+                              onContextMenu={(e) => openTierMenu(e, i)}
+                              onChange={(e) => setTier(i, key, e.target.value)}
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    );
+                  })}
+                  <tr>
+                    <td colSpan={4} className="df-cell-editable lev-tier-add" onClick={addTier}>
+                      <span className="df-add-plus" aria-hidden="true">+</span>
+                      click to add…
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
         <div className="sym-session-dialog-footer">
           <div className="sym-session-dialog-actions">
@@ -272,7 +335,7 @@ function RuleEditor({ rule, onSave, onClose }) {
               ...gridMenuHead({
                 onAdd: addTier,
                 onEdit: editTier,
-                onDelete: () => deleteTier(menu.index),
+                onDelete: () => requestDeleteTier(menu.index),
                 hasSelection: draft.tiers.length > 0,
               }).map((item) =>
                 item.label === "Delete"
@@ -289,6 +352,16 @@ function RuleEditor({ rule, onSave, onClose }) {
             ]}
           />
         )}
+        {pendingDeleteTier != null && (
+          <ConfirmDialog
+            title="Leverage rule tier"
+            message="Delete selected configuration record?"
+            prompt=""
+            overlayClassName="admin-confirm-overlay"
+            onYes={() => deleteTier(pendingDeleteTier)}
+            onClose={() => setPendingDeleteTier(null)}
+          />
+        )}
       </div>
     </DialogOverlay>
   );
@@ -301,6 +374,7 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
   const [selected, setSelected] = useState(0);
   const [editor, setEditor] = useState(null);
   const [menu, setMenu] = useState(null);
+  const [pendingDeleteRule, setPendingDeleteRule] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(profileId);
   const close = useDialogStack(onClose);
@@ -364,6 +438,17 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
       rules.splice(to, 0, moved);
       return { ...prev, rules };
     });
+
+  const requestDeleteRule = (index) => {
+    setMenu(null);
+    setPendingDeleteRule(index);
+  };
+
+  const deleteRule = (index) => {
+    setDraft((prev) => ({ ...prev, rules: prev.rules.filter((_, i) => i !== index) }));
+    setSelected((i) => Math.max(0, i >= index ? i - 1 : i));
+    setPendingDeleteRule(null);
+  };
 
   return (
     <DialogOverlay>
@@ -457,8 +542,7 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
                     ...listMenuHead({
                       onAdd: () => setEditor({ index: null }),
                       onEdit: () => setEditor({ index: menu.index }),
-                      onDelete: () =>
-                        setDraft({ ...draft, rules: draft.rules.filter((_, i) => i !== menu.index) }),
+                      onDelete: () => requestDeleteRule(menu.index),
                       hasSelection: draft.rules.length > 0,
                     }),
                     "sep",
@@ -485,14 +569,159 @@ function LeverageDialog({ profileId, onClose, onSaved }) {
             onClose={() => setEditor(null)}
           />
         )}
+        {pendingDeleteRule != null && (
+          <ConfirmDialog
+            title="Leverage rule"
+            message="Delete selected configuration record?"
+            prompt=""
+            overlayClassName="admin-confirm-overlay"
+            onYes={() => deleteRule(pendingDeleteRule)}
+            onClose={() => setPendingDeleteRule(null)}
+          />
+        )}
       </div>
     </DialogOverlay>
   );
 }
 
 const GROUP_MASKS = ["All", "real*", "demo*", "managers*", "contest*", "Risk*", "coverage*"];
-const maskItems = (verb) =>
-  GROUP_MASKS.map((m) => ({ label: `${verb} ${m} Groups`, disabled: true }));
+
+const EXCHANGE_MARGIN_MODE = 1;
+
+const maskLabel = (mask) => (mask === "All" ? "All groups" : `${mask} groups`);
+
+const hasProfile = (g, profileId) => Number(g.margin_leverage_id) === Number(profileId);
+
+/** Floating leverage applies only to non-exchange groups (Retail Forex / CFD / Futures). */
+const assignEligible = (g) => Number(g.margin_mode) !== EXCHANGE_MARGIN_MODE;
+
+function assignTargets(groups, mask, profileId) {
+  const matched = groupsMatchingMask(groups, mask);
+  const eligible = matched.filter(assignEligible);
+  const toUpdate = eligible.filter((g) => !hasProfile(g, profileId));
+  return { matched, eligible, toUpdate };
+}
+
+function removeDialogState(groups, mask, profile) {
+  const matched = groupsMatchingMask(groups, mask);
+  const targets = matched.filter((g) => hasProfile(g, profile.leverage_id));
+  if (targets.length === 0) {
+    return {
+      mode: "remove",
+      profile,
+      mask,
+      targets: [],
+      message: `None of the selected groups have '${profile.name}' floating leverage profile.`,
+      showYes: false,
+      variant: "warning",
+    };
+  }
+  const n = targets.length;
+  return {
+    mode: "remove",
+    profile,
+    mask,
+    targets,
+    message: `Floating leverage profile will be removed from ${n} group${n === 1 ? "" : "s"}.`,
+    showYes: true,
+    variant: "question",
+  };
+}
+
+function assignDialogState(groups, mask, profile) {
+  const { matched, eligible, toUpdate } = assignTargets(groups, mask, profile.leverage_id);
+  if (matched.length === 0) {
+    return {
+      mode: "assign",
+      profile,
+      mask,
+      targets: [],
+      message: `No groups match ${maskLabel(mask).toLowerCase()}.`,
+      showYes: false,
+      variant: "question",
+    };
+  }
+  if (toUpdate.length === 0) {
+    const message =
+      eligible.length > 0
+        ? `All of the selected groups already have '${profile.name}' floating leverage profile.`
+        : `None of the selected groups can use floating leverage profile.`;
+    return {
+      mode: "assign",
+      profile,
+      mask,
+      targets: [],
+      message,
+      showYes: false,
+      variant: "warning",
+    };
+  }
+  const n = toUpdate.length;
+  return {
+    mode: "assign",
+    profile,
+    mask,
+    targets: toUpdate,
+    message: `Floating leverage profile for ${n} group${n === 1 ? "" : "s"} will be changed to '${profile.name}'.`,
+    showYes: true,
+    variant: "question",
+  };
+}
+
+function deleteDialogState(groups, profile) {
+  const using = groups.filter((g) => hasProfile(g, profile.leverage_id));
+  if (using.length === 0) {
+    return {
+      mode: "delete",
+      profile,
+      targets: [],
+      message: `Delete leverage profile '${profile.name}'?`,
+      showYes: true,
+      variant: "question",
+    };
+  }
+  const n = using.length;
+  return {
+    mode: "delete",
+    profile,
+    targets: using,
+    message: `Floating leverage profile '${profile.name}' is used by ${n} group${n === 1 ? "" : "s"}. Deleting it will remove the profile from ${n === 1 ? "this group" : "these groups"}.`,
+    showYes: true,
+    variant: "question",
+  };
+}
+
+function GroupsListDialog({ profileName, groups, onClose }) {
+  const close = useDialogStack(onClose);
+  return (
+    <DialogOverlay onClose={onClose}>
+      <div className="sym-session-dialog" role="dialog" style={{ width: 420 }}>
+        <div className="sym-session-dialog-title">
+          <span>Groups — {profileName}</span>
+          <button type="button" className="lev-title-btn" aria-label="Close" onClick={close}>✕</button>
+        </div>
+        <div className="sym-session-dialog-body">
+          {groups.length === 0 ? (
+            <p>No groups use this leverage profile.</p>
+          ) : (
+            <ul className="hol-symbol-list">
+              {groups.map((g) => (
+                <li key={g.group_id}>
+                  <Icon id="groups" /> {g.group}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div className="sym-session-dialog-footer">
+          <div className="sym-session-dialog-actions">
+            <button type="button" className="sym-session-ok" onClick={close}>OK</button>
+          </div>
+        </div>
+      </div>
+    </DialogOverlay>
+  );
+}
 
 /** Leverage profiles list. */
 export function LeveragesModule() {
@@ -500,6 +729,8 @@ export function LeveragesModule() {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
+  const [groupsDialog, setGroupsDialog] = useState(null);
+  const [actionDialog, setActionDialog] = useState(null);
   const [menu, setMenu] = useState(null);
   const canEdit = session.can?.right_cfg_groups !== false;
 
@@ -516,33 +747,70 @@ export function LeveragesModule() {
     load();
   }, []);
 
-  async function onDelete(row) {
-    if (!window.confirm(`Delete leverage profile '${row.name}'?`)) return;
-    const res = await deleteLeverage(row.leverage_id);
-    if (!res.ok) window.alert(res.message || "delete failed");
-    saved();
+  async function requestDelete(row) {
+    if (!row) return;
+    const all = await loadAllGroups();
+    setActionDialog(deleteDialogState(all, row));
   }
 
   function saved() {
     load();
     session.refreshNav?.();
+    reloadGroups();
   }
+
+  async function loadAllGroups() {
+    const res = await fetchGroups();
+    return res.ok ? realGroups(res.data) : [];
+  }
+
+  async function assignToMask(mask) {
+    const row = rows[selected];
+    if (!row) return;
+
+    const all = await loadAllGroups();
+    setActionDialog(assignDialogState(all, mask, row));
+  }
+
+  async function removeFromMask(mask) {
+    const row = rows[selected];
+    if (!row) return;
+
+    const all = await loadAllGroups();
+    setActionDialog(removeDialogState(all, mask, row));
+  }
+
+  async function showGroups() {
+    const row = rows[selected];
+    if (!row) return;
+
+    const all = await loadAllGroups();
+    const using = all.filter((g) => Number(g.margin_leverage_id) === Number(row.leverage_id));
+    setGroupsDialog({ profileName: row.name, groups: using });
+  }
+
+  const maskItems = (verb, action) =>
+    GROUP_MASKS.map((m) => ({
+      label: `${verb} ${m} Groups`,
+      disabled: selected == null || selected === "add",
+      onClick: () => action(m),
+    }));
 
   const menuItems = () => {
     const hasRow = selected != null && selected !== "add";
     const head = listMenuHead({
       onAdd: () => setDialog({ id: "new" }),
       onEdit: () => setDialog({ id: rows[selected]?.leverage_id }),
-      onDelete: () => onDelete(rows[selected]),
+      onDelete: () => requestDelete(rows[selected]),
       hasSelection: hasRow,
     });
     head.splice(2, 0, { label: "Edit Groups", disabled: true });
     return [
       ...head,
       "sep",
-      { label: "Groups", disabled: true },
-      { label: "Assign", items: maskItems("To") },
-      { label: "Remove", items: maskItems("From") },
+      { label: "Groups", disabled: !hasRow, onClick: showGroups },
+      { label: "Assign", items: maskItems("To", assignToMask) },
+      { label: "Remove", items: maskItems("From", removeFromMask) },
       ...listMenuTail({
         on: {
           sort: () => setRows([...(rows || [])].sort((a, b) => a.name.localeCompare(b.name))),
@@ -614,6 +882,63 @@ export function LeveragesModule() {
       )}
       {dialog && (
         <LeverageDialog profileId={dialog.id} onClose={() => setDialog(null)} onSaved={saved} />
+      )}
+      {groupsDialog && (
+        <GroupsListDialog
+          profileName={groupsDialog.profileName}
+          groups={groupsDialog.groups}
+          onClose={() => setGroupsDialog(null)}
+        />
+      )}
+      {actionDialog && (
+        <ConfirmDialog
+          message={actionDialog.message}
+          showYes={actionDialog.showYes}
+          variant={actionDialog.variant}
+          onYes={async () => {
+            const { mode, profile, targets } = actionDialog;
+
+            if (mode === "delete") {
+              const res = await deleteLeverage(profile.leverage_id);
+              if (!res.ok) {
+                setActionDialog({
+                  mode: "delete",
+                  profile,
+                  targets,
+                  message: res.message || "Delete failed.",
+                  showYes: false,
+                  variant: "warning",
+                });
+                return;
+              }
+              saved();
+              return;
+            }
+
+            const failures = [];
+            for (const g of targets) {
+              const body =
+                mode === "assign"
+                  ? { margin_leverage_id: profile.leverage_id }
+                  : { margin_leverage_id: 0 };
+              const res = await updateGroup(g.group_id, body);
+              if (!res.ok) failures.push(g.group);
+            }
+            if (failures.length) {
+              setActionDialog({
+                mode,
+                profile,
+                targets,
+                message: `${targets.length - failures.length} of ${targets.length} groups updated. Failed: ${failures.join(", ")}`,
+                showYes: false,
+                variant: "warning",
+              });
+              return;
+            }
+            saved();
+          }}
+          onClose={() => setActionDialog(null)}
+        />
       )}
     </div>
   );

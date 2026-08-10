@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
-import { useDialogStack } from "@/hooks/useDialogStack.jsx";
+import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { fetchSymbol, updateSymbol } from "@/api/endpoints/symbols.js";
 import {
@@ -67,7 +67,9 @@ export function SymbolBulkDialog({ symbolIds, onClose, onSaved }) {
   const [error, setError] = useState("");
   const touched = useRef(new Set());
   const { offset, onTitlePointerDown } = useDialogDrag(`bulk-${symbolIds.join(",")}`);
-  const close = useDialogStack(onClose);
+  const close = useDialogStack(onClose, {
+    onEscape: () => prevTabEscape(TABS, activeTab, setActiveTab),
+  });
 
   useEffect(() => {
     Promise.all(symbolIds.map((id) => fetchSymbol(id))).then((results) => {
