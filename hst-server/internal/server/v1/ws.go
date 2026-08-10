@@ -60,6 +60,10 @@ func (s *HttpServer) ServeWS(c *websocket.Conn) {
 
 	client.Send(&model.Event{Type: model.EventWelcome, At: time.Now().UnixNano()})
 
+	// the panel paints its symbol list the moment it loads, so it is told what is ticking now
+	// rather than waiting on the next sweep
+	s.SendSymbolLiveness(client)
+
 	// the socket is closed as soon as this returns, so park here until the connection is torn down
 	client.Wait()
 

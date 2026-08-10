@@ -147,7 +147,69 @@ func (l *symLiveness) Touch(symbol string, timeNs int64) {
 // StartSymbolLiveness seeds last-tick times from the quote cache and keeps the panel told.
 func (s *HttpServer) StartSymbolLiveness() {
 	s.seedSymbolLiveness()
+
+	// work the map out once now: a panel connecting before the first sweep would otherwise be
+	// handed nothing and grey every symbol, including the ones already ticking
+	if _, err := s.refreshSymbolLiveness(context.Background()); err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeWarn, "first symbol liveness pass failed",
+			"error", err.Error())
+	}
+
 	go s.sweepSymbolLiveness()
+}
+
+// Snapshot copies what is currently live, for a socket that has just connected.
+func (l *symLiveness) Snapshot() map[string]bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
+	out := make(map[string]bool, len(l.live))
+	for symbol, live := range l.live {
+		out[symbol] = live
+	}
+
+	return out
+}
+
+// SendSymbolLiveness tells one socket what is ticking, as soon as it connects. The sweep only
+// speaks every ten seconds, which is ten seconds of a freshly loaded panel showing grey.
+func (s *HttpServer) SendSymbolLiveness(c *ws.Client) {
+	live := symLive.Snapshot()
+	if len(live) == 0 {
+		return
+	}
+
+	raw, err := json.Marshal(map[string]any{"live": live})
+	if err != nil {
+		return
+	}
+
+	c.Send(&model.Event{
+		Type:    model.EventSymbolLivenessUpdated,
+		Format:  model.FormatJSON,
+		Payload: raw,
+		At:      time.Now().UnixNano(),
+	})
+}
+
+// refreshSymbolLiveness recomputes which symbols are still inside their feed's timeout.
+func (s *HttpServer) refreshSymbolLiveness(ctx context.Context) (map[string]bool, error) {
+	bounds, err := s.symbolStaleBounds(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC().UnixNano()
+	next := make(map[string]bool, len(bounds))
+
+	symLive.mu.Lock()
+	for symbol, bound := range bounds {
+		next[symbol] = now-symLive.last[symbol] <= bound.Nanoseconds()
+	}
+	symLive.live = next
+	symLive.mu.Unlock()
+
+	return next, nil
 }
 
 // the quote service keeps every symbol's last tick in redis; a restart must not grey the world
@@ -217,21 +279,11 @@ func (s *HttpServer) sweepSymbolLiveness() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		bounds, err := s.symbolStaleBounds(context.Background())
+		next, err := s.refreshSymbolLiveness(context.Background())
 		if err != nil {
 			s.Log.Log(logger.TypeNet, logger.CodeWarn, "symbol liveness sweep failed", "error", err.Error())
 			continue
 		}
-
-		now := time.Now().UTC().UnixNano()
-		next := make(map[string]bool, len(bounds))
-
-		symLive.mu.Lock()
-		for symbol, bound := range bounds {
-			next[symbol] = now-symLive.last[symbol] <= bound.Nanoseconds()
-		}
-		symLive.live = next
-		symLive.mu.Unlock()
 
 		s.NotifyWS(model.SubjectSymbol, model.EventSymbolLivenessUpdated, map[string]any{"live": next})
 	}
