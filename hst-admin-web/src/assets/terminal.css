@@ -5038,7 +5038,15 @@ tr[draggable="true"] { cursor: grab; }
 .mgr-groups-box tr.selected td { background: #316ac5; color: #fff; }
 .mgr-groups-box .grptree-select { width: calc(100% - 34px); display: inline-flex; }
 .mgr-groups-box .grptree-select input { width: 100%; height: 18px; }
-.mgr-row-ok { width: 28px; height: 20px; margin-left: 4px; }
+.mgr-row-ok {
+  width: 28px;
+  height: 20px;
+  margin-left: 4px;
+  border: 1px solid #adadad;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+  font-size: 11px;
+  padding: 0;
+}
 .mgr-role-row {
   display: grid;
   grid-template-columns: 95px 1fr 74px 74px;
@@ -5050,27 +5058,37 @@ tr[draggable="true"] { cursor: grab; }
 .mgr-role-row input[type="text"] { height: 20px; }
 .mgr-role-row button {
   width: 74px;
-  height: 24px;
-  border: 1px solid var(--chrome-border);
+  height: 22px;
+  border: 1px solid #adadad;
   background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
+  font-size: 11px;
+  padding: 0;
 }
+.mgr-role-row button:disabled { color: #9a9a9a; }
 .mgr-perm-row { display: grid; grid-template-columns: 95px 1fr; gap: 8px 6px; align-items: start; }
 .mgr-perm-row > label { text-align: right; padding-top: 2px; }
 .mgr-tree-box {
-  height: 210px;
+  height: 265px;
   overflow: auto;
   border: 1px solid var(--chrome-border);
   background: #fff;
   padding: 2px 0;
 }
-.mgr-tree-row { display: flex; align-items: center; min-height: 18px; }
+.mgr-tree-row { display: flex; align-items: center; min-height: 17px; font-size: 11px; }
+.mgr-tree-row:hover { background: #f2f6fb; }
+.mgr-tree-row input[type="checkbox"] { width: 13px; height: 13px; margin: 0; }
 .mgr-tree-arrow {
-  width: 16px;
-  height: 16px;
+  flex: 0 0 14px;
+  width: 14px;
+  height: 14px;
   border: 0;
   background: none;
   padding: 0;
-  color: #666;
+  font-size: 9px;
+  line-height: 14px;
+  color: #6f6f6f;
   cursor: pointer;
 }
-.mgr-tree-row .sym-check { display: inline-flex; align-items: center; gap: 4px; }
+.mgr-tree-arrow:hover { color: #316ac5; }
+.mgr-tree-spacer { flex: 0 0 14px; }
+.mgr-tree-row .sym-check { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
