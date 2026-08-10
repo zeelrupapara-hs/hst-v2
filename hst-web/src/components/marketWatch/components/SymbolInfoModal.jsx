@@ -71,20 +71,47 @@ const fmtTierRange = (from, to) => {
   return `${start} – ${end}`;
 };
 
-const formatSessionWindows = (windows = []) => {
-  if (!windows.length) return "—";
-  return windows
-    .map((w) => `${w.from ?? "00:00"} - ${w.to ?? "00:00"}`)
-    .join(", ");
+const toMinutes = (t) => {
+  const m = String(t ?? "").match(/^(\d{1,2}):(\d{2})$/);
+  return m ? Math.min(1440, Number(m[1]) * 60 + Number(m[2])) : 0;
 };
 
+const formatSessionWindows = (windows = []) =>
+  windows.map((w) => `${w.from ?? "00:00"} - ${w.to ?? "00:00"}`).join(", ");
+
 const emptySessions = () =>
-  DAY_NAMES.map((day) => ({
-    key: day,
-    day,
-    quote: "—",
-    trade: "—",
-  }));
+  DAY_NAMES.map((day) => ({ key: day, day, quote: [], trade: [] }));
+
+// The track is the whole day and stays grey; only the open windows are coloured, and they sit
+// where they fall in the day. A full width bar on a day with gaps said the opposite.
+const SessionBar = ({ windows, tone }) => (
+  <div className="relative h-1.5 w-full max-w-[220px] overflow-hidden rounded-full bg-gray/30">
+    {windows.map((w, i) => {
+      const from = toMinutes(w.from);
+      const to = Math.max(toMinutes(w.to), from);
+      return (
+        <span
+          key={`${from}-${to}-${i}`}
+          className={`absolute inset-y-0 rounded-full ${tone}`}
+          style={{
+            left: `${(from / 1440) * 100}%`,
+            // a minute long window still has to be visible
+            width: `${Math.max(((to - from) / 1440) * 100, 1.5)}%`,
+          }}
+        />
+      );
+    })}
+  </div>
+);
+
+const SessionCell = ({ windows, tone }) => (
+  <div className="space-y-1">
+    <span className={windows.length ? "tabular-nums" : "text-gray-500"}>
+      {windows.length ? formatSessionWindows(windows) : "Closed"}
+    </span>
+    <SessionBar windows={windows} tone={tone} />
+  </div>
+);
 
 const SpecRow = ({ label, value }) => (
   <div className="flex justify-between gap-4 py-0.5">
@@ -118,8 +145,8 @@ const SymbolInfoModal = ({ isOpen, setIsOpen, data }) => {
           DAY_NAMES.map((day, idx) => ({
             key: day,
             day,
-            quote: formatSessionWindows(days[idx]?.quote),
-            trade: formatSessionWindows(days[idx]?.trade),
+            quote: days[idx]?.quote ?? [],
+            trade: days[idx]?.trade ?? [],
           }))
         );
       })
@@ -334,16 +361,10 @@ const SymbolInfoModal = ({ isOpen, setIsOpen, data }) => {
                 <tr key={row.key} className="border-b border-theme-border/50 align-top">
                   <td className="py-2 pr-3 font-medium">{row.day}</td>
                   <td className="py-2 px-3">
-                    <div className="space-y-1">
-                      <span className="tabular-nums">{row.quote}</span>
-                      <div className="h-1.5 w-full max-w-[220px] rounded-full bg-red/80" />
-                    </div>
+                    <SessionCell windows={row.quote} tone="bg-red/80" />
                   </td>
                   <td className="py-2 pl-3">
-                    <div className="space-y-1">
-                      <span className="tabular-nums">{row.trade}</span>
-                      <div className="h-1.5 w-full max-w-[220px] rounded-full bg-green/80" />
-                    </div>
+                    <SessionCell windows={row.trade} tone="bg-green/80" />
                   </td>
                 </tr>
               ))}
