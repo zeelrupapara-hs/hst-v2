@@ -2,6 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
+import { SymbolTreeSelect } from "@/components/ui/SymbolTreeSelect.jsx";
+import { useGroups } from "@/hooks/useGroups.js";
+import { COUNTRY_options } from "@/constants/countries.js";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
@@ -241,6 +244,106 @@ function condGlyph(id) {
   return <span className="routing-glyph-01">01</span>;
 }
 
+const WEEKDAY_options = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  .map((d, i) => ({ value: String(i), label: d }));
+
+// the stored value shown the way the editor collected it
+function condValueLabel(c) {
+  const v = c.value ?? "";
+  switch (c.condition) {
+    case 0:
+      return v ? new Date(Number(v) * 1000).toISOString().replace("T", " ").slice(0, 19) : "";
+    case 4:
+      return v === "" ? "" : `${String(Math.floor(v / 60)).padStart(2, "0")}:${String(v % 60).padStart(2, "0")}`;
+    case 5:
+      return WEEKDAY_options[Number(v)]?.label ?? v;
+    case 7:
+    case 12:
+      return v === "" ? "" : String(v) === "1" ? "Yes" : "No";
+    default:
+      return v;
+  }
+}
+
+const YESNO_options = [
+  { value: "1", label: "Yes" },
+  { value: "0", label: "No" },
+];
+
+/**
+ * Each condition gets the editor its value calls for, as the reference does: the symbol tree
+ * for symbols, the group list for groups, a calendar for dates; a plain box for the rest.
+ */
+function CondValueEditor({ condition, value, onChange, onDone }) {
+  const { groups } = useGroups();
+
+  switch (condition) {
+    case 1: // symbols: the tree, a folder is a mask, a leaf is one symbol; the row stays editable
+      return <SymbolTreeSelect value={value} onCommit={(v) => onChange(v)} onCancel={() => {}} />;
+
+    case 1001: // group: pick a path or type a mask like demo*
+      return (
+        <PropSelect
+          fill
+          value={value ?? ""}
+          options={[{ value: "*", label: "*" }, ...groups.map((g) => ({ value: g.group, label: g.group }))]}
+          onChange={(v) => { onChange(v); onDone(); }}
+        />
+      );
+
+    case 1002: // country
+      return (
+        <PropSelect
+          fill
+          value={value ?? ""}
+          options={COUNTRY_options}
+          onChange={(v) => { onChange(v); onDone(); }}
+        />
+      );
+
+    case 0: // date and time, stored as unix seconds
+      return (
+        <input
+          type="datetime-local"
+          className="df-cell-input"
+          value={value ? new Date(Number(value) * 1000).toISOString().slice(0, 16) : ""}
+          onChange={(e) => onChange(String(Math.floor(new Date(e.target.value).getTime() / 1000)))}
+        />
+      );
+
+    case 4: // time of day, stored as minutes since midnight
+      return (
+        <input
+          type="time"
+          className="df-cell-input"
+          value={value ? `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}` : ""}
+          onChange={(e) => {
+            const [h, m] = e.target.value.split(":").map(Number);
+            onChange(String(h * 60 + m));
+          }}
+        />
+      );
+
+    case 5: // weekday
+      return <PropSelect fill value={String(value ?? "")} options={WEEKDAY_options} onChange={(v) => { onChange(v); onDone(); }} />;
+
+    case 7: // placed by expert
+    case 12: // gap
+      return <PropSelect fill value={String(value ?? "")} options={YESNO_options} onChange={(v) => { onChange(v); onDone(); }} />;
+
+    default:
+      return (
+        <input
+          type="text"
+          className="df-cell-input"
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && onDone()}
+        />
+      );
+  }
+}
+
 /** The condition picker as the reference draws it: Request leaves on top, the other branches fold. */
 function CondTypeSelect({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -253,7 +356,8 @@ function CondTypeSelect({ value, onChange }) {
     (byGroup[g] ??= []).push({ id: Number(id), label });
   }
 
-  function toggle() {
+  function toggle(e) {
+    e?.stopPropagation();
     if (!open && btnRef.current) {
       const r = btnRef.current.getBoundingClientRect();
       setPos({ top: r.bottom + 1, left: r.left, minWidth: r.width });
@@ -263,7 +367,7 @@ function CondTypeSelect({ value, onChange }) {
 
   return (
     <span className="routing-cond-select">
-      <button ref={btnRef} type="button" className="routing-cond-current" onClick={toggle}>
+      <button ref={btnRef} type="button" className="routing-cond-current" onClick={toggle} onDoubleClick={(e) => e.stopPropagation()}>
         {condGlyph(value)}
         <span>{routeConditionGroup(value)}\{RouteCondition_name[value] ?? value}</span>
         <span className="routing-cond-arrow">▾</span>
@@ -508,20 +612,18 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                             >
                               {editCond === i ? (
                                 <>
-                                  <td>
+                                  <td onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
                                     <CondTypeSelect value={c.condition} onChange={(v) => setCond(i, "condition", v)} />
                                   </td>
                                   <td>
                                     <PropSelect fill value={c.rule} options={enumOptions(ConditionRule_name)} onChange={(v) => setCond(i, "rule", v)} />
                                   </td>
                                   <td>
-                                    <input
-                                      type="text"
-                                      className="df-cell-input"
-                                      value={c.value ?? ""}
-                                      onChange={(e) => setCond(i, "value", e.target.value)}
-                                      onBlur={() => setEditCond(null)}
-                                      onKeyDown={(e) => e.key === "Enter" && setEditCond(null)}
+                                    <CondValueEditor
+                                      condition={c.condition}
+                                      value={c.value}
+                                      onChange={(v) => setCond(i, "value", v)}
+                                      onDone={() => setEditCond(null)}
                                     />
                                   </td>
                                 </>
@@ -534,7 +636,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
                                     </span>
                                   </td>
                                   <td>{ConditionRule_name[c.rule] ?? c.rule}</td>
-                                  <td className="num">{c.value}</td>
+                                  <td className="num">{condValueLabel(c)}</td>
                                 </>
                               )}
                             </tr>
