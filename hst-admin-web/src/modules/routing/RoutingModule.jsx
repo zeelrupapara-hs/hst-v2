@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useSession } from "@/hooks/useSession.js";
 import { ContextMenu, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
 import { SymbolTreeSelect } from "@/components/ui/SymbolTreeSelect.jsx";
-import { useGroups } from "@/hooks/useGroups.js";
+import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
 import { COUNTRY_options } from "@/constants/countries.js";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
@@ -275,21 +275,13 @@ const YESNO_options = [
  * for symbols, the group list for groups, a calendar for dates; a plain box for the rest.
  */
 function CondValueEditor({ condition, value, onChange, onDone }) {
-  const { groups } = useGroups();
 
   switch (condition) {
     case 1: // symbols: the tree, a folder is a mask, a leaf is one symbol; the row stays editable
       return <SymbolTreeSelect value={value} onCommit={(v) => onChange(v)} onCancel={() => {}} />;
 
-    case 1001: // group: pick a path or type a mask like demo*
-      return (
-        <PropSelect
-          fill
-          value={value ?? ""}
-          options={[{ value: "*", label: "*" }, ...groups.map((g) => ({ value: g.group, label: g.group }))]}
-          onChange={(v) => { onChange(v); onDone(); }}
-        />
-      );
+    case 1001: // group: the tree, a folder is a mask, and any mask can be typed
+      return <GroupTreeSelect maskable value={value ?? ""} onChange={onChange} />;
 
     case 1002: // country
       return (
