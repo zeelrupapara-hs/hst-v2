@@ -4937,7 +4937,12 @@ label.sym-check::after { content: none; }
 .routing-btn-col-split { display: flex; flex-direction: column; justify-content: space-between; min-height: 300px; }
 .routing-grid-row table { align-self: stretch; }
 .routing-dealers-row { min-height: 300px; }
-.routing-dealers-row table { height: 300px; }
+.routing-dealers-box { height: 300px; overflow-y: auto; border: 1px solid #d7d7d7; background: #fff; flex: 1; min-width: 0; }
+.routing-dealers-box table { border: none; width: 100%; }
+.routing-dealers-box td { padding: 2px 6px; }
+.routing-dealer-pick { display: flex; align-items: center; gap: 6px; }
+.routing-dealer-pick .prop-select.routing-dealer-combo { width: 260px; }
+.routing-dealer-combo .prop-select-box { width: 100%; }
 .routing-btn-group { display: flex; flex-direction: column; gap: 4px; }
 .routing-dealer-icon { font-size: 10px; }
 
@@ -4949,7 +4954,7 @@ label.sym-check::after { content: none; }
 /* the conditions grid keeps to the dialog: fixed columns, editors sized to their cells */
 .routing-grid-row { min-width: 0; }
 .routing-grid-row table { table-layout: fixed; width: 100%; min-width: 0; }
-.routing-conds-box { height: 178px; overflow-y: auto; border: 1px solid #d7d7d7; background: #fff; flex: 1; min-width: 0; }
+.routing-conds-box { height: 210px; overflow-y: auto; border: 1px solid #d7d7d7; background: #fff; flex: 1; min-width: 0; }
 .routing-conds-box table { border: none; table-layout: fixed; width: 100%; }
 .routing-conds-box th:nth-child(1) { width: 38%; }
 .routing-conds-box th:nth-child(2) { width: 30%; }
@@ -4960,7 +4965,7 @@ label.sym-check::after { content: none; }
 .routing-conds-section { display: flex; gap: 10px; padding: 2px 22px 2px 12px; }
 .routing-conds-left { flex: 0 0 150px; display: flex; flex-direction: column; gap: 26px; }
 .routing-conds-caption { font-size: 11px; text-align: right; }
-.routing-conds-btns { display: flex; flex-direction: column; gap: 8px; align-items: center; }
+.routing-conds-btns { display: flex; flex-direction: column; gap: 8px; align-items: flex-end; padding-right: 2px; }
 .routing-conds-btns button { width: 74px; height: 22px; font-size: 11px; }
 .routing-grid-row th:nth-child(1) { width: 38%; }
 .routing-grid-row th:nth-child(2) { width: 30%; }
@@ -4974,3 +4979,7 @@ label.sym-check::after { content: none; }
 .routing-cond-folder { padding-left: 16px !important; font-weight: 400 !important; }
 .routing-cond-leaf { padding-left: 44px !important; }
 
+
+/* the row a dragged rule would land on */
+.routing-drop-target td { border-top: 2px solid #316ac5; }
+tr[draggable="true"] { cursor: grab; }

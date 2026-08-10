@@ -17,6 +17,7 @@ import {
   fetchRoutingDealers,
   fetchRoutingRule,
   moveRoutingRule,
+  reorderRouting,
   moveRoutingDealer,
   removeRoutingDealer,
   updateRoutingRule,
@@ -141,7 +142,7 @@ function DealersTab({ ruleId }) {
     load();
   }
 
-  const options = managers.map((m) => ({ value: m.login, label: `${m.name} (${m.login})` }));
+  const options = managers.map((m) => ({ value: m.login, label: `${m.login}, ${m.name}` }));
 
   return (
     <>
@@ -176,6 +177,7 @@ function DealersTab({ ruleId }) {
               <button type="button" disabled={selected == null} onClick={onDelete}>Delete</button>
             </div>
           </div>
+          <div className="routing-dealers-box">
           <table
             className="data-table data-table-grid df-sub-table"
             onKeyDown={(e) => e.key === "Delete" && onDelete()}
@@ -205,14 +207,17 @@ function DealersTab({ ruleId }) {
                 </tr>
               ))}
               {editing && (
-                <tr>
+                <tr className="routing-dealer-editing">
                   <td colSpan={2}>
-                    <PropSelect
-                      fill
-                      value={editing.login || options[0]?.value}
-                      options={options}
-                      onChange={commit}
-                    />
+                    <span className="routing-dealer-pick">
+                      <span className="routing-dealer-icon" aria-hidden="true">👤</span>
+                      <PropSelect
+                        className="routing-dealer-combo"
+                        value={editing.login || options[0]?.value}
+                        options={options}
+                        onChange={commit}
+                      />
+                    </span>
                   </td>
                 </tr>
               )}
@@ -223,6 +228,7 @@ function DealersTab({ ruleId }) {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </>
@@ -340,10 +346,12 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
     set("conditions", draft.conditions.map((c, j) => (j === i ? { ...c, [key]: value } : c)));
 
   function addCond() {
-    const next = [...(draft.conditions || []), { condition: 1, rule: 0, value: "" }];
-    set("conditions", next);
-    setSelCond(next.length - 1);
-    setEditCond(next.length - 1);
+    setDraft((prev) => {
+      const next = [...(prev.conditions || []), { condition: 1, rule: 0, value: "" }];
+      setSelCond(next.length - 1);
+      setEditCond(next.length - 1);
+      return { ...prev, conditions: next };
+    });
   }
 
   function deleteCond() {
@@ -393,7 +401,7 @@ function RuleDialog({ ruleId, onClose, onSaved }) {
         <SettingsDialog
           draggable
           width={620}
-          height={500}
+          height={560}
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "Routing: New" : `Routing: ${draft?.name ?? "…"}`}
@@ -555,6 +563,8 @@ export function RoutingModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const [dragFrom, setDragFrom] = useState(null);
+  const [dragOver, setDragOver] = useState(null);
   const canEdit = session.can?.right_cfg_requests !== false;
 
   const load = () =>
@@ -596,6 +606,21 @@ export function RoutingModule() {
 
   const row = selected == null ? null : rows?.[selected];
 
+  // a rule dragged onto another takes its place; the list order IS the priority
+  async function onDrop(from, to) {
+    if (from === to || from == null || to == null) return;
+    const ids = rows.map((r) => r.routing_id);
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+    const res = await reorderRouting(ids);
+    if (!res.ok) {
+      window.alert(res.message || "reorder failed");
+      return;
+    }
+    setSelected(to);
+    load();
+  }
+
   return (
     <div className="module-root">
       <p className="module-note">
@@ -615,7 +640,27 @@ export function RoutingModule() {
             {(rows || []).map((r, i) => (
               <tr
                 key={r.routing_id}
-                className={`${selected === i ? "selected" : ""}${r.mode === 1 ? "" : " nav-feed-disabled"}`}
+                className={`${selected === i ? "selected" : ""}${r.mode === 1 ? "" : " nav-feed-disabled"}${dragOver === i ? " routing-drop-target" : ""}`}
+                draggable={canEdit}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  setDragFrom(i);
+                }}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  if (dragOver !== i) setDragOver(i);
+                }}
+                onDragLeave={() => dragOver === i && setDragOver(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  onDrop(dragFrom, i);
+                  setDragFrom(null);
+                  setDragOver(null);
+                }}
+                onDragEnd={() => {
+                  setDragFrom(null);
+                  setDragOver(null);
+                }}
                 onClick={() => setSelected(i)}
                 onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ id: r.routing_id })}
