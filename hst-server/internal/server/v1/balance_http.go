@@ -68,7 +68,7 @@ func (s *HttpServer) CreateDeposit(c *fiber.Ctx) error {
 
 	return s.balanceAs(c, &CrtBalance{
 		Login:   body.Login,
-		Action:  int32(model.DealAction_balance),
+		Action:  model.DealAction_balance,
 		Amount:  body.Amount,
 		Comment: body.Comment,
 	})
@@ -95,7 +95,7 @@ func (s *HttpServer) CreateWithdrawal(c *fiber.Ctx) error {
 	// the amount is given as a positive number and taken out
 	return s.balanceAs(c, &CrtBalance{
 		Login:   body.Login,
-		Action:  int32(model.DealAction_balance),
+		Action:  model.DealAction_balance,
 		Amount:  -body.Amount,
 		Comment: body.Comment,
 	})
@@ -121,7 +121,7 @@ func (s *HttpServer) CreateCredit(c *fiber.Ctx) error {
 
 	return s.balanceAs(c, &CrtBalance{
 		Login:   body.Login,
-		Action:  int32(model.DealAction_credit),
+		Action:  model.DealAction_credit,
 		Amount:  body.Amount,
 		Comment: body.Comment,
 	})
@@ -148,7 +148,7 @@ func (s *HttpServer) CreateCorrection(c *fiber.Ctx) error {
 
 	return s.balanceAs(c, &CrtBalance{
 		Login:   body.Login,
-		Action:  int32(model.DealAction_correction),
+		Action:  model.DealAction_correction,
 		Amount:  body.Amount,
 		Comment: body.Comment,
 	})

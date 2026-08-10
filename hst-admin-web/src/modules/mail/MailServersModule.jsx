@@ -11,7 +11,7 @@ import {
   deleteMailServer,
   fetchMailServers,
   updateMailServer,
-} from "@/api/endpoints/mailServers.js";
+} from "@/api/endpoints/mailservers.js";
 
 const PATCH_FIELDS = ["enabled", "name", "sender_email", "sender_name", "smtp_server", "smtp_login", "is_default"];
 

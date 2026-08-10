@@ -3486,8 +3486,8 @@ select {
 .routing-action-row { display: flex; align-items: center; gap: 8px; }
 .routing-action-row .prop-select { flex: 1 1 50%; }
 .routing-action-row input[type="text"] { flex: 1 1 40%; }
-.routing-enable { justify-self: start; }
-.routing-grid-row { display: flex; flex-direction: row-reverse; align-items: flex-start; gap: 8px; }
+.routing-enable { justify-self: center; }
+.routing-grid-row { display: flex; align-items: flex-start; gap: 8px; }
 .routing-grid-row table { flex: 1; }
 .routing-btn-col { display: flex; flex-direction: column; gap: 6px; width: 80px; }
 .routing-glyph-ab, .routing-glyph-01 {
@@ -4875,3 +4875,106 @@ label.sym-check::after { content: none; }
 
 /* the margin pair must warn before it liquidates */
 .grp-margin-warn { margin: 2px 12px; font-size: 11px; }
+
+/* ── the New Account window: one grid, the password block beside the name rows ── */
+.settings-dialog .acc-new-grid { grid-template-columns: 100px minmax(0, 1fr) 70px 170px; }
+.acc-new-grid input { width: 100%; max-width: none; }
+.acc-new-cell input { max-width: 150px; }
+.acc-new-gap { min-height: 1px; }
+.acc-new-pass-head { text-align: center; font-weight: 600; grid-column: 3 / -1; align-self: end; }
+.acc-new-pass { display: flex; gap: 3px; }
+.acc-new-pass input { flex: 1 1 auto; }
+.acc-new-pass button { width: 22px; padding: 0; flex: 0 0 auto; }
+.acc-new-address { grid-column: 2 / -1; }
+.acc-new-address input { width: 100%; max-width: none; }
+
+/* ── leverage: the standard ladder in a dropdown, any other ratio typed by hand ── */
+.acc-leverage { position: relative; display: flex; gap: 2px; max-width: 180px; }
+.acc-leverage > input { flex: 1 1 auto; width: 100%; }
+.acc-leverage > button { width: 22px; padding: 0; flex: 0 0 auto; }
+.acc-leverage-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #7f9db9;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+}
+.acc-leverage-list button {
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+.acc-leverage-list button:hover { background: #316ac5; color: #fff; }
+.acc-leverage-list button.active { background: #316ac5; color: #fff; }
+
+/* ── routing dialog, drawn as the reference draws it ── */
+.routing-cond-select { position: relative; display: block; width: 100%; }
+.routing-cond-current {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  height: 20px;
+  padding: 0 4px;
+  background: #fff;
+  border: 1px solid #7f9db9;
+  font-size: 11px;
+  cursor: pointer;
+}
+.routing-cond-arrow { margin-left: auto; color: #444; font-size: 9px; }
+.routing-cond-pop {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  max-height: 300px;
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #7f9db9;
+  box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.25);
+  padding: 2px 0;
+}
+.routing-cond-pop button {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: none;
+  text-align: left;
+  padding: 1px 8px 1px 20px;
+  font-size: 11px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.routing-cond-pop button:hover, .routing-cond-pop button.active { background: #316ac5; color: #fff; }
+.routing-cond-folder { padding-left: 6px !important; font-weight: 600; }
+.routing-cond-branch { display: flex; flex-direction: column; }
+.routing-cond-leaf { padding-left: 34px !important; }
+.routing-folder-icon, .routing-glyph-dt { font-size: 10px; }
+.routing-glyph-ab { color: #c46a00; font-weight: 700; font-size: 9px; width: 14px; }
+.routing-glyph-01 { color: #1b6ec2; font-weight: 700; font-size: 9px; width: 14px; }
+.routing-glyph-dt { width: 14px; }
+.routing-btn-col-split { display: flex; flex-direction: column; justify-content: space-between; min-height: 320px; }
+.routing-grid-row table { align-self: stretch; }
+.routing-dealers-row { min-height: 320px; }
+.routing-dealers-row table { height: 320px; }
+.routing-btn-group { display: flex; flex-direction: column; gap: 4px; }
+.routing-dealer-icon { font-size: 10px; }
+
+/* the request and order masks run the width of the dialog, as the reference draws them */
+.settings-dialog .routing-multi { width: 100%; }
+.settings-dialog .routing-multi .prop-select-fill { max-width: none; }
+.settings-dialog .routing-action-row .prop-select { max-width: none; }

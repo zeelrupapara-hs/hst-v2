@@ -141,6 +141,16 @@ func (h *Handler) ExpireOrders(ctx context.Context, e *book.Entry, symbol string
 	e.Unlock()
 
 	for _, o := range expired {
+		// an expiry is a routable request of its own; a rule may hold an order past its time
+		r, _ := h.Settings.For(e.Account.Group, o.Symbol)
+		tick, _ := h.QuoteFor(r, o.Symbol)
+		decision := h.Route(&Request{Kind: model.RouteFlags_expiration, Order: o, Entry: e, Rules: r, Tick: tick})
+		if decision.Rule != nil && decision.Action == model.RouteAction_reject {
+			h.Log.Log(logger.TypeTrade, logger.CodeWarn, "an expiry was held by a rule",
+				"login", o.Login, "order", o.OrderId, "rule", decision.Rule.Name)
+			continue
+		}
+
 		e.Lock()
 		if _, still := e.Orders[o.OrderId]; !still {
 			e.Unlock()

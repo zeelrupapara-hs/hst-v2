@@ -18,20 +18,28 @@ import (
 
 // CrtUser creates a login, its account row, and optionally its manager row.
 type CrtUser struct {
-	ClientId         *int64 `json:"client_id"`
+	ClientId *int64 `json:"client_id"`
+	// Login is the preferred account number; absent or zero takes the next free one.
+	Login            *int64 `json:"login" validate:"omitempty,gte=1"`
 	Group            string `json:"group" validate:"required,max=128"`
 	Rights           int64  `json:"rights"`
 	Name             string `json:"name" validate:"required,max=128"`
 	FirstName        string `json:"first_name" validate:"max=64"`
 	LastName         string `json:"last_name" validate:"max=64"`
-	Email            string `json:"email" validate:"required,email,max=255"`
+	MiddleName       string `json:"middle_name" validate:"max=64"`
+	Company          string `json:"company" validate:"max=128"`
+	Email            string `json:"email" validate:"omitempty,email,max=255"`
 	Phone            string `json:"phone" validate:"max=64"`
 	Country          string `json:"country" validate:"max=64"`
+	State            string `json:"state" validate:"max=64"`
+	ZipCode          string `json:"zip_code" validate:"max=16"`
 	City             string `json:"city" validate:"max=64"`
+	Address          string `json:"address" validate:"max=256"`
 	Comment          string `json:"comment" validate:"max=4096"`
 	PasswordMain     string `json:"password_main" validate:"required,min=8,max=128"`
 	PasswordInvestor string `json:"password_investor" validate:"required,min=8,max=128"`
 	PasswordApi      string `json:"password_api" validate:"omitempty,min=8,max=128"`
+	PasswordPhone    string `json:"password_phone" validate:"omitempty,min=8,max=128"`
 }
 
 // UptUser patches a login.
@@ -100,7 +108,7 @@ func (s *Server) CreateUser(c *fiber.Ctx) error {
 	}
 
 	// every slot the account opens with answers to the group it opens in
-	for _, password := range []string{body.PasswordMain, body.PasswordInvestor, body.PasswordApi} {
+	for _, password := range []string{body.PasswordMain, body.PasswordInvestor, body.PasswordApi, body.PasswordPhone} {
 		if password == "" {
 			continue
 		}

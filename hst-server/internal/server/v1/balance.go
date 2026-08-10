@@ -13,11 +13,11 @@ import (
 )
 
 type CrtBalance struct {
-	Login    int64   `json:"login" validate:"required,gt=0"`
-	Action   int32   `json:"action" validate:"gte=0"`
-	Amount   float64 `json:"amount" validate:"required"`
-	Comment  string  `json:"comment" validate:"max=64"`
-	ExpertId int64   `json:"expert_id"`
+	Login    int64             `json:"login" validate:"required,gt=0"`
+	Action   model.DealAction  `json:"action" validate:"gte=0"`
+	Amount   float64           `json:"amount" validate:"required"`
+	Comment  string            `json:"comment" validate:"max=64"`
+	ExpertId int64             `json:"expert_id"`
 }
 
 type CrtDeposit struct {
@@ -60,7 +60,7 @@ func (s *HttpServer) makeBalance(ctx context.Context, payload *CrtBalance, deale
 		Dealer:    dealer,
 		ExpertId:  payload.ExpertId,
 		// a correction is the one operation allowed to leave the account short
-		AllowNegative: model.DealAction(payload.Action) == model.DealAction_correction,
+		AllowNegative: payload.Action == model.DealAction_correction,
 	}
 
 	return s.sendBalance(ctx, payload.Login, &model.BalanceEvent{

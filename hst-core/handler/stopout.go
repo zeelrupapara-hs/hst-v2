@@ -159,6 +159,19 @@ func (h *Handler) stopOutPendings(ctx context.Context, e *book.Entry, g *model.G
 	})
 
 	for _, c := range candidates {
+		// the rules see the deletion as its own request kind, so a broker can refuse or route it
+		r, _ := h.Settings.For(e.Account.Group, c.order.Symbol)
+		tick, _ := h.QuoteFor(r, c.order.Symbol)
+		decision := h.Route(&Request{
+			Kind: model.RouteFlags_stop_out_order, Order: c.order, Entry: e, Rules: r, Tick: tick,
+		})
+		if decision.Rule != nil && !decision.Executes() &&
+			decision.Action != model.RouteAction_cancel_order {
+			h.Log.Log(logger.TypeTrade, logger.CodeWarn, "a stop out deletion was refused by a rule",
+				"login", c.order.Login, "order", c.order.OrderId, "rule", decision.Rule.Name)
+			continue
+		}
+
 		e.Lock()
 		if _, still := e.Orders[c.order.OrderId]; !still || !c.order.State.IsLive() {
 			e.Unlock()

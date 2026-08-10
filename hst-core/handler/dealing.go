@@ -733,9 +733,13 @@ func (h *Handler) dealersOfRule(routingId int64) []int64 {
 		return nil
 	}
 
-	for i := range h.rules {
-		if h.rules[i].RoutingId == routingId {
-			return h.rules[i].Dealers
+	h.mu.RLock()
+	rules := h.rules
+	h.mu.RUnlock()
+
+	for i := range rules {
+		if rules[i].RoutingId == routingId {
+			return rules[i].Dealers
 		}
 	}
 

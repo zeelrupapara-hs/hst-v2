@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 const empty = {
   onAdd: undefined,
@@ -55,9 +55,21 @@ export function useRegisterToolbarActions({
 }) {
   const ctx = useToolbarActions();
 
+  // handlers are read through a ref so a fresh arrow function each render cannot re-register,
+  // which used to loop: register -> context change -> re-render -> new arrows -> register
+  const handlers = useRef({});
+  handlers.current = { onAdd, onEdit, onDelete };
+
   useEffect(() => {
     if (!ctx?.register || !ctx?.clear) return undefined;
-    ctx.register({ onAdd, onEdit, onDelete, canAdd, canEdit, canDelete });
+    ctx.register({
+      onAdd: canAdd ? (...a) => handlers.current.onAdd?.(...a) : undefined,
+      onEdit: canEdit ? (...a) => handlers.current.onEdit?.(...a) : undefined,
+      onDelete: canDelete ? (...a) => handlers.current.onDelete?.(...a) : undefined,
+      canAdd,
+      canEdit,
+      canDelete,
+    });
     return () => ctx.clear();
-  }, [ctx?.register, ctx?.clear, onAdd, onEdit, onDelete, canAdd, canEdit, canDelete]);
+  }, [ctx?.register, ctx?.clear, canAdd, canEdit, canDelete]);
 }

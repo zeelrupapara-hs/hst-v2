@@ -59,6 +59,8 @@ export const TypeFlags_labels = [
   { bit: 128, label: "Sell Stop Limit" },
 ];
 
+// Only the conditions the engine can actually evaluate are offered: a rule keyed on a
+// condition the engine cannot read would never match anything.
 export const RouteCondition_name = {
   0: "Date and time",
   1: "Symbols",
@@ -68,9 +70,7 @@ export const RouteCondition_name = {
   5: "Weekday",
   6: "Request comment",
   7: "Expert ID",
-  8: "Signal ID",
   9: "Dealer login",
-  10: "Source login",
   11: "Deviation from spread",
   12: "Gap",
   13: "Request reason",
@@ -81,42 +81,41 @@ export const RouteCondition_name = {
   1001: "Client group",
   1002: "Client country",
   1003: "Client city",
-  1004: "Client color",
   1005: "Client leverage",
-  1006: "Client comment",
-  1007: "Client ZIP code",
   1008: "Client status",
   1009: "Client ID",
-  1010: "Client party ID",
   2000: "Margin",
   2001: "Margin level",
   2002: "Free margin",
   2003: "Equity",
   2004: "Balance",
   2005: "Profit",
-  3000: "Daily deals",
-  3001: "Daily deals period",
-  3002: "Daily profit",
   4000: "Position volume",
   4001: "Position profit",
   4002: "Position age",
   4003: "Position modification time",
-  4004: "Position average time",
   4005: "Positions total",
   4006: "Positions total by symbol",
   4007: "Orders total",
   4008: "Orders total by symbol",
-  4009: "Position Stop Loss touched",
-  4010: "Position Take Profit touched",
-  4011: "Order Stop Loss touched",
-  4012: "Order Take Profit touched",
   4013: "Position value",
-  4014: "Order in",
-  4015: "Order out",
 };
 
 // text-valued conditions get the "ab" glyph, everything else the numeric "01" one
-export const RouteCondition_text = new Set([1, 6, 1001, 1002, 1003, 1006, 1007]);
+export const RouteCondition_text = new Set([1, 6, 1001, 1002, 1003, 1008]);
+
+// calendar-valued conditions get the date glyph, as the reference draws them
+export const RouteCondition_date = new Set([0, 4, 5]);
+
+// the reference names each condition under its branch: Request \ Account \ Position \ Order
+export function routeConditionGroup(id) {
+  if (id >= 4007 && id <= 4008) return "Order";
+  if (id >= 4000) return "Position";
+  if (id >= 1000) return "Account";
+  return "Request";
+}
+
+export const RouteConditionGroups = ["Request", "Account", "Position", "Order"];
 
 export const ConditionRule_name = {
   0: "Equal (=)",

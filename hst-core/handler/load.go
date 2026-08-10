@@ -460,7 +460,9 @@ func (h *Handler) readAccounts(ctx context.Context, shards map[uint32]bool, and 
 		        a.margin_level, a.margin_initial, a.margin_maintenance, a.profit,
 		        a.storage, a.floating, a.equity, a.assets, a.liabilities,
 		        a.blocked_commission, a.blocked_profit, a.updated_at,
-		        COALESCE(g.currency, '')
+		        COALESCE(g.currency, ''),
+		        COALESCE(u.country, ''), COALESCE(u.city, ''), COALESCE(u.status, ''),
+		        COALESCE(u.client_id, 0)
 		   FROM hst.users u
 		   JOIN hst.accounts a ON a.login = u.login
 		   LEFT JOIN hst.groups g ON g."group" = u."group"
@@ -476,7 +478,8 @@ func (h *Handler) readAccounts(ctx context.Context, shards map[uint32]bool, and 
 			&a.CurrencyDigits, &a.Balance, &a.Credit, &a.Margin, &a.MarginFree,
 			&a.MarginLevel, &a.MarginInitial, &a.MarginMaintenance, &a.Profit,
 			&a.Storage, &a.Floating, &a.Equity, &a.Assets, &a.Liabilities,
-			&a.Commission, &a.BlockedProfit, &a.UpdatedAt, &a.Currency); err != nil {
+			&a.Commission, &a.BlockedProfit, &a.UpdatedAt, &a.Currency,
+			&a.Country, &a.City, &a.Status, &a.ClientId); err != nil {
 			return err
 		}
 
@@ -610,12 +613,15 @@ func (h *Handler) RefreshAccount(ctx context.Context, e *book.Entry) error {
 
 	if err := h.DB.DB.QueryRow(ctx,
 		`SELECT u."group", u.rights, u.leverage,
-		        COALESCE(g.currency, ''), COALESCE(g.currency_digits, 2)
+		        COALESCE(g.currency, ''), COALESCE(g.currency_digits, 2),
+		        COALESCE(u.country, ''), COALESCE(u.city, ''), COALESCE(u.status, ''),
+		        COALESCE(u.client_id, 0)
 		   FROM hst.users u
 		   JOIN hst.accounts a ON a.login = u.login
 		   LEFT JOIN hst.groups g ON g."group" = u."group"
 		  WHERE u.login = $1`, login).Scan(&e.Account.Group, &e.Account.Rights,
-		&e.Account.Leverage, &e.Account.Currency, &e.Account.CurrencyDigits); err != nil {
+		&e.Account.Leverage, &e.Account.Currency, &e.Account.CurrencyDigits,
+		&e.Account.Country, &e.Account.City, &e.Account.Status, &e.Account.ClientId); err != nil {
 		e.Unlock()
 		return err
 	}
