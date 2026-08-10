@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"hstquote/internal/calendar"
 	"hstquote/internal/configclient"
 	"hstquote/internal/filter"
 	"hstquote/internal/fixconfig"
@@ -368,6 +369,14 @@ func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *fil
 
 	// a closed quote session is no stream at all, so the next tick starts a fresh channel
 	if !f.isQuoteSessionOpen(feed, tick.SymbolID) {
+		st.MarkBreak(tick.SymbolID)
+		discard()
+		return
+	}
+
+	// a holiday shuts the instrument for the day, so it goes quiet rather than quoting a market
+	// nobody may trade on
+	if calendar.Closed(feed.Holidays, set.Path, tick.Symbol, time.Now().UTC()) {
 		st.MarkBreak(tick.SymbolID)
 		discard()
 		return

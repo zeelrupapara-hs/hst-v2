@@ -22,7 +22,7 @@ const workerDatafeedColumns = `datafeed_id, name, module, enable, mode,
 
 const datafeedSymbolColumns = `feed_symbol_id, datafeed_id, symbol_id, path, exclude, symbol`
 
-const symbolSettingsColumns = `symbol_id, digits, point, tick_flags, tick_book_depth,
+const symbolSettingsColumns = `symbol_id, path, digits, point, tick_flags, tick_book_depth,
 	calc_mode, tick_chart_mode, splice_type,
 	filter_soft, filter_soft_ticks, filter_hard, filter_hard_ticks, filter_discard,
 	filter_spread_min, filter_spread_max, filter_gap, filter_gap_ticks,
@@ -302,6 +302,11 @@ func (s *HttpServer) loadWorkerDatafeedConfig(ctx context.Context, datafeedID in
 		return nil, err
 	}
 
+	cfg.Holidays, err = loadWorkerHolidays(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+
 	return cfg, nil
 }
 
@@ -399,9 +404,15 @@ func (s *HttpServer) listWorkerDatafeedConfigs(ctx context.Context, mode int32) 
 	if err != nil {
 		return nil, err
 	}
+	holidays, err := loadWorkerHolidays(ctx, s)
+	if err != nil {
+		return nil, err
+	}
+
 	for i := range out {
 		out[i].Sessions = flattenQuoteSessions(out[i].Translates, sessionsBySymbol)
 		out[i].Settings = symbolSettingsForTranslates(out[i].Translates, settingsBySymbol)
+		out[i].Holidays = holidays
 	}
 
 	return out, nil
@@ -419,6 +430,33 @@ func (s *HttpServer) publishWorkerConfigSnapshot(ctx context.Context, datafeedID
 	if err := events.PublishConfigSnapshot(s.Nats, *cfg); err != nil {
 		s.Log.Log(logger.TypeNet, logger.CodeWarn, "worker config publish failed",
 			"datafeed_id", datafeedID, "error", err.Error())
+	}
+}
+
+// NotifyAllDatafeedConfigs republishes every enabled feed's snapshot. The holiday calendar is
+// server-wide and its masks can reach any symbol, so there is no subset worth working out.
+func (s *HttpServer) NotifyAllDatafeedConfigs(ctx context.Context) {
+	rows, err := s.DB.DB.Query(ctx, `SELECT datafeed_id FROM hst.datafeeds WHERE enable = 1`)
+	if err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeWarn, "datafeed list failed for calendar notify",
+			"error", err.Error())
+		return
+	}
+
+	// drain first: publishing borrows more connections, and this cursor is holding one
+	var feedIDs []int64
+	for rows.Next() {
+		var feedID int64
+		if err := rows.Scan(&feedID); err != nil {
+			rows.Close()
+			return
+		}
+		feedIDs = append(feedIDs, feedID)
+	}
+	rows.Close()
+
+	for _, feedID := range feedIDs {
+		s.publishWorkerConfigSnapshot(ctx, feedID)
 	}
 }
 
@@ -723,7 +761,7 @@ func loadSymbolSettingsBySymbolIDs(ctx context.Context, s *HttpServer, symbolIDs
 
 	for rows.Next() {
 		var set events.WorkerSymbolSettings
-		if err := rows.Scan(&set.SymbolID, &set.Digits, &set.Point, &set.TickFlags, &set.TickBookDepth,
+		if err := rows.Scan(&set.SymbolID, &set.Path, &set.Digits, &set.Point, &set.TickFlags, &set.TickBookDepth,
 			&set.CalcMode, &set.TickChartMode, &set.SpliceType,
 			&set.FilterSoft, &set.FilterSoftTicks, &set.FilterHard, &set.FilterHardTicks, &set.FilterDiscard,
 			&set.FilterSpreadMin, &set.FilterSpreadMax, &set.FilterGap, &set.FilterGapTicks,
@@ -732,6 +770,31 @@ func loadSymbolSettingsBySymbolIDs(ctx context.Context, s *HttpServer, symbolIDs
 		}
 		out[set.SymbolID] = set
 	}
+	return out, rows.Err()
+}
+
+// loadWorkerHolidays reads the whole enabled calendar. It is a handful of rows and the masks
+// are resolved by the worker against each symbol's path, so there is nothing to filter here.
+func loadWorkerHolidays(ctx context.Context, s *HttpServer) ([]events.WorkerHoliday, error) {
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT year, month, day, "from", "to", symbols
+		   FROM hst.holidays
+		  WHERE mode = 1
+		  ORDER BY config_index`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []events.WorkerHoliday{}
+	for rows.Next() {
+		var h events.WorkerHoliday
+		if err := rows.Scan(&h.Year, &h.Month, &h.Day, &h.From, &h.To, &h.Symbols); err != nil {
+			return nil, err
+		}
+		out = append(out, h)
+	}
+
 	return out, rows.Err()
 }
 

@@ -86,12 +86,20 @@ func (h *Holidays) Len() int {
 	return len(h.days)
 }
 
+// Covers reports whether trading is shut for this symbol at this moment.
+//
+// From and To are the work time, the window the server stays open, as the holiday dialog
+// labels them and as the admin resolver reads them. So a matched day is closed except inside
+// its windows, and a record with no work time at all closes the day outright. Several records
+// can match one date: their windows add up, exactly as HolidayWindows merges them server-side.
 func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	// #nosec G115 -- a minute of the day is 0..1439
 	minutes := int32(at.Hour()*60 + at.Minute())
+
+	matched := false
 
 	for i := range h.days {
 		d := &h.days[i]
@@ -110,15 +118,20 @@ func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
 		if !holidayCovers(d.Symbols, path, symbol) {
 			continue
 		}
+
+		matched = true
+
+		// the prohibiting kind: it opens nothing, but another record still may
 		if d.From == 0 && d.To == 0 {
-			return true
+			continue
 		}
-		if minutes >= d.From && minutes < d.To {
-			return true
+		// To is the last open minute, inclusive, as the resolver treats it
+		if minutes >= d.From && minutes <= d.To {
+			return false
 		}
 	}
 
-	return false
+	return matched
 }
 
 func holidayCovers(masks []string, path, symbol string) bool {
