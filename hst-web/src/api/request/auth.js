@@ -25,3 +25,4 @@ export const forgotPassword = (data) => authApi.post("/reset-password", data);
 
 export const resetPassword = (data) => api.post("/auth/change-password", data);
 export const updateProfile = (id, data) => api.put(`/users/${id}`, data);
+export const getProfile = () => api.get("/profile");

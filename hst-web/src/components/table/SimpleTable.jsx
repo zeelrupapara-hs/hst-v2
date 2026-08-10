@@ -9,6 +9,7 @@ const SimpleTable = ({
   rowSelection = null,
   rowClassName = "",
   onRow = null,
+  virtual = true,
 }) => {
   const containerRef = useRef(null);
   const [tableHeight, setTableHeight] = useState(0);
@@ -109,7 +110,7 @@ const SimpleTable = ({
         onRow={onRow}
         pagination={pagination}
         scroll={{ y: tableHeight, x: "max-content" }}
-        virtual={data?.length ? true : false}
+        virtual={virtual && data?.length > 0}
       />
     </div>
   );

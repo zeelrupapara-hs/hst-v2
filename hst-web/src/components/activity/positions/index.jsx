@@ -284,6 +284,7 @@ const Positions = () => {
           data={mergedData}
           rowClassName={(record) => (record?.isSummary ? "table-summary" : "")}
           rowSelection={rowSelection}
+          virtual={false}
         />
       </ContextMenuTable>
 

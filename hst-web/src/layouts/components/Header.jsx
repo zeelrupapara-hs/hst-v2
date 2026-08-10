@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -14,6 +15,7 @@ import {
   LuColumns2,
   LuRows2,
   LuLayoutGrid,
+  LuUser,
 } from "react-icons/lu";
 import { MdAdsClick } from "react-icons/md";
 import { Dropdown } from "antd";
@@ -22,6 +24,7 @@ import useGlobalStore from "../../store/useGlobalStore";
 import { successToast, errorToast } from "../../utils/utils";
 import FullScreenToggle from "../../components/common/FullScreenToggle";
 import ConnectionStatus from "../../components/common/ConnectionStatus";
+import ProfilePanel from "../../components/profile/ProfilePanel";
 import { useTheme } from "../../context/ThemeContext";
 import Icon from "../../components/common/Icon";
 import Logo from "../../components/common/Logo";
@@ -36,6 +39,7 @@ const Header = () => {
   const chartLayout = useGlobalStore((state) => state.chartLayout);
   const setChartLayout = useGlobalStore((state) => state.setChartLayout);
   const oneClick = useGlobalStore((state) => state.oneClick);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const logoutHandler = () => {
     try {
@@ -49,6 +53,10 @@ const Header = () => {
 
   const changeLanguage = (lang) => {
     i18n.changeLanguage(lang);
+  };
+
+  const toggleProfilePanel = () => {
+    setIsProfileOpen((open) => !open);
   };
 
   const menuItems = [
@@ -73,6 +81,12 @@ const Header = () => {
     //     { key: "ar", label: "العربية", onClick: () => changeLanguage("ar") },
     //   ],
     // },
+    {
+      key: 4,
+      icon: <Icon Icon={LuUser} size={16} />,
+      label: "Profile",
+      onClick: toggleProfilePanel,
+    },
     {
       key: 3,
       icon: <Icon Icon={LuLogOut} size={16} />,
@@ -169,10 +183,20 @@ const Header = () => {
           </button>
         )}
 
+        <button
+          title="Profile"
+          className={`btn-icon-hover ${isProfileOpen ? "!text-primary" : ""}`}
+          onClick={toggleProfilePanel}
+        >
+          <Icon Icon={LuUser} size={20} isActive={isProfileOpen} />
+        </button>
+
         <ConnectionStatus />
 
         <FullScreenToggle />
       </div>
+
+      <ProfilePanel open={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </div>
   );
 };

@@ -13,11 +13,11 @@ import (
 )
 
 type CrtBalance struct {
-	Login    int64             `json:"login" validate:"required,gt=0"`
-	Action   model.DealAction  `json:"action" validate:"gte=0"`
-	Amount   float64           `json:"amount" validate:"required"`
-	Comment  string            `json:"comment" validate:"max=64"`
-	ExpertId int64             `json:"expert_id"`
+	Login    int64            `json:"login" validate:"required,gt=0"`
+	Action   model.DealAction `json:"action" validate:"gte=0"`
+	Amount   float64          `json:"amount" validate:"required"`
+	Comment  string           `json:"comment" validate:"max=64"`
+	ExpertId int64            `json:"expert_id"`
 }
 
 type CrtDeposit struct {

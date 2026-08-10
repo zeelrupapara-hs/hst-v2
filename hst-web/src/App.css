@@ -112,11 +112,10 @@
   background-color: #626265 !important;
 }
 
-.table-summary {
-  @apply sticky bottom-0 z-10 bg-theme-border dark:text-white;
-}
-
-.table-summary .ant-table-cell {
+.table-summary > .ant-table-cell {
+  position: sticky !important;
+  bottom: 0;
+  z-index: 10;
   @apply !px-[10px] !py-[5px] !bg-theme-border dark:text-white;
 }
 
@@ -169,6 +168,15 @@
 
 .custom-modal .ant-modal-footer {
   margin: 0px !important;
+}
+
+.profile-panel .ant-drawer-header {
+  padding: 12px 16px !important;
+  border-bottom: 1px solid var(--theme-border) !important;
+}
+
+.profile-panel .ant-drawer-body {
+  padding: 16px !important;
 }
 
 /* Scrollbar css */
