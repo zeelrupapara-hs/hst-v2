@@ -78,9 +78,16 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
     const mask = (value || "").trim();
     if (!mask) return;
 
-    // the same mask twice changes nothing and only makes the list harder to read
+    // the same mask twice changes nothing: an add lands on the existing row, an edit merges
+    // into it rather than silently keeping the old value
     const clash = draft.symbols.findIndex((m) => m === mask);
     if (clash !== -1 && clash !== index) {
+      if (index != null) {
+        const merged = draft.symbols.filter((_, i) => i !== index);
+        set("symbols", merged);
+        setPickedSymbol(merged.findIndex((m) => m === mask));
+        return;
+      }
       setPickedSymbol(clash);
       return;
     }

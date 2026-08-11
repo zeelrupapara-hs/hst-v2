@@ -86,12 +86,8 @@ func (h *Holidays) Len() int {
 	return len(h.days)
 }
 
-// Covers reports whether trading is shut for this symbol at this moment.
-//
-// From and To are the work time, the window the server stays open, as the holiday dialog
-// labels them and as the admin resolver reads them. So a matched day is closed except inside
-// its windows, and a record with no work time at all closes the day outright. Several records
-// can match one date: their windows add up, exactly as HolidayWindows merges them server-side.
+// Covers reports whether trading is shut for this symbol at this moment: a holiday row whose
+// day and symbol mask match closes the day, except inside its From..To work window.
 func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()

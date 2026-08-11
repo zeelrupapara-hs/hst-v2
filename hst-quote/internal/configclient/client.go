@@ -35,22 +35,10 @@ type Snapshot struct {
 	Translates       []Translate          `json:"translates"`
 	Sessions         []SnapshotSession    `json:"sessions"`
 	Settings         []SymbolSettings     `json:"settings"`
-	Holidays         []SnapshotHoliday    `json:"holidays"`
-}
-
-// SnapshotHoliday is one calendar entry; From and To are the work time the server stays open.
-type SnapshotHoliday struct {
-	Year    int32    `json:"year"`
-	Month   int16    `json:"month"`
-	Day     int16    `json:"day"`
-	From    int32    `json:"from"`
-	To      int32    `json:"to"`
-	Symbols []string `json:"symbols"`
 }
 
 type SymbolSettings struct {
 	SymbolID        int64   `json:"symbol_id"`
-	Path            string  `json:"path"`
 	Digits          int16   `json:"digits"`
 	Point           float64 `json:"point"`
 	TickFlags       int32   `json:"tick_flags"`
@@ -213,7 +201,6 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 	for _, st := range s.Settings {
 		settings[st.SymbolID] = model.SymbolSettings{
 			SymbolID:        st.SymbolID,
-			Path:            st.Path,
 			Digits:          st.Digits,
 			Point:           st.Point,
 			TickFlags:       st.TickFlags,
@@ -234,14 +221,6 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 			SpreadBalance:   st.SpreadBalance,
 		}
 	}
-	holidays := make([]model.Holiday, 0, len(s.Holidays))
-	for _, h := range s.Holidays {
-		holidays = append(holidays, model.Holiday{
-			Year: h.Year, Month: h.Month, Day: h.Day,
-			From: h.From, To: h.To, Symbols: h.Symbols,
-		})
-	}
-
 	return model.QuoteFeed{
 		Datafeed: model.Datafeed{
 			DatafeedID:       s.DatafeedID,
@@ -258,7 +237,6 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 		Translates: translates,
 		Sessions:   sessions,
 		Settings:   settings,
-		Holidays:   holidays,
 	}
 }
 

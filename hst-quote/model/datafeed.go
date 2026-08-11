@@ -71,24 +71,11 @@ type QuoteFeed struct {
 	Translates []DatafeedTranslate
 	Sessions   []SymbolSession
 	Settings   map[int64]SymbolSettings
-	Holidays   []Holiday
-}
-
-// Holiday is one calendar entry. From and To are the work time, the window the server stays
-// open; both zero closes the day outright. Masks match the symbol's name or its path.
-type Holiday struct {
-	Year    int32
-	Month   int16
-	Day     int16
-	From    int32
-	To      int32
-	Symbols []string
 }
 
 // SymbolSettings is the per-symbol quote handling config from hst.symbols.
 type SymbolSettings struct {
 	SymbolID        int64
-	Path            string
 	Digits          int16
 	Point           float64
 	TickFlags       int32

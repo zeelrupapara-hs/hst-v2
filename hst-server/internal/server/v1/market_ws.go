@@ -148,9 +148,8 @@ func (l *symLiveness) Touch(symbol string, timeNs int64) {
 func (s *HttpServer) StartSymbolLiveness() {
 	s.seedSymbolLiveness()
 
-	// work the map out once now: a panel connecting before the first sweep would otherwise be
-	// handed nothing and grey every symbol, including the ones already ticking
-	if _, err := s.refreshSymbolLiveness(context.Background()); err != nil {
+	// work the map out once now, so a panel connecting before the first sweep sees the truth
+	if _, err := s.symbolLiveness(context.Background()); err != nil {
 		s.Log.Log(logger.TypeNet, logger.CodeWarn, "first symbol liveness pass failed",
 			"error", err.Error())
 	}
@@ -158,23 +157,16 @@ func (s *HttpServer) StartSymbolLiveness() {
 	go s.sweepSymbolLiveness()
 }
 
-// Snapshot copies what is currently live, for a socket that has just connected.
-func (l *symLiveness) Snapshot() map[string]bool {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-
-	out := make(map[string]bool, len(l.live))
-	for symbol, live := range l.live {
-		out[symbol] = live
-	}
-
-	return out
-}
-
-// SendSymbolLiveness tells one socket what is ticking, as soon as it connects. The sweep only
-// speaks every ten seconds, which is ten seconds of a freshly loaded panel showing grey.
+// SendSymbolLiveness tells one just-connected socket what is ticking, so the panel does not
+// sit grey until the next sweep.
 func (s *HttpServer) SendSymbolLiveness(c *ws.Client) {
-	live := symLive.Snapshot()
+	symLive.mu.Lock()
+	live := make(map[string]bool, len(symLive.live))
+	for symbol, on := range symLive.live {
+		live[symbol] = on
+	}
+	symLive.mu.Unlock()
+
 	if len(live) == 0 {
 		return
 	}
@@ -192,8 +184,8 @@ func (s *HttpServer) SendSymbolLiveness(c *ws.Client) {
 	})
 }
 
-// refreshSymbolLiveness recomputes which symbols are still inside their feed's timeout.
-func (s *HttpServer) refreshSymbolLiveness(ctx context.Context) (map[string]bool, error) {
+// symbolLiveness recomputes which symbols are still inside their feed's timeout.
+func (s *HttpServer) symbolLiveness(ctx context.Context) (map[string]bool, error) {
 	bounds, err := s.symbolStaleBounds(ctx)
 	if err != nil {
 		return nil, err
@@ -279,7 +271,7 @@ func (s *HttpServer) sweepSymbolLiveness() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		next, err := s.refreshSymbolLiveness(context.Background())
+		next, err := s.symbolLiveness(context.Background())
 		if err != nil {
 			s.Log.Log(logger.TypeNet, logger.CodeWarn, "symbol liveness sweep failed", "error", err.Error())
 			continue

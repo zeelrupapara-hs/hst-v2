@@ -47,21 +47,9 @@ type WorkerSymbolSession struct {
 	Close    int32 `json:"close"`
 }
 
-// WorkerHoliday is one calendar entry, with From and To the work time the server stays open.
-// A worker matches the masks against the symbol's path, so the path travels in the settings.
-type WorkerHoliday struct {
-	Year    int32    `json:"year"`
-	Month   int16    `json:"month"`
-	Day     int16    `json:"day"`
-	From    int32    `json:"from"`
-	To      int32    `json:"to"`
-	Symbols []string `json:"symbols"`
-}
-
 // WorkerSymbolSettings is per-symbol quote handling config for quote workers.
 type WorkerSymbolSettings struct {
 	SymbolID        int64   `json:"symbol_id"`
-	Path            string  `json:"path"`
 	Digits          int16   `json:"digits"`
 	Point           float64 `json:"point"`
 	TickFlags       int32   `json:"tick_flags"`
@@ -97,7 +85,6 @@ type WorkerDatafeedConfig struct {
 	Translates       []WorkerTranslate      `json:"translates"`
 	Sessions         []WorkerSymbolSession  `json:"sessions"`
 	Settings         []WorkerSymbolSettings `json:"settings"`
-	Holidays         []WorkerHoliday        `json:"holidays"`
 }
 
 // ConfigSubject returns the per-feed config subject.
