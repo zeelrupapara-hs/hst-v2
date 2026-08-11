@@ -1,0 +1,31 @@
+name: deploy-stack
+
+on:
+  push:
+    branches: [main]
+    paths: ["deploy/**"]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: root
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          source: deploy/compose.staging.yml
+          target: /opt/hst/
+          strip_components: 1
+      - uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: root
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          script: |
+            cd /opt/hst
+            docker compose -f compose.staging.yml pull --ignore-pull-failures || true
+            docker compose -f compose.staging.yml up -d --remove-orphans
+            docker image prune -f

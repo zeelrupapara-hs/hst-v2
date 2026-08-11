@@ -1,0 +1,150 @@
+# The whole platform on one staging box. Images come from GHCR; secrets from /opt/hst/.env.
+# Ports: 80 trader, 8081 admin, 8080 api, 5001 sim panel. Everything else stays inside.
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  nats:
+    image: nats:2.12-alpine
+    command: ["--jetstream", "--store_dir=/data", "--http_port=8222"]
+    volumes:
+      - natsdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O- http://localhost:8222/healthz || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:8-alpine
+    # noeviction is explicit: sessions live here and must never be evicted
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: admin
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_ADMIN_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN}
+    volumes:
+      - influxdata:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "influx", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  hst-server:
+    image: ghcr.io/zeelrupapara-hs/hst-server:staging
+    env_file: .env
+    environment:
+      HTTP_HOST: 0.0.0.0
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis:6379
+      NATS_HOST: nats
+      INFLUX_URL: http://influxdb:8086
+      LOG_DIR: /tmp/logs
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      nats: { condition: service_healthy }
+      influxdb: { condition: service_healthy }
+    restart: unless-stopped
+
+  hst-core:
+    image: ghcr.io/zeelrupapara-hs/hst-core:staging
+    env_file: .env
+    environment:
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis:6379
+      NATS_HOST: nats
+      NATS_NAME: hstcore
+      LOG_DIR: /tmp/logs
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      nats: { condition: service_healthy }
+    restart: unless-stopped
+
+  hst-quote:
+    image: ghcr.io/zeelrupapara-hs/hst-quote:staging
+    env_file: .env
+    environment:
+      NATS_HOST: nats
+      NATS_NAME: hstquote
+      REDIS_URL: redis:6379
+      INFLUX_URL: http://influxdb:8086
+      HST_SERVER_URL: http://hst-server:8080
+      FIX_CONFIG_DIR: /tmp/fix
+      LOG_DIR: /tmp/logs
+    depends_on:
+      nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      influxdb: { condition: service_healthy }
+      hst-server: { condition: service_started }
+    restart: unless-stopped
+
+  hst-news:
+    image: ghcr.io/zeelrupapara-hs/hst-news:staging
+    env_file: .env
+    environment:
+      NATS_HOST: nats
+      LOG_DIR: /tmp/logs
+    depends_on:
+      nats: { condition: service_healthy }
+    restart: unless-stopped
+
+  hst-sim:
+    image: ghcr.io/hybrid-solutions-09/hst-sim:staging
+    ports:
+      - "5001:5001"
+    volumes:
+      - simdata:/data
+    restart: unless-stopped
+
+  hst-admin-web:
+    image: ghcr.io/zeelrupapara-hs/hst-admin-web:staging
+    ports:
+      - "8081:80"
+    restart: unless-stopped
+
+  hst-trader-web:
+    image: ghcr.io/parthdhaduk3333/hst-trader-web:staging
+    ports:
+      - "80:80"
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  natsdata:
+  redisdata:
+  influxdata:
+  simdata:

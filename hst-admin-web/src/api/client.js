@@ -6,7 +6,11 @@ const STORAGE = {
   refresh: "hst_refresh_token",
 };
 
-const DEFAULT_BASE = "http://localhost:8080";
+// served from anywhere but a dev machine, the API lives on the same host at 8080
+const DEFAULT_BASE =
+  window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1"
+    ? "http://localhost:8080"
+    : `http://${window.location.hostname}:8080`;
 
 export const getApiBase = () =>
   (localStorage.getItem(STORAGE.apiBase) || DEFAULT_BASE).replace(/\/$/, "");
