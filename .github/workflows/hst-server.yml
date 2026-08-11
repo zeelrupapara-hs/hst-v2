@@ -25,7 +25,9 @@ jobs:
           context: hst-server
           push: true
           tags: |
-            ghcr.io/zeelrupapara-hs/hst-serverype=gha,scope=hst-server
+            ghcr.io/zeelrupapara-hs/hst-server:staging
+            ghcr.io/zeelrupapara-hs/hst-server:sha-${{ github.sha }}
+          cache-from: type=gha,scope=hst-server
           cache-to: type=gha,scope=hst-server,mode=max
 
   deploy:
