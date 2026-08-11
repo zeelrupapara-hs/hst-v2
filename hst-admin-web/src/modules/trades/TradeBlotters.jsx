@@ -7,6 +7,8 @@ import {
 import { DealAction_name, DealEntry_name, OrderState_name, OrderType_name } from "@/constants/trades.js";
 import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { formatNs } from "@/lib/time.js";
+import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
+import { useMarketFeed } from "@/hooks/useMarketFeed.js";
 
 const px = (v, digits = 5) => (v ? v.toFixed(digits) : "");
 const money = (v) => (v ?? 0).toFixed(2);
@@ -16,8 +18,9 @@ const lots = (v) => (v ?? 0).toFixed(2);
 const stamp = (ns, ms) =>
   !ns ? "" : ms ? `${formatNs(ns)}.${String(Math.floor(Number(ns) / 1e6) % 1000).padStart(3, "0")}` : formatNs(ns);
 
-/** One request-bar blotter: fetch on mount, filter by login/symbol text client-side. */
-function Blotter({ fetcher, columns, keyOf, journal = true }) {
+/** One request-bar blotter: fetch on mount, filter by login/symbol text client-side.
+ * liveRow, when given, patches each row with live values just before it is painted. */
+function Blotter({ fetcher, columns, keyOf, journal = true, liveRow }) {
   const [rows, setRows] = useState(null);
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState(null);
@@ -57,18 +60,21 @@ function Blotter({ fetcher, columns, keyOf, journal = true }) {
             </tr>
           </thead>
           <tbody>
-            {shown.map((r, i) => (
-              <tr
-                key={keyOf(r)}
-                className={selected === i ? "selected" : ""}
-                onClick={() => setSelected(i)}
-                onContextMenu={() => setSelected(i)}
-              >
-                {columns.map((c, j) => (
-                  <td key={c.id ?? j} className={c.className?.(r)}>{c.value(r, showMs)}</td>
-                ))}
-              </tr>
-            ))}
+            {shown.map((raw, i) => {
+              const r = liveRow ? liveRow(raw) : raw;
+              return (
+                <tr
+                  key={keyOf(r)}
+                  className={selected === i ? "selected" : ""}
+                  onClick={() => setSelected(i)}
+                  onContextMenu={() => setSelected(i)}
+                >
+                  {columns.map((c, j) => (
+                    <td key={c.id ?? j} className={c.className?.(r)}>{c.value(r, showMs)}</td>
+                  ))}
+                </tr>
+              );
+            })}
             {rows !== null && !shown.length && (
               <tr>
                 <td colSpan={columns.length} className="df-empty">No records</td>
@@ -129,10 +135,22 @@ function Blotter({ fetcher, columns, keyOf, journal = true }) {
 const plClass = (r) => (r.profit < 0 ? "acc-loss" : "acc-profit");
 
 export function PositionsModule() {
+  const live = useLiveAccounts();
+  const ticks = useMarketFeed();
+
+  // the engine's summary pairs carry each position's live profit; the feed carries the price
+  const liveRow = (r) => {
+    const profit = live.get(r.login)?.positions?.[r.position_id];
+    const tick = ticks.get(r.symbol);
+    const current = tick ? (r.action === 0 ? tick.bid : tick.ask) : r.price_current;
+    return { ...r, profit: profit ?? r.profit, price_current: current };
+  };
+
   return (
     <Blotter
       fetcher={fetchAllPositions}
       journal={false}
+      liveRow={liveRow}
       keyOf={(r) => r.position_id}
       columns={[
         { label: "Login", value: (r) => r.login },

@@ -4,15 +4,35 @@ import { useRegisterToolbarActions } from "@/hooks/useToolbarActions.jsx";
 import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { deleteUser, fetchUsers } from "@/api/endpoints/users.js";
 import { formatNs } from "@/lib/time.js";
+import { money } from "@/lib/format.js";
 import { Icon } from "@/components/ui/Icon.jsx";
+import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
 import { AccountDialog } from "./AccountDialog.jsx";
 import { BalanceDialog } from "./BalanceDialog.jsx";
 
-const money = (v) => (v ?? 0).toFixed(2);
+// Live money cells: a dash until the engine's first summary line for the account arrives.
+function LiveMoneyCells({ account }) {
+  if (!account) return <><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></>;
+
+  const profitClass = account.profit < 0 ? "acc-loss" : "acc-profit";
+
+  return (
+    <>
+      <td>{money(account.equity)}</td>
+      <td>{money(account.margin)}</td>
+      <td>{money(account.free)}</td>
+      <td>{account.margin > 0 ? account.level.toFixed(2) : "—"}</td>
+      <td className={profitClass}>{money(account.profit)}</td>
+    </>
+  );
+}
 
 /** Trading accounts list; double-click opens the account dialog. */
 export function AccountsModule() {
   const session = useSession();
+  // the manager panel watches the money live; the admin panel keeps its config view
+  const isManagerPanel = session.terminal !== "administrator";
+  const live = useLiveAccounts();
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
@@ -60,6 +80,15 @@ export function AccountsModule() {
               <th>Leverage</th>
               <th>Balance</th>
               <th>Credit</th>
+              {isManagerPanel && (
+                <>
+                  <th>Equity</th>
+                  <th>Margin</th>
+                  <th>Free</th>
+                  <th>Level %</th>
+                  <th>Profit</th>
+                </>
+              )}
               <th>Email</th>
               <th>Last access</th>
             </tr>
@@ -82,8 +111,9 @@ export function AccountsModule() {
                 <td>{row.name}</td>
                 <td>{row.group}</td>
                 <td>1 : {row.leverage}</td>
-                <td>{money(row.balance)}</td>
-                <td>{money(row.credit)}</td>
+                <td>{money(live.get(row.login)?.balance ?? row.balance)}</td>
+                <td>{money(live.get(row.login)?.credit ?? row.credit)}</td>
+                {isManagerPanel && <LiveMoneyCells account={live.get(row.login)} />}
                 <td>{row.email}</td>
                 <td>{row.last_access ? formatNs(row.last_access) : "—"}</td>
               </tr>
