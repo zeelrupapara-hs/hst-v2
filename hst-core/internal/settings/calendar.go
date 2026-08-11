@@ -86,9 +86,9 @@ func (h *Holidays) Len() int {
 	return len(h.days)
 }
 
-// Covers reports whether trading is shut for this symbol at this moment: a holiday row whose
+// HolidayLayer reports whether trading is shut for this symbol at this moment: a holiday row whose
 // day and symbol mask match closes the day, except inside its From..To work window.
-func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
+func (h *Holidays) HolidayLayer(path, symbol string, at time.Time) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
@@ -111,7 +111,7 @@ func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
 		if d.Month != int16(at.Month()) || d.Day != int16(at.Day()) {
 			continue
 		}
-		if !holidayCovers(d.Symbols, path, symbol) {
+		if !holidayMaskLayer(d.Symbols, path, symbol) {
 			continue
 		}
 
@@ -130,7 +130,7 @@ func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
 	return matched
 }
 
-func holidayCovers(masks []string, path, symbol string) bool {
+func holidayMaskLayer(masks []string, path, symbol string) bool {
 	if len(masks) == 0 {
 		return true
 	}

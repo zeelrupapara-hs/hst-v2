@@ -44,14 +44,14 @@ export function useHolidays() {
   return { holidays };
 }
 
-// holidayToday mirrors the engine's Covers: a row whose date and symbol mask match closes the
+// holidayToday mirrors the engine's HolidayLayer: a row whose date and symbol mask match closes the
 // day, except inside its from..to work window; several rows may match and their windows add up.
 export function holidayToday(holidays, path, symbol, at = new Date()) {
   const rows = (holidays || []).filter((h) => {
     if (h.mode !== 1) return false;
     if (h.year !== 0 && h.year !== at.getFullYear()) return false;
     if (h.month !== at.getMonth() + 1 || h.day !== at.getDate()) return false;
-    return maskCovers(h.symbols, path, symbol);
+    return holidayMaskLayer(h.symbols, path, symbol);
   });
   if (!rows.length) return null;
 
@@ -59,7 +59,7 @@ export function holidayToday(holidays, path, symbol, at = new Date()) {
   return { windows, description: rows.map((h) => h.description).filter(Boolean).join("; ") };
 }
 
-function maskCovers(masks, path, symbol) {
+function holidayMaskLayer(masks, path, symbol) {
   if (!masks?.length) return true;
   return masks.some((raw) => {
     const m = (raw || "").trim();

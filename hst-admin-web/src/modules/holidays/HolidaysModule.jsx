@@ -147,7 +147,7 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           width={531}
-          height={360}
+          height={470}
           title="Holiday"
           tabs={
             <div className="config-tabs">

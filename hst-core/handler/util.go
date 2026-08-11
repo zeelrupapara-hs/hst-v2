@@ -52,7 +52,7 @@ func (h *Handler) InSession(r *settings.Rules, at time.Time, kind int16) bool {
 }
 
 func (h *Handler) IsHoliday(r *settings.Rules, at time.Time) bool {
-	return h.Holidays.Covers(r.Symbol.Path, r.Symbol.Symbol, at)
+	return h.Holidays.HolidayLayer(r.Symbol.Path, r.Symbol.Symbol, at)
 }
 
 func (h *Handler) CrossRate(from, to string, buy bool) (float64, bool) {
