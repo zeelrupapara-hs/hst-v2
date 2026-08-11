@@ -5303,9 +5303,15 @@ tr[draggable="true"] { cursor: grab; }
 .mgr-tree-spacer { flex: 0 0 14px; }
 .mgr-tree-row .sym-check { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; }
 
-/* Journal columns: the message takes the room, the rest stay tight */
-.journal-table th:nth-child(-n + 5) { white-space: nowrap; width: 1%; }
-.journal-table td:nth-child(-n + 5) { white-space: nowrap; }
+/* Journal columns: fixed, breathable widths; only the message stretches */
+.journal-table { table-layout: fixed; }
+.journal-table th:nth-child(-n + 5),
+.journal-table td:nth-child(-n + 5) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.journal-table th:nth-child(1) { width: 160px; }
+.journal-table th:nth-child(2) { width: 90px; }
+.journal-table th:nth-child(3) { width: 110px; }
+.journal-table th:nth-child(4) { width: 100px; }
+.journal-table th:nth-child(5) { width: 140px; }
 
 /* Holiday banner in the symbol's Sessions tab */
 .sym-holiday-banner {
