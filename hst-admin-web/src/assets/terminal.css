@@ -5306,3 +5306,16 @@ tr[draggable="true"] { cursor: grab; }
 /* Journal columns: the message takes the room, the rest stay tight */
 .journal-table th:nth-child(-n + 5) { white-space: nowrap; width: 1%; }
 .journal-table td:nth-child(-n + 5) { white-space: nowrap; }
+
+/* Holiday banner in the symbol's Sessions tab */
+.sym-holiday-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 4px 8px;
+  border: 1px solid #e0b4b4;
+  background: #fdf3f3;
+  color: #9f3a38;
+  font-size: 11px;
+}
