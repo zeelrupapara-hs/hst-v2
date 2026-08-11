@@ -119,6 +119,7 @@ services:
       NATS_HOST: nats
       POSTGRES_HOST: postgres
       REDIS_URL: redis:6379
+      HST_SERVER_URL: http://hst-server:8080
       LOG_DIR: /tmp/logs
     depends_on:
       nats: { condition: service_healthy }
