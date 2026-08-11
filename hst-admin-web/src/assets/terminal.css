@@ -5348,3 +5348,6 @@ tr[draggable="true"] { cursor: grab; }
   display: flex; gap: 18px; padding: 6px 8px; margin-top: 6px;
   background: #f2f2f2; border: 1px solid var(--table-border); font-size: 11px;
 }
+
+/* An account already in stop out burns red in the margin call list */
+.data-table tbody tr.mc-stopout td { background: #fdecea; color: #9f3a38; }

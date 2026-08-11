@@ -82,6 +82,12 @@ var managerTree = []navNode{
 	{key: "dealing", label: "Dealing", icon: "gavel", route: "/dealing", section: "dealing",
 		needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesDealer}},
 
+	{key: "margin_calls", label: "Margin Calls", icon: "security", route: "/margin-calls",
+		section: "dealing", needs: []uint{model.MgrRightAccRead, model.MgrRightTradesRead}},
+
+	{key: "market_watch", label: "Market Watch", icon: "symbols", route: "/market",
+		section: "trading"},
+
 	{key: "balance", label: "Balance Operations", icon: "wallet", route: "/balance", section: "accounting",
 		needs: []uint{model.MgrRightAccountant}},
 

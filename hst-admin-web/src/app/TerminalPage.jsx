@@ -13,6 +13,7 @@ import { ManagersModule } from "@/modules/managers/ManagersModule.jsx";
 import { DealsModule, OrdersModule, PositionsModule } from "@/modules/trades/TradeBlotters.jsx";
 import { DealingModule } from "@/modules/dealing/DealingModule.jsx";
 import { BalanceModule } from "@/modules/balance/BalanceModule.jsx";
+import { MarginCallsModule } from "@/modules/margincalls/MarginCallsModule.jsx";
 import { MailServersModule } from "@/modules/mail/MailServersModule.jsx";
 import { useSession } from "@/hooks/useSession.js";
 
@@ -54,6 +55,7 @@ export function TerminalPage({ panel }) {
         <Route path="deals" element={<DealsModule />} />
         <Route path="dealing" element={<DealingModule />} />
         <Route path="balance" element={<BalanceModule />} />
+        <Route path="margin-calls" element={<MarginCallsModule />} />
         <Route path="mail-servers" element={<MailServersModule />} />
         <Route path="*" element={<ModulePlaceholder />} />
       </Route>

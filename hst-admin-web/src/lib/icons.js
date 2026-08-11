@@ -27,6 +27,8 @@ export const NAV_ICON = {
   journal: "journal",
   dealing: "dealing",
   balance: "balance",
+  margin_calls: "security",
+  market_watch: "symbols",
 };
 
 export const spriteRef = (id) => `${spriteUrl}#icon-${id}`;
