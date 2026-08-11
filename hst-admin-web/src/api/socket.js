@@ -25,12 +25,21 @@ function connect() {
   };
 
   ws.onmessage = (msg) => {
-    if (typeof msg.data !== "string") return;
-    if (msg.data.startsWith("summary,")) return;
+    // ticks and account summaries arrive as one comma line, everything else as json
+    const raw = typeof msg.data === "string" ? msg.data : new TextDecoder().decode(msg.data);
+    if (raw.startsWith("summary,")) {
+      dispatch("account_summary", { type: "account_summary", payload: raw });
+      return;
+    }
     let event;
     try {
-      event = JSON.parse(msg.data);
+      event = JSON.parse(raw);
     } catch {
+      dispatch("market_feed", { type: "market_feed", payload: raw });
+      return;
+    }
+    if (event?.type === "account_summary" && typeof event.payload === "string") {
+      dispatch("account_summary", event);
       return;
     }
     if (event?.type) dispatch(event.type, event);
@@ -60,6 +69,12 @@ export function stopSocket() {
 }
 
 export const isSocketOpen = () => ws?.readyState === WebSocket.OPEN;
+
+/** Sends one event to the server, silently dropped while the socket is down. */
+export function sendEvent(type, payload) {
+  if (!isSocketOpen()) return;
+  ws.send(JSON.stringify(payload === undefined ? { type } : { type, payload }));
+}
 
 /** @returns {() => void} unsubscribe */
 export function onEvent(type, fn) {
