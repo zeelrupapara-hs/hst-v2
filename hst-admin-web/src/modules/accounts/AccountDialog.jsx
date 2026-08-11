@@ -5,6 +5,8 @@ import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { useGroups } from "@/hooks/useGroups.js";
+import { BalanceOps } from "@/modules/balance/BalanceOps.jsx";
+import { useSession } from "@/hooks/useSession.js";
 import { createUser, fetchUser, resetUserPassword, updateUser } from "@/api/endpoints/users.js";
 import { AccountRight_checks, LimitRight_checks } from "@/constants/users.js";
 import { AccountOverviewTab } from "./AccountOverviewTab.jsx";
@@ -12,6 +14,7 @@ import { generatePassword } from "@/lib/passwords.js";
 import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
 
 const EDIT_TABS = ["Overview", "Personal", "Account", "Limits", "Security"];
+const MANAGER_EDIT_TABS = ["Overview", "Personal", "Account", "Limits", "Balance", "Security"];
 const NEW_TABS = ["Personal", "Account", "Limits", "Security"];
 
 function Intro({ children }) {
@@ -172,8 +175,12 @@ const newDraft = (group) => ({
 export function AccountDialog({ login, onClose, onSaved }) {
   const isNew = login === "new";
   const { groups } = useGroups();
+  const session = useSession();
+  // the balance desk belongs to the manager panel, behind the accountant right
+  const showBalance =
+    !isNew && session.terminal !== "administrator" && session.can?.right_accountant !== false;
   const [activeTab, setActiveTab] = useState(isNew ? "Personal" : "Overview");
-  const TABS = isNew ? NEW_TABS : EDIT_TABS;
+  const TABS = isNew ? NEW_TABS : showBalance ? MANAGER_EDIT_TABS : EDIT_TABS;
   const [draft, setDraft] = useState(isNew ? newDraft(groups[0]?.group) : null);
   const [original, setOriginal] = useState(null);
   const [error, setError] = useState("");
@@ -318,6 +325,8 @@ export function AccountDialog({ login, onClose, onSaved }) {
     switch (tab) {
       case "Overview":
         return <AccountOverviewTab login={login} user={draft} />;
+      case "Balance":
+        return <BalanceOps login={login} />;
       case "Personal":
         return (
           <>

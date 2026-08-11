@@ -143,6 +143,8 @@ func (h *Handler) SaveBalanceAndPublish(ctx context.Context, e *book.Entry, d *m
 	}
 
 	h.PublishWS(model.SubjectAccountMoneyChange(d.Login), model.EventMoneyChange, d)
+	// the managers covering this group see the deal land
+	h.PublishWS(model.SubjectGroupAccounts(a.Group), model.EventMoneyChange, d)
 	h.PublishAccount(a, nil)
 
 	return nil

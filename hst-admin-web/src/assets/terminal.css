@@ -5325,3 +5325,26 @@ tr[draggable="true"] { cursor: grab; }
   color: #9f3a38;
   font-size: 11px;
 }
+
+/* Balance operations: the desk, the two direction buttons, the live totals line */
+.balance-module { padding: 8px 12px; overflow: auto; }
+.balance-picker { display: flex; align-items: center; gap: 8px; margin: 8px 0; }
+.balance-picker input { width: 120px; height: 20px; }
+.balance-picker button {
+  height: 24px; padding: 0 14px; border: 1px solid #adadad;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); font-size: 11px;
+}
+.balance-picker-name { color: #444; }
+.balance-ops-form { max-width: 480px; }
+.balance-ops-actions { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+.balance-ops-actions button {
+  min-width: 96px; height: 26px; border: 1px solid #adadad;
+  color: #fff; font-size: 11px; cursor: pointer;
+}
+.balance-deposit { background: #1565c0; }
+.balance-withdraw { background: #c62828; }
+.balance-ops-history { max-height: 300px; overflow: auto; }
+.balance-ops-totals {
+  display: flex; gap: 18px; padding: 6px 8px; margin-top: 6px;
+  background: #f2f2f2; border: 1px solid var(--table-border); font-size: 11px;
+}
