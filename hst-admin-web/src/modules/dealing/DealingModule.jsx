@@ -15,13 +15,83 @@ import {
   requoteRequest,
 } from "@/api/endpoints/dealing.js";
 import { OrderState_name, OrderType_name } from "@/constants/trades.js";
+import { fetchAccountPositions } from "@/api/endpoints/trades.js";
+import { fetchUser } from "@/api/endpoints/users.js";
 import { formatNs } from "@/lib/time.js";
+import { money } from "@/lib/format.js";
+import { useLiveAccount } from "@/hooks/useLiveAccounts.js";
+import { useMarketFeed } from "@/hooks/useMarketFeed.js";
 
 const REQUEST_STATE = { 7: "new order", 8: "modification", 9: "cancellation" };
+const ANSWER_WINDOW_SECONDS = 30;
+
+// seconds the desk still has before the engine rejects the request itself
+const secondsLeft = (timeSetupNs, now) =>
+  Math.max(0, ANSWER_WINDOW_SECONDS - Math.floor((now - timeSetupNs / 1e6) / 1000));
+
+/** The client behind the selected request: live money above, open positions below. */
+function AccountContext({ login, symbol }) {
+  const [positions, setPositions] = useState(null);
+  const [stored, setStored] = useState(null);
+  const live = useLiveAccount(login);
+
+  useEffect(() => {
+    setPositions(null);
+    setStored(null);
+    fetchAccountPositions(login).then((res) => res.ok && setPositions(res.data || []));
+    // a flat account never speaks on the live stream, so its stored money stands in
+    fetchUser(login).then((res) => res.ok && setStored(res.data));
+  }, [login]);
+
+  return (
+    <div className="dealing-context">
+      <div className="dealing-context-money">
+        <span>Account <b>{login}</b></span>
+        {live ? (
+          <>
+            <span>Balance: <b>{money(live.balance)}</b></span>
+            <span>Equity: <b>{money(live.equity)}</b></span>
+            <span>Free: <b>{money(live.free)}</b></span>
+            <span>Level: <b>{live.margin > 0 ? `${live.level.toFixed(2)} %` : "—"}</b></span>
+            <span className={live.profit < 0 ? "acc-loss" : "acc-profit"}>P/L: <b>{money(live.profit)}</b></span>
+          </>
+        ) : stored ? (
+          <>
+            <span>Balance: <b>{money(stored.balance)}</b></span>
+            <span>Credit: <b>{money(stored.credit)}</b></span>
+            <span className="grp-suffix">stored values — no live line yet</span>
+          </>
+        ) : null}
+      </div>
+      <table className="data-table data-table-grid dealing-context-positions">
+        <thead>
+          <tr><th>Ticket</th><th>Symbol</th><th>Type</th><th>Volume</th><th>Open</th><th>Profit</th></tr>
+        </thead>
+        <tbody>
+          {(positions || []).map((p) => (
+            <tr key={p.position_id} className={p.symbol === symbol ? "selected" : ""}>
+              <td>{p.position_id}</td>
+              <td>{p.symbol}</td>
+              <td>{p.action === 0 ? "buy" : "sell"}</td>
+              <td>{(p.volume ?? 0).toFixed(2)}</td>
+              <td>{p.price_open}</td>
+              <td className={p.profit < 0 ? "acc-loss" : "acc-profit"}>{money(p.profit)}</td>
+            </tr>
+          ))}
+          {positions !== null && !positions.length && (
+            <tr><td colSpan={6} className="df-empty">No open positions</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 /** Confirm at request/market price, requote at a named price, or reject with a reason. */
-function ActionDialog({ action, row, onClose, onDone }) {
-  const [value, setValue] = useState(action === "requote" ? String(row.price_current || "") : "");
+function ActionDialog({ action, row, marketPrice, onClose, onDone }) {
+  const [value, setValue] = useState(
+    action === "reject" ? "" : String(marketPrice ?? row.price_current ?? ""),
+  );
   const [error, setError] = useState("");
   const close = useDialogStack(onClose);
 
@@ -77,7 +147,15 @@ export function DealingModule() {
   const [selected, setSelected] = useState(null);
   const [menu, setMenu] = useState(null);
   const [action, setAction] = useState(null);
+  const [now, setNow] = useState(Date.now());
   const heartbeat = useRef(0);
+  const ticks = useMarketFeed();
+
+  // the countdown column ticks once a second
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const load = () => fetchDealingQueue().then((res) => res.ok && setRows(res.data || []));
 
@@ -131,6 +209,7 @@ export function DealingModule() {
               <th>Price</th>
               <th>Current</th>
               <th>Time</th>
+              <th>Left</th>
               <th>Comment</th>
             </tr>
           </thead>
@@ -151,17 +230,21 @@ export function DealingModule() {
                 <td>{r.price_order || ""}</td>
                 <td>{r.price_current || ""}</td>
                 <td>{formatNs(r.time_setup)}</td>
+                <td className={secondsLeft(r.time_setup, now) <= 10 ? "acc-loss" : ""}>
+                  {secondsLeft(r.time_setup, now)}s
+                </td>
                 <td>{r.comment}</td>
               </tr>
             ))}
             {rows?.length === 0 && (
               <tr>
-                <td colSpan={9} className="df-empty">The queue is empty</td>
+                <td colSpan={10} className="df-empty">The queue is empty</td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+      {row && <AccountContext login={row.login} symbol={row.symbol} />}
       {menu && (
         <ContextMenu
           x={menu.x}
@@ -176,7 +259,13 @@ export function DealingModule() {
         />
       )}
       {action && row && (
-        <ActionDialog action={action} row={row} onClose={() => setAction(null)} onDone={load} />
+        <ActionDialog
+          action={action}
+          row={row}
+          marketPrice={ticks.get(row.symbol)?.[row.type === 1 ? "bid" : "ask"]}
+          onClose={() => setAction(null)}
+          onDone={load}
+        />
       )}
     </div>
   );

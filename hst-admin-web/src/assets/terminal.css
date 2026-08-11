@@ -5362,3 +5362,8 @@ tr[draggable="true"] { cursor: grab; }
 /* Summary tab: the totals row stands apart */
 .summary-table td { font-variant-numeric: tabular-nums; }
 .summary-table .summary-total td { font-weight: 600; background: #f2f2f2; }
+
+/* Dealing: the client behind the selected request */
+.dealing-context { border-top: 1px solid var(--table-border); padding: 6px 8px; }
+.dealing-context-money { display: flex; gap: 16px; font-size: 11px; margin-bottom: 6px; }
+.dealing-context-positions { max-height: 140px; }
