@@ -4,14 +4,11 @@ import { StatusBar } from "@/components/layout/StatusBar.jsx";
 import { Toolbox } from "@/components/layout/Toolbox.jsx";
 import { ToolbarButton } from "@/components/ui/ToolbarButton.jsx";
 import { ToolboxProvider } from "@/hooks/useToolbox.jsx";
-import { ToolbarActionsProvider, useToolbarActions } from "@/hooks/useToolbarActions.jsx";
+import { ToolbarActionsProvider } from "@/hooks/useToolbarActions.jsx";
 import { useFullscreen } from "@/hooks/useFullscreen.js";
 import { useSession } from "@/hooks/useSession.js";
 
 function StandardToolbar({ session }) {
-  const ctx = useToolbarActions();
-  const { onAdd, onEdit, onDelete, canAdd, canEdit, canDelete } = ctx?.actions ?? {};
-
   return (
     <div className="toolbar" aria-label="Standard toolbar">
       <button type="button" className="tb-btn tb-disconnect" onClick={session.logout}>
@@ -20,23 +17,6 @@ function StandardToolbar({ session }) {
       <ToolbarButton icon="refresh" title="Refresh" onClick={session.reload}>
         Refresh
       </ToolbarButton>
-      <span className="toolbar-sep" />
-      <ToolbarButton icon="add" title="Add" disabled={!canAdd} onClick={onAdd}>
-        Add
-      </ToolbarButton>
-      <ToolbarButton icon="edit" title="Edit" disabled={!canEdit} onClick={onEdit}>
-        Edit
-      </ToolbarButton>
-      <ToolbarButton icon="delete" title="Delete" disabled={!canDelete} onClick={onDelete}>
-        Delete
-      </ToolbarButton>
-      <span className="toolbar-sep" />
-      <button type="button" className="tb-btn" title="Move Up" disabled>
-        ↑
-      </button>
-      <button type="button" className="tb-btn" title="Move Down" disabled>
-        ↓
-      </button>
       <div className="toolbar-search">
         <label>Search</label>
         <input type="text" placeholder="Find configuration…" disabled />
