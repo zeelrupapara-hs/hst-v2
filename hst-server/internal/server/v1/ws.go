@@ -23,7 +23,6 @@ var rightSubjects = []struct {
 	subject string
 }{
 	{model.MgrRightCfgSymbols, model.SubjectSymbol},
-	{model.MgrRightCfgHolidays, model.SubjectHoliday},
 	{model.MgrRightCfgGroups, model.SubjectLeverage},
 	{model.MgrRightCfgManagers, model.SubjectManager},
 	{model.MgrRightCfgDatafeeds, model.SubjectDatafeed},
@@ -60,6 +59,10 @@ func (s *HttpServer) ServeWS(c *websocket.Conn) {
 
 	client.Send(&model.Event{Type: model.EventWelcome, At: time.Now().UnixNano()})
 
+	// the panel paints its symbol list the moment it loads, so it is told what is ticking now
+	// rather than waiting on the next sweep
+	s.SendSymbolLiveness(client)
+
 	// the socket is closed as soon as this returns, so park here until the connection is torn down
 	client.Wait()
 
@@ -83,10 +86,12 @@ func (s *HttpServer) subscribe(c *ws.Client) error {
 
 // subjectsFor is everything one socket listens on, given what its session holds.
 func (s *HttpServer) subjectsFor(c *ws.Client, rights model.ManagerRights, groups []string) []string {
-	// its own session, every session of its login, and the whole floor
+	// its own session, every session of its login, the whole floor, and the calendar:
+	// a holiday is public market fact, so every panel hears it move
 	subjects := []string{
 		model.SubjectSession(c.SessionId),
 		model.SubjectBroadcast(),
+		model.SubjectHoliday,
 	}
 
 	// a trading account hears about itself, and about the settings it trades under: its group,

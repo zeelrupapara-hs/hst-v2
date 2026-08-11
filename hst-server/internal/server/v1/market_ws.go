@@ -147,7 +147,61 @@ func (l *symLiveness) Touch(symbol string, timeNs int64) {
 // StartSymbolLiveness seeds last-tick times from the quote cache and keeps the panel told.
 func (s *HttpServer) StartSymbolLiveness() {
 	s.seedSymbolLiveness()
+
+	// work the map out once now, so a panel connecting before the first sweep sees the truth
+	if _, err := s.symbolLiveness(context.Background()); err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeWarn, "first symbol liveness pass failed",
+			"error", err.Error())
+	}
+
 	go s.sweepSymbolLiveness()
+}
+
+// SendSymbolLiveness tells one just-connected socket what is ticking, so the panel does not
+// sit grey until the next sweep.
+func (s *HttpServer) SendSymbolLiveness(c *ws.Client) {
+	symLive.mu.Lock()
+	live := make(map[string]bool, len(symLive.live))
+	for symbol, on := range symLive.live {
+		live[symbol] = on
+	}
+	symLive.mu.Unlock()
+
+	if len(live) == 0 {
+		return
+	}
+
+	raw, err := json.Marshal(map[string]any{"live": live})
+	if err != nil {
+		return
+	}
+
+	c.Send(&model.Event{
+		Type:    model.EventSymbolLivenessUpdated,
+		Format:  model.FormatJSON,
+		Payload: raw,
+		At:      time.Now().UnixNano(),
+	})
+}
+
+// symbolLiveness recomputes which symbols are still inside their feed's timeout.
+func (s *HttpServer) symbolLiveness(ctx context.Context) (map[string]bool, error) {
+	bounds, err := s.symbolStaleBounds(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	now := time.Now().UTC().UnixNano()
+	next := make(map[string]bool, len(bounds))
+
+	symLive.mu.Lock()
+	for symbol, bound := range bounds {
+		next[symbol] = now-symLive.last[symbol] <= bound.Nanoseconds()
+	}
+	symLive.live = next
+	symLive.mu.Unlock()
+
+	return next, nil
 }
 
 // the quote service keeps every symbol's last tick in redis; a restart must not grey the world
@@ -217,21 +271,11 @@ func (s *HttpServer) sweepSymbolLiveness() {
 	defer ticker.Stop()
 
 	for range ticker.C {
-		bounds, err := s.symbolStaleBounds(context.Background())
+		next, err := s.symbolLiveness(context.Background())
 		if err != nil {
 			s.Log.Log(logger.TypeNet, logger.CodeWarn, "symbol liveness sweep failed", "error", err.Error())
 			continue
 		}
-
-		now := time.Now().UTC().UnixNano()
-		next := make(map[string]bool, len(bounds))
-
-		symLive.mu.Lock()
-		for symbol, bound := range bounds {
-			next[symbol] = now-symLive.last[symbol] <= bound.Nanoseconds()
-		}
-		symLive.live = next
-		symLive.mu.Unlock()
 
 		s.NotifyWS(model.SubjectSymbol, model.EventSymbolLivenessUpdated, map[string]any{"live": next})
 	}

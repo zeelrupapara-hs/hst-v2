@@ -5,6 +5,7 @@ import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
+import { SymbolTreeSelect } from "@/components/ui/SymbolTreeSelect.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import {
   createHoliday,
@@ -28,8 +29,8 @@ function TimeSpin({ value, onChange }) {
     <span className="hol-spin">
       <input type="text" value={minutesToTime(value)} onChange={(e) => onChange(parseTime(e.target.value))} />
       <span className="hol-spin-btns">
-        <button type="button" onClick={() => step(1)} tabIndex={-1} aria-label="up">▲</button>
-        <button type="button" onClick={() => step(-1)} tabIndex={-1} aria-label="down">▼</button>
+        <button type="button" className="hol-spin-up" onClick={() => step(1)} tabIndex={-1} aria-label="up" />
+        <button type="button" className="hol-spin-down" onClick={() => step(-1)} tabIndex={-1} aria-label="down" />
       </span>
     </span>
   );
@@ -45,12 +46,15 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
   );
   const [picking, setPicking] = useState(false);
   const [pickedSymbol, setPickedSymbol] = useState(null);
+  // which row the inline tree editor is open on; "add" is the click-to-add row
+  const [editingMask, setEditingMask] = useState(null);
   const [error, setError] = useState("");
   const { offset, onTitlePointerDown } = useDialogDrag(holiday?.holiday_id ?? "new");
   const close = useDialogStack(onClose);
 
   const set = (key, value) => setDraft((prev) => ({ ...prev, [key]: value }));
   const everyYear = !draft.year;
+  const addingMask = editingMask === "add";
 
   const dateText = everyYear
     ? `${pad(draft.month)}.${pad(draft.day)}`
@@ -67,11 +71,44 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
     }));
   }
 
-  function editSymbols(mask, index) {
+  /** Commits what the inline tree editor returned; index null appends. */
+  function commitMask(value, index) {
+    setEditingMask(null);
+
+    const mask = (value || "").trim();
+    if (!mask) return;
+
+    // the same mask twice changes nothing: an add lands on the existing row, an edit merges
+    // into it rather than silently keeping the old value
+    const clash = draft.symbols.findIndex((m) => m === mask);
+    if (clash !== -1 && clash !== index) {
+      if (index != null) {
+        const merged = draft.symbols.filter((_, i) => i !== index);
+        set("symbols", merged);
+        setPickedSymbol(merged.findIndex((m) => m === mask));
+        return;
+      }
+      setPickedSymbol(clash);
+      return;
+    }
+
     const next = [...draft.symbols];
     if (index == null) next.push(mask);
     else next[index] = mask;
+
     set("symbols", next);
+    setPickedSymbol(index == null ? next.length - 1 : index);
+  }
+
+  function moveMask(step) {
+    const to = pickedSymbol + step;
+    if (pickedSymbol == null || to < 0 || to >= draft.symbols.length) return;
+
+    const next = [...draft.symbols];
+    [next[pickedSymbol], next[to]] = [next[to], next[pickedSymbol]];
+
+    set("symbols", next);
+    setPickedSymbol(to);
   }
 
   async function handleOk() {
@@ -110,7 +147,7 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           width={531}
-          height={360}
+          height={470}
           title="Holiday"
           tabs={
             <div className="config-tabs">
@@ -130,7 +167,7 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
             </div>
           }
         >
-          <div className="config-panel active">
+          <div className={`config-panel active${tab === "Symbols" ? " hol-sym-tab" : ""}`}>
             {tab === "Common" ? (
               <>
                 <div className="sym-sessions-intro">
@@ -142,7 +179,7 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
                     the settings and description of day.
                   </p>
                 </div>
-                <div className="form-grid grp-check-stack">
+                <div className="form-grid grp-check-stack hol-check-stack">
                   <label className="sym-check">
                     <input
                       type="checkbox"
@@ -160,7 +197,7 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
                     Every year
                   </label>
                 </div>
-                <div className="form-grid">
+                <div className="form-grid hol-common">
                   <label>Date</label>
                   <span className="hol-date-row">
                     <span className="hol-date">
@@ -191,13 +228,13 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
                         />
                       )}
                     </span>
-                    <label className="hol-inline-label">Work time</label>
-                    <TimeSpin value={draft.from} onChange={(v) => set("from", v)} />
-                    <span className="hol-dash">-</span>
-                    <TimeSpin value={draft.to} onChange={(v) => set("to", v)} />
+                    <span className="hol-worktime">
+                      <label className="hol-inline-label">Work time</label>
+                      <TimeSpin value={draft.from} onChange={(v) => set("from", v)} />
+                      <span className="hol-dash">-</span>
+                      <TimeSpin value={draft.to} onChange={(v) => set("to", v)} />
+                    </span>
                   </span>
-                  <span />
-                  <span className="hol-hint">Leave 00:00 - 00:00 to close the whole day.</span>
                   <label>Description</label>
                   <input
                     type="text"
@@ -215,49 +252,108 @@ function HolidayDialog({ holiday, onClose, onSaved }) {
                   </span>
                   <p>Please specify symbols which will be affected by the holiday.</p>
                 </div>
-                <div className="hol-symbols">
-                  <div className="hol-symbol-btns">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const mask = window.prompt("Symbol or group mask", "*");
-                        if (mask) editSymbols(mask.trim(), null);
-                      }}
-                    >
-                      Add
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pickedSymbol == null}
-                      onClick={() => {
-                        const mask = window.prompt("Symbol or group mask", draft.symbols[pickedSymbol]);
-                        if (mask) editSymbols(mask.trim(), pickedSymbol);
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      type="button"
-                      disabled={pickedSymbol == null}
-                      onClick={() => {
-                        set("symbols", draft.symbols.filter((_, i) => i !== pickedSymbol));
-                        setPickedSymbol(null);
-                      }}
-                    >
-                      Delete
-                    </button>
-                  </div>
-                  <ul className="hol-symbol-list">
-                    {draft.symbols.map((mask, i) => (
-                      <li
-                        key={`${mask}-${i}`}
-                        className={pickedSymbol === i ? "selected" : ""}
-                        onClick={() => setPickedSymbol(i)}
+                <div className="df-table-panel hol-sym-panel">
+                  <div className="df-table-toolbar grp-sym-buttons">
+                    <div className="grp-sym-buttons-move">
+                      <button
+                        type="button"
+                        disabled={addingMask || pickedSymbol == null || pickedSymbol <= 0}
+                        onClick={() => moveMask(-1)}
                       >
-                        <Icon id="symbols" /> {mask}
-                      </li>
-                    ))}
-                  </ul>
+                        Up
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          addingMask || pickedSymbol == null || pickedSymbol >= draft.symbols.length - 1
+                        }
+                        onClick={() => moveMask(1)}
+                      >
+                        Down
+                      </button>
+                    </div>
+                    <div className="grp-sym-buttons-actions">
+                      <button type="button" onClick={() => setEditingMask("add")}>
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        disabled={addingMask || pickedSymbol == null}
+                        onClick={() => setEditingMask(pickedSymbol)}
+                      >
+                        Edit
+                      </button>
+                      <button
+                        type="button"
+                        disabled={addingMask || pickedSymbol == null}
+                        onClick={() => {
+                          set("symbols", draft.symbols.filter((_, i) => i !== pickedSymbol));
+                          setPickedSymbol(null);
+                        }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  <div className="df-table-main hol-sym-table">
+                    <table className="data-table data-table-grid df-sub-table">
+                      <thead>
+                        <tr>
+                          <th>Symbol</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {draft.symbols.map((mask, i) => (
+                          <tr
+                            key={`${mask}-${i}`}
+                            className={
+                              editingMask === i
+                                ? "hol-sym-edit-row"
+                                : !addingMask && pickedSymbol === i
+                                  ? "selected"
+                                  : ""
+                            }
+                            onClick={() => setPickedSymbol(i)}
+                            onDoubleClick={() => setEditingMask(i)}
+                          >
+                            <td>
+                              {editingMask === i ? (
+                                <SymbolTreeSelect
+                                  value={mask}
+                                  onCommit={(v) => commitMask(v, i)}
+                                  onCancel={() => setEditingMask(null)}
+                                />
+                              ) : (
+                                <span className="grp-sym-cell">
+                                  <Icon id="symbols-tree" /> {mask}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                        {addingMask ? (
+                          <tr className="hol-sym-edit-row">
+                            <td>
+                              <SymbolTreeSelect
+                                value="*"
+                                onCommit={(v) => commitMask(v, null)}
+                                onCancel={() => setEditingMask(null)}
+                              />
+                            </td>
+                          </tr>
+                        ) : (
+                          <tr className="df-add-row" onClick={() => setEditingMask("add")}>
+                            <td>
+                              <span className="df-add-plus" aria-hidden="true">
+                                +
+                              </span>
+                              click to add...
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               </>
             )}

@@ -35,7 +35,8 @@ export function reloadSymbols() {
   return load();
 }
 
-// The server pushes the full symbol -> is-price-flowing map every sweep; null until the first.
+// The server pushes the full symbol -> is-price-flowing map every sweep; null until the first,
+// which reads as nothing being live rather than everything.
 let liveness = null;
 const livenessListeners = new Set();
 
@@ -44,7 +45,11 @@ export function applySymbolLiveness(map) {
   livenessListeners.forEach((fn) => fn(liveness));
 }
 
-/** @returns {{isLive: (symbol: string) => boolean}} everything is live until the first sweep */
+/**
+ * Nothing counts as live until a sweep says so: the yellow coin means prices are arriving now,
+ * so assuming it before the first sweep flashes a live feed that may not exist.
+ * @returns {{isLive: (symbol: string) => boolean}}
+ */
 export function useSymbolLiveness() {
   const [map, setMap] = useState(liveness);
 
@@ -54,7 +59,7 @@ export function useSymbolLiveness() {
     return () => livenessListeners.delete(fn);
   }, []);
 
-  return { isLive: (symbol) => (map ? map[symbol] === true : true) };
+  return { isLive: (symbol) => map?.[symbol] === true };
 }
 
 /** @returns {{symbols: Array, loading: boolean, reload: () => Promise<Array>}} */

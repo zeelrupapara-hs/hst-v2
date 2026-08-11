@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { fetchSymbols } from "@/api/endpoints/symbols.js";
-import { buildScopeTree, SymbolScopeTreePanel } from "@/lib/symbolScopeTree.jsx";
+import { buildScopeTree, scopeTreeOpenPaths, SymbolScopeTreePanel } from "@/lib/symbolScopeTree.jsx";
 
 /**
  * Inline cell editor whose dropdown is the symbol scope tree (datafeed tables).
@@ -30,6 +30,9 @@ export function SymbolTreeSelect({ value, onCommit, onCancel, leafOnly = false }
 
   function showList() {
     setRect(inputRef.current.getBoundingClientRect());
+    // a collapsed root is a dead end: open it, and the branch the current value sits on, so the
+    // list arrives showing folders rather than one word
+    setOpen((prev) => (prev.size ? prev : new Set(["", ...scopeTreeOpenPaths(value)])));
     setOpenList(true);
   }
 

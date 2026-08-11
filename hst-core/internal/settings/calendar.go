@@ -86,12 +86,16 @@ func (h *Holidays) Len() int {
 	return len(h.days)
 }
 
-func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
+// HolidayLayer reports whether trading is shut for this symbol at this moment: a holiday row whose
+// day and symbol mask match closes the day, except inside its From..To work window.
+func (h *Holidays) HolidayLayer(path, symbol string, at time.Time) bool {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 
 	// #nosec G115 -- a minute of the day is 0..1439
 	minutes := int32(at.Hour()*60 + at.Minute())
+
+	matched := false
 
 	for i := range h.days {
 		d := &h.days[i]
@@ -107,21 +111,26 @@ func (h *Holidays) Covers(path, symbol string, at time.Time) bool {
 		if d.Month != int16(at.Month()) || d.Day != int16(at.Day()) {
 			continue
 		}
-		if !holidayCovers(d.Symbols, path, symbol) {
+		if !holidayMaskLayer(d.Symbols, path, symbol) {
 			continue
 		}
+
+		matched = true
+
+		// the prohibiting kind: it opens nothing, but another record still may
 		if d.From == 0 && d.To == 0 {
-			return true
+			continue
 		}
-		if minutes >= d.From && minutes < d.To {
-			return true
+		// To is the last open minute, inclusive, as the resolver treats it
+		if minutes >= d.From && minutes <= d.To {
+			return false
 		}
 	}
 
-	return false
+	return matched
 }
 
-func holidayCovers(masks []string, path, symbol string) bool {
+func holidayMaskLayer(masks []string, path, symbol string) bool {
 	if len(masks) == 0 {
 		return true
 	}

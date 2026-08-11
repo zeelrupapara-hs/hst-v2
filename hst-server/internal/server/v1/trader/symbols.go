@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
@@ -41,6 +42,34 @@ type ViewSymbolDay struct {
 type ViewSymbolSessions struct {
 	Symbol string          `json:"symbol"`
 	Days   []ViewSymbolDay `json:"days"`
+	// Holiday is set when today is a holiday for this symbol: closed all day when Windows is
+	// empty, otherwise open only inside them. Times are server time.
+	Holiday *ViewSymbolHoliday `json:"holiday,omitempty"`
+	// Leverage is the group's floating leverage rule covering this symbol, when it has one.
+	Leverage *ViewSymbolLeverage `json:"leverage,omitempty"`
+}
+
+// ViewSymbolHoliday is today's holiday as the sessions dialog shows it.
+type ViewSymbolHoliday struct {
+	Windows     []ViewSessionWindow `json:"windows"`
+	Description string              `json:"description"`
+}
+
+// ViewSymbolLeverage is the floating leverage the caller's group applies to this symbol:
+// the first rule whose path covers it, tier by tier.
+type ViewSymbolLeverage struct {
+	Name      string             `json:"name"`
+	RangeMode int32              `json:"range_mode"`
+	Currency  string             `json:"currency"`
+	Tiers     []ViewLeverageTier `json:"tiers"`
+}
+
+// ViewLeverageTier is one level; RangeTo 0 on the last tier means no upper bound.
+type ViewLeverageTier struct {
+	RangeFrom             float64 `json:"range_from"`
+	RangeTo               float64 `json:"range_to"`
+	MarginRateInitial     float64 `json:"margin_rate_initial"`
+	MarginRateMaintenance float64 `json:"margin_rate_maintenance"`
 }
 
 // MySymbolsTree returns the caller's symbols nested by their backslash separated path.
@@ -134,10 +163,10 @@ func (s *Server) MySymbolSessions(c *fiber.Ctx) error {
 	}
 
 	// a symbol the group never granted must not leak its schedule either
-	granted := ""
+	granted, path := "", ""
 	for i := range list {
 		if strings.EqualFold(list[i].Symbol, name) {
-			granted = list[i].Symbol
+			granted, path = list[i].Symbol, list[i].Path
 			break
 		}
 	}
@@ -181,7 +210,150 @@ func (s *Server) MySymbolSessions(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
 	}
 
+	holiday, err := s.todaysHoliday(c.UserContext(), path, granted)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	out.Holiday = holiday
+
+	leverage, err := s.symbolLeverage(c.UserContext(), snap.Login, path, granted)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	out.Leverage = leverage
+
 	return s.App.HttpResponseOK(c, out)
+}
+
+// symbolLeverage resolves the caller's group profile and returns the first rule that covers the
+// symbol, the same way the engine picks its margin rate.
+func (s *Server) symbolLeverage(ctx context.Context, login int64, path, symbol string) (*ViewSymbolLeverage, error) {
+	var leverageId *int64
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT g.margin_leverage_id
+		   FROM hst.users u
+		   JOIN hst.groups g ON g."group" = u."group"
+		  WHERE u.login = $1`, login).Scan(&leverageId)
+	if err != nil || leverageId == nil {
+		return nil, nil
+	}
+
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT rule_id, name, path, range_mode, range_value_currency
+		   FROM hst.leverage_rules
+		  WHERE leverage_id = $1
+		  ORDER BY config_index`, *leverageId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out *ViewSymbolLeverage
+	var ruleId int64
+	for rows.Next() {
+		var id int64
+		var name, mask, currency string
+		var mode int32
+		if err := rows.Scan(&id, &name, &mask, &mode, &currency); err != nil {
+			return nil, err
+		}
+		if out == nil && HolidayLayer([]string{mask}, path, symbol) {
+			out = &ViewSymbolLeverage{Name: name, RangeMode: mode, Currency: currency, Tiers: []ViewLeverageTier{}}
+			ruleId = id
+		}
+	}
+	if rows.Err() != nil || out == nil {
+		return out, rows.Err()
+	}
+
+	tiers, err := s.DB.DB.Query(ctx,
+		`SELECT range_from, range_to, margin_rate_initial, margin_rate_maintenance
+		   FROM hst.leverage_tiers
+		  WHERE rule_id = $1
+		  ORDER BY range_from`, ruleId)
+	if err != nil {
+		return nil, err
+	}
+	defer tiers.Close()
+
+	for tiers.Next() {
+		var t ViewLeverageTier
+		if err := tiers.Scan(&t.RangeFrom, &t.RangeTo, &t.MarginRateInitial, &t.MarginRateMaintenance); err != nil {
+			return nil, err
+		}
+		out.Tiers = append(out.Tiers, t)
+	}
+
+	return out, tiers.Err()
+}
+
+// todaysHoliday reads whether today, in server time, is a holiday for this symbol; the engine
+// matches the same rows in its own calendar.
+func (s *Server) todaysHoliday(ctx context.Context, path, symbol string) (*ViewSymbolHoliday, error) {
+	now := time.Now().UTC()
+
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT "from", "to", symbols, description
+		   FROM hst.holidays
+		  WHERE mode = 1
+		    AND (year = 0 OR year = $1)
+		    AND month = $2 AND day = $3
+		  ORDER BY config_index`, now.Year(), int(now.Month()), now.Day())
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var holiday *ViewSymbolHoliday
+	for rows.Next() {
+		var from, to int32
+		var masks []string
+		var description string
+		if err := rows.Scan(&from, &to, &masks, &description); err != nil {
+			return nil, err
+		}
+		if !HolidayLayer(masks, path, symbol) {
+			continue
+		}
+		if holiday == nil {
+			holiday = &ViewSymbolHoliday{Windows: []ViewSessionWindow{}}
+		}
+		if from != 0 || to != 0 {
+			holiday.Windows = append(holiday.Windows,
+				ViewSessionWindow{Open: from, Close: to, From: hhmm(from), To: hhmm(to)})
+		}
+		if description != "" {
+			if holiday.Description != "" {
+				holiday.Description += "; "
+			}
+			holiday.Description += description
+		}
+	}
+
+	return holiday, rows.Err()
+}
+
+// HolidayLayer reports whether a holiday's symbol masks cover this symbol: exact name or path,
+// or a trailing-star prefix of either.
+func HolidayLayer(masks []string, path, symbol string) bool {
+	if len(masks) == 0 {
+		return true
+	}
+	for _, raw := range masks {
+		m := strings.TrimSpace(raw)
+		switch {
+		case m == "" || m == "*":
+			return true
+		case strings.HasSuffix(m, "*"):
+			prefix := strings.TrimSuffix(m, "*")
+			if strings.HasPrefix(path, prefix) || strings.HasPrefix(symbol, prefix) {
+				return true
+			}
+		case m == symbol || m == path:
+			return true
+		}
+	}
+	return false
 }
 
 // hhmm renders minutes since midnight, where 1440 is the end of the day.

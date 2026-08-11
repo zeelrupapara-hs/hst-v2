@@ -3380,8 +3380,10 @@ select {
 
 /* holidays — date field with calendar button, work-time spins, symbols list box */
 .hol-date-row { display: flex; align-items: center; gap: 6px; }
-.hol-date { position: relative; display: inline-flex; align-items: center; }
-.hol-date input { width: 88px; }
+.hol-date { position: relative; display: inline-flex; align-items: center; flex: none; }
+/* [type=text] to outweigh the generic .form-grid input[type="text"] 190px, which otherwise
+   stretches the date box and both spins and pushes the second one out of the dialog */
+.hol-date input[type="text"] { width: 88px; }
 .hol-date-btn {
   margin-left: -1px;
   height: 21px;
@@ -3395,43 +3397,70 @@ select {
   cursor: pointer;
 }
 .hol-date-picker { position: absolute; top: 100%; left: 0; z-index: 20; }
-.hol-inline-label { margin-left: 18px; font-weight: 600; }
+/* the reference right-aligns its labels against a narrow column and keeps Date and Work time on
+   one line; the dialog's 150px left-aligned column cannot afford that row */
+.settings-dialog .form-grid.hol-common { grid-template-columns: 80px minmax(0, 1fr); }
+.settings-dialog .form-grid.hol-common > label { text-align: right; font-weight: normal; }
+.settings-dialog .form-grid.hol-common input.wide { max-width: none; }
+.settings-dialog .grp-check-stack.hol-check-stack { padding-left: 90px; }
+
+/* work time sits flush with the right edge, so the row ends level with the description box
+   instead of trailing empty space */
+.hol-worktime { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.hol-inline-label { margin: 0; font-weight: normal; white-space: nowrap; }
+.hol-inline-label::after { content: ":"; }
 .hol-dash { padding: 0 2px; }
-.hol-spin { display: inline-flex; align-items: stretch; }
-.hol-spin input { width: 52px; text-align: left; }
-.hol-spin-btns { display: flex; flex-direction: column; margin-left: -1px; }
+.hol-spin { display: inline-flex; align-items: stretch; flex: none; }
+.hol-spin input[type="text"] { width: 46px; text-align: left; }
+.hol-spin-btns { display: flex; flex-direction: column; margin-left: -1px; width: 16px; }
 .hol-spin-btns button {
-  height: 10px;
-  width: 15px;
+  flex: 1;
+  width: 16px;
   padding: 0;
-  font-size: 6px;
-  line-height: 1;
-  background: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%);
   border: 1px solid var(--chrome-border);
   cursor: pointer;
 }
-.hol-hint { color: var(--muted); font-size: 11px; }
-.hol-symbols { display: flex; gap: 10px; padding: 4px 12px 12px; }
-.hol-symbol-btns { display: flex; flex-direction: column; gap: 6px; }
-.hol-symbol-btns button { min-width: 75px; height: 23px; }
-.hol-symbol-list {
-  flex: 1;
-  margin: 0;
-  padding: 2px;
-  list-style: none;
-  min-height: 110px;
-  background: #fff;
-  border: 1px solid var(--chrome-border);
-  overflow: auto;
+.hol-spin-btns button:active { background: #dcdcdc; }
+/* drawn rather than typed: the arrow glyphs rendered fuzzy at this size */
+.hol-spin-btns button::before {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 3px solid transparent;
+  border-right: 3px solid transparent;
 }
-.hol-symbol-list li {
+.hol-spin-up::before { border-bottom: 3px solid #000; }
+.hol-spin-down::before { border-top: 3px solid #000; }
+/* the mask list is the group-symbols table with one column, so it fills the width rather than
+   keeping the 58% the three-column version reserves */
+.hol-sym-table .data-table th:nth-child(1),
+.hol-sym-table .data-table td:nth-child(1) { width: auto; }
+.hol-sym-table .df-add-row.selected td,
+.hol-sym-table .df-add-row.selected .df-add-plus { color: #fff; }
+
+/* the symbols tab fills the dialog exactly: the table scrolls inside its own box, so the button
+   column never slides out of sight the way a scrolling body pushed it */
+.settings-dialog .config-panel.hol-sym-tab {
   display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 1px 4px;
-  cursor: default;
+  flex-direction: column;
+  height: 100%;
 }
-.hol-symbol-list li.selected { background: #cce8ff; }
+.hol-sym-tab .sym-sessions-intro { flex: none; }
+.settings-dialog .hol-sym-panel { flex: 1; min-height: 0; }
+/* the group dialog is tall enough to park these at the bottom; this one is not */
+.hol-sym-panel .grp-sym-buttons-actions { margin-top: 14px; }
+
+/* the row being edited is not a selected row: the blue fill behind a field reads as a broken
+   control rather than a highlight */
+.hol-sym-table .hol-sym-edit-row td {
+  background: #fff;
+  padding: 1px 2px;
+}
+.hol-sym-table .hol-sym-edit-row .symtree-editor { gap: 2px; }
 
 /* ── leverages module ── */
 .lev-rule-dialog .sym-session-dialog-title {
@@ -5277,3 +5306,16 @@ tr[draggable="true"] { cursor: grab; }
 /* Journal columns: the message takes the room, the rest stay tight */
 .journal-table th:nth-child(-n + 5) { white-space: nowrap; width: 1%; }
 .journal-table td:nth-child(-n + 5) { white-space: nowrap; }
+
+/* Holiday banner in the symbol's Sessions tab */
+.sym-holiday-banner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 6px 0;
+  padding: 4px 8px;
+  border: 1px solid #e0b4b4;
+  background: #fdf3f3;
+  color: #9f3a38;
+  font-size: 11px;
+}

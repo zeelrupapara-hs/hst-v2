@@ -8,7 +8,10 @@ import {
   mergeDaySessions,
 } from "@/lib/symbolSessions.js";
 import { formatUnixSec, parseMt5DateTimeToSec } from "@/lib/time.js";
+import { holidayToday, useHolidays } from "@/hooks/useHolidays.js";
 import { SessionEditorDialog } from "./SessionEditorDialog.jsx";
+
+const hhmm = (m) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 const pad = (n) => String(n).padStart(2, "0");
 
@@ -32,6 +35,8 @@ const parseStamp = (raw) => {
 /** Sessions grid: select days (Ctrl/Shift), Edit or double-click opens the timeline editor. */
 export function SymbolSessionsTab({ s, set }) {
   const sessions = s.sessions || [];
+  const { holidays } = useHolidays();
+  const holiday = holidayToday(holidays, s.path, s.symbol);
   const [selectedDays, setSelectedDays] = useState([]);
   const [editorOpen, setEditorOpen] = useState(false);
   const [useLimits, setUseLimits] = useState(!!(s.time_start || s.time_expiration));
@@ -65,6 +70,15 @@ export function SymbolSessionsTab({ s, set }) {
           quotation session it is possible to view the price dynamics but trading is prohibited.
         </p>
       </div>
+      {holiday && (
+        <div className="sym-holiday-banner">
+          <Icon id="holidays" size={14} />
+          {holiday.windows.length
+            ? `Holiday today — market open only ${holiday.windows.map((w) => `${hhmm(w.from)}–${hhmm(w.to)}`).join(", ")}`
+            : "Holiday today — market closed"}
+          {holiday.description ? ` (${holiday.description})` : ""}
+        </div>
+      )}
       <div className="sym-sessions-main">
         <div className="sym-sessions-table-wrap">
           <table className="sym-sessions-table">

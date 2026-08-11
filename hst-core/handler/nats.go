@@ -33,6 +33,10 @@ func (h *Handler) subscribe() error {
 		}
 	}
 
+	if err := h.Subscribe(model.SubjectSystemHolidays, h.CalendarSystemEventHandler); err != nil {
+		return err
+	}
+
 	if err := h.Subscribe(model.SubjectSystemAccounts, h.AccountSystemEventHandler); err != nil {
 		return err
 	}
@@ -114,6 +118,18 @@ func (h *Handler) forwarded(msg *natscore.Msg, topic string, login int64) bool {
 	}
 
 	return true
+}
+
+// CalendarSystemEventHandler reads the holiday calendar again. A holiday moves no money, so it
+// does not need the whole settings reload the other config events ask for.
+func (h *Handler) CalendarSystemEventHandler(msg *natscore.Msg) {
+	if err := h.LoadCalendar(context.Background()); err != nil {
+		h.Log.Log(logger.TypeCfg, logger.CodeErr, "could not reload the calendar", "error", err.Error())
+		return
+	}
+
+	h.Log.Log(logger.TypeCfg, logger.CodeOK, "calendar reloaded",
+		"subject", msg.Subject, "holidays", h.Holidays.Len())
 }
 
 // ConfigSystemEventHandler reads the configuration again.
