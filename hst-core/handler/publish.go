@@ -99,7 +99,9 @@ func (h *Handler) PublishTrade(e *book.Entry, o *model.Order, f *Fill, a *model.
 
 // PublishAccount goes out on every tick touching the account, so it is one line rather than json.
 func (h *Handler) PublishAccount(a *model.Account, positions map[int64]float64) {
-	h.PublishText(model.SubjectAccountSummary(a.Login), model.EventAccountSummary, AccountSummary(a, positions))
+	line := AccountSummary(a, positions)
+	h.PublishText(model.SubjectAccountSummary(a.Login), model.EventAccountSummary, line)
+	h.PublishText(model.SubjectGroupAccounts(a.Group), model.EventAccountSummary, line)
 }
 
 // SummaryFor returns "" when a tick is not worth a frame; gated per instrument so a busy symbol cannot crowd out a quiet one. Caller holds the entry's lock.

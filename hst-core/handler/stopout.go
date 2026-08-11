@@ -65,15 +65,19 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 		}
 		e.MarginCalled = true
 		login := e.Account.Login
+		group := e.Account.Group
 		e.Unlock()
 
 		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "margin call",
 			"login", login, "level", level, "call_at", call)
 
-		h.PublishWS(model.SubjectAccountMarginCall(login), model.EventMarginCall, map[string]any{
+		warning := map[string]any{
 			"login": login, "margin_level": level, "call_level": call,
 			"so_mode": g.MarginSOMode,
-		})
+		}
+		h.PublishWS(model.SubjectAccountMarginCall(login), model.EventMarginCall, warning)
+		// the managers covering this group hear the same warning
+		h.PublishWS(model.SubjectGroupAccounts(group), model.EventMarginCall, warning)
 
 		return
 	default:
@@ -89,6 +93,7 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 	e.StopOutBusy = true
 	login := e.Account.Login
+	group := e.Account.Group
 	e.Unlock()
 
 	defer func() {
@@ -99,6 +104,13 @@ func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Grou
 
 	h.Log.Log(logger.TypeTrade, logger.CodeAtt, "stop out",
 		"login", login, "level", level, "stop_at", stop)
+
+	closing := map[string]any{
+		"login": login, "margin_level": level, "stop_level": stop,
+		"so_mode": g.MarginSOMode,
+	}
+	h.PublishWS(model.SubjectAccountMarginCall(login), model.EventStopOut, closing)
+	h.PublishWS(model.SubjectGroupAccounts(group), model.EventStopOut, closing)
 
 	if h.stopOutPendings(ctx, e, g, stop, hedgedUnder) {
 		h.CompensateNegativeBalance(ctx, e, g)

@@ -68,6 +68,8 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 
 	if summary != "" {
 		h.PublishText(model.SubjectAccountSummary(account.Login), model.EventAccountSummary, summary)
+		// the same line for the managers whose masks cover this group
+		h.PublishText(model.SubjectGroupAccounts(account.Group), model.EventAccountSummary, summary)
 	}
 
 	// expiry before anything else.

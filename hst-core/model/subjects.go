@@ -1,6 +1,9 @@
 package model
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Every string comes from the shared contract, so the api and the engine cannot drift into two
 // names for one wire string.
@@ -73,6 +76,23 @@ var (
 
 // RootGroupScoped prefixes every group scoped subject.
 const RootGroupScoped = "websocket.groups"
+
+// SubjectGroupAccounts is the manager-scoped live account stream: only sockets whose group
+// masks cover this path are subscribed, so scope is enforced by the subject itself.
+func SubjectGroupAccounts(group string) string {
+	parts := strings.Split(group, "\\")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	token := strings.Join(out, ".")
+	if token == "" {
+		token = "root"
+	}
+	return SubjectGroupScoped("accounts", token)
+}
 
 // What staff and the dealing desk are subscribed to.
 var (
