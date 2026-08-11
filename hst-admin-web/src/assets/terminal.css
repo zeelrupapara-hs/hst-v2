@@ -5358,3 +5358,7 @@ tr[draggable="true"] { cursor: grab; }
 .mw-down { color: #c62828; }
 .data-table tbody tr.mw-stale td { color: #9a9a9a; }
 .data-table tbody tr.mw-stale .sym-symbol-cell { filter: grayscale(1) opacity(0.6); }
+
+/* Summary tab: the totals row stands apart */
+.summary-table td { font-variant-numeric: tabular-nums; }
+.summary-table .summary-total td { font-weight: 600; background: #f2f2f2; }

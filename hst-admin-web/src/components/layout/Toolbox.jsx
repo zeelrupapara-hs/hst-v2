@@ -3,6 +3,8 @@ import { fetchJournal, searchJournal } from "@/api/endpoints/journal.js";
 import { useToolbox } from "@/hooks/useToolbox.jsx";
 import { formatNs } from "@/lib/time.js";
 import { JournalType_name } from "@/constants/journal.js";
+import { SummaryPanel } from "@/components/layout/SummaryPanel.jsx";
+import { useSession } from "@/hooks/useSession.js";
 
 const toNs = (local) => (local ? new Date(local).getTime() * 1e6 : undefined);
 
@@ -99,6 +101,7 @@ function SearchPanel() {
 
 /** Bottom service panel: Journal live from the server, Search lands with the modules. */
 export function Toolbox() {
+  const session = useSession();
   const toolbox = useToolbox();
   const tab = toolbox?.tab ?? "journal";
   const setTab = toolbox?.setTab ?? (() => {});
@@ -134,12 +137,15 @@ export function Toolbox() {
     });
   }, [tab, journalQuery, journalTick]);
 
+  const isManagerPanel = session.terminal !== "administrator";
+
   return (
     <div className="toolbox">
       <div className="toolbox-tabs">
         {[
           { id: "journal", label: "Journal" },
           { id: "search", label: "Search" },
+          ...(isManagerPanel ? [{ id: "summary", label: "Summary" }] : []),
         ].map((t) => (
           <button
             key={t.id}
@@ -161,6 +167,12 @@ export function Toolbox() {
             </div>
           )}
           <JournalRows rows={rows} message={message} />
+        </div>
+      )}
+
+      {tab === "summary" && (
+        <div className="toolbox-panel active">
+          <SummaryPanel />
         </div>
       )}
 
