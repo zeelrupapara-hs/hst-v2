@@ -117,9 +117,12 @@ services:
     env_file: .env
     environment:
       NATS_HOST: nats
+      POSTGRES_HOST: postgres
+      REDIS_URL: redis:6379
       LOG_DIR: /tmp/logs
     depends_on:
       nats: { condition: service_healthy }
+      redis: { condition: service_healthy }
     restart: unless-stopped
 
   hst-sim:
