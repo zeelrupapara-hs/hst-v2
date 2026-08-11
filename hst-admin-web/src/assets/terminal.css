@@ -5351,3 +5351,10 @@ tr[draggable="true"] { cursor: grab; }
 
 /* An account already in stop out burns red in the margin call list */
 .data-table tbody tr.mc-stopout td { background: #fdecea; color: #9f3a38; }
+
+/* Market watch: blue up, red down, grey when the feed went quiet */
+.market-watch td { font-variant-numeric: tabular-nums; }
+.mw-up { color: #1565c0; }
+.mw-down { color: #c62828; }
+.data-table tbody tr.mw-stale td { color: #9a9a9a; }
+.data-table tbody tr.mw-stale .sym-symbol-cell { filter: grayscale(1) opacity(0.6); }
