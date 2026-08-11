@@ -130,6 +130,7 @@ services:
     image: ghcr.io/hybrid-solutions-09/hst-sim:staging
     ports:
       - "5001:5001"
+      - "5002:5002"
     volumes:
       - simdata:/data
     restart: unless-stopped
