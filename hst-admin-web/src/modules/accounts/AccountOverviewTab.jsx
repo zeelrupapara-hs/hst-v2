@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { fetchAccountOrders, fetchAccountPositions } from "@/api/endpoints/trades.js";
 import { OrderType_name } from "@/constants/trades.js";
 import { formatNs } from "@/lib/time.js";
+import { useLiveAccount } from "@/hooks/useLiveAccounts.js";
+import { useMarketFeed } from "@/hooks/useMarketFeed.js";
 
 const px = (v, digits = 5) => (v ? v.toFixed(digits) : "");
 const money = (v) => (v ?? 0).toFixed(2);
@@ -10,13 +12,22 @@ const money = (v) => (v ?? 0).toFixed(2);
 export function AccountOverviewTab({ login, user }) {
   const [positions, setPositions] = useState(null);
   const [orders, setOrders] = useState(null);
+  const live = useLiveAccount(login);
+  const ticks = useMarketFeed();
 
   useEffect(() => {
     fetchAccountPositions(login).then((res) => res.ok && setPositions(res.data || []));
     fetchAccountOrders(login).then((res) => res.ok && setOrders(res.data || []));
   }, [login]);
 
-  const floating = (positions || []).reduce((s, p) => s + (p.profit || 0), 0);
+  // the fetch is the starting point; the engine's live pairs keep every number breathing
+  const shown = (positions || []).map((p) => {
+    const profit = live?.positions?.[p.position_id];
+    const tick = ticks.get(p.symbol);
+    const current = tick ? (p.action === 0 ? tick.bid : tick.ask) : p.price_current;
+    return { ...p, profit: profit ?? p.profit, price_current: current };
+  });
+  const floating = live ? live.profit : shown.reduce((s, p) => s + (p.profit || 0), 0);
 
   return (
     <div className="acc-overview">
@@ -38,7 +49,7 @@ export function AccountOverviewTab({ login, user }) {
             </tr>
           </thead>
           <tbody>
-            {(positions || []).map((p) => (
+            {shown.map((p) => (
               <tr key={p.position_id}>
                 <td>{p.symbol}</td>
                 <td>{p.position_id}</td>
