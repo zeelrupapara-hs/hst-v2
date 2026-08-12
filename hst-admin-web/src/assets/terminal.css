@@ -5370,3 +5370,36 @@ tr[draggable="true"] { cursor: grab; }
 
 /* An account whose deals do not add up to its balance */
 .data-table tbody tr.acc-invalid td { background: #fdecea; color: #9f3a38; }
+
+/* The account Trade tab, drawn after MT5's dealing dialog. */
+.trade-layout { display: flex; gap: 12px; }
+.trade-chart { border: 1px solid #888; flex: none; }
+.trade-form { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.trade-grid { display: grid; grid-template-columns: 80px 1fr; gap: 6px 8px; align-items: center; }
+.trade-grid label { text-align: right; }
+.trade-grid input[type="text"] { width: 84px; text-align: right; }
+.trade-stepper-wrap { display: flex; align-items: center; gap: 4px; }
+.trade-steppers { display: inline-flex; flex-direction: column; }
+.trade-steppers button { font-size: 6px; line-height: 7px; padding: 0 3px; }
+.trade-auto { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; }
+.trade-tp-label { margin-left: 8px; white-space: nowrap; }
+.trade-quote { text-align: center; font-size: 26px; font-weight: 700; margin: 14px 0 10px; }
+.trade-quote .trade-bid { color: #c0392b; }
+.trade-quote .trade-ask { color: #2465b4; }
+.trade-quote .trade-sep { color: #555; }
+.trade-buttons { display: flex; gap: 16px; justify-content: center; margin-bottom: 8px; }
+.trade-buttons button {
+  flex: 1; max-width: 210px; padding: 6px 0; color: #fff; font-weight: 600;
+  border-radius: 4px; border: 1px solid #777; cursor: pointer;
+}
+.trade-buttons .trade-sell { background: linear-gradient(#c65f54, #a93226); border-color: #8e2a20; }
+.trade-buttons .trade-sell:hover:enabled { background: #a93226; }
+.trade-buttons .trade-buy { background: linear-gradient(#5b8ecb, #2465b4); border-color: #1a4c8b; }
+.trade-buttons .trade-buy:hover:enabled { background: #2465b4; }
+.trade-buttons button:disabled { opacity: 0.5; cursor: default; }
+.trade-status { border: 1px solid #bbb; background: #eee; min-height: 20px; padding: 2px 8px; margin-bottom: 8px; }
+
+/* The account History tab: the grid above, the period bar below. */
+.history-tab { display: flex; flex-direction: column; height: 100%; }
+.history-table { flex: 1; overflow: auto; }
+.history-bar { display: flex; align-items: center; gap: 8px; margin-top: 6px; }

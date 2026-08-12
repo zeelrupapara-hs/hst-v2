@@ -16,3 +16,9 @@ export const fixPosition = (positionId) =>
   request("/api/v1/positions/fix", { method: "POST", body: { position_id: positionId } });
 export const deletePosition = (positionId) =>
   request(`/api/v1/positions/${positionId}`, { method: "DELETE" });
+
+export const createOrder = (body) => request("/api/v1/orders", { method: "POST", body });
+export const closePosition = (positionId, body) =>
+  request(`/api/v1/positions/${positionId}/close`, { method: "POST", body });
+export const modifyPosition = (positionId, body) =>
+  request(`/api/v1/positions/${positionId}`, { method: "PUT", body });

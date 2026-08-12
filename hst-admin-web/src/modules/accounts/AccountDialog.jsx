@@ -10,6 +10,8 @@ import { useSession } from "@/hooks/useSession.js";
 import { createUser, fetchUser, resetUserPassword, updateUser } from "@/api/endpoints/users.js";
 import { AccountRight_checks, LimitRight_checks } from "@/constants/users.js";
 import { AccountOverviewTab } from "./AccountOverviewTab.jsx";
+import { AccountTradeTab } from "./AccountTradeTab.jsx";
+import { AccountHistoryTab } from "./AccountHistoryTab.jsx";
 import { generatePassword } from "@/lib/passwords.js";
 import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
 
@@ -179,8 +181,12 @@ export function AccountDialog({ login, onClose, onSaved }) {
   // the balance desk belongs to the manager panel, behind the accountant right
   const showBalance =
     !isNew && session.terminal !== "administrator" && session.can?.right_accountant !== false;
+  // dealing for the client sits behind the trades-manager right
+  const showTrade =
+    !isNew && session.terminal !== "administrator" && session.can?.right_trades_manager !== false;
   const [activeTab, setActiveTab] = useState(isNew ? "Personal" : "Overview");
-  const TABS = isNew ? NEW_TABS : showBalance ? MANAGER_EDIT_TABS : EDIT_TABS;
+  let TABS = isNew ? NEW_TABS : showBalance ? MANAGER_EDIT_TABS : EDIT_TABS;
+  if (showTrade) TABS = [...TABS.slice(0, -1), "Trade", "History", TABS.at(-1)];
   const [draft, setDraft] = useState(isNew ? newDraft(groups[0]?.group) : null);
   const [original, setOriginal] = useState(null);
   const [error, setError] = useState("");
@@ -327,6 +333,10 @@ export function AccountDialog({ login, onClose, onSaved }) {
         return <AccountOverviewTab login={login} user={draft} />;
       case "Balance":
         return <BalanceOps login={login} />;
+      case "Trade":
+        return <AccountTradeTab login={login} />;
+      case "History":
+        return <AccountHistoryTab login={login} />;
       case "Personal":
         return (
           <>
@@ -404,8 +414,8 @@ export function AccountDialog({ login, onClose, onSaved }) {
       >
         <SettingsDialog
           draggable
-          width={isNew ? 700 : 613}
-          height={isNew ? 560 : 560}
+          width={isNew ? 700 : 860}
+          height={isNew ? 560 : 600}
           onClose={close}
           onTitlePointerDown={onTitlePointerDown}
           title={isNew ? "New Account" : `Account: ${login} — ${draft?.name ?? "…"}`}
