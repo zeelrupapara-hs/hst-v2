@@ -28,6 +28,7 @@ export const NAV_ICON = {
   dealing: "dealing",
   balance: "balance",
   margin_calls: "security",
+  online: "client",
   market_watch: "symbols",
 };
 

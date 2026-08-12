@@ -114,3 +114,8 @@ var (
 var BalanceMsg = func(login int64, action string, amount float64) string {
 	return fmt.Sprintf("%s of %.2f was applied to account #%d", action, amount, login)
 }
+
+// SessionDisconnectedMsg says a manager cut one of the account's live sessions.
+func SessionDisconnectedMsg(login int64) string {
+	return fmt.Sprintf("a session of account #%d was disconnected by the desk", login)
+}

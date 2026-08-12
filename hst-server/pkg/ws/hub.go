@@ -258,3 +258,15 @@ func (h *Hub) Shutdown() {
 
 	h.log.Log(logger.TypeNet, logger.CodeOK, "websocket hub stopped", "closed", len(all))
 }
+
+// Snapshot returns a copy of every live connection, for the online users list.
+func (h *Hub) Snapshot() []*Client {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+
+	out := make([]*Client, 0, h.total)
+	for _, list := range h.clients {
+		out = append(out, list...)
+	}
+	return out
+}

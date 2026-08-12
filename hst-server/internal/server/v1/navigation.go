@@ -67,6 +67,8 @@ type navNode struct {
 var managerTree = []navNode{
 	{key: "clients_orders", label: "Clients & Orders", icon: "users", route: "", section: "trading",
 		children: []navNode{
+			{key: "online", label: "Online Users", icon: "client", route: "/online", section: "trading",
+				needs: []uint{model.MgrRightAccOnline}},
 			{key: "accounts", label: "Trading Accounts", icon: "user", route: "/users", section: "trading",
 				needs: []uint{model.MgrRightAccRead}, counter: "accounts"},
 			{key: "clients", label: "Clients", icon: "briefcase", route: "/clients", section: "trading",

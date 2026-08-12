@@ -15,6 +15,7 @@ import { DealingModule } from "@/modules/dealing/DealingModule.jsx";
 import { BalanceModule } from "@/modules/balance/BalanceModule.jsx";
 import { MarginCallsModule } from "@/modules/margincalls/MarginCallsModule.jsx";
 import { MarketWatchModule } from "@/modules/market/MarketWatchModule.jsx";
+import { OnlineUsersModule } from "@/modules/online/OnlineUsersModule.jsx";
 import { MailServersModule } from "@/modules/mail/MailServersModule.jsx";
 import { useSession } from "@/hooks/useSession.js";
 
@@ -58,6 +59,7 @@ export function TerminalPage({ panel }) {
         <Route path="balance" element={<BalanceModule />} />
         <Route path="margin-calls" element={<MarginCallsModule />} />
         <Route path="market" element={<MarketWatchModule />} />
+        <Route path="online" element={<OnlineUsersModule />} />
         <Route path="mail-servers" element={<MailServersModule />} />
         <Route path="*" element={<ModulePlaceholder />} />
       </Route>

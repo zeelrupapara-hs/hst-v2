@@ -73,6 +73,10 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	mailServers.Delete("/:id", s.Middleware.Authorization(model.MgrRightCfgMails), s.DeleteMailServer)
 
 	// trading holidays
+	online := v1.Group("/online", s.Middleware.Protect, s.Middleware.RequireManager)
+	online.Get("/", s.Middleware.Authorization(model.MgrRightAccOnline), s.ListOnlineUsers)
+	online.Delete("/:session_id", s.Middleware.Authorization(model.MgrRightAccOnline), s.DisconnectSession)
+
 	holidays := v1.Group("/holidays", s.Middleware.Protect, s.Middleware.RequireManager)
 	holidays.Get("/", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.ListHolidays)
 	holidays.Post("/", s.Middleware.Authorization(model.MgrRightCfgHolidays), s.CreateHoliday)
