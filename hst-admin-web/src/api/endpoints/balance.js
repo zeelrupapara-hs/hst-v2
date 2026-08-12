@@ -17,3 +17,5 @@ export const createBalance = (login, action, amount, comment = "") =>
 export const checkBalances = () => request("/api/v1/balance/check");
 export const fixBalance = (login) =>
   request("/api/v1/balance/fix", { method: "POST", body: { login } });
+
+export const bulkBalance = (body) => request("/api/v1/balance/bulk", { method: "POST", body });

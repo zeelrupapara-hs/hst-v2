@@ -19,6 +19,7 @@ import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { formatNs } from "@/lib/time.js";
 import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
 import { useMarketFeed } from "@/hooks/useMarketFeed.js";
+import { BulkCloseDialog } from "./BulkCloseDialog.jsx";
 
 const px = (v, digits = 5) => (v ? v.toFixed(digits) : "");
 const money = (v) => (v ?? 0).toFixed(2);
@@ -238,6 +239,7 @@ export function PositionsModule() {
   const live = useLiveAccounts();
   const ticks = useMarketFeed();
   const [checks, setChecks] = useState(null);
+  const [bulk, setBulk] = useState(null);
 
   // the engine's summary pairs carry each position's live profit; the feed carries the price
   const liveRow = (r) => {
@@ -288,6 +290,7 @@ export function PositionsModule() {
   const badRow = (r) => checks?.get(r.position_id)?.ok === false;
 
   return (
+    <>
     <Blotter
       fetcher={fetchAllPositions}
       journal={false}
@@ -299,6 +302,7 @@ export function PositionsModule() {
         { label: "Check", onClick: runCheck },
         { label: "Fix Position", disabled: !row || !badRow(row), onClick: () => runFix(row, reload) },
         { label: "Delete Position", disabled: !row, onClick: () => runDelete(row, reload) },
+        { label: "Bulk Close…", onClick: () => setBulk({ reload, symbol: row?.symbol }) },
       ]}
       columns={[
         { label: "Login", value: (r) => r.login },
@@ -324,6 +328,8 @@ export function PositionsModule() {
         { label: "Profit", value: (r) => money(r.profit), className: plClass },
       ]}
     />
+    {bulk && <BulkCloseDialog initialSymbol={bulk.symbol} onClose={() => setBulk(null)} onDone={() => bulk.reload()} />}
+    </>
   );
 }
 

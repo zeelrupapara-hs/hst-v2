@@ -3,10 +3,15 @@ package v1
 import (
 	"context"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
+	"hstserver/model"
+	"hstserver/pkg/cache"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
+	"hstserver/pkg/logger"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -315,6 +320,110 @@ func (s *HttpServer) UpdateMyDraft(c *fiber.Ctx) error {
 	}
 
 	return s.App.HttpResponseOK(c, v)
+}
+
+// BodySendMail is a manager's message to a set of accounts, named by login or by group mask.
+type BodySendMail struct {
+	Logins    []int64 `json:"logins"`
+	GroupMask string  `json:"group_mask" validate:"max=128"`
+	Subject   string  `json:"subject" validate:"required,max=128"`
+	Body      string  `json:"body" validate:"required,max=4000"`
+}
+
+var errNoRecipients = errors.New("no accounts match the given logins or group mask")
+
+// sendMailRecipients resolves the request to the logins the caller's group masks cover.
+func (s *HttpServer) sendMailRecipients(ctx context.Context, snap *cache.Session, in *BodySendMail) ([]int64, error) {
+	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 1)
+	if len(in.Logins) > 0 {
+		where += ` AND u.login = ANY($` + strconv.Itoa(len(args)+1) + `)`
+		args = append(args, in.Logins)
+	} else {
+		where += ` AND u."group" LIKE $` + strconv.Itoa(len(args)+1)
+		args = append(args, strings.ReplaceAll(in.GroupMask, "*", "%"))
+	}
+
+	rows, err := s.DB.DB.Query(ctx, `SELECT u.login FROM hst.users u WHERE `+where, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []int64{}
+	for rows.Next() {
+		var login int64
+		if err := rows.Scan(&login); err != nil {
+			return nil, err
+		}
+		out = append(out, login)
+	}
+
+	return out, rows.Err()
+}
+
+// SendMail writes the message into each recipient's inbox; internal mailbox only, no SMTP.
+//
+//	@Id			SendMail
+//	@Tags		Mails
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		BodySendMail	true	"the message and who gets it"
+//	@Success	200		{object}	Response
+//	@Failure	400		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/mails [post]
+func (s *HttpServer) SendMail(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	var in BodySendMail
+	if err := c.BodyParser(&in); err != nil {
+		return s.App.HttpResponseBadRequest(c, errs.ErrBadRequest)
+	}
+	if err := s.Validate.Struct(in); err != nil {
+		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+	if len(in.Logins) == 0 && in.GroupMask == "" {
+		return s.App.HttpResponseBadRequest(c, errors.New("logins or group_mask is required"))
+	}
+
+	recipients, err := s.sendMailRecipients(c.UserContext(), snap, &in)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if len(recipients) == 0 {
+		return s.App.HttpResponseBadRequest(c, errNoRecipients)
+	}
+
+	now := time.Now().UnixNano()
+	tx, err := s.DB.DB.Begin(c.UserContext())
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	defer func() { _ = tx.Rollback(c.UserContext()) }()
+
+	for _, login := range recipients {
+		if _, err := tx.Exec(c.UserContext(),
+			`INSERT INTO hst.mails (tracking_id, sender_login, recipient_login, subject, body,
+			        folder, created_at, updated_at)
+			 VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+			uuid.NewString(), snap.Login, login, in.Subject, in.Body,
+			MailFolderInbox, now); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
+	if err := tx.Commit(c.UserContext()); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	s.JournalEntry(c, model.JournalType_mail, logger.CodeOK,
+		journal.MailBroadcastMsg(in.Subject, len(recipients)), in)
+
+	return s.App.HttpResponseOK(c, fiber.Map{"sent": len(recipients)})
 }
 
 // DeleteMyMail moves a message to the bin, and purges it when it is already there.

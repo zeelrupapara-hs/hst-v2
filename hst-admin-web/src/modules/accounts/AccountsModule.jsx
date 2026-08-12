@@ -10,6 +10,8 @@ import { Icon } from "@/components/ui/Icon.jsx";
 import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
 import { AccountDialog } from "./AccountDialog.jsx";
 import { BalanceDialog } from "./BalanceDialog.jsx";
+import { BulkBalanceDialog } from "./BulkBalanceDialog.jsx";
+import { MailDialog } from "@/modules/mail/MailDialog.jsx";
 
 // Live money cells: a dash until the engine's first summary line for the account arrives.
 function LiveMoneyCells({ account }) {
@@ -36,9 +38,12 @@ export function AccountsModule() {
   const live = useLiveAccounts();
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(null);
+  const [multi, setMulti] = useState(() => new Set());
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
   const [balance, setBalance] = useState(null);
+  const [bulk, setBulk] = useState(null);
+  const [mail, setMail] = useState(null);
   const [checks, setChecks] = useState(null);
   const [view, setView] = useState({ grid: true, autoArrange: true });
   const canEdit = session.can?.right_acc_manager !== false;
@@ -63,6 +68,30 @@ export function AccountsModule() {
     const res = await deleteUser(row.login);
     if (!res.ok) window.alert(res.message || "delete failed");
     saved();
+  }
+
+  // logins the bulk actions target: the multi set, else the single selected row
+  const targetLogins = multi.size
+    ? [...multi]
+    : selected != null && rows?.[selected]
+      ? [rows[selected].login]
+      : [];
+
+  function onRowClick(e, i, row) {
+    if (e.ctrlKey || e.metaKey) {
+      setSelected(i);
+      setMulti((prev) => {
+        const next = new Set(prev);
+        next.has(row.login) ? next.delete(row.login) : next.add(row.login);
+        return next;
+      });
+    } else if (e.shiftKey && selected != null) {
+      const [a, b] = [Math.min(selected, i), Math.max(selected, i)];
+      setMulti(new Set(rows.slice(a, b + 1).map((r) => r.login)));
+    } else {
+      setSelected(i);
+      setMulti(new Set());
+    }
   }
 
   function saved() {
@@ -126,8 +155,8 @@ export function AccountsModule() {
             {(rows || []).map((row, i) => (
               <tr
                 key={row.login}
-                className={`${selected === i ? "selected" : ""}${checks?.get(row.login)?.ok === false ? " acc-invalid" : ""}`.trim()}
-                onClick={() => setSelected(i)}
+                className={`${selected === i || multi.has(row.login) ? "selected" : ""}${checks?.get(row.login)?.ok === false ? " acc-invalid" : ""}`.trim()}
+                onClick={(e) => onRowClick(e, i, row)}
                 onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ login: row.login })}
               >
@@ -175,6 +204,7 @@ export function AccountsModule() {
                 { label: "Fix Balance", disabled: selected == null || checks?.get(rows[selected]?.login)?.ok !== false, onClick: () => runFix(rows[selected]) },
                 "sep",
                 { label: "Balance Operation…", disabled: selected == null, onClick: () => setBalance(rows[selected]) },
+                { label: "Bulk Operation…", disabled: !targetLogins.length, onClick: () => setBulk(targetLogins) },
               ],
             },
             {
@@ -189,7 +219,7 @@ export function AccountsModule() {
             { label: "Import from File", disabled: true },
             { label: "Import from Server", disabled: true },
             "sep",
-            { label: "E-Mail", disabled: true },
+            { label: "E-Mail", disabled: !targetLogins.length, onClick: () => setMail(targetLogins) },
             { label: "Journal", disabled: true },
             { label: "Find", shortcut: "Ctrl+F", disabled: true },
             "sep",
@@ -205,6 +235,10 @@ export function AccountsModule() {
       {balance && (
         <BalanceDialog user={balance} onClose={() => setBalance(null)} onSaved={saved} />
       )}
+      {bulk && (
+        <BulkBalanceDialog logins={bulk} onClose={() => setBulk(null)} onSaved={saved} />
+      )}
+      {mail && <MailDialog logins={mail} onClose={() => setMail(null)} />}
     </div>
   );
 }

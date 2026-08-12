@@ -151,3 +151,39 @@ func DealUpdatedMsg(dealId, login int64, volFrom, volTo, profitFrom, profitTo fl
 func DealDeletedMsg(dealId, login int64) string {
 	return fmt.Sprintf("deal #%d of account #%d was deleted", dealId, login)
 }
+
+// BulkBalanceQueuedMsg says a batch of money operations was accepted for processing.
+func BulkBalanceQueuedMsg(count int, comment string) string {
+	return fmt.Sprintf("bulk balance of %d operations was queued: %s", count, comment)
+}
+
+// BulkBalanceDoneMsg reports how the batch ended.
+func BulkBalanceDoneMsg(done, refused int) string {
+	return fmt.Sprintf("bulk balance finished: %d done, %d refused", done, refused)
+}
+
+// BulkCloseQueuedMsg says a bulk trade operation was queued over a selection.
+func BulkCloseQueuedMsg(mode, symbol, mask string, count int) string {
+	if symbol == "" {
+		symbol = "*"
+	}
+	if mask == "" {
+		mask = "*"
+	}
+	return fmt.Sprintf("bulk %s over symbol %s groups %s was queued for %d rows", mode, symbol, mask, count)
+}
+
+// BulkCloseDoneMsg says how a bulk trade operation ended.
+func BulkCloseDoneMsg(mode string, ok, failed int) string {
+	return fmt.Sprintf("bulk %s finished: %d requested, %d refused", mode, ok, failed)
+}
+
+// QuoteThrownMsg reports a manually thrown quote at the symbol's precision.
+func QuoteThrownMsg(symbol string, digits int, bid, ask float64) string {
+	return fmt.Sprintf("a quote was thrown in for '%s': %.*f / %.*f", symbol, digits, bid, digits, ask)
+}
+
+// MailBroadcastMsg reports a manager's mail delivered to n accounts.
+func MailBroadcastMsg(subject string, n int) string {
+	return fmt.Sprintf("mail %q was sent to %d accounts", subject, n)
+}

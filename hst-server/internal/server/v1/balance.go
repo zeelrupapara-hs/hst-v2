@@ -264,3 +264,112 @@ func (s *HttpServer) checkOne(ctx context.Context, login int64) (*ViewBalanceChe
 
 	return &v, nil
 }
+
+// BulkBalanceBody is one comment applied over up to 500 money operations.
+type BulkBalanceBody struct {
+	Operations []BulkBalanceOp `json:"operations" validate:"required,min=1,max=500,dive"`
+	Comment    string          `json:"comment" validate:"max=64"`
+}
+
+// BulkBalanceOp is one row of the batch.
+type BulkBalanceOp struct {
+	Login  int64            `json:"login" validate:"required,gt=0"`
+	Action model.DealAction `json:"action" validate:"gte=0"`
+	Amount float64          `json:"amount" validate:"required"`
+}
+
+// BulkBalanceResult says what happened to one row of the batch.
+type BulkBalanceResult struct {
+	Login   int64  `json:"login"`
+	Ok      bool   `json:"ok"`
+	Message string `json:"message"`
+}
+
+// BulkBalance applies a batch of money operations; a refused row does not stop the rest.
+//
+//	@Id			BulkBalance
+//	@Tags		Balance
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		BulkBalanceBody	true	"the batch"
+//	@Success	200		{object}	Response{data=[]BulkBalanceResult}
+//	@Failure	400		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/balance/bulk [post]
+func (s *HttpServer) BulkBalance(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	var body BulkBalanceBody
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	if err := s.Validate.Struct(body); err != nil {
+		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	logins := make([]int64, 0, len(body.Operations))
+	for _, op := range body.Operations {
+		logins = append(logins, op.Login)
+	}
+
+	// one query answers reach for the whole batch instead of a round-trip per row
+	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 2)
+	rows, err := s.DB.DB.Query(c.UserContext(),
+		`SELECT u.login FROM hst.users u WHERE u.login = ANY($1) AND `+where,
+		append([]any{logins}, args...)...)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	reach := map[int64]bool{}
+	for rows.Next() {
+		var login int64
+		if err := rows.Scan(&login); err != nil {
+			rows.Close()
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		reach[login] = true
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+	}
+
+	s.JournalEntry(c, model.JournalType_trade, logger.CodeOK,
+		journal.BulkBalanceQueuedMsg(len(body.Operations), body.Comment), body)
+
+	out := make([]BulkBalanceResult, 0, len(body.Operations))
+	done := 0
+	for _, op := range body.Operations {
+		row := BulkBalanceResult{Login: op.Login}
+		if !reach[op.Login] {
+			row.Message = "out of scope"
+		} else if _, _, err := s.makeBalance(c.UserContext(), &CrtBalance{
+			Login:   op.Login,
+			Action:  op.Action,
+			Amount:  op.Amount,
+			Comment: body.Comment,
+		}, snap.Login); err != nil {
+			row.Message = err.Error()
+		} else {
+			row.Ok = true
+			done++
+		}
+		out = append(out, row)
+	}
+
+	refused := len(out) - done
+	code := logger.CodeOK
+	if refused > 0 {
+		code = logger.CodeWarn
+	}
+	s.Log.Log(logger.TypeTrade, code, "bulk balance finished",
+		"actor", snap.Login, "done", done, "refused", refused)
+	s.JournalEntry(c, model.JournalType_trade, code,
+		journal.BulkBalanceDoneMsg(done, refused), out)
+
+	return s.App.HttpResponseOK(c, out)
+}

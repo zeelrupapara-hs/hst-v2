@@ -161,8 +161,8 @@ func saveAccount(ctx context.Context, tx pgx.Tx, a *model.Account, now int64) er
 		return err
 	}
 
-	_, err := tx.Exec(ctx, `UPDATE hst.users SET balance = $1 WHERE login = $2`,
-		a.Balance, a.Login)
+	_, err := tx.Exec(ctx, `UPDATE hst.users SET balance = $1, credit = $2 WHERE login = $3`,
+		a.Balance, a.Credit, a.Login)
 
 	return err
 }

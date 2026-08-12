@@ -3,6 +3,7 @@ import { useMarketFeed } from "@/hooks/useMarketFeed.js";
 import { useSymbols, useSymbolLiveness } from "@/hooks/useSymbols.js";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { price } from "@/lib/format.js";
+import { QuotesDialog } from "./QuotesDialog.jsx";
 
 // spread in points: the price difference scaled by the symbol's digits
 const spreadPoints = (tick, digits) => Math.round((tick.ask - tick.bid) * 10 ** digits);
@@ -13,6 +14,8 @@ export function MarketWatchModule() {
   const { symbols } = useSymbols();
   const { isLive } = useSymbolLiveness();
   const [filter, setFilter] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [quoting, setQuoting] = useState(null);
 
   const digitsOf = useMemo(() => {
     const map = new Map();
@@ -27,7 +30,16 @@ export function MarketWatchModule() {
     .map((s) => ({ symbol: s.symbol, digits: s.digits ?? 5, tick: ticks.get(s.symbol) }));
 
   return (
-    <div className="module-root">
+    <div
+      className="module-root"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "F4" && selected) {
+          e.preventDefault();
+          setQuoting(selected);
+        }
+      }}
+    >
       <div className="table-wrap">
         <table className="data-table data-table-grid market-watch">
           <thead>
@@ -43,7 +55,12 @@ export function MarketWatchModule() {
           </thead>
           <tbody>
             {rows.map(({ symbol, digits, tick }) => (
-              <tr key={symbol} className={isLive(symbol) ? "" : "mw-stale"}>
+              <tr
+                key={symbol}
+                className={`${symbol === selected ? "selected " : ""}${isLive(symbol) ? "" : "mw-stale"}`}
+                onClick={() => setSelected(symbol)}
+                onDoubleClick={() => setQuoting(symbol)}
+              >
                 <td>
                   <span className="sym-symbol-cell">
                     <Icon id="symbols" size={14} />
@@ -82,6 +99,13 @@ export function MarketWatchModule() {
         />
         <span className="grp-suffix">{rows.filter((r) => r.tick).length} / {rows.length} quoting</span>
       </div>
+      {quoting && (
+        <QuotesDialog
+          symbol={quoting}
+          digits={digitsOf.get(quoting) ?? 5}
+          onClose={() => setQuoting(null)}
+        />
+      )}
     </div>
   );
 }

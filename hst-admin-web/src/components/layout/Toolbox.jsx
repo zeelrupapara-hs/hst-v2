@@ -4,6 +4,7 @@ import { useToolbox } from "@/hooks/useToolbox.jsx";
 import { formatNs } from "@/lib/time.js";
 import { JournalType_name } from "@/constants/journal.js";
 import { SummaryPanel } from "@/components/layout/SummaryPanel.jsx";
+import { ExposureTab } from "@/modules/toolbox/ExposureTab.jsx";
 import { useSession } from "@/hooks/useSession.js";
 
 const toNs = (local) => (local ? new Date(local).getTime() * 1e6 : undefined);
@@ -146,6 +147,9 @@ export function Toolbox() {
           { id: "journal", label: "Journal" },
           { id: "search", label: "Search" },
           ...(isManagerPanel ? [{ id: "summary", label: "Summary" }] : []),
+          ...(isManagerPanel && session.can?.right_risk_manager !== false
+            ? [{ id: "exposure", label: "Exposure" }]
+            : []),
         ].map((t) => (
           <button
             key={t.id}
@@ -173,6 +177,12 @@ export function Toolbox() {
       {tab === "summary" && (
         <div className="toolbox-panel active">
           <SummaryPanel />
+        </div>
+      )}
+
+      {tab === "exposure" && (
+        <div className="toolbox-panel active">
+          <ExposureTab />
         </div>
       )}
 

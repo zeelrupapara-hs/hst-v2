@@ -140,6 +140,37 @@ function ActionDialog({ action, row, marketPrice, onClose, onDone }) {
   );
 }
 
+const AUTO_KINDS = [
+  { state: 7, label: "New orders" },
+  { state: 8, label: "Modifications" },
+  { state: 9, label: "Cancellations" },
+];
+
+/** MT5-style automation popover: per-kind enable + max lots (0 = unlimited). */
+function AutoPopover({ auto, setAuto }) {
+  return (
+    <div className="dealing-auto-pop">
+      {AUTO_KINDS.map(({ state, label }) => (
+        <label key={state} className="dealing-auto-row">
+          <input
+            type="checkbox"
+            checked={auto[state].on}
+            onChange={(e) => setAuto({ ...auto, [state]: { ...auto[state], on: e.target.checked } })}
+          />
+          <span>{label}</span>
+          <input
+            type="text"
+            className="dealing-auto-max"
+            value={auto[state].max}
+            onChange={(e) => setAuto({ ...auto, [state]: { ...auto[state], max: e.target.value } })}
+          />
+        </label>
+      ))}
+      <div className="dealing-auto-hint grp-suffix">max lots, 0 = unlimited — resets on reload</div>
+    </div>
+  );
+}
+
 /** The dealer desk: connect to work the queue, confirm, requote or reject each request. */
 export function DealingModule() {
   const [onDesk, setOnDesk] = useState(false);
@@ -148,8 +179,34 @@ export function DealingModule() {
   const [menu, setMenu] = useState(null);
   const [action, setAction] = useState(null);
   const [now, setNow] = useState(Date.now());
+  // deliberately not persisted — MT5 automation resets on restart
+  const [auto, setAuto] = useState({
+    7: { on: false, max: "0" },
+    8: { on: false, max: "0" },
+    9: { on: false, max: "0" },
+  });
+  const [autoOpen, setAutoOpen] = useState(false);
+  const [autoBusy, setAutoBusy] = useState(() => new Set());
+  const autoDone = useRef(new Set());
   const heartbeat = useRef(0);
   const ticks = useMarketFeed();
+
+  // auto-confirm freshly loaded rows whose kind is armed and volume fits
+  useEffect(() => {
+    for (const r of rows || []) {
+      const cfg = auto[r.state];
+      if (!cfg?.on || autoDone.current.has(r.order_id)) continue;
+      const max = Number(cfg.max) || 0;
+      if (max > 0 && (r.volume ?? 0) > max) continue;
+      autoDone.current.add(r.order_id);
+      setAutoBusy((s) => new Set(s).add(r.order_id));
+      const price = ticks.get(r.symbol)?.[r.type === 1 ? "bid" : "ask"] ?? r.price_current ?? 0;
+      confirmRequest(String(r.order_id), r.login, Number(price) || 0).then(() => {
+        setAutoBusy((s) => { const n = new Set(s); n.delete(r.order_id); return n; });
+        load();
+      });
+    }
+  }, [rows, auto]);
 
   // the countdown column ticks once a second
   useEffect(() => {
@@ -196,6 +253,16 @@ export function DealingModule() {
         </span>
         <button type="button" onClick={toggleDesk}>{onDesk ? "Leave desk" : "Join desk"}</button>
         <button type="button" onClick={load}>Refresh</button>
+        <span className="dealing-auto-anchor">
+          <button
+            type="button"
+            className={Object.values(auto).some((c) => c.on) ? "acc-profit" : ""}
+            onClick={() => setAutoOpen(!autoOpen)}
+          >
+            Automation
+          </button>
+          {autoOpen && <AutoPopover auto={auto} setAuto={setAuto} />}
+        </span>
       </div>
       <div className="table-wrap" onContextMenu={(e) => { e.preventDefault(); setMenu({ x: e.clientX, y: e.clientY }); }}>
         <table className="data-table data-table-grid data-table-auto">
@@ -222,7 +289,10 @@ export function DealingModule() {
                 onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => setAction("confirm")}
               >
-                <td>{REQUEST_STATE[r.state] ?? OrderState_name[r.state]}</td>
+                <td>
+                  {REQUEST_STATE[r.state] ?? OrderState_name[r.state]}
+                  {autoBusy.has(r.order_id) && <span className="grp-suffix dealing-auto-tag">auto</span>}
+                </td>
                 <td>{r.login}</td>
                 <td>{r.symbol}</td>
                 <td>{OrderType_name[r.type] ?? r.type}</td>

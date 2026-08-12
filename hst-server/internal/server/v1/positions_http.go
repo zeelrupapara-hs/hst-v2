@@ -3,9 +3,11 @@ package v1
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math"
 
 	"hstserver/model"
+	"hstserver/pkg/cache"
 	errs "hstserver/pkg/errors"
 	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
@@ -581,6 +583,168 @@ func (s *HttpServer) DeletePosition(c *fiber.Ctx) error {
 		journal.PositionDeletedMsg(check.PositionId, check.Login), check)
 
 	return s.App.HttpResponseOK(c, res)
+}
+
+// BulkCloseBody selects positions or orders by symbol and group mask and says what to do to them.
+type BulkCloseBody struct {
+	Symbol    string `json:"symbol" validate:"max=32"`
+	GroupMask string `json:"group_mask" validate:"max=64"`
+	Mode      string `json:"mode" validate:"required,oneof=close_positions delete_orders clear_sltp"`
+	Comment   string `json:"comment" validate:"max=31"`
+	Preview   bool   `json:"preview"`
+}
+
+// BulkRow is one position or order a bulk operation reaches. Volume is in lots.
+type BulkRow struct {
+	Login   int64   `json:"login"`
+	Id      int64   `json:"id"`
+	Symbol  string  `json:"symbol"`
+	Action  int32   `json:"action"`
+	Volume  float64 `json:"volume"`
+	Price   float64 `json:"price"`
+	PriceSL float64 `json:"price_sl"`
+	PriceTP float64 `json:"price_tp"`
+	Storage float64 `json:"storage"`
+	Profit  float64 `json:"profit"`
+}
+
+// BulkResult is what happened to one row; a refusal does not stop the rest.
+type BulkResult struct {
+	Login   int64  `json:"login"`
+	Id      int64  `json:"id"`
+	Ok      bool   `json:"ok"`
+	Message string `json:"message"`
+}
+
+// bulkSelect lists the rows the body's filters reach within the manager's masks.
+func (s *HttpServer) bulkSelect(c *fiber.Ctx, snap *cache.Session, body *BulkCloseBody) ([]BulkRow, error) {
+	where, args := groupWhere(snap.IsManager, snap.ManagerGroups, 1)
+
+	// delete_orders works the book, everything else works open positions
+	query := `SELECT p.position_id, p.login, p.symbol, p.action,
+	       GREATEST(p.volume_ext, p.volume * 10000),
+	       p.price_open, p.price_sl, p.price_tp, p.storage, p.profit` +
+		` FROM hst.positions p JOIN hst.users u ON u.login = p.login WHERE ` + where
+	alias := "p"
+	if body.Mode == "delete_orders" {
+		query = `SELECT o.order_id, o.login, o.symbol, o.type,
+	       GREATEST(o.volume_current_ext, o.volume_current * 10000),
+	       o.price_order, o.price_sl, o.price_tp, 0::numeric, 0::numeric` +
+			` FROM hst.orders o JOIN hst.users u ON u.login = o.login WHERE ` + liveStates + ` AND ` + where
+		alias = "o"
+	}
+
+	if body.Symbol != "" {
+		query += fmt.Sprintf(" AND %s.symbol = $%d", alias, len(args)+1)
+		args = append(args, body.Symbol)
+	}
+	if body.GroupMask != "" {
+		// the mask narrows within the manager's reach, matched exactly as manager masks are
+		mw, margs := utils.GroupAccess([]string{body.GroupMask}, `u."group"`, len(args)+1)
+		query += " AND " + mw
+		args = append(args, margs...)
+	}
+
+	rows, err := s.DB.DB.Query(c.UserContext(), query+" ORDER BY 2, 1", args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []BulkRow{}
+	for rows.Next() {
+		var r BulkRow
+		var volumeExt int64
+		if err := rows.Scan(&r.Id, &r.Login, &r.Symbol, &r.Action, &volumeExt,
+			&r.Price, &r.PriceSL, &r.PriceTP, &r.Storage, &r.Profit); err != nil {
+			return nil, err
+		}
+		r.Volume = model.ExtToLots(volumeExt)
+		out = append(out, r)
+	}
+
+	return out, rows.Err()
+}
+
+// BulkClose closes positions, cancels pending orders or clears stop levels across a selection.
+//
+//	@Id			BulkClose
+//	@Tags		Positions
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		BulkCloseBody	true	"the selection and the operation"
+//	@Success	200		{object}	Response{data=[]BulkResult}
+//	@Failure	400		{object}	Response
+//	@Failure	500		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/positions/bulk-close [post]
+func (s *HttpServer) BulkClose(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	var body BulkCloseBody
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	if err := s.Validate.Struct(body); err != nil {
+		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	rows, err := s.bulkSelect(c, snap, &body)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if body.Preview {
+		return s.App.HttpResponseOK(c, rows)
+	}
+
+	s.JournalEntry(c, model.JournalType_trade, logger.CodeAtt,
+		journal.BulkCloseQueuedMsg(body.Mode, body.Symbol, body.GroupMask, len(rows)), body)
+
+	// each row goes through the same path its single-row endpoint uses, refusals included
+	comment := body.Comment
+	if comment == "" {
+		comment = "bulk " + body.Mode
+	}
+	out := make([]BulkResult, 0, len(rows))
+	failed := 0
+	for _, r := range rows {
+		var res *Accepted
+		var err error
+		switch body.Mode {
+		case "close_positions":
+			res, _, err = s.closePosition(c.UserContext(),
+				&ClosePosition{Login: r.Login, PositionId: r.Id, Comment: comment}, snap.Login)
+		case "delete_orders":
+			res, _, err = s.cancelOrder(c.UserContext(),
+				&CancelOrder{Login: r.Login, OrderId: r.Id, Comment: comment}, snap.Login)
+		case "clear_sltp":
+			res, _, err = s.updatePosition(c.UserContext(),
+				&UptPosition{Login: r.Login, PositionId: r.Id, Comment: comment}, snap.Login)
+		}
+
+		result := BulkResult{Login: r.Login, Id: r.Id, Ok: err == nil}
+		if err != nil {
+			failed++
+			result.Message = err.Error()
+		} else if res != nil {
+			result.Message = res.Message
+		}
+		out = append(out, result)
+	}
+
+	code := logger.CodeOK
+	if failed > 0 {
+		code = logger.CodeWarn
+	}
+	s.Log.Log(logger.TypeTrade, code, "bulk close done",
+		"actor", snap.Login, "mode", body.Mode, "total", len(rows), "failed", failed)
+	s.JournalEntry(c, model.JournalType_trade, code,
+		journal.BulkCloseDoneMsg(body.Mode, len(rows)-failed, failed), out)
+
+	return s.App.HttpResponseOK(c, out)
 }
 
 // checkOnePosition recomputes one position; nil when it does not exist.

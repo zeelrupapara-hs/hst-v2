@@ -5,11 +5,15 @@ import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { money } from "@/lib/format.js";
 import { AccountDialog } from "@/modules/accounts/AccountDialog.jsx";
+import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
+import { MailDialog } from "@/modules/mail/MailDialog.jsx";
 
 /** Accounts whose live margin level fell to their group's call line; red when at stop out. */
 export function MarginCallsModule() {
   const [users, setUsers] = useState([]);
   const [dialog, setDialog] = useState(null);
+  const [menu, setMenu] = useState(null);
+  const [mailTo, setMailTo] = useState(null);
   const { groups } = useGroups();
   const live = useLiveAccounts();
 
@@ -48,6 +52,10 @@ export function MarginCallsModule() {
                 key={user.login}
                 className={m.level <= stopOut ? "mc-stopout" : ""}
                 onDoubleClick={() => setDialog(user.login)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ x: e.clientX, y: e.clientY, login: user.login });
+                }}
               >
                 <td>
                   <span className="sym-symbol-cell">
@@ -68,6 +76,19 @@ export function MarginCallsModule() {
           </tbody>
         </table>
       </div>
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Send Mail…", icon: "mailbox", onClick: () => setMailTo(menu.login) },
+            "sep",
+            { label: "Refresh", onClick: () => fetchUsers().then((res) => res.ok && setUsers(res.data || [])) },
+          ]}
+        />
+      )}
+      {mailTo && <MailDialog logins={[mailTo]} onClose={() => setMailTo(null)} />}
       {dialog && <AccountDialog login={dialog} onClose={() => setDialog(null)} onSaved={() => {}} />}
     </div>
   );

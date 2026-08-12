@@ -5433,3 +5433,51 @@ tr[draggable="true"] { cursor: grab; }
 }
 .acc-pass-line button:hover { background: #e0eef9; border-color: #7eb4ea; }
 .acc-pass-line button:active { background: #cce4f7; }
+
+/* bulk dialogs: result list + csv textarea + destructive process button */
+.bulk-results { max-height: 150px; overflow: auto; margin-top: 8px; font-size: 12px; }
+.bulk-results > div { padding: 1px 4px; }
+.bulk-csv { resize: vertical; min-height: 56px; font: inherit; }
+.bulk-danger { color: #c62828; font-weight: bold; }
+.bulk-danger:disabled { color: inherit; font-weight: normal; }
+
+/* dealing automation popover */
+.dealing-auto-anchor { position: relative; display: inline-block; }
+.dealing-auto-pop {
+  position: absolute; top: calc(100% + 4px); right: 0; z-index: 100;
+  background: var(--panel-bg, #fff); border: 1px solid var(--border, #999);
+  box-shadow: 0 4px 12px rgba(0,0,0,.25); padding: 8px 10px; min-width: 220px;
+}
+.dealing-auto-row { display: flex; align-items: center; gap: 6px; padding: 3px 0; white-space: nowrap; cursor: pointer; }
+.dealing-auto-row span { flex: 1; }
+.dealing-auto-max { width: 56px; text-align: right; }
+.dealing-auto-hint { padding-top: 4px; font-size: 11px; }
+.dealing-auto-tag { margin-left: 4px; }
+
+/* Exposure long/short bar: center-anchored, red left for short, green right for long */
+.exp-bar { display: flex; width: 120px; height: 10px; background: #eee; border: 1px solid #ccc; }
+.exp-bar-left, .exp-bar-right { flex: 1; display: flex; overflow: hidden; }
+.exp-bar-left { justify-content: flex-end; }
+.exp-bar-short { background: #c62828; height: 100%; }
+.exp-bar-long { background: #2e7d32; height: 100%; }
+
+/* mail dialog */
+.mail-dialog .form-grid textarea.mail-body { resize: none; grid-column: 2; width: 100%; font: inherit; }
+.mail-dialog .config-actions .mail-sent { margin-right: auto; color: #2e7d32; font-size: 11px; }
+
+/* MT5's bulk close dialog: form left, the what-to-do checks right, preview below */
+.bulk-close-head { display: flex; gap: 18px; margin-bottom: 8px; }
+.bulk-close-form { flex: 1; }
+.bulk-close-prices { display: flex; gap: 4px; }
+.bulk-close-prices input { width: 70px; text-align: right; }
+.bulk-close-prices button {
+  min-width: 60px; height: 22px; border: 1px solid var(--chrome-border);
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); font-size: 11px; cursor: pointer;
+}
+.bulk-close-checks { display: flex; flex-direction: column; gap: 8px; padding-top: 2px; white-space: nowrap; }
+.bulk-close-checks label { display: flex; align-items: center; gap: 5px; }
+
+/* automation popover wears the chrome look */
+.dealing-auto-pop { border: 1px solid #adadad; box-shadow: 2px 2px 6px rgba(0,0,0,.25); background: #fff; padding: 8px 10px; }
+.dealing-auto-max { height: 20px; border: 1px solid var(--chrome-border); padding: 0 4px; font-size: 11px; }
+.dealing-auto-hint { color: #666; border-top: 1px solid #e5e5e5; margin-top: 4px; }

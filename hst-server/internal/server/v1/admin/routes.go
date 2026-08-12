@@ -154,11 +154,24 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	positions.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAccountPositions)
 	positions.Get("/check", s.Middleware.Authorization(model.MgrRightAccountant), s.CheckPositions)
 	positions.Post("/fix", s.Middleware.Authorization(model.MgrRightAccountant), s.FixPosition)
+	positions.Post("/bulk-close", s.Middleware.Authorization(model.MgrRightTradesDealer), s.BulkClose)
 	positions.Delete("/:position_id", s.Middleware.Authorization(model.MgrRightTradesDelete), s.DeletePosition)
 	positions.Get("/:position_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetPosition)
 	positions.Put("/:position_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.UpdatePosition)
 	positions.Post("/:position_id/close", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.ClosePosition)
 	positions.Post("/:position_id/close-by", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.CloseByPosition)
+
+	// throw-in quotes: a manual price injected into the feed
+	quotes := v1.Group("/quotes", s.Middleware.Protect, s.Middleware.RequireManager)
+	quotes.Post("/", s.Middleware.Authorization(model.MgrRightQuotes), s.ThrowQuote)
+
+	// the risk manager's currency book
+	exposure := v1.Group("/exposure", s.Middleware.Protect, s.Middleware.RequireManager)
+	exposure.Get("/", s.Middleware.Authorization(model.MgrRightRiskManager), s.GetExposure)
+
+	// mail to accounts
+	mails := v1.Group("/mails", s.Middleware.Protect, s.Middleware.RequireManager)
+	mails.Post("/", s.Middleware.Authorization(model.MgrRightEmail), s.SendMail)
 
 	// deals
 	deals := v1.Group("/deals", s.Middleware.Protect, s.Middleware.RequireManager)
@@ -206,6 +219,7 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	balance.Post("/withdrawal", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateWithdrawal)
 	balance.Post("/credit", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateCredit)
 	balance.Get("/check", s.Middleware.Authorization(model.MgrRightAccountant), s.CheckBalances)
+	balance.Post("/bulk", s.Middleware.Authorization(model.MgrRightAccountant), s.BulkBalance)
 	balance.Post("/fix", s.Middleware.Authorization(model.MgrRightAccountant), s.FixBalance)
 	balance.Post("/correction", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateCorrection)
 

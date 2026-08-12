@@ -22,3 +22,5 @@ export const closePosition = (positionId, body) =>
   request(`/api/v1/positions/${positionId}/close`, { method: "POST", body });
 export const modifyPosition = (positionId, body) =>
   request(`/api/v1/positions/${positionId}`, { method: "PUT", body });
+
+export const bulkClose = (body) => request("/api/v1/positions/bulk-close", { method: "POST", body });
