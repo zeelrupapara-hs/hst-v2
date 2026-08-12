@@ -5379,8 +5379,14 @@ tr[draggable="true"] { cursor: grab; }
 .trade-grid label { text-align: right; }
 .trade-grid input[type="text"] { width: 84px; text-align: right; }
 .trade-stepper-wrap { display: flex; align-items: center; gap: 4px; }
-.trade-steppers { display: inline-flex; flex-direction: column; }
-.trade-steppers button { font-size: 6px; line-height: 7px; padding: 0 3px; }
+.trade-steppers { display: inline-flex; flex-direction: column; margin-left: -1px; }
+.trade-steppers button {
+  font-size: 5px; line-height: 1; width: 15px; height: 11px; padding: 0;
+  border: 1px solid #adadad; background: #f0f0f0; color: #444; cursor: pointer;
+}
+.trade-steppers button:first-child { border-bottom-width: 0; }
+.trade-steppers button:hover { background: #e0eef9; border-color: #7eb4ea; }
+.trade-steppers button:active { background: #cce4f7; }
 .trade-auto { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; }
 .trade-tp-label { margin-left: 8px; white-space: nowrap; }
 .trade-quote { text-align: center; font-size: 26px; font-weight: 700; margin: 14px 0 10px; }
@@ -5399,7 +5405,23 @@ tr[draggable="true"] { cursor: grab; }
 .trade-buttons button:disabled { opacity: 0.5; cursor: default; }
 .trade-status { border: 1px solid #bbb; background: #eee; min-height: 20px; padding: 2px 8px; margin-bottom: 8px; }
 
-/* The account History tab: the grid above, the period bar below. */
-.history-tab { display: flex; flex-direction: column; height: 100%; }
-.history-table { flex: 1; overflow: auto; }
-.history-bar { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+/* The account History tab: the grid fills, the period bar pins to the bottom like MT5. */
+.history-tab { display: flex; flex-direction: column; min-height: 468px; }
+.history-table { flex: 1; overflow: auto; max-height: 430px; }
+.history-bar { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 8px; border-top: 1px solid #ddd; }
+.history-bar .prop-select { flex: none; width: 120px; }
+.history-bar input[type="date"] {
+  height: 22px; padding: 1px 4px; border: 1px solid var(--chrome-border); font-size: 11px;
+}
+.history-bar > button {
+  min-width: 75px; height: 24px; border: 1px solid var(--chrome-border);
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); font-size: 11px; cursor: pointer;
+}
+.history-bar > button:hover { background: #e0eef9; border-color: #7eb4ea; }
+
+/* row actions in the trade tab share the chrome button look */
+.dealing-context-positions button {
+  min-width: 52px; height: 20px; border: 1px solid var(--chrome-border);
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); font-size: 11px; cursor: pointer;
+}
+.dealing-context-positions button:hover { background: #e0eef9; border-color: #7eb4ea; }

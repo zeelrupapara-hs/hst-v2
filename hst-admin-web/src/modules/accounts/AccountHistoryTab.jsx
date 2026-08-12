@@ -9,9 +9,11 @@ const DAY = 86400;
 
 const PERIODS = [
   { value: "today", label: "Today" },
+  { value: "3days", label: "Last 3 days" },
   { value: "week", label: "Last week" },
   { value: "month", label: "Last month" },
   { value: "3months", label: "Last 3 months" },
+  { value: "6months", label: "Last 6 months" },
   { value: "all", label: "All history" },
 ];
 
@@ -19,9 +21,11 @@ const since = (period) => {
   const now = Math.floor(Date.now() / 1000);
   switch (period) {
     case "today": return now - DAY;
+    case "3days": return now - 3 * DAY;
     case "week": return now - 7 * DAY;
     case "month": return now - 30 * DAY;
     case "3months": return now - 90 * DAY;
+    case "6months": return now - 180 * DAY;
     default: return 0;
   }
 };
