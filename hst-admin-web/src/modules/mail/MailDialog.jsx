@@ -4,6 +4,7 @@ import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { sendMail } from "@/api/endpoints/mails.js";
+import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
 
 /** Compose window: mail the given logins, or every account matching a group mask. */
 export function MailDialog({ logins = [], onClose }) {
@@ -68,12 +69,7 @@ export function MailDialog({ logins = [], onClose }) {
               <label>To</label>
               <input type="text" value={logins.join(", ")} readOnly disabled={!logins.length} />
               <label>Group</label>
-              <input
-                type="text"
-                value={mask}
-                placeholder="or group mask, e.g. demo*"
-                onChange={(e) => setMask(e.target.value)}
-              />
+              <GroupTreeSelect maskable value={mask} onChange={setMask} onPick={setMask} />
               <label>Subject</label>
               <input
                 type="text"

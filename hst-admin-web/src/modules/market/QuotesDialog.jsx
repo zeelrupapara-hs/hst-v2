@@ -3,7 +3,7 @@ import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
-import { PropSelect } from "@/components/ui/PropSelect.jsx";
+import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
 import { useMarketFeed } from "@/hooks/useMarketFeed.js";
 import { useSymbols } from "@/hooks/useSymbols.js";
 import { throwQuote } from "@/api/endpoints/quotes.js";
@@ -86,16 +86,7 @@ export function QuotesDialog({ symbol: initialSymbol, onClose }) {
         >
           <div className="config-panel active">
             <div className="form-grid">
-              <label>Symbol</label>
-              <PropSelect
-                fill
-                value={symbol}
-                options={symbols.map((s) => ({
-                  value: s.symbol,
-                  label: s.description ? `${s.symbol}, ${s.description}` : s.symbol,
-                }))}
-                onChange={setSymbol}
-              />
+              <SymbolTreeSelectField label="Symbol" value={symbol} onChange={setSymbol} />
               <label>Bid</label>
               <span className="trade-stepper-wrap">
                 <input type="text" value={bid} autoFocus onChange={(e) => setBid(e.target.value)} />

@@ -5469,7 +5469,7 @@ tr[draggable="true"] { cursor: grab; }
 .bulk-close-head { display: flex; gap: 18px; margin-bottom: 8px; }
 .bulk-close-form { flex: 1; }
 .bulk-close-prices { display: flex; gap: 4px; }
-.bulk-close-prices input { width: 70px; text-align: right; }
+.form-grid .bulk-close-prices input { width: 74px; min-width: 0; flex: none; text-align: right; }
 .bulk-close-prices button {
   min-width: 60px; height: 22px; border: 1px solid var(--chrome-border);
   background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); font-size: 11px; cursor: pointer;

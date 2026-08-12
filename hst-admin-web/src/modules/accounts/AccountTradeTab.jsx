@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { PropSelect } from "@/components/ui/PropSelect.jsx";
+import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
 import {
   closePosition,
   createOrder,
@@ -233,16 +234,7 @@ export function AccountTradeTab({ login }) {
         <TickChart symbol={symbol} tick={tick} digits={digits} />
         <div className="trade-form">
           <div className="trade-grid">
-            <label>Symbol:</label>
-            <PropSelect
-              fill
-              value={symbol}
-              options={symbols.map((s) => ({
-                value: s.symbol,
-                label: s.description ? `${s.symbol}, ${s.description}` : s.symbol,
-              }))}
-              onChange={setSymbol}
-            />
+            <SymbolTreeSelectField label="Symbol:" value={symbol} onChange={setSymbol} />
             <label>Type:</label>
             <PropSelect fill value={type} options={ORDER_TYPES} onChange={setType} />
             <label>Volume:</label>

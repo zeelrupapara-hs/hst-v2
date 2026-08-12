@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack } from "@/hooks/useDialogStack.jsx";
-import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { bulkClose } from "@/api/endpoints/trades.js";
 import { useSymbols } from "@/hooks/useSymbols.js";
-import { useGroups } from "@/hooks/useGroups.js";
+import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
+import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
 import { useMarketFeed } from "@/hooks/useMarketFeed.js";
 import { money } from "@/lib/format.js";
 import { OrderType_name } from "@/constants/trades.js";
@@ -16,7 +16,6 @@ const px = (v, d = 5) => (v ? Number(v).toFixed(d) : "0.000");
 /** MT5's Close All Positions By Symbol: pick the selection, tick what to do, preview fills itself. */
 export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
   const { symbols } = useSymbols();
-  const { groups } = useGroups();
   const ticks = useMarketFeed();
   const [symbol, setSymbol] = useState(initialSymbol || "");
   const [mask, setMask] = useState("*");
@@ -111,16 +110,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
           <div className="config-panel active">
             <div className="bulk-close-head">
               <div className="form-grid bulk-close-form">
-                <label>Symbol</label>
-                <PropSelect
-                  fill
-                  value={symbol}
-                  options={symbols.map((s) => ({
-                    value: s.symbol,
-                    label: s.description ? `${s.symbol}, ${s.description}` : s.symbol,
-                  }))}
-                  onChange={setSymbol}
-                />
+                <SymbolTreeSelectField label="Symbol" value={symbol} onChange={setSymbol} />
                 <label>Bid / Ask</label>
                 <span className="bulk-close-prices">
                   <input type="text" readOnly value={px(tick?.bid, digits)} />
@@ -128,12 +118,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
                   <button type="button" onClick={() => refresh()}>Update</button>
                 </span>
                 <label>Groups</label>
-                <PropSelect
-                  fill
-                  value={mask}
-                  options={[{ value: "*", label: "*" }, ...groups.map((g) => ({ value: g.group, label: g.group }))]}
-                  onChange={setMask}
-                />
+                <GroupTreeSelect maskable value={mask} onChange={setMask} onPick={setMask} />
                 <label>Comment</label>
                 <input type="text" maxLength={31} value={comment} onChange={(e) => setComment(e.target.value)} />
               </div>
