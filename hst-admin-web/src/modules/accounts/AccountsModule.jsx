@@ -3,6 +3,7 @@ import { useSession } from "@/hooks/useSession.js";
 import { useRegisterToolbarActions } from "@/hooks/useToolbarActions.jsx";
 import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { deleteUser, fetchUsers } from "@/api/endpoints/users.js";
+import { checkBalances, fixBalance } from "@/api/endpoints/balance.js";
 import { formatNs } from "@/lib/time.js";
 import { money } from "@/lib/format.js";
 import { Icon } from "@/components/ui/Icon.jsx";
@@ -38,6 +39,7 @@ export function AccountsModule() {
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
   const [balance, setBalance] = useState(null);
+  const [checks, setChecks] = useState(null);
   const [view, setView] = useState({ grid: true, autoArrange: true });
   const canEdit = session.can?.right_acc_manager !== false;
 
@@ -66,6 +68,33 @@ export function AccountsModule() {
   function saved() {
     load();
     session.refreshNav?.();
+  }
+
+  // the audit: recompute every account from its deals, flag what does not add up
+  async function runCheck() {
+    const res = await checkBalances();
+    if (!res.ok) {
+      window.alert(res.message || "check failed");
+      return;
+    }
+    const byLogin = new Map(res.data.map((r) => [r.login, r]));
+    setChecks(byLogin);
+    const invalid = res.data.filter((r) => !r.ok).length;
+    window.alert(invalid ? `${invalid} of ${res.data.length} accounts have an invalid balance` : `All ${res.data.length} accounts add up`);
+  }
+
+  async function runFix(row) {
+    const res = await fixBalance(row.login);
+    if (!res.ok) {
+      window.alert(res.message || "fix failed");
+      return;
+    }
+    setChecks((prev) => {
+      const next = new Map(prev ?? []);
+      next.set(row.login, res.data);
+      return next;
+    });
+    load();
   }
 
   return (
@@ -97,7 +126,7 @@ export function AccountsModule() {
             {(rows || []).map((row, i) => (
               <tr
                 key={row.login}
-                className={selected === i ? "selected" : ""}
+                className={`${selected === i ? "selected" : ""}${checks?.get(row.login)?.ok === false ? " acc-invalid" : ""}`.trim()}
                 onClick={() => setSelected(i)}
                 onContextMenu={() => setSelected(i)}
                 onDoubleClick={() => canEdit && setDialog({ login: row.login })}
@@ -111,7 +140,11 @@ export function AccountsModule() {
                 <td>{row.name}</td>
                 <td>{row.group}</td>
                 <td>1 : {row.leverage}</td>
-                <td>{money(live.get(row.login)?.balance ?? row.balance)}</td>
+                <td>
+                  {checks?.get(row.login)?.ok === false
+                    ? `${money(checks.get(row.login).balance)} / ${money(checks.get(row.login).valid_balance)}`
+                    : money(live.get(row.login)?.balance ?? row.balance)}
+                </td>
                 <td>{money(live.get(row.login)?.credit ?? row.credit)}</td>
                 {isManagerPanel && <LiveMoneyCells account={live.get(row.login)} />}
                 <td>{row.email}</td>
@@ -138,8 +171,10 @@ export function AccountsModule() {
             {
               label: "Balance",
               items: [
-                { label: "Check Balance", disabled: true },
-                { label: "Fix Balance", disabled: selected == null, onClick: () => setBalance(rows[selected]) },
+                { label: "Check Balance", onClick: runCheck },
+                { label: "Fix Balance", disabled: selected == null || checks?.get(rows[selected]?.login)?.ok !== false, onClick: () => runFix(rows[selected]) },
+                "sep",
+                { label: "Balance Operation…", disabled: selected == null, onClick: () => setBalance(rows[selected]) },
               ],
             },
             {

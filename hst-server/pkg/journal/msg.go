@@ -120,6 +120,16 @@ func SessionDisconnectedMsg(login int64) string {
 	return fmt.Sprintf("a session of account #%d was disconnected by the desk", login)
 }
 
+// BalanceInvalidMsg reports a stored balance that its deals do not add up to.
+func BalanceInvalidMsg(login int64, stored, valid float64) string {
+	return fmt.Sprintf("account #%d has invalid balance: %.2f, valid: %.2f", login, stored, valid)
+}
+
+// BalanceFixedMsg reports the stored balance written back to what the deals say.
+func BalanceFixedMsg(login int64, from, to float64) string {
+	return fmt.Sprintf("balance of account #%d was fixed from %.2f to %.2f", login, from, to)
+}
+
 func PositionInvalidMsg(positionId int64, volume, validVolume, price, validPrice float64) string {
 	return fmt.Sprintf("position #%d has invalid volume: %.2f, valid: %.2f, price: %.5f, valid: %.5f",
 		positionId, volume, validVolume, price, validPrice)

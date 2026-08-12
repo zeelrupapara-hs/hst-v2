@@ -5367,3 +5367,6 @@ tr[draggable="true"] { cursor: grab; }
 .dealing-context { border-top: 1px solid var(--table-border); padding: 6px 8px; }
 .dealing-context-money { display: flex; gap: 16px; font-size: 11px; margin-bottom: 6px; }
 .dealing-context-positions { max-height: 140px; }
+
+/* An account whose deals do not add up to its balance */
+.data-table tbody tr.acc-invalid td { background: #fdecea; color: #9f3a38; }

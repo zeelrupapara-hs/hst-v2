@@ -22,6 +22,8 @@ type BalanceRequest struct {
 	ExpertId  int64      `json:"expert_id"`
 	// Deposit refuses the operation when it would take the balance below zero.
 	AllowNegative bool `json:"allow_negative"`
+	// Fix writes Amount as the new value instead of adding it; no deal is recorded.
+	Fix bool `json:"fix"`
 }
 
 func BalanceActionName(action DealAction) string { return DealActionName(action) }

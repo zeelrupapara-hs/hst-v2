@@ -12,3 +12,8 @@ export const createCorrection = op("correction");
 // bonus 6, commission 7. The sign of the amount decides deposit or withdrawal.
 export const createBalance = (login, action, amount, comment = "") =>
   request("/api/v1/balance", { method: "POST", body: { login, action, amount, comment } });
+
+// The integrity audit: stored money beside what the account's deals add up to.
+export const checkBalances = () => request("/api/v1/balance/check");
+export const fixBalance = (login) =>
+  request("/api/v1/balance/fix", { method: "POST", body: { login } });
