@@ -40,7 +40,7 @@ func (h *Handler) NewBalance(ctx context.Context, req *model.BalanceRequest) *mo
 	if !model.IsBalanceAction(req.Action) {
 		return h.refuse(res, model.RetInvalidData, "")
 	}
-	if req.Amount == 0 {
+	if req.Amount == 0 && !req.Fix {
 		return h.refuse(res, model.RetInvalidData, "")
 	}
 
@@ -52,6 +52,30 @@ func (h *Handler) NewBalance(ctx context.Context, req *model.BalanceRequest) *mo
 	e.Lock()
 
 	credit := model.AffectsCredit(req.Action)
+
+	// a fix writes the deals-derived value back as the truth — no deal, a deal would move both sides
+	if req.Fix {
+		if credit {
+			e.Account.Credit = req.Amount
+		} else {
+			e.Account.Balance = req.Amount
+		}
+		h.CalculateAccountMargins(e).Apply(e.Account)
+		account := *e.Account
+		e.Unlock()
+
+		if err := h.saveAccountAndPublish(ctx, &account); err != nil {
+			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a balance fix",
+				"login", req.Login, "error", err.Error())
+			return h.refuse(res, model.RetError, "")
+		}
+
+		res.RetCode = int32(model.RetOK)
+		res.Message = model.RetOK.String()
+		h.Log.Log(logger.TypeTrade, logger.CodeAtt, "balance fix",
+			"login", req.Login, "credit", credit, "value", req.Amount, "dealer", req.Dealer)
+		return res
+	}
 
 	// only a correction may leave an account short; everything else has to be covered
 	if !req.AllowNegative && req.Amount < 0 {
@@ -112,6 +136,25 @@ func (h *Handler) balanceDeal(e *book.Entry, req *model.BalanceRequest) *model.D
 		Comment:        req.Comment,
 		Reason:         model.OrderReason_dealer,
 	}
+}
+
+// saveAccountAndPublish persists a deal-less money write (a balance fix) and streams it out.
+func (h *Handler) saveAccountAndPublish(ctx context.Context, a *model.Account) error {
+	tx, err := h.DB.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if err := saveAccount(ctx, tx, a, Now()); err != nil {
+		return err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return err
+	}
+
+	h.PublishAccount(a, nil)
+	return nil
 }
 
 func (h *Handler) SaveBalanceAndPublish(ctx context.Context, e *book.Entry, d *model.Deal,

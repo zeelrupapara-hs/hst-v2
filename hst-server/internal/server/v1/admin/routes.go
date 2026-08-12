@@ -205,6 +205,8 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	balance.Post("/deposit", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateDeposit)
 	balance.Post("/withdrawal", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateWithdrawal)
 	balance.Post("/credit", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateCredit)
+	balance.Get("/check", s.Middleware.Authorization(model.MgrRightAccountant), s.CheckBalances)
+	balance.Post("/fix", s.Middleware.Authorization(model.MgrRightAccountant), s.FixBalance)
 	balance.Post("/correction", s.Middleware.Authorization(model.MgrRightAccountant), s.CreateCorrection)
 
 	// server journal
