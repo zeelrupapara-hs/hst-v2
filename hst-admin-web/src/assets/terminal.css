@@ -5481,3 +5481,12 @@ tr[draggable="true"] { cursor: grab; }
 .dealing-auto-pop { border: 1px solid #adadad; box-shadow: 2px 2px 6px rgba(0,0,0,.25); background: #fff; padding: 8px 10px; }
 .dealing-auto-max { height: 20px; border: 1px solid var(--chrome-border); padding: 0 4px; font-size: 11px; }
 .dealing-auto-hint { color: #666; border-top: 1px solid #e5e5e5; margin-top: 4px; }
+
+/* MT5's Down / Update / Up row in the Quotes dialog */
+.quotes-updown { display: flex; gap: 10px; justify-content: center; margin-top: 14px; }
+.quotes-updown button {
+  min-width: 80px; height: 24px; border: 1px solid var(--chrome-border);
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); font-size: 11px; cursor: pointer;
+}
+.quotes-updown .quotes-down { background: #c0392b; color: #fff; border-color: #96281b; }
+.quotes-updown .quotes-up { background: #2465b4; color: #fff; border-color: #1a4c8b; }

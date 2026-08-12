@@ -9,6 +9,7 @@ import { useSymbols } from "@/hooks/useSymbols.js";
 import { useGroups } from "@/hooks/useGroups.js";
 import { useMarketFeed } from "@/hooks/useMarketFeed.js";
 import { money } from "@/lib/format.js";
+import { OrderType_name } from "@/constants/trades.js";
 
 const px = (v, d = 5) => (v ? Number(v).toFixed(d) : "0.000");
 
@@ -43,21 +44,29 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
     ...(doSltp ? ["clear_sltp"] : []),
   ];
 
+  // the preview shows positions and/or pending orders, following the ticked operations
   async function refresh(sym = symbol, m = mask) {
     setError("");
     setResults(null);
-    const res = await bulkClose({ symbol: sym, group_mask: m || "*", mode: "close_positions", preview: true });
-    if (!res.ok) {
-      setError(res.message || "preview failed");
-      return;
+    const rows = [];
+    if (doClose || doSltp) {
+      const res = await bulkClose({ symbol: sym, group_mask: m || "*", mode: "close_positions", preview: true });
+      if (!res.ok) {
+        setError(res.message || "preview failed");
+        return;
+      }
+      rows.push(...(res.data || []).map((r) => ({ ...r, kind: "position" })));
     }
-    setPreview(res.data || []);
+    if (doOrders) {
+      const res = await bulkClose({ symbol: sym, group_mask: m || "*", mode: "delete_orders", preview: true });
+      if (res.ok) rows.push(...(res.data || []).map((r) => ({ ...r, kind: "order" })));
+    }
+    setPreview(rows);
   }
 
-  // the table previews itself, MT5-style, whenever the selection changes
   useEffect(() => {
     if (symbol) refresh();
-  }, [symbol, mask]);
+  }, [symbol, mask, doClose, doOrders, doSltp]);
 
   async function handleProcess() {
     if (!modes.length) {
@@ -157,7 +166,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
                     {(preview || []).map((r, i) => (
                       <tr key={i}>
                         <td>{r.login}</td>
-                        <td>{r.action === 0 ? "buy" : "sell"}</td>
+                        <td>{r.kind === "order" ? (OrderType_name[r.action] ?? r.action) : r.action === 0 ? "buy" : "sell"}</td>
                         <td>{(r.volume ?? 0).toFixed(2)}</td>
                         <td>{px(r.price, digits)}</td>
                         <td>{px(r.price_sl, digits)}</td>
