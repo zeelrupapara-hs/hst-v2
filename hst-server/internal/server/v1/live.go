@@ -88,3 +88,16 @@ func (s *HttpServer) overlayLive(ctx context.Context, login int64, out []ViewPos
 		out[j].Storage = live[i].Storage
 	}
 }
+
+// overlayLiveAll refreshes a mixed list, asking the engine once per login it contains.
+func (s *HttpServer) overlayLiveAll(ctx context.Context, out []ViewPosition) {
+	seen := make(map[int64]bool)
+	for i := range out {
+		login := out[i].Login
+		if seen[login] {
+			continue
+		}
+		seen[login] = true
+		s.overlayLive(ctx, login, out)
+	}
+}

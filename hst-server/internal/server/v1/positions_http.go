@@ -38,6 +38,8 @@ func (s *HttpServer) GetAllPositions(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	s.overlayLiveAll(c.UserContext(), out)
+
 	return s.App.HttpResponseOK(c, out)
 }
 
@@ -102,6 +104,8 @@ func (s *HttpServer) GetAccountPositions(c *fiber.Ctx) error {
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
+
+	s.overlayLive(c.UserContext(), int64(login), out)
 
 	return s.App.HttpResponseOK(c, out)
 }
