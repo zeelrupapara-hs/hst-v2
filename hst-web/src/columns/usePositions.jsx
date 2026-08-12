@@ -63,7 +63,8 @@ const usePositions = () => {
 
           <Icon Icon={LuArrowRight} size={14} />
 
-          {getSide(record?.type, record?.side) === 0 ? (
+          {/* an open buy closes at bid; a pending buy still triggers on ask */}
+          {(record?.type ? getSide(record.type, record.side) === 0 : record?.side !== 0) ? (
             <Ask symbolId={record?.symbol_id} />
           ) : (
             <Bid symbolId={record?.symbol_id} />

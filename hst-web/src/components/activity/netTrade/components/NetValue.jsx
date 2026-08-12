@@ -8,7 +8,8 @@ const NetValue = ({ position }) => {
     (state) => state.liveSymbols?.[symbolId]
   );
 
-  const currentPrice = Number(side) === 0 ? last_ask : last_bid;
+  // the position's close-out value: a buy closes at bid, a sell at ask
+  const currentPrice = Number(side) === 0 ? last_bid : last_ask;
 
   const netValue = calculateNetValue({ ...position, price: currentPrice });
 
