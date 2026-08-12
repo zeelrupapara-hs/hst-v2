@@ -5336,7 +5336,7 @@ tr[draggable="true"] { cursor: grab; }
 }
 .balance-picker-name { color: #444; }
 .balance-ops-form { max-width: 480px; }
-.balance-ops-actions { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+.balance-ops-actions { display: flex; align-items: center; gap: 8px; margin: 10px 0 10px 172px; }
 .balance-ops-actions button {
   min-width: 96px; height: 26px; border: 1px solid #adadad;
   color: #fff; font-size: 11px; cursor: pointer;
@@ -5425,3 +5425,11 @@ tr[draggable="true"] { cursor: grab; }
   background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); font-size: 11px; cursor: pointer;
 }
 .dealing-context-positions button:hover { background: #e0eef9; border-color: #7eb4ea; }
+
+/* password rows share the chrome button look */
+.acc-pass-line button {
+  min-width: 88px; height: 24px; border: 1px solid var(--chrome-border);
+  background: linear-gradient(180deg, #fff 0%, #ece9d8 100%); font-size: 11px; cursor: pointer;
+}
+.acc-pass-line button:hover { background: #e0eef9; border-color: #7eb4ea; }
+.acc-pass-line button:active { background: #cce4f7; }

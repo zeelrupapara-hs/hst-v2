@@ -71,11 +71,11 @@ export function BalanceOps({ login }) {
   return (
     <div className="balance-ops">
       <div className="form-grid balance-ops-form">
-        <label>Operation:</label>
+        <label>Operation</label>
         <PropSelect value={action} options={OPERATIONS} onChange={(v) => setAction(Number(v))} />
-        <label>Amount:</label>
+        <label>Amount</label>
         <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} />
-        <label>Comment:</label>
+        <label>Comment</label>
         <input type="text" className="wide" maxLength={64} value={comment} onChange={(e) => setComment(e.target.value)} />
       </div>
       <div className="balance-ops-actions">
