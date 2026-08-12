@@ -88,14 +88,11 @@ var managerTree = []navNode{
 	{key: "market_watch", label: "Market Watch", icon: "symbols", route: "/market",
 		section: "trading"},
 
-	{key: "balance", label: "Balance Operations", icon: "wallet", route: "/balance", section: "accounting",
-		needs: []uint{model.MgrRightAccountant}},
+	{key: "leverages", label: "Leverages", icon: "percent", route: "/leverage-profiles",
+		section: "config", needs: []uint{model.MgrRightCfgGroups}, counter: "leverages"},
 
 	{key: "groups", label: "Groups", icon: "folder-tree", route: "/groups", section: "config",
 		needs: []uint{model.MgrRightCfgGroups}, counter: "groups"},
-
-	{key: "journal", label: "Journal", icon: "scroll", route: "/journal", section: "support",
-		needs: []uint{model.MgrRightSrvJournals}},
 }
 
 // adminTree is the setting up of the platform: instruments, groups, feeds and who may run it.
@@ -144,9 +141,6 @@ var adminTree = []navNode{
 
 	{key: "end_of_day", label: "End of Day", icon: "clock", route: "/system/end-of-day", section: "config",
 		needs: []uint{model.MgrRightCfgTime}},
-
-	{key: "journal", label: "Journal", icon: "scroll", route: "/journal", section: "support",
-		needs: []uint{model.MgrRightSrvJournals}},
 }
 
 // NavigationTree is the navigator for whichever panel the caller signed in to.
