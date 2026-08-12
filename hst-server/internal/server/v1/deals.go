@@ -7,6 +7,8 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
+	"hstserver/pkg/logger"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -257,4 +259,146 @@ func (s *HttpServer) GetDeal(c *fiber.Ctx) error {
 	}
 
 	return s.App.HttpResponseOK(c, out[0])
+}
+
+// Deals are the ledger every position and balance is derived from, so editing them is the
+// broker's deepest correction — gated by the trades-delete right and always journaled.
+// After an edit, Check Positions and Check Balance tell what else drifted.
+
+// UptDeal carries the fields MT5 lets a manager rewrite on a deal.
+type UptDeal struct {
+	Volume     float64 `json:"volume" validate:"gte=0"`
+	Price      float64 `json:"price" validate:"gte=0"`
+	Profit     float64 `json:"profit"`
+	Storage    float64 `json:"storage"`
+	Commission float64 `json:"commission"`
+	Fee        float64 `json:"fee"`
+	Comment    string  `json:"comment" validate:"max=64"`
+}
+
+// UpdateDeal rewrites a deal's numbers in place.
+//
+//	@Id			UpdateDeal
+//	@Tags		Deals
+//	@Accept		json
+//	@Produce	json
+//	@Param		deal_id	path		int		true	"the deal"
+//	@Param		body	body		UptDeal	true	"the new values"
+//	@Success	200		{object}	Response{data=ViewDeal}
+//	@Failure	400		{object}	Response
+//	@Failure	404		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/deals/{deal_id} [put]
+func (s *HttpServer) UpdateDeal(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	id, err := c.ParamsInt("deal_id")
+	if err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+
+	var body UptDeal
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	if err := s.Validate.Struct(body); err != nil {
+		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	old, err := s.dealById(c.UserContext(), int64(id))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if old == nil {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+	if ok, err := s.inReach(c, snap, old.Login); !ok {
+		return err
+	}
+
+	ext := model.LotsToVolume(body.Volume)
+	if _, err := s.DB.DB.Exec(c.UserContext(), `
+		UPDATE hst.deals
+		   SET volume = $1, volume_ext = $2, price = $3, profit = $4, storage = $5,
+		       commission = $6, fee = $7, comment = $8
+		 WHERE deal_id = $9`,
+		ext/model.ExtPerUnit, ext, body.Price, body.Profit, body.Storage,
+		body.Commission, body.Fee, body.Comment, old.DealId); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	s.Log.Log(logger.TypeTrade, logger.CodeAtt, "deal updated",
+		"actor", snap.Login, "login", old.Login, "deal", old.DealId,
+		"volume", body.Volume, "price", body.Price, "profit", body.Profit)
+	s.JournalEntry(c, model.JournalType_trade, logger.CodeAtt,
+		journal.DealUpdatedMsg(old.DealId, old.Login, old.Volume, body.Volume, old.Profit, body.Profit),
+		map[string]any{"old": old, "new": body})
+
+	updated, err := s.dealById(c.UserContext(), old.DealId)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	return s.App.HttpResponseOK(c, updated)
+}
+
+// DeleteDeal removes a deal from the ledger.
+//
+//	@Id			DeleteDeal
+//	@Tags		Deals
+//	@Produce	json
+//	@Param		deal_id	path		int	true	"the deal"
+//	@Success	200		{object}	Response{data=ViewDeal}
+//	@Failure	404		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/deals/{deal_id} [delete]
+func (s *HttpServer) DeleteDeal(c *fiber.Ctx) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	id, err := c.ParamsInt("deal_id")
+	if err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+
+	old, err := s.dealById(c.UserContext(), int64(id))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if old == nil {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+	if ok, err := s.inReach(c, snap, old.Login); !ok {
+		return err
+	}
+
+	if _, err := s.DB.DB.Exec(c.UserContext(),
+		`DELETE FROM hst.deals WHERE deal_id = $1`, old.DealId); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	s.Log.Log(logger.TypeTrade, logger.CodeAtt, "deal deleted",
+		"actor", snap.Login, "login", old.Login, "deal", old.DealId)
+	s.JournalEntry(c, model.JournalType_trade, logger.CodeAtt,
+		journal.DealDeletedMsg(old.DealId, old.Login), old)
+
+	return s.App.HttpResponseOK(c, old)
+}
+
+// dealById reads one deal; nil when it does not exist.
+func (s *HttpServer) dealById(ctx context.Context, dealId int64) (*ViewDeal, error) {
+	out, err := s.readDeals(ctx, `d.deal_id = $1`, []any{dealId}, pageOpts{})
+	if err != nil {
+		return nil, err
+	}
+	if len(out) == 0 {
+		return nil, nil
+	}
+
+	return &out[0], nil
 }

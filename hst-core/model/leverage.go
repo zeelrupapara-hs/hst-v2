@@ -4,7 +4,7 @@ import "strings"
 
 // Notional range modes are stored but not yet applied by the engine.
 const (
-	RangeModeNotionalValue         int32 = 2
+	RangeModeNotionalValue          int32 = 2
 	RangeModeNotionalValuePerSymbol int32 = 3
 )
 

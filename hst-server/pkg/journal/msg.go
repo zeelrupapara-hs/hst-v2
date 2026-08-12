@@ -119,3 +119,25 @@ var BalanceMsg = func(login int64, action string, amount float64) string {
 func SessionDisconnectedMsg(login int64) string {
 	return fmt.Sprintf("a session of account #%d was disconnected by the desk", login)
 }
+
+func PositionInvalidMsg(positionId int64, volume, validVolume, price, validPrice float64) string {
+	return fmt.Sprintf("position #%d has invalid volume: %.2f, valid: %.2f, price: %.5f, valid: %.5f",
+		positionId, volume, validVolume, price, validPrice)
+}
+
+func PositionFixedMsg(positionId int64, from, to float64) string {
+	return fmt.Sprintf("position #%d was fixed from volume %.2f to %.2f", positionId, from, to)
+}
+
+func PositionDeletedMsg(positionId, login int64) string {
+	return fmt.Sprintf("position #%d of account #%d was deleted", positionId, login)
+}
+
+func DealUpdatedMsg(dealId, login int64, volFrom, volTo, profitFrom, profitTo float64) string {
+	return fmt.Sprintf("deal #%d of account #%d was updated: volume %.2f -> %.2f, profit %.2f -> %.2f",
+		dealId, login, volFrom, volTo, profitFrom, profitTo)
+}
+
+func DealDeletedMsg(dealId, login int64) string {
+	return fmt.Sprintf("deal #%d of account #%d was deleted", dealId, login)
+}

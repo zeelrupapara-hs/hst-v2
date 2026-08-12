@@ -336,6 +336,10 @@ func (h *Handler) PositionSystemEventHandler(msg *natscore.Msg) {
 		res = h.ClosePosition(ctx, e.Data)
 	case model.PositionEvent_close_by:
 		res = h.CloseByPosition(ctx, e.Data)
+	case model.PositionEvent_fix:
+		res = h.FixPosition(ctx, e.Data)
+	case model.PositionEvent_delete:
+		res = h.DeletePosition(ctx, e.Data)
 	default:
 		res = h.refuse(res, model.RetInvalidData, "unknown position event")
 	}

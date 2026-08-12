@@ -788,3 +788,156 @@ func (h *Handler) coversAfterClose(e *book.Entry, p *model.Position) bool {
 
 	return Settle(&after, kept, free, 0, reserved).FreeMargin >= 0
 }
+
+// FixPosition writes the deals-derived volume and open price back into the book — the manager's
+// correction after the deal history was edited. No order and no deal result; zero volume deletes.
+func (h *Handler) FixPosition(ctx context.Context, req *model.TradeRequest) *model.TradeResult {
+	if req.Volume <= 0 {
+		return h.DeletePosition(ctx, req)
+	}
+
+	res := &model.TradeResult{RequestId: req.RequestId, Login: req.Login}
+
+	e, ok := h.Accounts.Get(req.Login)
+	if !ok {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
+
+	e.Lock()
+
+	p := h.positionById(e, req.PositionId)
+	if p == nil {
+		e.Unlock()
+		return h.refuse(res, model.RetNotFound, "")
+	}
+
+	p.Volume = req.Volume
+	p.VolumeExt = model.FromLegacy(req.Volume)
+	if req.Price > 0 {
+		p.PriceOpen = req.Price
+	}
+	p.TimeUpdate = Now()
+
+	if r, ok := h.Settings.For(e.Account.Group, p.Symbol); ok {
+		if tick, ok := h.QuoteFor(r, p.Symbol); ok {
+			price := tick.Bid
+			if p.IsBuy() {
+				price = tick.Ask
+			}
+			p.Margin = MarginForPosition(r, p, price, e.Account.Leverage)
+		}
+	}
+	h.CalculateAccountMargins(e).Apply(e.Account)
+
+	saved := *p
+	account := *e.Account
+	e.Unlock()
+
+	if err := h.savePositionFix(ctx, &saved, &account); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a position fix",
+			"login", saved.Login, "position", saved.PositionId, "error", err.Error())
+		return h.refuse(res, model.RetError, "")
+	}
+
+	h.PublishWS(model.SubjectAccountPositions(saved.Login), model.EventPositionUpdate,
+		model.NewWirePosition(&saved))
+	h.PublishAccount(&account, nil)
+
+	res.RetCode = int32(model.RetOK)
+	res.Message = model.RetOK.String()
+	res.PositionId = saved.PositionId
+	res.Volume = saved.Volume
+
+	h.Log.Log(logger.TypeTrade, logger.CodeAtt, "position fix",
+		"login", saved.Login, "position", saved.PositionId,
+		"volume", saved.Volume, "price", saved.PriceOpen, "dealer", req.Dealer)
+
+	return res
+}
+
+// DeletePosition removes a position without generating an order or a deal — the broker-level
+// correction MT5 reserves for a position whose deal history says it should not exist.
+func (h *Handler) DeletePosition(ctx context.Context, req *model.TradeRequest) *model.TradeResult {
+	res := &model.TradeResult{RequestId: req.RequestId, Login: req.Login}
+
+	e, ok := h.Accounts.Get(req.Login)
+	if !ok {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
+
+	e.Lock()
+
+	p := h.positionById(e, req.PositionId)
+	if p == nil {
+		e.Unlock()
+		return h.refuse(res, model.RetNotFound, "")
+	}
+
+	saved := *p
+	delete(e.Positions, p.PositionId)
+	h.CalculateAccountMargins(e).Apply(e.Account)
+	account := *e.Account
+	e.Unlock()
+
+	h.unwatchIfLast(e, saved.Symbol)
+
+	if err := h.deletePositionRow(ctx, &saved, &account); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not delete a position",
+			"login", saved.Login, "position", saved.PositionId, "error", err.Error())
+		return h.refuse(res, model.RetError, "")
+	}
+
+	h.PublishWS(model.SubjectAccountPositions(saved.Login), model.EventPositionClose,
+		model.NewWirePosition(&saved))
+	h.PublishAccount(&account, nil)
+
+	res.RetCode = int32(model.RetOK)
+	res.Message = model.RetOK.String()
+	res.PositionId = saved.PositionId
+
+	h.Log.Log(logger.TypeTrade, logger.CodeAtt, "position deleted",
+		"login", saved.Login, "position", saved.PositionId, "dealer", req.Dealer)
+
+	return res
+}
+
+// savePositionFix persists a corrected position and the account it re-margins.
+func (h *Handler) savePositionFix(ctx context.Context, p *model.Position, a *model.Account) error {
+	tx, err := h.DB.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx,
+		`UPDATE hst.positions
+		    SET volume = $1, volume_ext = $2, price_open = $3, time_update = $4, date_modified = $4
+		  WHERE position_id = $5`,
+		p.Volume, p.VolumeExt, p.PriceOpen, p.TimeUpdate, p.PositionId); err != nil {
+		return err
+	}
+	if err := saveAccount(ctx, tx, a, Now()); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// deletePositionRow removes the row and saves the re-margined account in one transaction.
+func (h *Handler) deletePositionRow(ctx context.Context, p *model.Position, a *model.Account) error {
+	tx, err := h.DB.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	if _, err := tx.Exec(ctx,
+		`DELETE FROM hst.positions WHERE position_id = $1`, p.PositionId); err != nil {
+		return err
+	}
+	if err := saveAccount(ctx, tx, a, Now()); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}

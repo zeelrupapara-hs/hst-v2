@@ -152,6 +152,9 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	positions := v1.Group("/positions", s.Middleware.Protect, s.Middleware.RequireManager)
 	positions.Get("/", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAllPositions)
 	positions.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAccountPositions)
+	positions.Get("/check", s.Middleware.Authorization(model.MgrRightAccountant), s.CheckPositions)
+	positions.Post("/fix", s.Middleware.Authorization(model.MgrRightAccountant), s.FixPosition)
+	positions.Delete("/:position_id", s.Middleware.Authorization(model.MgrRightTradesDelete), s.DeletePosition)
 	positions.Get("/:position_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetPosition)
 	positions.Put("/:position_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.UpdatePosition)
 	positions.Post("/:position_id/close", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead, model.MgrRightTradesManager), s.ClosePosition)
@@ -162,6 +165,8 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	deals.Get("/", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAllDeals)
 	deals.Get("/accounts/:login", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetAccountDeals)
 	deals.Get("/:deal_id", s.Middleware.Authorization(model.MgrRightAccRead, model.MgrRightTradesRead), s.GetDeal)
+	deals.Put("/:deal_id", s.Middleware.Authorization(model.MgrRightTradesDelete), s.UpdateDeal)
+	deals.Delete("/:deal_id", s.Middleware.Authorization(model.MgrRightTradesDelete), s.DeleteDeal)
 
 	// the daily rollover: when it runs, and running it by hand
 	eod := v1.Group("/system/end-of-day", s.Middleware.Protect, s.Middleware.RequireManager)

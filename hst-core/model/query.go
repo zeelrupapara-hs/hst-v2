@@ -20,20 +20,20 @@ type SymbolInfo struct {
 	Path        string `json:"path"`
 	Description string `json:"description"`
 
-	Digits       int32   `json:"digits"`
-	Point        float64 `json:"point"`
-	ContractSize float64 `json:"contract_size"`
-	TickValue    float64 `json:"tick_value"`
-	TickSize     float64 `json:"tick_size"`
-	CalcMode     int32   `json:"calc_mode"`
-	TradeMode    int32   `json:"trade_mode"`
-	ExecMode     int32   `json:"exec_mode"`
-	FillFlags    int32   `json:"fill_flags"`
-	ExpirFlags   int32   `json:"expir_flags"`
-	OrderFlags   int32   `json:"order_flags"`
-	Sector       int32   `json:"sector"`
-	GtcMode      int32   `json:"gtc_mode"`
-	TickChartMode int32  `json:"tick_chart_mode"`
+	Digits        int32   `json:"digits"`
+	Point         float64 `json:"point"`
+	ContractSize  float64 `json:"contract_size"`
+	TickValue     float64 `json:"tick_value"`
+	TickSize      float64 `json:"tick_size"`
+	CalcMode      int32   `json:"calc_mode"`
+	TradeMode     int32   `json:"trade_mode"`
+	ExecMode      int32   `json:"exec_mode"`
+	FillFlags     int32   `json:"fill_flags"`
+	ExpirFlags    int32   `json:"expir_flags"`
+	OrderFlags    int32   `json:"order_flags"`
+	Sector        int32   `json:"sector"`
+	GtcMode       int32   `json:"gtc_mode"`
+	TickChartMode int32   `json:"tick_chart_mode"`
 
 	// the volume limits are lots, already folded up from the extended units the engine counts in
 	VolumeMin   float64 `json:"volume_min"`
@@ -94,10 +94,10 @@ type SymbolInfo struct {
 
 // SymbolMarginSpec is the floating leverage ladder that applies to this symbol for the group.
 type SymbolMarginSpec struct {
-	Floating  bool                `json:"floating"`
-	RangeMode int32               `json:"range_mode"`
-	RulePath  string              `json:"rule_path"`
-	Tiers     []SymbolMarginTier  `json:"tiers,omitempty"`
+	Floating  bool               `json:"floating"`
+	RangeMode int32              `json:"range_mode"`
+	RulePath  string             `json:"rule_path"`
+	Tiers     []SymbolMarginTier `json:"tiers,omitempty"`
 }
 
 // SymbolMarginTier is one band of a floating margin rule; RangeTo 0 means infinity.

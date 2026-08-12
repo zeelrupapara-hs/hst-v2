@@ -57,6 +57,10 @@ const (
 	PositionEvent_update   PositionEventType = 1
 	PositionEvent_close    PositionEventType = 2
 	PositionEvent_close_by PositionEventType = 3
+	// fix writes the deals-derived volume and open price back; no order, no deal
+	PositionEvent_fix PositionEventType = 4
+	// delete removes the position outright, the broker-level correction
+	PositionEvent_delete PositionEventType = 5
 )
 
 var (
