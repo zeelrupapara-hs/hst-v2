@@ -142,6 +142,17 @@ function ManagerDialog({ manager, onClose, onSaved }) {
       return next;
     });
 
+  // a click anywhere outside the editing row discards the edit, like every inline editor
+  useEffect(() => {
+    if (groupEdit == null) return;
+    const discard = (e) => {
+      if (e.target.closest?.(".mgr-group-editing") || e.target.closest?.(".grptree-pop")) return;
+      setGroupEdit(null);
+    };
+    document.addEventListener("mousedown", discard);
+    return () => document.removeEventListener("mousedown", discard);
+  }, [groupEdit != null]);
+
   function commitGroupRow(value) {
     const v = value.trim();
     setGroups((prev) => {
