@@ -544,6 +544,11 @@ func (s *HttpServer) AccountInReach(c *fiber.Ctx, login int64) (bool, error) {
 		return false, errs.ErrCouldNotParseClientCfg
 	}
 
+	// one's own record is always in reach, even when the masks do not cover its group
+	if login == snap.Login {
+		return true, nil
+	}
+
 	return s.accountInReach(c.UserContext(), snap.IsManager, snap.ManagerGroups, login)
 }
 
