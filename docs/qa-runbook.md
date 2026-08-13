@@ -1,149 +1,107 @@
-# QA runbook — platform bring-up, phase by phase
+# QA — trader-terminal effects of group & group-symbol settings
 
-A repeatable drill from an empty-ish server to a verified buy/sell, in the strict order
-the platform depends on: **feed → symbol → group → account → trade → money**. Each phase
-lists the steps, the checks, and the expected result; anything that fails goes into the
-findings report at the bottom, in the exact format defined there.
+One kind of test only: **change one setting → do the named trade in the trader terminal
+→ compare against the expected output.** Everything is observed from the terminal
+(prices, refusal messages, fills, P/L); the settings are changed in the admin/manager
+panel between attempts. Change **one setting at a time**, test, then put it back.
 
-Run it against local (`http://localhost:5175` admin/manager, `:5173` trader) or staging
-(`:8081` / `:80`). Use Playwright for every UI step and record evidence (screenshot or
-DB row) for every ✗.
+Baseline for every test (set once):
+- group `qa\real` — USD, leverage 1:100, **hedging**, margin call 100 % / stop out 50 %
+- group symbol `EURUSD` — digits 5, contract 100 000, vol 0.01–100 step 0.01,
+  stops level 10, freeze 5, exec Instant, trade mode Full, fill FOK+IOC, spread 0
+- trader account in `qa\real`, balance 10 000, no positions
+- a routing rule that confirms at market (otherwise every order refuses
+  `no routing rule admitted this request`)
 
-> **Prompt to run this:** "Run docs/qa-runbook.md phase by phase with Playwright against
-> <environment>. Do not skip a phase gate. Produce the findings report in the format at
-> the bottom of the file."
-
----
-
-## Phase 0 — preflight
-
-| Step | Check | Expected |
-|---|---|---|
-| services | hst-server :8080, hst-core, hst-quote, sim/feed, nats, redis, postgres, influx | all up |
-| tick bus | `nats sub "hstquote.tick.>" --count 1` | a tick within 5 s |
-| panels | admin login (Administrator terminal), manager login (Manager terminal), trader login | all three sign in |
-
-**Gate:** no ticks on the bus ⇒ everything downstream will "work but stay grey" — stop
-and fix the feed first (Phase 1).
-
-## Phase 1 — datafeed
-
-1. Admin panel → Datafeeds. Is there a feed row? Is its status **connected**?
-2. If none / disconnected: create the feed (FIX host, port, credentials from the sim),
-   enable it, watch the status flip to connected and the journal log the connection.
-3. Check the feed's **symbol subscriptions** — every symbol you plan to trade must be
-   requested by the feed (the sim logs `requested unknown symbol X` for bad names).
-
-| Check | Expected | If wrong |
-|---|---|---|
-| feed status | connected, ticks/s > 0 | connection settings; sim running; journal shows "datafeed lost connection" |
-| per-symbol flow | `redis-cli get hstquote:last:<SYM>` fresh | symbol not in feed scope → add it to the feed's symbol list |
-
-## Phase 2 — symbols
-
-1. Admin → Symbols. For each traded symbol verify the master record: **digits, contract
-   size, currencies (base/profit/margin), volume min/max/step, stops level, exec mode,
-   fill flags, trade mode Full, sessions**.
-2. Market Watch (manager): the symbol must tick live. Dead symbol + working feed ⇒ the
-   symbol name doesn't match the feed's source; fix the mapping.
-3. Emergency path: throw a manual quote (Market Watch → double-click → Quotes → Send)
-   — the symbol must turn live everywhere from that single quote.
-
-**Expected-if-changed examples to spot-check:**
-- set `trade mode = disabled` → new orders refuse `10001`, closes still pass
-- set `stops level = 100` → SL closer than 100 points refuses `10006`
-- set `volume max = 0.5` → buy 1.00 refuses `10008`
-
-## Phase 3 — group + group symbols
-
-1. Admin → Groups → create the QA group (e.g. `qa\real`): **currency, leverage default,
-   margin mode = Hedging, margin call 100 / stop out 50 (percent), limits** (max
-   orders/positions), company/server fields.
-2. Add **group symbols**: the group trades only what its group-symbol records reach
-   (path masks — `Forex\*` or one symbol at a time). Set the spread override, swaps,
-   commission here if the group differs from the master.
-3. Verify in the manager panel: Groups grid shows the group with the right margin column
-   (percent shows `%`, money mode shows the currency).
-
-| Check | Expected | If wrong |
-|---|---|---|
-| group symbol reach | trader sees exactly these symbols in Market Watch | order on an unlisted symbol refuses `10010 unknown symbol` |
-| spread override +N points | trader's bid/ask N points wider than the raw feed | override not applied → group-symbol record missing |
-| leverage | margin = vol × contract × price / leverage in the group currency | wrong margin → leverage or margin-currency conversion |
-
-## Phase 4 — account
-
-1. Manager → Trading Accounts → New: create the trader **in the QA group**, note the
-   login and master password. Rights: enabled + trading allowed (not investor).
-2. Fund it: account dialog → Balance tab → Deposit (a real deal — never SQL).
-3. Verify: balance shows in the grid, the deposit deal exists, **Check Balance** is
-   green (balance ≡ Σ deals — the ledger law from day one).
-
-## Phase 5 — trade, one by one (trader terminal)
-
-Log in as the QA trader at the trader terminal. For every step capture: the on-screen
-bid/ask at the click, the result event, the DB row.
-
-| # | Action | Expected |
-|---|---|---|
-| 5.1 | market **buy** 0.01 | fills at the shown **ask** (± the tick that moved), position appears live with floating P/L on **bid** |
-| 5.2 | market **sell** 0.01 | fills at the shown **bid**; hedging: a second, separate position — no netting |
-| 5.3 | rapid fire: 2 buys in 1 s, then 3 | each fills at its own fresh tick; refusals only where margin runs out (`10003`) |
-| 5.4 | buy **limit** below market | sits as `placed`; fills at its own price when Ask ≤ price |
-| 5.5 | sell **limit** above market | fills when Bid ≥ price |
-| 5.6 | buy/sell **stop** | fills at market when Ask/Bid crosses the price |
-| 5.7 | **stop-limit** | converts to a limit at the trigger, then fills as a limit |
-| 5.8 | pending inside the stops-level distance | refused `10006` |
-| 5.9 | set / modify **SL & TP** on a position | accepted beyond stops level; SL hit closes on bid (long) with comment `[sl]` |
-| 5.10 | **partial close** half the volume | out-deal for the part, position volume halves, partial profit into balance |
-| 5.11 | **full close** | position gone, profit = (close − open) × vol × contract to the cent |
-| 5.12 | **close-by** the buy against the sell | two `out_by` deals at the older leg's open price |
-| 5.13 | oversize order | refused `10008` (above max) or queued to dealer if a rule routes it |
-| 5.14 | drain free margin, then order | refused `10003 not enough money` |
-| 5.15 | margin call / stop out drill | warn at 100 %, forced closes at 50 %, biggest loser first, `[so]` comments, stopout_log rows |
-
-## Phase 6 — money truth
-
-1. **Check Balance** (manager, accounts grid) → every account green; any red means a
-   money path skipped the ledger — find the deal that's missing.
-2. **Check Positions** → every open position's volume/price matches its deals.
-3. Hand-verify one P/L and one margin figure against the formulas
-   (`docs/order-lifecycle.md §4`).
-4. Journal: every action above must have its line (order requested, trade done, deal,
-   balance op) with the right actor login.
+Result of the run = the table itself with a ✓/✗ per row + the findings block at the end.
 
 ---
 
-## The findings report (the only output format)
+## A. Group-symbol settings → terminal effect
+
+| # | Setting | Change to | Do in the terminal | Expected output |
+|---|---|---|---|---|
+| A1 | spread | 0 → 20 points | just watch the quote panel | bid/ask widen by 20 points vs the raw feed on the next tick; open positions' floating P/L drops by the extra spread |
+| A2 | spread balance | 20 spread, balance −10 bid / +10 ask | watch the quote | bid = mid − 10 pts, ask = mid + 10 pts (skew follows the balance) |
+| A3 | trade mode | Full → Disabled | buy 0.01 / close an open position | buy refused "trading is disabled"; **close still works** |
+| A4 | trade mode | Full → Close-only | buy 0.01 / close | buy refused "closing only"; close fills |
+| A5 | trade mode | Full → Long-only | buy / sell | buy fills; sell refused "trading is disabled" |
+| A6 | volume min | 0.01 → 0.10 | buy 0.05 | refused "invalid volume" |
+| A7 | volume max | 100 → 0.50 | buy 1.00 | refused "invalid volume" |
+| A8 | volume step | 0.01 → 0.10 | buy 0.15 | refused "invalid volume"; 0.20 fills |
+| A9 | volume limit (per symbol) | ∞ → 0.10 | buy 0.05, then buy 0.10 more | first fills; second refused "position volume limit reached" (open positions **plus pendings** count) |
+| A10 | stops level | 10 → 100 points | buy with SL 50 points away | refused "stops are too close"; SL 150 points away accepted |
+| A11 | stops level (pending) | 100 | place buy limit 50 points under market | refused "stops are too close"; 150 points under → placed |
+| A12 | freeze level | 5 → 50 points | modify SL of an open position to within 50 points of market | refused "order is frozen"; **new** orders are exempt from freeze |
+| A13 | exec mode | Instant → Request | buy at a stale/slipped price | instant refuses with a requote (bid/ask echoed); request mode walks routing as a "request" kind — with a dealer rule it queues |
+| A14 | max instant volume | ∞ → 0.05 | buy 0.10 (instant mode) | not refused — silently reclassified as *request* kind; with only a confirm-market rule it still fills; with a dealer rule on requests it queues |
+| A15 | deviation (profit/loss) | tighten to 1 point | buy while price is moving | requote when the fill would slip beyond 1 point; the requote carries the new bid/ask |
+| A16 | fill flags | remove IOC | buy with fill policy IOC | refused "fill policy not allowed" |
+| A17 | order flags | remove SL/TP flag | buy with SL set | refused "stops are too close" (SL not allowed at all) |
+| A18 | order flags | remove buy-limit type | place buy limit | refused "trading is disabled" |
+| A19 | expiry flags | remove "specified" | place pending with a date | refused "expiry not allowed"; GTC still placed |
+| A20 | quotes time | 60 → 1 s, stop the feed | buy | refused "no price for this symbol" once the quote is older than 1 s |
+| A21 | swap long/short | 0 → −5 / +1 | hold a buy and a sell overnight (or run end-of-day manually) | buy's storage −5 pts worth, sell's +1; storage lands in the position row and, on close, in the deal |
+| A22 | commission | 0 → 5 USD/lot | buy 0.10, close it | 0.50 commission on the deal; balance = profit − 0.50 |
+| A23 | request timeout | 30 → 5 s (with a dealer rule) | buy 2.00 (routes to desk), dealer does nothing | "timed out" after ~5 s instead of 30 |
+| A24 | sessions | close today's session | buy / close | buy refused "market is closed"; **close still fills** (out-direction bypasses the clock) |
+
+## B. Group settings → terminal effect
+
+| # | Setting | Change to | Do in the terminal | Expected output |
+|---|---|---|---|---|
+| B1 | leverage | 100 → 50 | buy 0.10 EURUSD @ ~1.08 | margin doubles: ~216.70 instead of ~108.35 (margin = vol × contract × price ÷ leverage) |
+| B2 | currency | USD → EUR (new group) | buy 0.10, watch P/L | all money in EUR; P/L converted profit-currency → EUR by live rate (missing cross triangulates through USD) |
+| B3 | margin call level | 100 → 500 % | open until level ≈ 400 % | margin-call warning fires (once) although the account is far from danger; clears only above 525 % (call × 1.05) |
+| B4 | stop out level | 50 → 90 % | withdraw until level < 90 % | forced closing starts at 90 %: margined pendings deleted first, then biggest loser, one at a time, `[so at X%]` comments |
+| B5 | stop-out mode | percent → money | set stop out = 9 000 | forced closing when **equity** < 9 000 USD (currency of the group); comment `[so at 8999.xx]` without % |
+| B6 | limit: max orders | 200 → 2 | place 3 pendings | third refused "too many orders" |
+| B7 | limit: max positions | 100 → 2 | open 3 positions | third refused "too many orders" |
+| B8 | limit: positions value | ∞ → 0.5 lots | open 0.3 + 0.3 | second refused "position volume limit reached" (whole book, all symbols) |
+| B9 | limit: symbols | ∞ → 1 | open EURUSD, then GBPUSD | GBPUSD refused "position volume limit reached" |
+| B10 | flag: hedge prohibit | off → on | buy 0.01, then sell 0.01 same symbol | sell refused "hedging is not allowed" |
+| B11 | flag: expiration | off | pending with any non-GTC expiry | refused "expiry not allowed" |
+| B12 | flag: expert trading | off | order sent with an expert id | refused "trading is disabled" |
+| B13 | flag: trailing | off | expert moves an existing SL | refused "stops are too close" |
+| B14 | flag: SO compensation | on | drive the account to negative balance via stop out | once flat, a `so_compensation` deal tops balance back to exactly 0 |
+| B15 | free-margin mode: day profit/loss | on | close a winning position | profit goes to **blocked profit**, not balance, until end-of-day; a loss hits balance immediately |
+| B16 | margin flag: check SL/TP | on | SL that would leave the rest of the book under-margined | the SL simply does not fire while closing would break coverage |
+| B17 | margin flag: check process | on | order confirmed by a dealer after margin ran out | second money check at confirm time → "not enough money" |
+| B18 | history limit | ∞ → 1 month | trader opens History → All history | only the last month of deals returned |
+| B19 | group symbol removed | delete the EURUSD group-symbol row | buy EURUSD | refused "unknown symbol" — the group only trades what its group-symbol records reach |
+
+## C. Account-state effects (no setting — the state itself)
+
+| # | State | Do | Expected |
+|---|---|---|---|
+| C1 | free margin < need | buy beyond the free margin | refused "not enough money"; need shown in server log |
+| C2 | rights: investor / read-only | any order | refused "trading is disabled"; closes too |
+| C3 | account disabled | login / order | login refused or order "account disabled" |
+| C4 | FIFO (older same-side position) | close the newer of two same-side positions | refused "an older position on this symbol must be closed first" |
+
+---
+
+## How to run one row
+
+1. Note the baseline behaviour (do the terminal action once **before** the change).
+2. Change exactly that one setting in the admin/manager panel. Wait one tick
+   (settings reload over NATS — no restart).
+3. Repeat the same terminal action. Record: the on-screen quote, the exact message or
+   fill price, the deal row if any.
+4. Mark the row ✓ (matched expected) or ✗ (evidence attached), revert the setting,
+   confirm the baseline behaviour is back.
+
+## Findings block (append after a run)
 
 ```markdown
-# QA findings — <env> — <date>
+# Run <env> <date> — A: n/24 ✓  B: n/19 ✓  C: n/4 ✓
 
-## Score
-- Phases passed: X / 6
-- Checks passed: NN / MM
-
-## Missing (does not exist yet)
-| # | Area | What is missing | Blocks |
+## ✗ rows
+| Row | Observed | Expected | Evidence |
 |---|---|---|---|
-| 1 | datafeed | no connection configured for <feed> | everything |
+| A10 | SL at 50 pts accepted | refuse "stops are too close" | screenshot + deal id |
 
-## Broken (exists but wrong)
-| # | Area | Setting / feature | Observed | Expected | Evidence |
-|---|---|---|---|---|---|
-| 1 | group qa\real | spread override | bid/ask = raw feed | +2 points wider | screenshot / redis vs terminal |
-
-## Setting-change predictions (verify after fixing)
-| # | If I change | Expected result |
-|---|---|---|
-| 1 | group-symbol spread 0 → 2 | trader spread widens 2 points on the next tick |
-| 2 | stops level 10 → 100 | SL within 100 points refuses 10006 |
-| 3 | leverage 100 → 50 | margin per lot doubles; free margin halves headroom |
-
-## Working end to end
-- <one line per verified flow, with the number that proves it>
+## Settings that did not take effect until restart (should be live)
+| Row | Setting |
+|---|---|
 ```
-
-Rules for the report: every ✗ has evidence; every "broken" row has the exact setting to
-change and the expected result after changing it; nothing marked working without a
-number (a price, a deal id, a balance) behind it.
