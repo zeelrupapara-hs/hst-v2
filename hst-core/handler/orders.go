@@ -218,7 +218,7 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetError, "")
 	}
 
-	h.PublishWS(model.SubjectAccountOrders(saved.Login), model.EventOrderCreate, model.NewWireOrder(&saved))
+	h.PublishWS(model.SubjectAccountOrders(saved.Login), model.EventOrderUpdate, model.NewWireOrder(&saved))
 
 	res.RetCode = int32(model.RetOK)
 	res.Message = model.RetOK.String()
