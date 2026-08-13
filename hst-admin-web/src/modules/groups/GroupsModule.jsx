@@ -152,7 +152,7 @@ export function GroupsModule() {
                   <td>{row.company || "—"}</td>
                   <td>{MarginMode_short[row.margin_mode] ?? row.margin_mode}</td>
                   <td>{AuthMode_name[row.auth_mode] ?? row.auth_mode}</td>
-                  <td>{`${row.margin_call ?? 0} / ${row.margin_stop_out ?? 0} %`}</td>
+                  <td>{`${row.margin_call ?? 0} / ${row.margin_stop_out ?? 0} ${row.margin_so_mode === 1 ? row.currency : "%"}`}</td>
                   <td>{row.currency}</td>
                 </tr>
               );
