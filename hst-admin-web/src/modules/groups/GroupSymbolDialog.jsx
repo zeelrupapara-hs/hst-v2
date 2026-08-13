@@ -525,7 +525,6 @@ export function GroupSymbolDialog({ groupId, row, onClose, onSaved }) {
               className="grp-sym-symbol-wide"
               value={draft.path ?? "*"}
               onChange={(v) => set("path", v || "*")}
-              disabled={!isNew}
             />
             <Check
               depth
