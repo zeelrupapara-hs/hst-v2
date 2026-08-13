@@ -4,6 +4,7 @@ import {
   defaultRender,
   formatDate,
   formateProfit,
+  formatPrice,
   getOrderType,
 } from "../utils/utils";
 import { LuArrowRight } from "react-icons/lu";
@@ -50,9 +51,11 @@ const useClosedPositions = () => {
       key: "open_price",
       render: (value, record) => (
         <span className="flex items-center gap-2">
-          <span>{value}</span>
+          <span>{formatPrice(value, symbols?.[record?.symbol_id]?.digits)}</span>
           <LuArrowRight size={13} />
-          <span className="text-green">{record?.close_price}</span>
+          <span className="text-green">
+            {formatPrice(record?.close_price, symbols?.[record?.symbol_id]?.digits)}
+          </span>
         </span>
       ),
       width: 200,
