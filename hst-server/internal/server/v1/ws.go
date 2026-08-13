@@ -169,6 +169,9 @@ func (s *HttpServer) RefreshLogin(login int64) {
 
 		c.ReplaceSubs(snap.ManagerRights, snap.ManagerGroups, subs)
 
+		// the open screen re-reads its world instead of the manager being thrown out
+		c.Send(&model.Event{Type: "session_refreshed"})
+
 		s.Log.Log(logger.TypeNet, logger.CodeOK, "websocket access refreshed",
 			"session_id", c.SessionId, "login", login, "subjects", len(subs))
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	v1 "hstserver/internal/server/v1"
+	"strings"
 	"time"
 
 	"hstserver/model"
@@ -453,6 +454,7 @@ func (s *Server) CreateManager(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseBadRequest(c, errs.ErrUnknownManagerRight)
 	}
+	body.Groups = s.materializeStar(c, body.Groups)
 	if !permitsSomething(body.Groups) {
 		return s.App.HttpResponseBadRequest(c, errs.ErrProhibitionOnlyGroups)
 	}
@@ -540,6 +542,7 @@ func (s *Server) UpdateManager(c *fiber.Ctx) error {
 	if !ok {
 		return s.App.HttpResponseBadRequest(c, errs.ErrUnknownManagerRight)
 	}
+	body.Groups = s.materializeStar(c, body.Groups)
 	if !permitsSomething(body.Groups) {
 		return s.App.HttpResponseBadRequest(c, errs.ErrProhibitionOnlyGroups)
 	}
@@ -557,8 +560,12 @@ func (s *Server) UpdateManager(c *fiber.Ctx) error {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
-	// rights changed, so every live session of this login must be rebuilt
-	if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
+	// rights changed: live sessions are rewritten in place, so the manager stays signed in
+	if mgr, err := s.SelectManager(ctx, int64(login)); err == nil && mgr != nil {
+		if err := s.OAuth2.RefreshLogin(ctx, int64(login), mgr); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	} else if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
@@ -653,6 +660,40 @@ func (s *Server) NotifyManager(event, systemSubject, message string, created boo
 }
 
 // withinOwnScope refuses to grant more than the acting manager holds.
+// materializeStar makes a grant absolute: a star written by a restricted manager collapses to
+// the masks the grantor actually holds, so a stored star always truly means every group.
+func (s *Server) materializeStar(c *fiber.Ctx, groups []string) []string {
+	snap, ok := utils.GetClient(c)
+	if !ok || snap.ManagerRights.Has(model.MgrRightAdmin) {
+		return groups
+	}
+	for _, m := range snap.ManagerGroups {
+		if strings.TrimSpace(m) == "*" {
+			return groups
+		}
+	}
+
+	out := make([]string, 0, len(groups))
+	seen := map[string]bool{}
+	add := func(m string) {
+		if m != "" && !seen[m] {
+			seen[m] = true
+			out = append(out, m)
+		}
+	}
+	for _, m := range groups {
+		if strings.TrimSpace(m) == "*" {
+			for _, own := range snap.ManagerGroups {
+				add(strings.TrimSpace(own))
+			}
+		} else {
+			add(strings.TrimSpace(m))
+		}
+	}
+
+	return out
+}
+
 func (s *Server) withinOwnScope(c *fiber.Ctx, groups []string, rights model.ManagerRights) error {
 	snap, ok := utils.GetClient(c)
 	if !ok {

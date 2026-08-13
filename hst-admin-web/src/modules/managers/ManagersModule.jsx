@@ -107,7 +107,11 @@ function ManagerDialog({ manager, onClose, onSaved }) {
 
   useEffect(() => {
     if (isNew) return;
-    fetchManagerRights(manager.login).then((res) => res.ok && setRights(res.data.rights || {}));
+    fetchManagerRights(manager.login).then((res) => {
+      if (res.ok) setRights(res.data.rights || {});
+      // an unreadable right set must not save as an empty one
+      else setError(res.message || "could not load permissions — saving is disabled");
+    });
     fetchManager(manager.login).then((res) => {
       if (!res.ok) return;
       setDraft((prev) => ({
