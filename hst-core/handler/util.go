@@ -8,6 +8,7 @@ import (
 
 	"hstcore/internal/settings"
 	"hstcore/model"
+	"hstcore/pkg/logger"
 )
 
 const (
@@ -59,13 +60,29 @@ func (h *Handler) CrossRate(from, to string, buy bool) (float64, bool) {
 	return h.crossRate("", from, to, buy)
 }
 
-// crossRate prices the conversion leg; with a group it charges that group's own spread on the
-// conversion pair, so a marked-up instrument converts at marked-up prices too.
+// crossRate converts between two currencies: the quoted pair, its inverse, and finally a
+// triangulation through USD, because not every cross is quoted. With a group it charges that
+// group's own spread on the conversion pair, so a marked-up instrument converts at marked-up prices.
 func (h *Handler) crossRate(group, from, to string, buy bool) (float64, bool) {
 	if from == to {
 		return 1, true
 	}
 
+	if rate, ok := h.pairRate(group, from, to, buy); ok {
+		return rate, true
+	}
+
+	if a, ok := h.pairRate(group, from, "USD", buy); ok {
+		if b, ok := h.pairRate(group, "USD", to, buy); ok {
+			return a * b, true
+		}
+	}
+
+	return 0, false
+}
+
+// pairRate is one conversion leg: the quoted pair or its inverse.
+func (h *Handler) pairRate(group, from, to string, buy bool) (float64, bool) {
 	if t, ok := h.quoteForPair(group, from+to); ok && t.Ok() {
 		return t.OpenPrice(buy), true
 	}
@@ -96,11 +113,16 @@ func (h *Handler) quoteForPair(group, pair string) (model.Tick, bool) {
 func (h *Handler) RateProfit(r *settings.Rules, a *model.Account, buy bool) float64 {
 	rate, ok := h.crossRate(a.Group, r.CurrencyProfit, a.Currency, buy)
 	if !ok {
+		// a silent one-to-one fallback mis-values money, so it must at least be heard
+		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "no conversion rate, profit counted 1:1",
+			"from", r.CurrencyProfit, "to", a.Currency, "login", a.Login)
 		return 1
 	}
 	return rate
 }
 
+// RateMargin falls back to 1:1 silently: it runs on every tick, so the profit-side
+// warning above is the audible one for a missing pair.
 func (h *Handler) RateMargin(r *settings.Rules, a *model.Account, buy bool) float64 {
 	rate, ok := h.crossRate(a.Group, r.CurrencyMargin, a.Currency, buy)
 	if !ok {
