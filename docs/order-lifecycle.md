@@ -1,318 +1,196 @@
-# Order lifecycle — buy to sell, open to close, end to end
+# Order lifecycle — one flow, end to end (hedging)
 
-Every flow below is traced from the current code (`hst-server/internal/server/v1/orders.go`,
-`hst-core/handler/{orders,validate,routing,positions,pending,ticks,stopout,dealing}.go`).
-Diagrams first, words only where a diagram cannot say it.
-
----
-
-## 1. The big picture
-
-```mermaid
-flowchart LR
-    T[Trader terminal /\nManager Trade tab] -->|POST /orders| S[hst-server]
-    S -->|validate payload\n202 Accepted| N[(NATS\nsystem.orders)]
-    N --> E[hst-core engine\nowning shard]
-    E -->|validate 14 gates| R{Routing rules}
-    R -->|confirm| F[Fill / book]
-    R -->|dealer| D[Dealing desk queue]
-    R -->|reject / requote| X[Refused]
-    D -->|confirm| F
-    F --> DB[(hst.orders\nhst.positions\nhst.deals\nhst.accounts)]
-    F --> WS[websocket events\norder/position/deal/summary]
-    WS --> T
-```
-
-The server answer is always **202 Accepted** — the real outcome (`order_create`,
-`order_rejected`, `position_create`, …) arrives on the account's websocket.
-The server checks only the payload shape; **all trading validation lives in the engine**.
+One concrete setup, one trader, one order walked from the Buy click to the closed
+position — every validation, the routing rules, the fill, the money math, and every way
+the position can end. All traced from the current code. The platform runs **hedging**
+margin mode: every fill opens its own position; positions offset only through an
+explicit close or close-by.
 
 ---
 
-## 2. Market order: open (buy or sell)
+## 1. The setup the flow runs on
 
-```mermaid
-flowchart TD
-    A[system.orders → NewOrder] --> G1{account exists?}
-    G1 -- no --> R1[10022 account not found]
-    G1 --> G2{symbol rules for group?}
-    G2 -- no --> R2[10010 unknown symbol]
-    G2 --> G3{quote exists?}
-    G3 -- no --> R3[10011 no price]
-    G3 --> V[ValidateOrder — 14 gates, first refusal wins]
-    V -- refused --> RV[retcode to the terminal]
-    V --> CE{checkExecution\ninstant mode only}
-    CE -- volume > MaxInstantVolume --> KIND[kind downgraded to 'request'\nnot refused]
-    CE -- stale quote / slip beyond deviation --> RQ[10013 requote + bid/ask echoed]
-    CE --> RT[Route — walk the rules]
-    KIND --> RT
-    RT -- no rule admitted --> R20[10020 not processed]
-    RT -- reject rule --> R12[10012 rejected + reason]
-    RT -- requote rule --> R13[10013 requote]
-    RT -- dealer rule --> DQ[dealer queue → §5]
-    RT -- confirm_client / confirm_market --> P{pending type?}
-    P -- yes --> PL[placeOrder → on the book → §6]
-    P -- no --> M2{MarginFlagCheckProcess?}
-    M2 -- yes, free margin short --> R03[10003 not enough money]
-    M2 --> PR[price: market if AtMarket or none,\nelse requested; normalised to digits]
-    PR --> EX[Execute → netting §4]
-    EX --> BF[bookFill: commission, swap settle,\nrealised P/L, margins recalc]
-    BF --> SV[(one tx: order+position+deals+account)]
-    SV --> EV[events: order_create, position_*,\ndeal_create, summary]
-```
+### Symbol (master): `EURUSD`
 
-## 3. ValidateOrder — the 14 gates, in exact order
+| Setting | Value | Used by |
+|---|---|---|
+| digits | 5 | price normalising, stops distance |
+| contract size | 100 000 | margin & P/L math |
+| currency base / profit / margin | EUR / USD / EUR | conversions to the account currency |
+| volume min / max / step | 0.01 / 100 / 0.01 lots | gate 7 |
+| stops level | 10 points | gate 12 — SL/TP and pending distance |
+| freeze level | 5 points | gate 13 — edits near the market |
+| quotes time | 60 s | gate 4 — quote freshness |
+| exec mode | Instant | execution check (deviation / requote) |
+| fill flags | FOK, IOC | gate 10 |
+| trade mode | Full | gate 2 |
+| sessions | Mon–Fri 00:00–24:00 | gate 3 |
+| request timeout | 30 s | dealer queue expiry |
 
-```mermaid
-flowchart TD
-    A[1 checkAccount\nenabled? trade-disabled? investor/read-only?] --> B[2 checkSymbol\ntrade mode off / close-only / side allowed]
-    B --> C[3 checkMarket\nholiday + trade sessions\ndirection OUT is always open]
-    C --> D[4 checkQuote\nquote fresh within QuotesTime]
-    D --> E[5 checkOrderFlags\ntype allowed, SL/TP flags allowed]
-    E --> F[6 checkExpert\ngroup allows expert trading]
-    F --> G[7 checkVolume\nmin / max / step]
-    G --> H[8 checkHedging\nhedge-prohibit groups]
-    H --> I[9 checkLimits\nmax orders, max positions,\nsymbol volume cap incl. pendings,\nbook value cap, distinct symbols cap]
-    I --> J[10 checkFilling\nfill policy in symbol FillFlags]
-    J --> K[11 checkExpiry\ntype_time allowed, expiry in future]
-    K --> L[12 checkStops\nSL/TP ≥ StopsLevel points from close price\npending price ≥ StopsLevel from open price]
-    L --> M[13 checkFreeze\nexisting tickets only —\nnew orders are exempt]
-    M --> N[14 checkMoney\nmargin delta vs free margin\nnetting offsets reduce the need]
-    N --> OK[pass → execution check → routing]
-```
+### Group: `real` — and its group-symbol override for `EURUSD`
 
-| Gate | Refusal |
+| Setting | Value | Used by |
+|---|---|---|
+| currency | USD | account currency, all money in USD |
+| margin mode | **Hedging** | every fill = its own position |
+| margin call / stop out | 100 % / 50 % (percent mode) | §6 |
+| limit: max orders / positions | 200 / 100 | gate 9 |
+| group-symbol spread override | +2 points | the group's own bid/ask |
+| swap long / short | −0.5 / +0.1 points daily | storage on open positions |
+| commission | 0 | bookFill |
+
+The group-symbol record can override anything from the symbol master per group
+(spread, stops level, trade mode, swaps…) — the engine always reads through
+`Settings.For(group, symbol)`, which is master + group override merged.
+
+### Account: `1001`
+
+| Field | Before the trade |
 |---|---|
-| checkAccount | 1002 disabled / 10001 trading disabled |
-| checkSymbol | 10010 / 10001 / 10016 close-only |
-| checkMarket | 10002 market closed |
-| checkQuote | 10011 no price |
-| checkOrderFlags | 10001 / 10006 stops |
-| checkExpert | 10001 |
-| checkVolume | 10008 invalid volume |
-| checkHedging | 10015 hedging not allowed |
-| checkLimits | 10007 too many orders / 10021 volume limit |
-| checkFilling | 10017 fill policy |
-| checkExpiry | 10018 expiry |
-| checkStops | 10006 stops too close |
-| checkFreeze | 10019 frozen |
-| checkMoney | 10003 not enough money |
+| group / currency | real / USD |
+| leverage | 1 : 100 |
+| balance | 10 000.00 |
+| credit | 0.00 |
+| equity = balance + credit + floating P/L | 10 000.00 |
+| margin / free margin | 0.00 / 10 000.00 |
+| open positions | none |
+
+### Routing rules (walked top to bottom, first terminal match wins)
+
+| # | Rule | Matches | Action |
+|---|---|---|---|
+| 1 | Reject during gap | gap condition | 1003 reject |
+| 2 | Big tickets to the desk | volume > 1.00 lots | 1001 dealer |
+| 3 | Automate the rest | everything | 1006 confirm at market |
 
 ---
 
-## 4. Fill → netting (what a fill does to the book)
+## 2. The single flow: Buy 0.10 EURUSD, SL 1.08000, TP 1.09000
+
+Market at the click: **bid 1.08343 / ask 1.08345** (group spread already applied).
 
 ```mermaid
 flowchart TD
-    F[Execute fill] --> T{order names a\nposition ticket?}
-    T -- yes, volume < position --> RP[reduce position\nout deal, profit realised on part]
-    T -- yes, volume ≥ position --> CI[close position\nout deal, profit realised]
-    T -- no --> HM{hedging margin mode?}
-    HM -- yes --> NP2[always a NEW position\nno netting — offset via close-by]
-    HM -- no --> NET{position on symbol?}
-    NET -- none --> NP[new position\nin deal]
-    NET -- same direction --> GP[grow position\nweighted avg open price\nin deal]
-    NET -- opposite, smaller --> RD[reduce\nout deal, partial profit]
-    NET -- opposite, equal --> CL[full close\nout deal]
-    NET -- opposite, larger --> RV[reverse:\nclose old with out deal,\nopen remainder the other way]
-```
-
-Deal entries: `in` opens/grows, `out` closes/reduces, `inout` marks a reversal's closing
-deal, `out_by` marks both legs of a close-by. Every deal carries its `position_id`, which
-is what Check Positions / Check Balance recompute from.
-
-After every fill, `bookFill` runs in one transaction: commission → swap settle on closed
-positions → realised P/L into balance (or BlockedProfit under day-P/L mode) → margins
-recalculated → order/position/deal/account rows written → events published.
-
----
-
-## 5. Routing rules — the walk
-
-```mermaid
-flowchart TD
-    RQ[request: kind + order + account + tick] --> W[walk rules top to bottom,\nrule order = the list order]
-    W --> M{rule enabled AND matches?\nrequest-kind mask, type mask,\nALL conditions AND-ed}
-    M -- no --> W
-    M -- soft action --> ACC[accumulate:\ndelay_time / delay_tick /\nclear_sl / clear_tp / clear_sltp] --> W
-    M -- terminal --> TA{which terminal action?}
-    TA -- 1005 confirm_client --> XC[execute at the requested price]
-    TA -- 1006 confirm_market --> XM[execute at current market]
-    TA -- 1001 dealer / 1002 dealer_online --> DL[to the desk → below]
-    TA -- 1003 reject --> RJ[10012 + rule's reason text]
-    TA -- 1004 requote --> RQ2[10013 requote]
-    TA -- 1007 cancel_order --> CO[activation paths: delete the order\nelse 10012 order cancelled]
-    W -- end of list, no terminal --> NP[10020 no rule admitted\nwhitelist semantics]
-```
-
-Rule conditions cover symbol/group masks (`!` negates, `*` globs), volume, spread, gap,
-deviation, login, balance/equity/margin/level, position and order totals, time windows,
-country and more — all conditions on a rule must hold at once.
-
-### The dealer desk
-
-```mermaid
-sequenceDiagram
-    participant E as Engine
-    participant Q as Dealing queue
-    participant D as Dealer(s)
-    participant C as Client
-    E->>Q: rule 1001/1002 → eligible dealers by group masks<br/>(none online + skip-flag → walk continues)
-    E-->>C: 10023 queued
-    Q->>D: offered to the current holder, in rule order
-    alt confirm
-        D->>E: price (dealer → client → market) → optional money re-check → fill
-    else requote
-        D->>C: new price; client accepts → fill
-    else reject
-        D->>C: 10012 + reason (max 31 chars)
-    else return
-        Q->>D: next dealer; all returned → 10024
-    else timeout (30s, or symbol RequestTimeout)
-        Q->>C: 10014 timed out (1s sweep)
+    subgraph CLIENT["1 — Terminal"]
+        A["Buy 0.10 EURUSD, SL 1.08000, TP 1.09000"]
     end
+
+    subgraph SERVER["2 — hst-server (shape only, no trading logic)"]
+        B["payload valid? login>0, symbol, volume>0,<br/>enums valid, pending needs price, expiry when needed"]
+        B2["lots → internal volume, publish system.orders<br/>answer 202 — result comes later on the websocket"]
+    end
+
+    subgraph ENGINE["3 — hst-core: the 14 gates, in this order"]
+        C1["account exists & enabled, not investor/read-only"]
+        C2["symbol tradable for the group (mode, side, not close-only)"]
+        C3["market open: session + holiday — closing always passes"]
+        C4["quote exists and younger than 60 s"]
+        C5["order type + SL/TP allowed by symbol flags"]
+        C6["expert trading allowed (if expert)"]
+        C7["volume 0.10 ∈ [0.01, 100], step 0.01 ✓"]
+        C8["order/position count under group limits,<br/>symbol volume cap incl. pendings"]
+        C9["fill policy FOK ∈ symbol FillFlags ✓"]
+        C10["expiry type allowed (GTC here) ✓"]
+        C11["stops ≥ 10 points from close price:<br/>SL 1.08000 and TP 1.09000 vs bid 1.08343 ✓"]
+        C12["freeze gate — new order: exempt"]
+        C13["money: need = 0.10 × 100 000 × 1.08345 / 100<br/>= 108.35 margin ≤ free 10 000 ✓"]
+        C14["execution check (Instant): volume ≤ MaxInstantVolume,<br/>quote fresh, slip inside deviation — else requote"]
+    end
+
+    subgraph ROUTE["4 — Routing walk"]
+        R1["rule 1: gap? no → next"]
+        R2["rule 2: 0.10 > 1.00? no → next"]
+        R3["rule 3: matches all → 1006 confirm at market<br/>(no terminal rule at all ⇒ 10020 refused)"]
+    end
+
+    subgraph FILL["5 — Fill (hedging: always a NEW position)"]
+        F1["price = ask 1.08345, normalised to 5 digits"]
+        F2["position #96 opened: buy 0.10 @ 1.08345<br/>margin 108.35 reserved"]
+        F3["deal written: entry=in, position_id=96,<br/>rate_profit USD→USD = 1"]
+        F4["one transaction: order filled + position row<br/>+ deal row + account margins"]
+        F5["events: order_create, position_create,<br/>deal_create, summary — terminal updates live"]
+    end
+
+    subgraph LIVE["6 — While it lives (every tick, this order)"]
+        L0["reprice with group spread → floating P/L → summary line"]
+        L1["1 expire pending orders"]
+        L2["2 SL / TP: long closes on BID —<br/>bid ≤ 1.08000 → close [sl], bid ≥ 1.09000 → close [tp]"]
+        L3["3 activate triggered pendings"]
+        L4["4 stop-out check, always last:<br/>level = equity/margin — call at 100 %, stop out at 50 %<br/>then: drop margined pendings first,<br/>close biggest loser first, oldest per symbol,<br/>one at a time until recovered"]
+        L5["daily swap: −0.5 pt/day accrues as storage"]
+    end
+
+    subgraph CLOSE["7 — How it ends (whichever comes first)"]
+        X1["manual close (full, or partial volume) —<br/>FIFO: an older same-side position closes first (10025);<br/>no market-clock/money gate on the way out,<br/>only a live quote + routing admit"]
+        X2["close-by: this buy vs an opposite sell on EURUSD,<br/>settled at the older leg's open price, two out_by deals"]
+        X3["SL / TP hit (step 6.2)"]
+        X4["stop out (step 6.4)"]
+    end
+
+    subgraph SETTLE["8 — Settlement (bid 1.08545 at the close)"]
+        S1["out deal: position 96, profit =<br/>(1.08545 − 1.08345) × 0.10 × 100 000 = +20.00 USD"]
+        S2["swap settled into storage, commission charged (0)"]
+        S3["balance 10 000 → 10 020.00, margin released,<br/>equity = balance again"]
+        S4["ledger law: balance ≡ Σ deals(profit+storage+fee) —<br/>Check/Fix Balance proves it any time"]
+    end
+
+    A --> B --> B2 --> C1 --> C2 --> C3 --> C4 --> C5 --> C6 --> C7 --> C8 --> C9 --> C10 --> C11 --> C12 --> C13 --> C14
+    C14 --> R1 --> R2 --> R3 --> F1 --> F2 --> F3 --> F4 --> F5
+    F5 --> L0 --> L1 --> L2 --> L3 --> L4 --> L5
+    L5 --> X1 & X2 & X3 & X4
+    X1 --> S1
+    X2 --> S1
+    X3 --> S1
+    X4 --> S1
+    S1 --> S2 --> S3 --> S4
 ```
+
+Any gate that refuses stops the flow right there and the terminal receives the retcode
+(`10008` invalid volume, `10006` stops too close, `10003` not enough money,
+`10012` rejected by rule, `10013` requote, `10020` no rule admitted, …).
+If rule 2 had matched (volume > 1 lot), the order would sit in the **dealer queue**
+(`10023`) instead of step 5 — a dealer confirms (fills at their price), requotes,
+rejects, or the 30 s sweep times it out (`10014`); a confirm re-enters the flow at
+step 5 exactly.
 
 ---
 
-## 6. Pending orders: buy/sell limit, stop, stop-limit
+## 3. The same flow for pending orders
 
-### Placement
+A **buy limit 0.05 @ 1.08000** rides the identical flow with two differences:
 
-Placement runs the same 14 gates as a market order (checkStops also polices the pending
-price distance, checkMoney reserves at placement), then routing; a confirming rule puts
-the order on the book as `placed` — nothing fills yet.
+1. After the routing confirm (step 4) it stops **on the book** as `placed` — no fill.
+   The 14 gates already ran, including the pending-price distance
+   (|1.08345 − 1.08000| ≥ 10 points ✓) and the money check.
+2. Its fill happens later, inside step 6.3, the tick sweep: **Ask ≤ 1.08000** triggers
+   it (buys trigger on Ask; sells on Bid; stops trigger on the same sides but crossing
+   upward/downward; a **stop-limit** first converts into a limit at its trigger).
+   Activation re-checks only expiry, routing (kind = activate) and money — then fills a
+   limit **at its own price** and continues at step 5 as a new position.
 
-### Trigger — on every tick
-
-Trigger price is the **opening side**: Ask for buys, Bid for sells.
-
-```mermaid
-flowchart TD
-    TK[tick] --> P{order type vs price}
-    P -- "buy_limit: Ask ≤ price" --> ACT
-    P -- "sell_limit: Bid ≥ price" --> ACT
-    P -- "buy_stop: Ask ≥ price" --> ACT
-    P -- "sell_stop: Bid ≤ price" --> ACT
-    P -- "buy_stop_limit: Ask ≥ trigger" --> SLM[becomes a buy_limit\nat its limit price]
-    P -- "sell_stop_limit: Bid ≤ trigger" --> SLM2[becomes a sell_limit]
-    SLM --> BOOK[stays on the book,\nwaits for its limit trigger]
-    SLM2 --> BOOK
-    ACT[CookOrder — activation] --> E1{expired?}
-    E1 -- yes --> DEL[order removed 'expired']
-    E1 --> R2[Route kind=activate]
-    R2 -- cancel_order rule --> DEL2[order deleted by rule]
-    R2 -- not admitted --> HOLD[left on the book, logged]
-    R2 -- confirmed --> M3{checkMoney again}
-    M3 -- short --> DEL3[canceled, not enough money]
-    M3 --> FILL[limits fill at their own price,\nstops at market → netting §4]
-```
-
-Expiry is swept first on every tick (`type_time` day/specified); a `reject` routing rule
-on the expiration kind can deliberately hold an order past its time.
+| Type | Triggers when |
+|---|---|
+| buy limit | Ask ≤ order price |
+| sell limit | Bid ≥ order price |
+| buy stop | Ask ≥ order price |
+| sell stop | Bid ≤ order price |
+| buy stop-limit | Ask ≥ trigger → becomes buy limit |
+| sell stop-limit | Bid ≤ trigger → becomes sell limit |
 
 ---
 
-## 7. Close paths
+## 4. The numbers, end to end
 
-### Manual close (full or partial)
+| Moment | balance | margin | floating P/L | equity | free |
+|---|---|---|---|---|---|
+| before | 10 000.00 | 0 | 0 | 10 000.00 | 10 000.00 |
+| open buy 0.10 @ 1.08345 | 10 000.00 | 108.35 | −0.20 (spread) | 9 999.80 | 9 891.45 |
+| bid at 1.08545 | 10 000.00 | 108.35 | +20.00 | 10 020.00 | 9 911.65 |
+| closed @ 1.08545 | **10 020.00** | 0 | 0 | 10 020.00 | 10 020.00 |
 
-```mermaid
-flowchart TD
-    C[POST close volume V] --> G1{position exists?} -- no --> N4[not found]
-    G1 --> G2{quote?} -- no --> N11[10011]
-    G2 --> G3{FIFO: an older same-side\nposition on the symbol?}
-    G3 -- yes --> N25[10025 close the older one first]
-    G3 --> VOL["V ≤ 0 or V > position ⇒ full close"]
-    VOL --> CE2[checkExecution: deviation / requote]
-    CE2 --> RT2[Route close kind] -- refused --> RR[by rule]
-    RT2 --> PX[price = requested, or close side of market:\nBid for a long, Ask for a short]
-    PX --> EX2[Execute → reduce or close → §4]
-```
-
-A close runs **no** ValidateOrder: no market-open, stops, freeze or money gate — only the
-quote must exist, and direction *out* bypasses sessions and holidays by design.
-
-### Close-by (hedging accounts only)
-
-Two opposite positions on the same symbol settle against each other at the older leg's
-open price — two `out_by` deals, min volume of the two, no FIFO or market-open check.
-Requires hedging margin mode (netting groups get 10015).
-
-### SL / TP — on every tick
-
-Tested on the **closing side**: Bid for a long, Ask for a short.
-
-```mermaid
-flowchart TD
-    TK[tick] --> H{long: Bid ≤ SL or Bid ≥ TP\nshort: Ask ≥ SL or Ask ≤ TP}
-    H -- no --> Z[nothing]
-    H --> F1{FIFO: oldest first?} -- blocked --> SKIP[skipped this tick]
-    F1 --> F2{MarginFlagCheckSLTP:\nbook still covered after close?} -- no --> SKIP
-    F2 --> RT3[Route kind=sl / tp] -- refused --> SKIP
-    RT3 --> CL2["closed at market, comment [sl] / [tp]"]
-```
-
-### The tick sweep order
-
-```mermaid
-flowchart LR
-    T[tick on symbol] --> A[reprice + margins + summary]
-    A --> B[1 expire pendings]
-    B --> C[2 SL/TP closes]
-    C --> D[3 pending activations]
-    D --> E[4 stop-out check — always last]
-```
-
----
-
-## 8. Margin call and stop out
-
-```mermaid
-flowchart TD
-    T[after every tick] --> L["level = margin level %\n(or equity, in money mode)"]
-    L --> S{level ≤ stop-out?}
-    S -- yes --> SO[stop out]
-    S --> Cq{level ≤ margin call?}
-    Cq -- yes --> MC[margin_call event — warned once,\nclears after level > call × 1.05]
-    Cq -- no --> OK2[clear]
-    SO --> P1[1 delete margined pendings,\nbiggest reservation first,\nre-check after each]
-    P1 --> P2[2 close positions,\nbiggest loser first\nFIFO: oldest per symbol,\none at a time until recovered]
-    P2 --> P3["3 negative balance compensation\n(group flag): so_compensation deal\nonce flat, credit zeroed if flagged"]
-    P2 --> LOG[(hst.stopout_log)]
-```
-
-Every stop-out close is itself routed (`stop_out_order` / `stop_out_position` kinds), so a
-rule can exempt a book from forced closing.
-
----
-
-## 9. Retcodes — the full trading set
-
-| Code | Meaning | | Code | Meaning |
-|---|---|---|---|---|
-| 0 | done | | 10012 | rejected by a routing rule |
-| 1 | internal error | | 10013 | requote |
-| 3 | invalid request | | 10014 | timed out (dealer queue) |
-| 5 | not found | | 10015 | hedging is not allowed |
-| 1002 | account disabled | | 10016 | closing only |
-| 10001 | trading is disabled | | 10017 | fill policy not allowed |
-| 10002 | market is closed | | 10018 | expiry not allowed |
-| 10003 | not enough money | | 10019 | order is frozen |
-| 10006 | stops are too close | | 10020 | no routing rule admitted this request |
-| 10007 | too many orders | | 10021 | position volume limit reached |
-| 10008 | invalid volume | | 10022 | account not found |
-| 10010 | unknown symbol | | 10023 | placed in a dealer queue |
-| 10011 | no price for this symbol | | 10024 | all dealers returned the request |
-| | | | 10025 | an older position must be closed first (FIFO) |
-
----
-
-## 10. Three subtleties worth knowing
-
-1. **Instant mode oversize is not refused** — a market order above `MaxInstantVolume` is
-   silently reclassified as a *request* kind and walks the routing rules under that kind.
-2. **New orders skip the freeze gate** — `checkFreeze` only guards changes to existing
-   tickets and positions.
-3. **Closing is always allowed by the clock** — direction *out* bypasses sessions and
-   holidays, so a trader can always get out; only a routing rule can refuse a close.
+Margin = volume × contract × open price ÷ leverage, converted to the account currency
+(EUR margin currency → USD via the live EURUSD rate; a missing cross triangulates
+through USD). Floating P/L for a long = (bid − open) × volume × contract, converted the
+same way. Stop-out example on this account: equity would have to fall to 54.18
+(50 % of 108.35 margin) before forced closing begins — after a margin-call warning at
+108.35 (100 %).
