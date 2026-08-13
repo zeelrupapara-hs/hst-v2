@@ -551,6 +551,12 @@ func (s *Server) UpdateManager(c *fiber.Ctx) error {
 		return s.App.HttpResponseForbidden(c, err)
 	}
 
+	if orphan, err := s.wouldOrphanStar(ctx, int64(login), body.Groups); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	} else if orphan {
+		return s.App.HttpResponseBadRequest(c, errs.ErrLastStarManager)
+	}
+
 	affected, err := updateManager(ctx, s.DB.DB, int64(login), &body, rights,
 		time.Now().UnixNano())
 	if err != nil {
@@ -603,6 +609,12 @@ func (s *Server) DeleteManager(c *fiber.Ctx) error {
 	}
 	if !reach {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
+	if orphan, err := s.wouldOrphanStar(ctx, int64(login), nil); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	} else if orphan {
+		return s.App.HttpResponseBadRequest(c, errs.ErrLastStarManager)
 	}
 
 	tag, err := s.DB.DB.Exec(ctx, `DELETE FROM hst.managers WHERE login = $1`, login)
@@ -660,6 +672,44 @@ func (s *Server) NotifyManager(event, systemSubject, message string, created boo
 }
 
 // withinOwnScope refuses to grant more than the acting manager holds.
+// holdsStar reports whether a mask list contains the bare star.
+func holdsStar(groups []string) bool {
+	for _, m := range groups {
+		if strings.TrimSpace(m) == "*" {
+			return true
+		}
+	}
+	return false
+}
+
+// wouldOrphanStar refuses taking the star away from its last holder: with nobody on full
+// group access left, only a hand in the database could ever restore it.
+func (s *Server) wouldOrphanStar(ctx context.Context, login int64, newGroups []string) (bool, error) {
+	if holdsStar(newGroups) {
+		return false, nil
+	}
+
+	m, err := s.SelectManager(ctx, login)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	if !holdsStar(m.Groups) {
+		return false, nil
+	}
+
+	var others int
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT count(*) FROM hst.managers WHERE login <> $1 AND '*' = ANY(groups)`,
+		login).Scan(&others); err != nil {
+		return false, err
+	}
+
+	return others == 0, nil
+}
+
 // materializeStar makes a grant absolute: a star written by a restricted manager collapses to
 // the masks the grantor actually holds, so a stored star always truly means every group.
 func (s *Server) materializeStar(c *fiber.Ctx, groups []string) []string {

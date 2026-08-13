@@ -42,6 +42,7 @@ const (
 	RuleNotInProfile             = "the rule does not belong to this leverage profile"
 	ReorderMustListEveryRule     = "the reorder must list every rule of the profile exactly once"
 	GroupAccessBeyondOwn         = "a manager cannot be granted group access beyond your own"
+	LastStarManager              = "the last manager with full group access cannot lose it"
 	RightsBeyondOwn              = "a manager cannot be granted a right you do not hold"
 	GroupNotFound                = "no such group"
 	RegistrationClosed           = "registration is not open for this account type"
@@ -118,6 +119,7 @@ var (
 	ErrRuleNotInProfile             = errors.New(RuleNotInProfile)
 	ErrReorderMustListEveryRule     = errors.New(ReorderMustListEveryRule)
 	ErrGroupAccessBeyondOwn         = errors.New(GroupAccessBeyondOwn)
+	ErrLastStarManager              = errors.New(LastStarManager)
 	ErrRightsBeyondOwn              = errors.New(RightsBeyondOwn)
 	ErrGroupNotFound                = errors.New(GroupNotFound)
 	ErrRegistrationClosed           = errors.New(RegistrationClosed)
