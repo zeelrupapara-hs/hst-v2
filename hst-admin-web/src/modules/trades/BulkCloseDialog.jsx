@@ -9,6 +9,7 @@ import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx
 import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
 import { useMarketFeed } from "@/hooks/useMarketFeed.js";
 import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 import { money } from "@/lib/format.js";
 import { OrderType_name } from "@/constants/trades.js";
 
@@ -28,6 +29,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
   const [preview, setPreview] = useState(null);
   const [results, setResults] = useState(null);
   const [error, setError] = useState("");
+  const { confirm: confirmBox, confirmElement } = useConfirm();
   const { offset, onTitlePointerDown } = useDialogDrag("bulk-close");
   const close = useDialogStack(onClose);
 
@@ -74,7 +76,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
       setError("Tick at least one operation");
       return;
     }
-    if (!window.confirm(`${modes.join(" + ")} over ${preview?.length ?? 0} positions on ${symbol} (${mask}). Are you sure?`)) return;
+    if (!(await confirmBox({ title: "Bulk Operations", message: `${modes.join(" + ")} over ${preview?.length ?? 0} positions on ${symbol} (${mask}). Are you sure?` }))) return;
     setError("");
     const all = [];
     for (const mode of modes) {
@@ -178,6 +180,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
           </div>
         </SettingsDialog>
       </div>
+      {confirmElement}
     </DialogOverlay>
   );
 }

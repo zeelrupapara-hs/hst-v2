@@ -13,6 +13,7 @@ import {
   updateDatafeed,
 } from "@/api/endpoints/datafeeds.js";
 import { formatNs } from "@/lib/time.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 import { DatafeedDialog } from "./DatafeedDialog.jsx";
 import { DatafeedStatusPage } from "./DatafeedStatusPage.jsx";
 
@@ -46,6 +47,7 @@ export function DatafeedsModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
   const [pane, setPane] = useState("selected");
   const [modules, setModules] = useState([]);
   const [symbolCounts, setSymbolCounts] = useState({});
@@ -82,7 +84,7 @@ export function DatafeedsModule() {
   }, [datafeeds]);
 
   async function onDelete(target) {
-    if (!window.confirm(`Delete data feed '${target.name}'?`)) return;
+    if (!(await confirm({ title: "Data Feeds", message: `Delete data feed '${target.name}'?` }))) return;
     const res = await deleteDatafeed(target.datafeed_id);
     if (!res.ok) window.alert(res.message || "delete failed");
     saved();
@@ -286,6 +288,7 @@ export function DatafeedsModule() {
       {dialog && (
         <DatafeedDialog feedId={dialog.id} onClose={() => setDialog(null)} onSaved={saved} />
       )}
+      {confirmElement}
     </div>
   );
 }

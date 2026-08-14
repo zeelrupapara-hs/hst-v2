@@ -15,6 +15,7 @@ import {
   updateHoliday,
 } from "@/api/endpoints/holidays.js";
 import { minutesToTime } from "@/lib/symbolSessions.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 const pad = (n) => String(n).padStart(2, "0");
 const dayLabel = (h) => `${h.year ? h.year : "****"}.${pad(h.month)}.${pad(h.day)}`;
@@ -371,6 +372,7 @@ export function HolidaysModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
   const canEdit = session.can?.right_cfg_holidays !== false;
 
   const load = () => fetchHolidays().then((res) => res.ok && setRows(res.data || []));
@@ -380,7 +382,7 @@ export function HolidaysModule() {
   }, []);
 
   async function onDelete(row) {
-    if (!window.confirm(`Delete holiday '${row.description || dayLabel(row)}'?`)) return;
+    if (!(await confirm({ title: "Holidays", message: `Delete holiday '${row.description || dayLabel(row)}'?` }))) return;
     const res = await deleteHoliday(row.holiday_id);
     if (!res.ok) window.alert(res.message || "delete failed");
     saved();
@@ -484,6 +486,7 @@ export function HolidaysModule() {
       {dialog && (
         <HolidayDialog holiday={dialog.holiday} onClose={() => setDialog(null)} onSaved={saved} />
       )}
+      {confirmElement}
     </div>
   );
 }

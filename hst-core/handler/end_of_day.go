@@ -153,7 +153,7 @@ func (h *Handler) AccrueSwap(ctx context.Context, e *book.Entry) bool {
 	e.Unlock()
 
 	for _, p := range touched {
-		h.SavePositionAndPublishAsync(p)
+		h.SavePositionAndPublishAsync(account.Group, p)
 	}
 
 	h.PublishAccount(&account, nil)

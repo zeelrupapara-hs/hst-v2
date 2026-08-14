@@ -12,6 +12,7 @@ import {
   fetchMailServers,
   updateMailServer,
 } from "@/api/endpoints/mailServers.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 const PATCH_FIELDS = ["enabled", "name", "sender_email", "sender_name", "smtp_server", "smtp_login", "is_default"];
 
@@ -145,6 +146,7 @@ export function MailServersModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
   const canEdit = session.can?.right_cfg_mails !== false;
 
   const load = () => fetchMailServers().then((res) => res.ok && setRows(res.data || []));
@@ -156,7 +158,7 @@ export function MailServersModule() {
   const row = selected != null ? rows?.[selected] : null;
 
   async function onDelete(r) {
-    if (!window.confirm(`Delete mail server '${r.name}'?`)) return;
+    if (!(await confirm({ title: "Mail Servers", message: `Delete mail server '${r.name}'?` }))) return;
     const res = await deleteMailServer(r.mail_server_id);
     if (!res.ok) window.alert(res.message || "delete failed");
     saved();
@@ -244,6 +246,7 @@ export function MailServersModule() {
       {dialog && (
         <MailServerDialog server={dialog.server} onClose={() => setDialog(null)} onSaved={saved} />
       )}
+      {confirmElement}
     </div>
   );
 }
