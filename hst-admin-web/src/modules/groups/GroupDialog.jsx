@@ -3,7 +3,14 @@ import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
-import { createGroup, fetchGroup, updateGroup } from "@/api/endpoints/groups.js";
+import {
+  createGroup,
+  createGroupSymbol,
+  deleteGroupSymbol,
+  fetchGroup,
+  fetchGroupSymbols,
+  updateGroup,
+} from "@/api/endpoints/groups.js";
 import {
   GroupCommonTab,
   GroupCompanyTab,
@@ -105,7 +112,8 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
       return;
     }
 
-    if (isNew) {
+    // the reference's clone-by-rename: editing the name creates a new group, the original stays
+    if (isNew || draft.group.trim() !== original?.group) {
       const body = Object.fromEntries(
         PATCH_FIELDS.filter((k) => draft[k] !== undefined && draft[k] !== null).map((k) => [k, draft[k]]),
       );
@@ -113,6 +121,18 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
       if (!res.ok) {
         setError(res.message || "create failed");
         return;
+      }
+      // a clone carries the source's symbol scope rules, replacing the seeded wildcard
+      if (!isNew && res.data?.group_id) {
+        const src = await fetchGroupSymbols(groupId);
+        if (src.ok && src.data?.length) {
+          const seeded = await fetchGroupSymbols(res.data.group_id);
+          for (const s of seeded.data ?? []) await deleteGroupSymbol(res.data.group_id, s.symbol_id);
+          for (const row of src.data) {
+            const { symbol_id, group_id, ...rest } = row;
+            await createGroupSymbol(res.data.group_id, rest);
+          }
+        }
       }
     } else {
       const patch = {};
