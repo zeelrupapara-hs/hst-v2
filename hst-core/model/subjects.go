@@ -77,9 +77,8 @@ var (
 // RootGroupScoped prefixes every group scoped subject.
 const RootGroupScoped = "websocket.groups"
 
-// SubjectGroupAccounts is the manager-scoped live account stream: only sockets whose group
-// masks cover this path are subscribed, so scope is enforced by the subject itself.
-func SubjectGroupAccounts(group string) string {
+// groupToken turns a group path into subject tokens: demo\forex becomes demo.forex.
+func groupToken(group string) string {
 	parts := strings.Split(group, "\\")
 	out := make([]string, 0, len(parts))
 	for _, p := range parts {
@@ -91,7 +90,27 @@ func SubjectGroupAccounts(group string) string {
 	if token == "" {
 		token = "root"
 	}
-	return SubjectGroupScoped("accounts", token)
+	return token
+}
+
+// SubjectGroupAccounts is the manager-scoped live account stream: only sockets whose group
+// masks cover this path are subscribed, so scope is enforced by the subject itself.
+func SubjectGroupAccounts(group string) string {
+	return SubjectGroupScoped("accounts", groupToken(group))
+}
+
+// The manager-scoped trade streams, so a blotter hears a trade the moment it happens
+// without polling. Same scoping rule as the account stream.
+func SubjectGroupPositions(group string) string {
+	return SubjectGroupScoped("positions", groupToken(group))
+}
+
+func SubjectGroupOrders(group string) string {
+	return SubjectGroupScoped("orders", groupToken(group))
+}
+
+func SubjectGroupDeals(group string) string {
+	return SubjectGroupScoped("deals", groupToken(group))
 }
 
 // What staff and the dealing desk are subscribed to.

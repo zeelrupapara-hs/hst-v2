@@ -16,6 +16,7 @@ import {
 } from "@/api/endpoints/users.js";
 import { ClientStatus_name, ClientType_name, KycStatus_name } from "@/constants/users.js";
 import { formatNs } from "@/lib/time.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 const enumOptions = (names) =>
   Object.entries(names).map(([value, label]) => ({ value: Number(value), label }));
@@ -183,6 +184,7 @@ export function ClientsModule() {
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
   const [view, setView] = useState({ grid: true, autoArrange: true });
+  const { confirm, confirmElement } = useConfirm();
   const canEdit = session.can?.right_clients_edit !== false;
 
   const load = () => fetchClients().then((res) => res.ok && setRows(res.data || []));
@@ -192,7 +194,7 @@ export function ClientsModule() {
   }, []);
 
   async function onDelete(row) {
-    if (!window.confirm(`Delete client '${row.person_name}'?`)) return;
+    if (!(await confirm({ title: "Clients", message: `Delete client '${row.person_name}'?` }))) return;
     const res = await deleteClient(row.client_id);
     if (!res.ok) window.alert(res.message || "delete failed");
     saved();
@@ -258,6 +260,7 @@ export function ClientsModule() {
         />
       )}
       {dialog && <ClientDialog clientId={dialog.id} onClose={() => setDialog(null)} onSaved={saved} />}
+      {confirmElement}
     </div>
   );
 }

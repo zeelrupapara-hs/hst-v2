@@ -143,7 +143,7 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 	saved := *p
 	e.Unlock()
 
-	if err := h.SavePositionAndPublish(ctx, &saved); err != nil {
+	if err := h.SavePositionAndPublish(ctx, entryGroup(e), &saved); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not modify a position",
 			"login", saved.Login, "position", saved.PositionId, "error", err.Error())
 		return h.refuse(res, model.RetError, "")
@@ -631,7 +631,7 @@ func (h *Handler) takeOff(f *Fill, e *book.Entry, p *model.Position, r *settings
 }
 
 // SavePositionAndPublish writes a level change and announces it.
-func (h *Handler) SavePositionAndPublish(ctx context.Context, p *model.Position) error {
+func (h *Handler) SavePositionAndPublish(ctx context.Context, group string, p *model.Position) error {
 	if _, err := h.DB.DB.Exec(ctx,
 		`UPDATE hst.positions
 		    SET price_sl = $1, price_tp = $2, activation_flags = $3, time_update = $4,
@@ -641,15 +641,15 @@ func (h *Handler) SavePositionAndPublish(ctx context.Context, p *model.Position)
 		return err
 	}
 
-	h.PublishWS(model.SubjectAccountPositions(p.Login), model.EventPositionUpdate, model.NewWirePosition(p))
+	h.PublishPosition(group, model.EventPositionUpdate, p)
 
 	return nil
 }
 
 // SavePositionAndPublishAsync hands the write to the worker pool.
-func (h *Handler) SavePositionAndPublishAsync(p *model.Position) {
+func (h *Handler) SavePositionAndPublishAsync(group string, p *model.Position) {
 	h.Workers.Submit(func(ctx context.Context) {
-		if err := h.SavePositionAndPublish(ctx, p); err != nil {
+		if err := h.SavePositionAndPublish(ctx, group, p); err != nil {
 			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a position",
 				"login", p.Login, "position", p.PositionId, "error", err.Error())
 		}
@@ -839,8 +839,7 @@ func (h *Handler) FixPosition(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetError, "")
 	}
 
-	h.PublishWS(model.SubjectAccountPositions(saved.Login), model.EventPositionUpdate,
-		model.NewWirePosition(&saved))
+	h.PublishPosition(account.Group, model.EventPositionUpdate, &saved)
 	h.PublishAccount(&account, nil)
 
 	res.RetCode = int32(model.RetOK)
@@ -887,8 +886,7 @@ func (h *Handler) DeletePosition(ctx context.Context, req *model.TradeRequest) *
 		return h.refuse(res, model.RetError, "")
 	}
 
-	h.PublishWS(model.SubjectAccountPositions(saved.Login), model.EventPositionClose,
-		model.NewWirePosition(&saved))
+	h.PublishPosition(account.Group, model.EventPositionClose, &saved)
 	h.PublishAccount(&account, nil)
 
 	res.RetCode = int32(model.RetOK)

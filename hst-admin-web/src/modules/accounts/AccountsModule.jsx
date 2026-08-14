@@ -12,6 +12,7 @@ import { AccountDialog } from "./AccountDialog.jsx";
 import { BalanceDialog } from "./BalanceDialog.jsx";
 import { BulkBalanceDialog } from "./BulkBalanceDialog.jsx";
 import { MailDialog } from "@/modules/mail/MailDialog.jsx";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 // Live money cells: a dash until the engine's first summary line for the account arrives.
 function LiveMoneyCells({ account }) {
@@ -41,6 +42,7 @@ export function AccountsModule() {
   const [multi, setMulti] = useState(() => new Set());
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
   const [balance, setBalance] = useState(null);
   const [bulk, setBulk] = useState(null);
   const [mail, setMail] = useState(null);
@@ -64,7 +66,7 @@ export function AccountsModule() {
   });
 
   async function onDelete(row) {
-    if (!window.confirm(`Delete account ${row.login} '${row.name}'?`)) return;
+    if (!(await confirm({ title: "Accounts", message: `Delete account ${row.login} '${row.name}'?` }))) return;
     const res = await deleteUser(row.login);
     if (!res.ok) window.alert(res.message || "delete failed");
     saved();
@@ -239,6 +241,7 @@ export function AccountsModule() {
         <BulkBalanceDialog logins={bulk} onClose={() => setBulk(null)} onSaved={saved} />
       )}
       {mail && <MailDialog logins={mail} onClose={() => setMail(null)} />}
+      {confirmElement}
     </div>
   );
 }

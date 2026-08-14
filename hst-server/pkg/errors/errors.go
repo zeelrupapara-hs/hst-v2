@@ -51,6 +51,7 @@ const (
 	InvalidAmount                = "the amount must not be zero"
 	EngineUnavailable            = "the trading engine did not answer"
 	ReadOnlySession              = "this session may not trade"
+	BulkCloseIsDealing           = "bulk closing is a dealing operation; connect with the Manager terminal"
 	WrongPanel                   = "this login belongs to the other panel"
 	InvalidInstantCheckMode      = "the platform defines only the normal instant check mode"
 	InvalidInstantFlags          = "unknown instant execution flag"
@@ -128,6 +129,7 @@ var (
 	ErrInvalidAmount                = errors.New(InvalidAmount)
 	ErrEngineUnavailable            = errors.New(EngineUnavailable)
 	ErrReadOnlySession              = errors.New(ReadOnlySession)
+	ErrBulkCloseIsDealing           = errors.New(BulkCloseIsDealing)
 	ErrWrongPanel                   = errors.New(WrongPanel)
 	ErrInvalidInstantCheckMode      = errors.New(InvalidInstantCheckMode)
 	ErrInvalidInstantFlags          = errors.New(InvalidInstantFlags)

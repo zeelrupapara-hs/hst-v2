@@ -2200,6 +2200,8 @@ html, body {
   border: 1px solid var(--chrome-border);
   box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.2);
   padding: 2px 0;
+  margin: 0;
+  list-style: none;
   font-size: 11px;
 }
 

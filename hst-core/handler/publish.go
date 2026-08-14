@@ -68,31 +68,62 @@ func (h *Handler) PublishRejected(res *model.TradeResult) {
 	h.PublishWS(model.SubjectAccountOrders(res.Login), model.EventOrderRejected, res)
 }
 
+// PublishPosition announces one position event to its account, and to the managers whose
+// group masks cover the account's group. An empty group skips the manager copy rather than
+// leaking the event to the root subject.
+func (h *Handler) PublishPosition(group string, event model.EventType, p *model.Position) {
+	wire := model.NewWirePosition(p)
+	h.PublishWS(model.SubjectAccountPositions(p.Login), event, wire)
+	if group != "" {
+		h.PublishWS(model.SubjectGroupPositions(group), event, wire)
+	}
+}
+
+// PublishOrder is PublishPosition for an order.
+func (h *Handler) PublishOrder(group string, event model.EventType, o *model.Order) {
+	wire := model.NewWireOrder(o)
+	h.PublishWS(model.SubjectAccountOrders(o.Login), event, wire)
+	if group != "" {
+		h.PublishWS(model.SubjectGroupOrders(group), event, wire)
+	}
+}
+
+// PublishDeal is PublishPosition for a deal.
+func (h *Handler) PublishDeal(group string, event model.EventType, d *model.Deal) {
+	wire := model.NewWireDeal(d)
+	h.PublishWS(model.SubjectAccountDeals(d.Login), event, wire)
+	if group != "" {
+		h.PublishWS(model.SubjectGroupDeals(group), event, wire)
+	}
+}
+
+// entryGroup reads the account's group under the entry's lock. Callers must not hold the lock.
+func entryGroup(e *book.Entry) string {
+	e.Lock()
+	defer e.Unlock()
+	return e.Account.Group
+}
+
 // PublishTrade announces a fill in the order the trade actually happened.
 //
 // The position and the deals that made it go out before the order, because a client told its order
 // filled before the position exists has nothing to show against it.
 func (h *Handler) PublishTrade(e *book.Entry, o *model.Order, f *Fill, a *model.Account) {
 	if f.Opened != nil {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionCreate,
-			model.NewWirePosition(f.Opened))
+		h.PublishPosition(a.Group, model.EventPositionCreate, f.Opened)
 	}
 	for _, p := range f.Changed {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionUpdate,
-			model.NewWirePosition(p))
+		h.PublishPosition(a.Group, model.EventPositionUpdate, p)
 	}
 	for _, p := range f.Closed {
-		h.PublishWS(model.SubjectAccountPositions(o.Login), model.EventPositionClose,
-			model.NewWirePosition(p))
+		h.PublishPosition(a.Group, model.EventPositionClose, p)
 	}
 
 	for _, d := range f.Deals {
-		h.PublishWS(model.SubjectAccountDeals(d.Login), model.EventDealCreate,
-			model.NewWireDeal(d))
+		h.PublishDeal(a.Group, model.EventDealCreate, d)
 	}
 
-	h.PublishWS(model.SubjectAccountOrders(o.Login), model.EventOrderCreate,
-		model.NewWireOrder(o))
+	h.PublishOrder(a.Group, model.EventOrderCreate, o)
 
 	h.PublishAccount(a, nil)
 }

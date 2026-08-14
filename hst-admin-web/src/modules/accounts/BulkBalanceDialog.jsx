@@ -6,6 +6,7 @@ import { PropSelect } from "@/components/ui/PropSelect.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { bulkBalance } from "@/api/endpoints/balance.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 // Engine deal actions: deposit and withdrawal are both a balance deal, signed.
 const OPS = [
@@ -25,6 +26,7 @@ export function BulkBalanceDialog({ logins, onClose, onSaved }) {
   const [csv, setCsv] = useState("");
   const [results, setResults] = useState(null);
   const [error, setError] = useState("");
+  const { confirm, confirmElement } = useConfirm();
   const { offset, onTitlePointerDown } = useDialogDrag("bulk-balance");
   const close = useDialogStack(onClose);
 
@@ -50,7 +52,7 @@ export function BulkBalanceDialog({ logins, onClose, onSaved }) {
       }
       operations = logins.map((login) => ({ login, action: kind.action, amount: value * kind.sign }));
     }
-    if (!window.confirm(`Apply ${operations.length} balance operations?`)) return;
+    if (!(await confirm({ title: "Balance Operations", message: `Apply ${operations.length} balance operations?` }))) return;
     const res = await bulkBalance({ operations, comment });
     if (!res.ok) {
       setError(res.message || "bulk operation failed");
@@ -118,6 +120,7 @@ export function BulkBalanceDialog({ logins, onClose, onSaved }) {
           </div>
         </SettingsDialog>
       </div>
+      {confirmElement}
     </DialogOverlay>
   );
 }

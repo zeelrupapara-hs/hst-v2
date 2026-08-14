@@ -8,6 +8,7 @@ import {
   updateEndOfDay,
   updateTimeSettings,
 } from "@/api/endpoints/endOfDay.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 // the browser already ships the IANA list; older engines get a single safe zone
 const ZONES = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : ["UTC"];
@@ -28,6 +29,7 @@ export function TimeModule() {
   const [updatedAt, setUpdatedAt] = useState(0);
   const [status, setStatus] = useState("");
   const [now, setNow] = useState(Date.now());
+  const { confirm, confirmElement } = useConfirm();
   const skewRef = useRef(0);
 
   const load = () => {
@@ -71,7 +73,7 @@ export function TimeModule() {
   }
 
   async function run() {
-    if (!window.confirm("Run the end-of-day rollover now? Swaps accrue and daily reports generate.")) return;
+    if (!(await confirm({ title: "End of Day", message: "Run the end-of-day rollover now? Swaps accrue and daily reports generate." }))) return;
     const res = await runEndOfDay();
     setStatus(res.ok ? "End of day started." : res.message || "run failed");
   }
@@ -138,6 +140,7 @@ export function TimeModule() {
       </div>
       {status && <p className="module-note">{status}</p>}
       {updatedAt > 0 && <p className="module-note">Last changed {formatNs(updatedAt)}</p>}
+      {confirmElement}
     </div>
   );
 }

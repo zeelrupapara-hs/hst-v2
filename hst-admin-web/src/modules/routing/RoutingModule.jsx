@@ -38,6 +38,7 @@ import {
   RouteFlags_labels,
   TypeFlags_labels,
 } from "@/constants/routing.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 const enumOptions = (names) =>
   Object.entries(names).map(([value, label]) => ({ value: Number(value), label }));
@@ -657,6 +658,7 @@ export function RoutingModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
   const [dragFrom, setDragFrom] = useState(null);
   const [dragOver, setDragOver] = useState(null);
   const canEdit = session.can?.right_cfg_requests !== false;
@@ -675,7 +677,7 @@ export function RoutingModule() {
   }, []);
 
   async function onDelete(row) {
-    if (!window.confirm(`Delete routing rule '${row.name}'?`)) return;
+    if (!(await confirm({ title: "Routing", message: `Delete routing rule '${row.name}'?` }))) return;
     const res = await deleteRoutingRule(row.routing_id);
     if (!res.ok) window.alert(res.message || "delete failed");
     load();
@@ -801,6 +803,7 @@ export function RoutingModule() {
         />
       )}
       {dialog && <RuleDialog ruleId={dialog.id} onClose={() => setDialog(null)} onSaved={load} />}
+      {confirmElement}
     </div>
   );
 }

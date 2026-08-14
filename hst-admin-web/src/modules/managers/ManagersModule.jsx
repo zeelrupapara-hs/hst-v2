@@ -24,6 +24,7 @@ import {
   ManagerRoleTemplates,
   treeRightKeys,
 } from "@/constants/managerRights.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 const ROLES_KEY = "hst_manager_roles";
 
@@ -452,6 +453,7 @@ export function ManagersModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
   const [view, setView] = useState({ grid: true, autoArrange: true });
   const canEdit = session.can?.right_cfg_managers !== false;
 
@@ -462,7 +464,7 @@ export function ManagersModule() {
   }, []);
 
   async function onDelete(row) {
-    if (!window.confirm(`Delete manager ${row.login} '${row.name}'?`)) return;
+    if (!(await confirm({ title: "Managers", message: `Delete manager ${row.login} '${row.name}'?` }))) return;
     const res = await deleteManager(row.login);
     if (!res.ok) window.alert(res.message || "delete failed");
     saved();
@@ -542,6 +544,7 @@ export function ManagersModule() {
       {dialog && (
         <ManagerDialog manager={dialog.manager} onClose={() => setDialog(null)} onSaved={saved} />
       )}
+      {confirmElement}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { onEvent } from "@/api/socket.js";
 import {
   checkPositions,
   deleteDeal,
@@ -19,6 +20,8 @@ import { ContextMenu } from "@/components/ui/ContextMenu.jsx";
 import { formatNs } from "@/lib/time.js";
 import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
 import { useMarketFeed } from "@/hooks/useMarketFeed.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
+import { useSession } from "@/hooks/useSession.js";
 import { BulkCloseDialog } from "./BulkCloseDialog.jsx";
 
 const px = (v, digits = 5) => (v ? v.toFixed(digits) : "");
@@ -29,9 +32,21 @@ const lots = (v) => (v ?? 0).toFixed(2);
 const stamp = (ns, ms) =>
   !ns ? "" : ms ? `${formatNs(ns)}.${String(Math.floor(Number(ns) / 1e6) % 1000).padStart(3, "0")}` : formatNs(ns);
 
+/** Merge a socket payload over the fetched row, so fields the wire does not carry (digits) survive. */
+const upsertBy = (key) => (rows, p) => {
+  const i = rows.findIndex((r) => r[key] === p[key]);
+  if (i < 0) return [...rows, p];
+  const next = rows.slice();
+  next[i] = { ...next[i], ...p };
+  return next;
+};
+
+const removeBy = (key) => (rows, p) => rows.filter((r) => r[key] !== p[key]);
+
 /** One request-bar blotter: fetch on mount, filter by login/symbol text client-side.
- * liveRow, when given, patches each row with live values just before it is painted. */
-function Blotter({ fetcher, columns, keyOf, journal = true, liveRow, rowClass, onEdit, onDelete, extraItems }) {
+ * liveRow, when given, patches each row with live values just before it is painted.
+ * liveEvents maps a socket event type to a rows reducer, so the engine drives the table. */
+function Blotter({ fetcher, columns, keyOf, journal = true, liveRow, liveEvents, rowClass, onEdit, onDelete, extraItems }) {
   const [rows, setRows] = useState(null);
   const [filter, setFilter] = useState("");
   const [selected, setSelected] = useState(null);
@@ -44,6 +59,17 @@ function Blotter({ fetcher, columns, keyOf, journal = true, liveRow, rowClass, o
   useEffect(() => {
     reload();
   }, [fetcher]);
+
+  useEffect(() => {
+    if (!liveEvents) return;
+    const offs = Object.entries(liveEvents).map(([type, apply]) =>
+      onEvent(type, (event) => {
+        if (!event?.payload) return;
+        setRows((prev) => (prev ? apply(prev, event.payload) : prev));
+      }),
+    );
+    return () => offs.forEach((off) => off());
+  }, [liveEvents]);
 
   const shown = useMemo(() => {
     if (!filter.trim()) return rows || [];
@@ -148,6 +174,24 @@ function Blotter({ fetcher, columns, keyOf, journal = true, liveRow, rowClass, o
 
 const plClass = (r) => (r.profit < 0 ? "acc-loss" : "acc-profit");
 
+// The engine's group-scoped streams, one map per blotter. A closed position leaves the
+// table; a done order stays, because the blotter shows its state.
+const POSITION_EVENTS = {
+  position_create: upsertBy("position_id"),
+  position_update: upsertBy("position_id"),
+  position_close: removeBy("position_id"),
+};
+
+const ORDER_EVENTS = {
+  order_create: upsertBy("order_id"),
+  order_update: upsertBy("order_id"),
+  order_cancel: upsertBy("order_id"),
+};
+
+const DEAL_EVENTS = {
+  deal_create: upsertBy("deal_id"),
+};
+
 /** The MT5 deal editor: rewrite the ledger row, then check positions and balance. */
 function DealDialog({ deal, onClose, onSaved }) {
   const [form, setForm] = useState({
@@ -240,6 +284,10 @@ export function PositionsModule() {
   const ticks = useMarketFeed();
   const [checks, setChecks] = useState(null);
   const [bulk, setBulk] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
+  const session = useSession();
+  // bulk closing is a dealing operation: the manager terminal has it, the administrator does not
+  const dealing = session?.terminal === "manager";
 
   // the engine's summary pairs carry each position's live profit; the feed carries the price
   const liveRow = (r) => {
@@ -278,7 +326,7 @@ export function PositionsModule() {
   }
 
   async function runDelete(row, reload) {
-    if (!window.confirm(`Delete position #${row.position_id} of ${row.login} without a deal?`)) return;
+    if (!(await confirm({ title: "Positions", message: `Delete position #${row.position_id} of ${row.login} without a deal?` }))) return;
     const res = await deletePosition(row.position_id);
     if (!res.ok) {
       window.alert(res.message || "delete failed");
@@ -295,6 +343,7 @@ export function PositionsModule() {
       fetcher={fetchAllPositions}
       journal={false}
       liveRow={liveRow}
+      liveEvents={POSITION_EVENTS}
       keyOf={(r) => r.position_id}
       rowClass={(r) => (badRow(r) ? " acc-invalid" : "")}
       extraItems={(row, reload) => [
@@ -302,7 +351,7 @@ export function PositionsModule() {
         { label: "Check", onClick: runCheck },
         { label: "Fix Position", disabled: !row || !badRow(row), onClick: () => runFix(row, reload) },
         { label: "Delete Position", disabled: !row, onClick: () => runDelete(row, reload) },
-        { label: "Bulk Close…", onClick: () => setBulk({ reload, symbol: row?.symbol }) },
+        ...(dealing ? [{ label: "Bulk Close…", onClick: () => setBulk({ reload, symbol: row?.symbol }) }] : []),
       ]}
       columns={[
         { label: "Login", value: (r) => r.login },
@@ -329,6 +378,7 @@ export function PositionsModule() {
       ]}
     />
     {bulk && <BulkCloseDialog initialSymbol={bulk.symbol} onClose={() => setBulk(null)} onDone={() => bulk.reload()} />}
+    {confirmElement}
     </>
   );
 }
@@ -337,6 +387,7 @@ export function OrdersModule() {
   return (
     <Blotter
       fetcher={fetchAllOrders}
+      liveEvents={ORDER_EVENTS}
       keyOf={(r) => r.order_id}
       columns={[
         { label: "Login", value: (r) => r.login },
@@ -356,9 +407,10 @@ export function OrdersModule() {
 
 export function DealsModule() {
   const [editing, setEditing] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
 
   async function runDelete(row, reload) {
-    if (!window.confirm(`Delete deal #${row.deal_id} of ${row.login}? Positions and balance must be checked after.`)) return;
+    if (!(await confirm({ title: "Deals", message: `Delete deal #${row.deal_id} of ${row.login}? Positions and balance must be checked after.` }))) return;
     const res = await deleteDeal(row.deal_id);
     if (!res.ok) {
       window.alert(res.message || "delete failed");
@@ -371,6 +423,7 @@ export function DealsModule() {
     <>
     <Blotter
       fetcher={fetchAllDeals}
+      liveEvents={DEAL_EVENTS}
       keyOf={(r) => r.deal_id}
       onEdit={(row, reload) => setEditing({ row, reload })}
       onDelete={runDelete}
@@ -394,6 +447,7 @@ export function DealsModule() {
         onSaved={() => editing.reload()}
       />
     )}
+    {confirmElement}
     </>
   );
 }
