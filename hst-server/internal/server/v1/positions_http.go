@@ -684,6 +684,11 @@ func (s *HttpServer) BulkClose(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
+	// the administrator terminal edits records; dealing operations belong to manager connections
+	if terminalOf(snap.ConnectionType) == TerminalAdmin {
+		return s.App.HttpResponseForbidden(c, errs.ErrBulkCloseIsDealing)
+	}
+
 	var body BulkCloseBody
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
