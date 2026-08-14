@@ -96,12 +96,24 @@ Result of the run = the table itself with a ✓/✗ per row + the findings block
 ```markdown
 # Run <env> <date> — A: n/24 ✓  B: n/19 ✓  C: n/4 ✓
 
-## ✗ rows
-| Row | Observed | Expected | Evidence |
-|---|---|---|---|
-| A10 | SL at 50 pts accepted | refuse "stops are too close" | screenshot + deal id |
+## ✗ rows (setting did not behave as expected)
+| Row | Setting changed | Observed | Expected | Evidence |
+|---|---|---|---|---|
+| A10 | stops level 10 → 100 | SL at 50 pts accepted, deal #123 | refuse "stops are too close" | screenshot + deal id |
 
-## Settings that did not take effect until restart (should be live)
-| Row | Setting |
-|---|---|
+## Settings that only took effect after a restart (should apply live)
+| Row | Setting | How it was proven |
+|---|---|---|
+| A21 | swap long −5 | no storage after end-of-day; appeared only after core restart |
+
+## Settings with no visible effect at all (dead setting?)
+| Row | Setting | What was tried |
+|---|---|---|
+| B18 | history limit 1 month | History tab still returns all deals on "All history" |
+
+## ✓ summary
+- A: rows … verified, each with the message/price/deal id recorded
+- B: rows … verified
+- C: rows … verified
+- Baseline restored after every row: yes/no (list any row left changed)
 ```

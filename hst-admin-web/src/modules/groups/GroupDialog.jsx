@@ -5,9 +5,11 @@ import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import {
   createGroup,
+  createGroupCommission,
   createGroupSymbol,
   deleteGroupSymbol,
   fetchGroup,
+  fetchGroupCommissions,
   fetchGroupSymbols,
   updateGroup,
 } from "@/api/endpoints/groups.js";
@@ -122,7 +124,7 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
         setError(res.message || "create failed");
         return;
       }
-      // a clone carries the source's symbol scope rules, replacing the seeded wildcard
+      // a clone carries the source's symbol scope rules and commissions, replacing the seeded wildcard
       if (!isNew && res.data?.group_id) {
         const src = await fetchGroupSymbols(groupId);
         if (src.ok && src.data?.length) {
@@ -132,6 +134,14 @@ export function GroupDialog({ groupId, folderPath = "", onClose, onSaved }) {
             const { symbol_id, group_id, ...rest } = row;
             await createGroupSymbol(res.data.group_id, rest);
           }
+        }
+        const comms = await fetchGroupCommissions(groupId);
+        for (const c of comms.data ?? []) {
+          const { commission_id, group_id, tiers, ...rest } = c;
+          await createGroupCommission(res.data.group_id, {
+            ...rest,
+            tiers: (tiers ?? []).map(({ tier_id, commission_id: cid, ...t }) => t),
+          });
         }
       }
     } else {
