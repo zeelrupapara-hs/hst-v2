@@ -23,6 +23,8 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	auth.Post("/logout", s.Logout)
 	// a restricted session may reach this one and nothing else
 	auth.Post("/change-password", s.ChangePassword)
+	// moving between the panels, gated by the caller's own terminal rights
+	auth.Post("/switch-terminal", s.SwitchTerminal)
 
 	// clients
 	clients := v1.Group("/clients", s.Middleware.Protect, s.Middleware.RequireManager)

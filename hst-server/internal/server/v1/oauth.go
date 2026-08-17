@@ -491,6 +491,87 @@ func (s *HttpServer) RefreshSession(c *fiber.Ctx, staffOnly bool) error {
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
 
+// SwitchTerminalRequest names the panel the session wants to move to.
+type SwitchTerminalRequest struct {
+	ConnectionType int32 `json:"connection_type" validate:"required"`
+}
+
+// SwitchTerminal opens a session on the other staff panel without asking for credentials
+// again. The manager's own terminal rights are the gate, exactly as at login, and the
+// switched-from session is closed once the new one exists: a switch replaces, not adds.
+//
+//	@Id			SwitchTerminal
+//	@Tags		Auth
+//	@Accept		json
+//	@Produce	json
+//	@Param		body	body		SwitchTerminalRequest	true	"the target panel"
+//	@Success	200		{object}	Response{data=ViewToken}
+//	@Failure	400		{object}	Response
+//	@Failure	403		{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/v1/auth/switch-terminal [post]
+func (s *HttpServer) SwitchTerminal(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+	ip := utils.GetRealIP(c)
+
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	var body SwitchTerminalRequest
+	if err := c.BodyParser(&body); err != nil {
+		return s.App.HttpResponseBadRequest(c, err)
+	}
+	if err := s.Validate.Struct(body); err != nil {
+		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	connType := model.UsersConnectionTypes(body.ConnectionType)
+	if _, known := model.UsersConnectionTypes_name[body.ConnectionType]; !known || !connType.IsStaff() {
+		return s.App.HttpResponseBadRequest(c, errs.ErrInvalidConnectionType)
+	}
+	if body.ConnectionType == snap.ConnectionType {
+		return s.App.HttpResponseBadRequest(c, errs.ErrInvalidConnectionType)
+	}
+
+	// the same gate the login walks through: the manager record, the terminal right, the allowlist
+	manager, err := s.checkManagerAccess(ctx, snap.Login, connType, ip)
+	if err != nil {
+		return s.loginFailed(c, err)
+	}
+
+	user := &model.User{}
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT login, COALESCE(client_id, 0), rights FROM hst.users WHERE login = $1`,
+		snap.Login).Scan(&user.Login, &user.ClientId, &user.Rights); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	view, err := s.openSession(ctx, user, manager, &oauth2.Config{
+		Login:          snap.Login,
+		ClientId:       user.ClientId,
+		Scope:          snap.Scope,
+		ConnectionType: body.ConnectionType,
+		IpAddress:      ip,
+		UserAgent:      utils.GetUserAgent(c),
+		Restricted:     user.Rights.MustChangePassword(),
+	}, "", "")
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	if err := s.OAuth2.RevokeSession(ctx, snap.SessionId, model.SessionRevokedSuperseded); err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not close the switched-from session",
+			"login", snap.Login, "error", err.Error())
+	}
+
+	s.Log.Log(logger.TypeUser, logger.CodeLogin, "terminal switched",
+		"login", snap.Login, "ip", ip, "connection_type", body.ConnectionType)
+
+	return s.App.HttpResponseRetCode(c, view.Code, view)
+}
+
 // LogoutSession closes the calling session.
 func (s *HttpServer) LogoutSession(c *fiber.Ctx) error {
 	snap, ok := utils.GetClient(c)

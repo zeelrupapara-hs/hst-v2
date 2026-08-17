@@ -37,7 +37,10 @@ type ViewNavNode struct {
 
 // ViewNavigation is the navigator plus what the caller may do once inside it.
 type ViewNavigation struct {
-	Login    int64  `json:"login"`
+	Login int64 `json:"login"`
+	// Name is what the header greets the person by: the first name, or the full name when
+	// no first name is set.
+	Name     string `json:"name,omitempty"`
 	Terminal string `json:"terminal"`
 	// Groups are the masks bounding every count and every list this caller sees.
 	Groups []string            `json:"groups"`
@@ -171,8 +174,16 @@ func (s *HttpServer) NavigationTree(c *fiber.Ctx) error {
 	counts := s.navCounts(c.UserContext(), snap.IsManager, snap.ManagerGroups, rights)
 	nodes := permitted(tree, rights, counts)
 
+	var name, firstName string
+	_ = s.DB.DB.QueryRow(c.UserContext(),
+		`SELECT name, first_name FROM hst.users WHERE login = $1`, snap.Login).Scan(&name, &firstName)
+	if firstName == "" {
+		firstName = name
+	}
+
 	out := &ViewNavigation{
 		Login:    snap.Login,
+		Name:     firstName,
 		Terminal: terminal,
 		Groups:   snap.ManagerGroups,
 		Nodes:    nodes,

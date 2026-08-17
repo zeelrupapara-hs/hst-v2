@@ -33,4 +33,18 @@ export async function signOut() {
   clearSession();
 }
 
+/**
+ * Staff panel switch: the server verifies the terminal right and hands over the
+ * other panel's tokens; the switched-from session is closed server side.
+ * @param {32|33} connectionType
+ */
+export async function switchTerminal(connectionType) {
+  const res = await request("/api/v1/auth/switch-terminal", {
+    method: "POST",
+    body: { connection_type: connectionType },
+  });
+  if (res.ok && res.data?.access_token) setSession(res.data);
+  return res;
+}
+
 export const fetchMe = () => request("/api/v1/auth/me");

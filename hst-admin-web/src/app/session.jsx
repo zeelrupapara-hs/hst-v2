@@ -99,6 +99,7 @@ export function SessionProvider({ children }) {
         nav,
         can: nav?.can ?? {},
         login: nav?.login,
+        name: nav?.name,
         terminal: nav?.terminal,
         reload: loadNav,
         refreshNav,
