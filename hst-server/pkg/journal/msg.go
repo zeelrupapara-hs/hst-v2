@@ -183,7 +183,15 @@ func QuoteThrownMsg(symbol string, digits int, bid, ask float64) string {
 	return fmt.Sprintf("a quote was thrown in for '%s': %.*f / %.*f", symbol, digits, bid, digits, ask)
 }
 
-// MailBroadcastMsg reports a manager's mail delivered to n accounts.
-func MailBroadcastMsg(subject string, n int) string {
-	return fmt.Sprintf("mail %q was sent to %d accounts", subject, n)
+// MailBroadcastMsg reports a manager's mail delivered to n accounts and queued as emails.
+func MailBroadcastMsg(subject string, accounts, emails int) string {
+	if emails > 0 {
+		return fmt.Sprintf("mail %q was sent to %d accounts (%d emails queued)", subject, accounts, emails)
+	}
+	return fmt.Sprintf("mail %q was sent to %d accounts", subject, accounts)
+}
+
+// MailNoRecipientsMsg reports a mail refused for naming nobody, so the attempt is on record.
+func MailNoRecipientsMsg(subject string) string {
+	return fmt.Sprintf("mail %q matched no accounts and was not sent", subject)
 }

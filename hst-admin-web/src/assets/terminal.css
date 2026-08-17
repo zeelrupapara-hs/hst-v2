@@ -5464,8 +5464,34 @@ tr[draggable="true"] { cursor: grab; }
 .exp-bar-long { background: #2e7d32; height: 100%; }
 
 /* mail dialog */
-.mail-dialog .form-grid textarea.mail-body { resize: none; grid-column: 2; width: 100%; font: inherit; }
 .mail-dialog .config-actions .mail-sent { margin-right: auto; color: #2e7d32; font-size: 11px; }
+.mail-dialog .config-panel.active { display: flex; flex-direction: column; gap: 8px; height: 100%; }
+.mail-dialog .mail-to { display: flex; align-items: center; gap: 4px; }
+.mail-dialog .mail-to input { flex: 1; }
+.mail-dialog .mail-count { min-width: 26px; text-align: center; font-size: 11px; border: 1px solid var(--chrome-border); background: #f0f0f0; padding: 2px 4px; }
+.mail-dialog .mail-to-error { color: #c62828; font-size: 11px; }
+.mail-dialog .mail-template-row { display: flex; gap: 4px; align-items: center; }
+.mail-dialog .mail-template-name { flex: 1; }
+.mail-dialog .mail-channels { display: flex; gap: 16px; align-items: center; }
+.mail-dialog .mail-channels label { font-weight: 400; display: flex; gap: 4px; align-items: center; }
+.mail-dialog .mail-editor { flex: 1; min-height: 0; display: flex; }
+
+/* rich text editor */
+.rich-text { flex: 1; display: flex; flex-direction: column; border: 1px solid var(--chrome-border); min-height: 0; }
+.rich-text-toolbar { display: flex; align-items: center; gap: 2px; flex-wrap: wrap; padding: 3px 4px; border-bottom: 1px solid var(--chrome-border); background: #f0f0f0; }
+.rich-text-btn { min-width: 22px; height: 20px; padding: 0 4px; border: 1px solid transparent; background: transparent; font-size: 11px; cursor: pointer; }
+.rich-text-btn:hover { border-color: var(--chrome-border); background: #e6e6e6; }
+.rich-text-b { font-weight: 700; }
+.rich-text-i { font-style: italic; }
+.rich-text-u { text-decoration: underline; }
+.rich-text-sep { width: 1px; height: 16px; background: var(--chrome-border); margin: 0 3px; }
+.rich-text-size { width: 52px; }
+.rich-text-macros { width: 96px; }
+.rich-text-color { position: relative; display: inline-flex; align-items: center; justify-content: center; }
+.rich-text-color input[type="color"] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.rich-text-urlbar { display: flex; gap: 4px; align-items: center; padding: 3px 4px; border-bottom: 1px solid var(--chrome-border); background: #fafafa; font-size: 11px; }
+.rich-text-urlbar input { flex: 1; height: 20px; border: 1px solid var(--chrome-border); padding: 0 4px; font-size: 11px; }
+.rich-text-area { flex: 1; overflow: auto; padding: 6px; background: #fff; font-size: 12px; outline: none; }
 
 /* MT5's bulk close dialog: form left, the what-to-do checks right, preview below */
 .bulk-close-head { display: flex; gap: 18px; margin-bottom: 8px; }
