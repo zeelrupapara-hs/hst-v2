@@ -37,7 +37,8 @@ const (
 	EventError                 EventType = "error"
 	EventForbidden             EventType = "forbidden"
 	EventInternalServerError   EventType = "internal_server_error"
-	EventMailReceived          EventType = "mail_received"
+	// EventMailInbox is what the trader terminal's socket handler listens for on a delivery.
+	EventMailInbox             EventType = "email_inbox"
 	EventNotFound              EventType = "not_found"
 	EventOrderDealerCancel     EventType = "order_dealer_cancel"
 	EventOrderDealerCreate     EventType = "order_dealer_create"

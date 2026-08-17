@@ -88,15 +88,12 @@ func (m *Mailer) Start() {
 
 func (m *Mailer) Stop() { m.once.Do(func() { close(m.stop) }) }
 
-// Drain sends every queued mail that has attempts left.
+// Drain sends every queued mail that has attempts left, each through the server it was
+// queued on. A missing or disabled server falls back to the default; no default at all
+// leaves the mail queued rather than dropped.
 func (m *Mailer) Drain(ctx context.Context) {
-	server, err := m.defaultServer(ctx)
-	if err != nil {
-		return
-	}
-
 	rows, err := m.DB.DB.Query(ctx,
-		`SELECT outbox_id, recipient, subject, body, attempts
+		`SELECT outbox_id, mail_server_id, recipient, subject, body, attempts
 		   FROM hst.outbox
 		  WHERE state = $1 AND attempts < $2
 		  ORDER BY outbox_id
@@ -106,7 +103,7 @@ func (m *Mailer) Drain(ctx context.Context) {
 	}
 
 	type pending struct {
-		id                       int64
+		id, serverId             int64
 		recipient, subject, body string
 		attempts                 int32
 	}
@@ -114,7 +111,7 @@ func (m *Mailer) Drain(ctx context.Context) {
 	var batch []pending
 	for rows.Next() {
 		var p pending
-		if err := rows.Scan(&p.id, &p.recipient, &p.subject, &p.body, &p.attempts); err != nil {
+		if err := rows.Scan(&p.id, &p.serverId, &p.recipient, &p.subject, &p.body, &p.attempts); err != nil {
 			rows.Close()
 			return
 		}
@@ -122,7 +119,33 @@ func (m *Mailer) Drain(ctx context.Context) {
 	}
 	rows.Close()
 
+	// resolved once per distinct id for the batch; nil means nothing can send this one now
+	servers := map[int64]*model.MailServer{}
+	resolve := func(id int64) *model.MailServer {
+		if s, ok := servers[id]; ok {
+			return s
+		}
+
+		s := (*model.MailServer)(nil)
+		if id != 0 {
+			s = m.serverById(ctx, id)
+		}
+		if s == nil {
+			if d, err := m.defaultServer(ctx); err == nil {
+				s = d
+			}
+		}
+		servers[id] = s
+
+		return s
+	}
+
 	for _, p := range batch {
+		server := resolve(p.serverId)
+		if server == nil {
+			continue
+		}
+
 		started := time.Now()
 		sendErr := Send(server, p.recipient, p.subject, p.body)
 		took := time.Since(started).Milliseconds()
@@ -148,6 +171,21 @@ func (m *Mailer) defaultServer(ctx context.Context) (*model.MailServer, error) {
 	}
 
 	return &s, nil
+}
+
+// serverById resolves an enabled configuration by id; nil when it is missing or disabled.
+func (m *Mailer) serverById(ctx context.Context, id int64) *model.MailServer {
+	var s model.MailServer
+	if err := m.DB.DB.QueryRow(ctx,
+		`SELECT mail_server_id, sender_email, sender_name, smtp_server, smtp_login, smtp_password
+		   FROM hst.mail_servers
+		  WHERE enabled AND mail_server_id = $1`, id).
+		Scan(&s.MailServerId, &s.SenderEmail, &s.SenderName,
+			&s.SmtpServer, &s.SmtpLogin, &s.SmtpPassword); err != nil {
+		return nil
+	}
+
+	return &s
 }
 
 // serverByName resolves a configured mail server by name; empty name uses the default server.

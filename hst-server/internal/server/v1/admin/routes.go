@@ -172,6 +172,13 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	// mail to accounts
 	mails := v1.Group("/mails", s.Middleware.Protect, s.Middleware.RequireManager)
 	mails.Post("/", s.Middleware.Authorization(model.MgrRightEmail), s.SendMail)
+	mails.Post("/preview", s.Middleware.Authorization(model.MgrRightEmail), s.PreviewMail)
+
+	// compose templates, each manager's own
+	mailTemplates := v1.Group("/mail-templates", s.Middleware.Protect, s.Middleware.RequireManager)
+	mailTemplates.Get("/", s.Middleware.Authorization(model.MgrRightEmail), s.ListMailTemplates)
+	mailTemplates.Post("/", s.Middleware.Authorization(model.MgrRightEmail), s.SaveMailTemplate)
+	mailTemplates.Delete("/:id", s.Middleware.Authorization(model.MgrRightEmail), s.DeleteMailTemplate)
 
 	// deals
 	deals := v1.Group("/deals", s.Middleware.Protect, s.Middleware.RequireManager)
