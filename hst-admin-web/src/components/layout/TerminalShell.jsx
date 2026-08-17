@@ -12,10 +12,11 @@ import { startSocket, stopSocket } from "@/api/socket.js";
 
 function StandardToolbar({ session, panel }) {
   // the other panel's button shows only when this login holds the right to connect there
+  // both directions wear the round switching arrows, the same glyph the restart wears
   const other =
     panel === "admin"
-      ? { type: 33, label: "Manager", icon: "manager", allowed: Boolean(session.can?.right_manager) }
-      : { type: 32, label: "Administrator", icon: "administrator", allowed: Boolean(session.can?.right_admin) };
+      ? { type: 33, label: "Manager", icon: "refresh", allowed: Boolean(session.can?.right_manager) }
+      : { type: 32, label: "Administrator", icon: "refresh", allowed: Boolean(session.can?.right_admin) };
 
   // the new session supersedes this one, so the socket goes quiet before the swap: a
   // session.revoked for the old token must not read as a sign-out
