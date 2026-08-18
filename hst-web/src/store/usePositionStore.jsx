@@ -125,6 +125,8 @@ const usePositionStore = create((set, get) => ({
     set({ currencyDigits: Number.isInteger(d) && d >= 0 ? d : 2 });
   },
 
+  // upsert: the engine re-announces an order on order_create for every change it makes, so a
+  // modified order would otherwise be listed twice
   addOrder: (order) => {
     set((state) => ({
       orders: state.orders.some((o) => o?.id === order?.id)

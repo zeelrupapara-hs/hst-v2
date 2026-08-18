@@ -44,7 +44,12 @@ const handleOrderMessage = (message) => {
     if ([1, 2].includes(status)) {
       positionStore.addOrder(data);
       successToast(getMessage(), "Order Created");
+      return;
     }
+
+    // the engine announces a fill on order_create too, never order_update: once the order is
+    // filled, cancelled, rejected or expired it is off the book and its row must go with it
+    positionStore.removeOrder(id);
   };
 
   const handleOrderUpdate = () => {
