@@ -101,6 +101,7 @@ export function SessionProvider({ children }) {
         login: nav?.login,
         name: nav?.name,
         terminal: nav?.terminal,
+        mailbox: nav?.mailbox ?? "",
         reload: loadNav,
         refreshNav,
         logout,

@@ -16,8 +16,9 @@ import (
 
 // ViewTraderAccount is the money state of one login, as its owner sees it.
 type ViewTraderAccount struct {
-	Login             int64   `json:"login"`
-	Group             string  `json:"group"`
+	Login int64 `json:"login"`
+	// Group stays server-side: the group a trader sits in is the broker's business, not the trader's
+	Group             string  `json:"-"`
 	Currency          string  `json:"currency"`
 	CurrencyDigits    int32   `json:"currency_digits"`
 	Balance           float64 `json:"balance"`
@@ -40,7 +41,7 @@ type ViewTraderAccount struct {
 // ViewTraderProfile is what a trader may see about itself. No password column appears.
 type ViewTraderProfile struct {
 	Login        int64             `json:"login"`
-	Group        string            `json:"group"`
+	Group        string            `json:"-"`
 	AccountType  string            `json:"account_type"`
 	Name         string            `json:"name"`
 	Email        string            `json:"email"`

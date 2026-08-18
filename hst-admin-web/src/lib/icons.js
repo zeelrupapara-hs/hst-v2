@@ -22,6 +22,7 @@ export const NAV_ICON = {
   routing: "routing",
   datafeeds: "datafeeds",
   mail_servers: "mailbox",
+  mailbox: "mailbox",
   holidays: "holidays",
   end_of_day: "time",
   journal: "journal",

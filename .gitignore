@@ -10,3 +10,4 @@ hst-sim.db
 # local staging runner output: built service binaries and their logs
 .service-bin/
 .service-logs/
+.gstack/

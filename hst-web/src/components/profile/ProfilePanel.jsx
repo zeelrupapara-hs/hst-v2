@@ -77,7 +77,6 @@ const ProfilePanel = ({ open, onClose }) => {
                 Account
               </p>
               <DetailRow label="Login" value={profile?.login} />
-              <DetailRow label="Group" value={profile?.group} />
               <DetailRow
                 label="Type"
                 value={

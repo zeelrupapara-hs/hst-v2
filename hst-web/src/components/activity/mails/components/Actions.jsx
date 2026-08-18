@@ -5,6 +5,7 @@ import { deleteMail } from "../../../../api/request/mail";
 import { errorToast } from "../../../common/CustomToast";
 import MailModal from "./MailModal";
 import PreviewModal from "./PreviewModal";
+import useMailStore from "../../../../store/useMailStore";
 
 const Actions = ({ record, activeTab }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -21,6 +22,10 @@ const Actions = ({ record, activeTab }) => {
     setIsLoading(true);
     try {
       await deleteMail(record?.id);
+      // the server pushes no bin event back to the deleter, so the list updates here
+      const store = useMailStore.getState();
+      if (activeTab === 3 || activeTab === 4) store.deleteMail(record?.id);
+      else store.trashMail(record?.id);
     } catch (error) {
       errorToast(error?.response?.data?.message || error?.message);
     } finally {

@@ -42,6 +42,8 @@ type ViewNavigation struct {
 	// no first name is set.
 	Name     string `json:"name,omitempty"`
 	Terminal string `json:"terminal"`
+	// Mailbox is the caller's internal-mail sender name; empty means it cannot send internal mail.
+	Mailbox string `json:"mailbox"`
 	// Groups are the masks bounding every count and every list this caller sees.
 	Groups []string            `json:"groups"`
 	Nodes  []ViewNavNode       `json:"nodes"`
@@ -92,6 +94,9 @@ var managerTree = []navNode{
 
 	{key: "market_watch", label: "Market Watch", icon: "symbols", route: "/market",
 		section: "trading"},
+
+	{key: "mailbox", label: "Mailbox", icon: "mailbox", route: "/mail", section: "trading",
+		counter: "mails"},
 
 	{key: "leverages", label: "Leverages", icon: "percent", route: "/leverage-profiles",
 		section: "config", needs: []uint{model.MgrRightCfgGroups}, counter: "leverages"},
@@ -144,6 +149,9 @@ var adminTree = []navNode{
 	{key: "mail_servers", label: "Mail Servers", icon: "mail", route: "/mail-servers", section: "feeds",
 		needs: []uint{model.MgrRightCfgMails}, counter: "mail_servers"},
 
+	{key: "mailbox", label: "Mailbox", icon: "mailbox", route: "/mail", section: "config",
+		counter: "mails"},
+
 	{key: "end_of_day", label: "End of Day", icon: "clock", route: "/system/end-of-day", section: "config",
 		needs: []uint{model.MgrRightCfgTime}},
 }
@@ -171,7 +179,7 @@ func (s *HttpServer) NavigationTree(c *fiber.Ctx) error {
 		tree = adminTree
 	}
 
-	counts := s.navCounts(c.UserContext(), snap.IsManager, snap.ManagerGroups, rights)
+	counts := s.navCounts(c.UserContext(), snap.Login, snap.IsManager, snap.ManagerGroups, rights)
 	nodes := permitted(tree, rights, counts)
 
 	var name, firstName string
@@ -181,10 +189,15 @@ func (s *HttpServer) NavigationTree(c *fiber.Ctx) error {
 		firstName = name
 	}
 
+	var mailbox string
+	_ = s.DB.DB.QueryRow(c.UserContext(),
+		`SELECT mailbox FROM hst.managers WHERE login = $1`, snap.Login).Scan(&mailbox)
+
 	out := &ViewNavigation{
 		Login:    snap.Login,
 		Name:     firstName,
 		Terminal: terminal,
+		Mailbox:  mailbox,
 		Groups:   snap.ManagerGroups,
 		Nodes:    nodes,
 		Can:      rights.Flags(),
@@ -279,9 +292,16 @@ func findNode(nodes []ViewNavNode, key string) *ViewNavNode {
 }
 
 // navCounts is what each section holds for this caller, counted through their group masks.
-func (s *HttpServer) navCounts(ctx context.Context, isManager bool, masks []string,
+func (s *HttpServer) navCounts(ctx context.Context, login int64, isManager bool, masks []string,
 	r model.ManagerRights) map[string]int64 {
 	out := make(map[string]int64, 8)
+
+	// the Mailbox entry counts unread, MT5's "Mailbox (5)"; none unread shows no number
+	if unread := s.countOf(ctx,
+		`SELECT count(*) FROM hst.mails m
+		  WHERE m.recipient_login = $1 AND m.folder = 1 AND m.read_at = 0`, []any{login}); unread > 0 {
+		out["mails"] = unread
+	}
 
 	where, args := utils.GroupAccessFor(isManager, masks, `u."group"`, 1)
 

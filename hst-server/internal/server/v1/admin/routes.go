@@ -175,6 +175,12 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	mails := v1.Group("/mails", s.Middleware.Protect, s.Middleware.RequireManager)
 	mails.Post("/", s.Middleware.Authorization(model.MgrRightEmail), s.SendMail)
 	mails.Post("/preview", s.Middleware.Authorization(model.MgrRightEmail), s.PreviewMail)
+	// a manager's own mailbox needs no Email right, only being staff
+	mails.Get("/", s.GetMyMails)
+	mails.Post("/attachments", s.UploadMailAttachments)
+	mails.Get("/attachments/:attachment_id", s.DownloadMailAttachment)
+	mails.Get("/:tracking_id", s.GetMyMail)
+	mails.Delete("/:tracking_id", s.DeleteMyMail)
 
 	// compose templates, each manager's own
 	mailTemplates := v1.Group("/mail-templates", s.Middleware.Protect, s.Middleware.RequireManager)

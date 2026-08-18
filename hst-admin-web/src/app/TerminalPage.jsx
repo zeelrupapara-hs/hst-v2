@@ -17,6 +17,7 @@ import { MarginCallsModule } from "@/modules/margincalls/MarginCallsModule.jsx";
 import { MarketWatchModule } from "@/modules/market/MarketWatchModule.jsx";
 import { OnlineUsersModule } from "@/modules/online/OnlineUsersModule.jsx";
 import { MailServersModule } from "@/modules/mail/MailServersModule.jsx";
+import { MailboxModule } from "@/modules/mail/MailboxModule.jsx";
 import { useSession } from "@/hooks/useSession.js";
 
 function ModulePlaceholder() {
@@ -61,6 +62,7 @@ export function TerminalPage({ panel }) {
         <Route path="market" element={<MarketWatchModule />} />
         <Route path="online" element={<OnlineUsersModule />} />
         <Route path="mail-servers" element={<MailServersModule />} />
+        <Route path="mail" element={<MailboxModule />} />
         <Route path="*" element={<ModulePlaceholder />} />
       </Route>
     </Routes>

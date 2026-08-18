@@ -29,43 +29,73 @@ const (
 	MailFolderBin    = 4
 )
 
-// errNoSupportAccount is returned rather than guessing a recipient, as v1 did by hardcoding one.
 var (
-	errNoSupportAccount = errors.New("no support account is configured, grant a manager the techsupport right")
-	errNotADraft        = errors.New("only a draft can be edited")
-	errEmptyMail        = errors.New("a mail needs a subject or a body")
+	errNotADraft          = errors.New("only a draft can be edited")
+	errEmptyMail          = errors.New("a mail needs a subject or a body")
+	errNoMailbox          = errors.New("your manager account has no mailbox name, set one to send internal mail")
+	errBadMailbox         = errors.New("that mailbox does not exist")
+	errBadReplyTo         = errors.New("the message being replied to was not found")
+	errBadAttachments     = errors.New("an attachment is missing or already sent")
+	errTooManyAttachments = errors.New("up to 5 files can be attached")
 )
 
-// ViewMail is one message as its owner sees it.
+// ViewMail is one message as its owner sees it. SenderName is the sender's mailbox name when
+// the sender is staff, empty for a trader.
 type ViewMail struct {
-	MailId         int64  `json:"mail_id"`
-	TrackingId     string `json:"tracking_id"`
-	SenderLogin    int64  `json:"sender_login"`
-	RecipientLogin int64  `json:"recipient_login"`
-	Subject        string `json:"subject"`
-	Body           string `json:"body"`
-	Folder         int32  `json:"folder"`
-	ReadAt         int64  `json:"read_at"`
-	CreatedAt      int64  `json:"created_at"`
-	UpdatedAt      int64  `json:"updated_at"`
+	MailId         int64            `json:"mail_id"`
+	TrackingId     string           `json:"tracking_id"`
+	ThreadId       string           `json:"thread_id"`
+	AttachId       string           `json:"attach_id,omitempty"`
+	SenderLogin    int64            `json:"sender_login"`
+	SenderName     string           `json:"sender_name"`
+	RecipientLogin int64            `json:"recipient_login"`
+	RecipientName  string           `json:"recipient_name"`
+	Subject        string           `json:"subject"`
+	Body           string           `json:"body"`
+	Folder         int32            `json:"folder"`
+	ReadAt         int64            `json:"read_at"`
+	CreatedAt      int64            `json:"created_at"`
+	UpdatedAt      int64            `json:"updated_at"`
+	Attachments    []ViewAttachment `json:"attachments,omitempty"`
 }
 
-// BodyMail is a mail a trader sends or saves.
+// ViewAttachment names a stored file; the bytes come from the download endpoint.
+type ViewAttachment struct {
+	AttachmentId int64  `json:"attachment_id"`
+	Name         string `json:"name"`
+	Size         int64  `json:"size"`
+}
+
+// BodyMail is a mail a trader sends or saves: the mailbox picked from the broker's list,
+// optionally as a reply into an existing thread, with staged attachments.
 type BodyMail struct {
-	Subject string `json:"subject"`
-	Body    string `json:"body"`
-	Draft   bool   `json:"draft"`
+	MailboxLogin  int64   `json:"mailbox_login"`
+	ReplyTo       string  `json:"reply_to"`
+	Subject       string  `json:"subject"`
+	Body          string  `json:"body"`
+	Draft         bool    `json:"draft"`
+	AttachmentIds []int64 `json:"attachment_ids"`
 }
 
-const mailColumns = `m.mail_id, m.tracking_id, m.sender_login, m.recipient_login, m.subject,
+const mailColumns = `m.mail_id, m.tracking_id, m.thread_id::text, COALESCE(m.attach_id::text, ''),
+	m.sender_login, COALESCE(NULLIF(mg.mailbox, ''), NULLIF(us.name, ''), ''),
+	m.recipient_login, COALESCE(NULLIF(mr.mailbox, ''), NULLIF(ur.name, ''), ''), m.subject,
 	m.body, m.folder, m.read_at, m.created_at, m.updated_at`
+
+// both parties resolve to something readable: a staff mailbox name first, the account name after
+const mailFrom = ` FROM hst.mails m
+	LEFT JOIN hst.managers mg ON mg.login = m.sender_login
+	LEFT JOIN hst.users us ON us.login = m.sender_login
+	LEFT JOIN hst.managers mr ON mr.login = m.recipient_login
+	LEFT JOIN hst.users ur ON ur.login = m.recipient_login
+	WHERE `
 
 // readMails is the one query behind every mail read handler.
 func (s *HttpServer) readMails(ctx context.Context, where string, args []any, p pageOpts) ([]ViewMail, error) {
 	where, args = p.bound("m.created_at", where, args)
 
 	rows, err := s.DB.DB.Query(ctx,
-		`SELECT `+mailColumns+` FROM hst.mails m WHERE `+where+p.tail("m.mail_id"), args...)
+		`SELECT `+mailColumns+mailFrom+where+p.tail("m.mail_id"), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -74,7 +104,8 @@ func (s *HttpServer) readMails(ctx context.Context, where string, args []any, p 
 	out := []ViewMail{}
 	for rows.Next() {
 		var v ViewMail
-		if err := rows.Scan(&v.MailId, &v.TrackingId, &v.SenderLogin, &v.RecipientLogin,
+		if err := rows.Scan(&v.MailId, &v.TrackingId, &v.ThreadId, &v.AttachId, &v.SenderLogin,
+			&v.SenderName, &v.RecipientLogin, &v.RecipientName,
 			&v.Subject, &v.Body, &v.Folder, &v.ReadAt, &v.CreatedAt, &v.UpdatedAt); err != nil {
 			return nil, err
 		}
@@ -84,16 +115,153 @@ func (s *HttpServer) readMails(ctx context.Context, where string, args []any, p 
 	return out, rows.Err()
 }
 
-// supportLogin is the account a trader's mail is addressed to.
-func (s *HttpServer) supportLogin(ctx context.Context) (int64, error) {
-	var login int64
+// threadOf resolves a reply into the thread it continues; the caller must own the original.
+func (s *HttpServer) threadOf(ctx context.Context, trackingId string, login int64) (string, error) {
+	var thread string
 	err := s.DB.DB.QueryRow(ctx,
-		`SELECT login FROM hst.managers WHERE right_techsupport = 1 ORDER BY login LIMIT 1`).Scan(&login)
+		`SELECT thread_id::text FROM hst.mails
+		  WHERE tracking_id = $1 AND (sender_login = $2 OR recipient_login = $2)`,
+		trackingId, login).Scan(&thread)
 	if errors.Is(err, pgx.ErrNoRows) {
-		return 0, errNoSupportAccount
+		return "", errBadReplyTo
 	}
 
-	return login, err
+	return thread, err
+}
+
+// claimAttachments stamps the caller's staged uploads with the send's attach id, inside its tx.
+func claimAttachments(ctx context.Context, tx pgx.Tx, ids []int64, login int64, attachId string) error {
+	if len(ids) > 5 {
+		return errTooManyAttachments
+	}
+
+	tag, err := tx.Exec(ctx,
+		`UPDATE hst.mail_attachments SET attach_id = $1
+		  WHERE attachment_id = ANY($2) AND owner_login = $3 AND attach_id IS NULL`,
+		attachId, ids, login)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() != int64(len(ids)) {
+		return errBadAttachments
+	}
+
+	return nil
+}
+
+// loadAttachments lists the files hanging off one logical message.
+func (s *HttpServer) loadAttachments(ctx context.Context, attachId string) ([]ViewAttachment, error) {
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT attachment_id, name, size FROM hst.mail_attachments
+		  WHERE attach_id = $1 ORDER BY attachment_id`, attachId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []ViewAttachment{}
+	for rows.Next() {
+		var v ViewAttachment
+		if err := rows.Scan(&v.AttachmentId, &v.Name, &v.Size); err != nil {
+			return nil, err
+		}
+		out = append(out, v)
+	}
+
+	return out, rows.Err()
+}
+
+// ViewMailbox is one entry of the broker's mailbox list a trader writes to.
+type ViewMailbox struct {
+	Login   int64  `json:"login"`
+	Mailbox string `json:"mailbox"`
+}
+
+// GetMailboxes lists the mailboxes a trader may write to: the staff whose group masks reach
+// the caller's own group, so mail goes to whoever is actually responsible for the account.
+//
+//	@Id			GetMailboxes
+//	@Tags		Trader
+//	@Produce	json
+//	@Success	200	{object}	Response{data=[]ViewMailbox}
+//	@Failure	500	{object}	Response
+//	@Security	BearerAuth
+//	@Router		/api/trader/v1/mailboxes [get]
+func (s *HttpServer) GetMailboxes(c *fiber.Ctx) error {
+	ctx := c.UserContext()
+
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
+	}
+
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT login, mailbox, groups FROM hst.managers WHERE mailbox <> '' ORDER BY mailbox, login`)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	defer rows.Close()
+
+	type candidate struct {
+		ViewMailbox
+		groups []string
+	}
+	all := []candidate{}
+	for rows.Next() {
+		var v candidate
+		if err := rows.Scan(&v.Login, &v.Mailbox, &v.groups); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		all = append(all, v)
+	}
+	if rows.Err() != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+	}
+
+	out := []ViewMailbox{}
+	for _, m := range all {
+		ok, err := s.masksReach(ctx, m.groups, snap.Group)
+		if err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		if ok {
+			out = append(out, m.ViewMailbox)
+		}
+	}
+
+	return s.App.HttpResponseOK(c, out)
+}
+
+// masksReach says whether a manager's group masks cover one group, judged by the same
+// GroupAccess predicate every list endpoint filters with.
+func (s *HttpServer) masksReach(ctx context.Context, masks []string, group string) (bool, error) {
+	where, args := utils.GroupAccess(masks, "$1::text", 2)
+	switch where {
+	case "TRUE":
+		return true, nil
+	case "FALSE":
+		return false, nil
+	}
+
+	var ok bool
+	err := s.DB.DB.QueryRow(ctx, `SELECT `+where, append([]any{group}, args...)...).Scan(&ok)
+	return ok, err
+}
+
+// mailboxExists confirms the picked recipient is a broker mailbox whose masks reach the
+// sender's group — the same set the dropdown offered.
+func (s *HttpServer) mailboxExists(ctx context.Context, login int64, group string) (bool, error) {
+	var masks []string
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT groups FROM hst.managers WHERE login = $1 AND mailbox <> ''`, login).Scan(&masks)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	return s.masksReach(ctx, masks, group)
 }
 
 // mailFolderWhere maps a folder name to the rows that belong to the caller there.
@@ -129,17 +297,29 @@ func mailFolderWhere(typ string) (string, error) {
 //	@Security	BearerAuth
 //	@Router		/api/trader/v1/mails [get]
 func (s *HttpServer) GetMyMails(c *fiber.Ctx) error {
-	where, err := mailFolderWhere(c.Query("type"))
-	if err != nil {
-		return s.App.HttpResponseBadQueryParams(c, err)
-	}
-
 	snap, ok := utils.GetClient(c)
 	if !ok {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	out, err := s.readMails(c.UserContext(), where, []any{snap.Login}, readPage(c, 100))
+	var where string
+	args := []any{snap.Login}
+
+	// expanding a conversation asks for one thread across every folder the caller owns
+	if thread := c.Query("thread_id"); thread != "" {
+		if uuid.Validate(thread) != nil {
+			return s.App.HttpResponseBadQueryParams(c, errors.New("thread_id must be a uuid"))
+		}
+		where = "(m.sender_login = $1 OR m.recipient_login = $1) AND m.thread_id = $2"
+		args = append(args, thread)
+	} else {
+		var err error
+		if where, err = mailFolderWhere(c.Query("type")); err != nil {
+			return s.App.HttpResponseBadQueryParams(c, err)
+		}
+	}
+
+	out, err := s.readMails(c.UserContext(), where, args, readPage(c, 100))
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -175,6 +355,11 @@ func (s *HttpServer) GetMyMail(c *fiber.Ctx) error {
 	}
 
 	v := out[0]
+	if v.AttachId != "" {
+		if v.Attachments, err = s.loadAttachments(c.UserContext(), v.AttachId); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
 	if v.RecipientLogin == snap.Login && v.ReadAt == 0 {
 		v.ReadAt = time.Now().UnixNano()
 		if _, err := s.DB.DB.Exec(c.UserContext(),
@@ -215,13 +400,17 @@ func (s *HttpServer) SendMyMail(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errEmptyMail)
 	}
 
-	// the recipient is looked up, never assumed: v1 hardcoded an admin id and broke on every other install
-	recipient, err := s.supportLogin(c.UserContext())
-	if err != nil {
-		if errors.Is(err, errNoSupportAccount) {
-			return s.App.HttpResponseBadRequest(c, err)
+	ctx := c.UserContext()
+
+	// To is a broker mailbox picked from the dropdown; a draft may leave it empty for now
+	if !in.Draft || in.MailboxLogin != 0 {
+		ok, err := s.mailboxExists(ctx, in.MailboxLogin, snap.Group)
+		if err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		if !ok {
+			return s.App.HttpResponseBadRequest(c, errBadMailbox)
+		}
 	}
 
 	now := time.Now().UnixNano()
@@ -233,25 +422,52 @@ func (s *HttpServer) SendMyMail(c *fiber.Ctx) error {
 	v := ViewMail{
 		TrackingId:     uuid.NewString(),
 		SenderLogin:    snap.Login,
-		RecipientLogin: recipient,
+		RecipientLogin: in.MailboxLogin,
 		Subject:        in.Subject,
-		Body:           in.Body,
+		Body:           mailer.SanitizeHTML(in.Body),
 		Folder:         int32(folder),
 		CreatedAt:      now,
 		UpdatedAt:      now,
 	}
 
-	tx, err := s.DB.DB.Begin(c.UserContext())
+	// a reply continues its thread; a fresh mail starts one under its own tracking id
+	v.ThreadId = v.TrackingId
+	if in.ReplyTo != "" {
+		thread, err := s.threadOf(ctx, in.ReplyTo, snap.Login)
+		if err != nil {
+			if errors.Is(err, errBadReplyTo) {
+				return s.App.HttpResponseBadRequest(c, err)
+			}
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		v.ThreadId = thread
+	}
+
+	if len(in.AttachmentIds) > 0 {
+		v.AttachId = uuid.NewString()
+	}
+
+	tx, err := s.DB.DB.Begin(ctx)
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
-	defer func() { _ = tx.Rollback(c.UserContext()) }()
+	defer func() { _ = tx.Rollback(ctx) }()
 
-	if err := tx.QueryRow(c.UserContext(),
-		`INSERT INTO hst.mails (tracking_id, sender_login, recipient_login, subject, body,
-		        folder, created_at, updated_at)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING mail_id`,
-		v.TrackingId, v.SenderLogin, v.RecipientLogin, v.Subject, v.Body, v.Folder, now).
+	if v.AttachId != "" {
+		if err := claimAttachments(ctx, tx, in.AttachmentIds, snap.Login, v.AttachId); err != nil {
+			if errors.Is(err, errBadAttachments) || errors.Is(err, errTooManyAttachments) {
+				return s.App.HttpResponseBadRequest(c, err)
+			}
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
+	if err := tx.QueryRow(ctx,
+		`INSERT INTO hst.mails (tracking_id, thread_id, attach_id, sender_login, recipient_login,
+		        subject, body, folder, created_at, updated_at)
+		 VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6, $7, $8, $9, $9) RETURNING mail_id`,
+		v.TrackingId, v.ThreadId, v.AttachId, v.SenderLogin, v.RecipientLogin,
+		v.Subject, v.Body, v.Folder, now).
 		Scan(&v.MailId); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -261,22 +477,25 @@ func (s *HttpServer) SendMyMail(c *fiber.Ctx) error {
 	if !in.Draft {
 		inbox.TrackingId = uuid.NewString()
 		inbox.Folder = MailFolderInbox
-		if err := tx.QueryRow(c.UserContext(),
-			`INSERT INTO hst.mails (tracking_id, sender_login, recipient_login, subject, body,
-			        folder, created_at, updated_at)
-			 VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING mail_id`,
-			inbox.TrackingId, inbox.SenderLogin, inbox.RecipientLogin, inbox.Subject, inbox.Body,
-			inbox.Folder, now).Scan(&inbox.MailId); err != nil {
+		if err := tx.QueryRow(ctx,
+			`INSERT INTO hst.mails (tracking_id, thread_id, attach_id, sender_login, recipient_login,
+			        subject, body, folder, created_at, updated_at)
+			 VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6, $7, $8, $9, $9) RETURNING mail_id`,
+			inbox.TrackingId, inbox.ThreadId, inbox.AttachId, inbox.SenderLogin, inbox.RecipientLogin,
+			inbox.Subject, inbox.Body, inbox.Folder, now).Scan(&inbox.MailId); err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
 	}
 
-	if err := tx.Commit(c.UserContext()); err != nil {
+	if err := tx.Commit(ctx); err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
-	if !in.Draft {
+	if in.Draft {
+		s.JournalEntry(c, model.JournalType_mail, logger.CodeOK, journal.MailDraftMsg(in.Subject), nil)
+	} else {
 		s.notifyMailInbox(&inbox)
+		s.JournalEntry(c, model.JournalType_mail, logger.CodeOK, journal.MailSentMsg(in.Subject), nil)
 	}
 
 	return s.App.HttpResponseOK(c, v)
@@ -335,14 +554,16 @@ func (s *HttpServer) UpdateMyDraft(c *fiber.Ctx) error {
 // logins / group_mask pair. Internal defaults to on so callers predating the email channel
 // keep their behavior.
 type BodySendMail struct {
-	Logins       []int64 `json:"logins"`
-	GroupMask    string  `json:"group_mask" validate:"max=128"`
-	To           string  `json:"to" validate:"max=4096"`
-	Subject      string  `json:"subject" validate:"required,max=128"`
-	Body         string  `json:"body" validate:"required,max=65536"`
-	Internal     *bool   `json:"internal"`
-	Email        bool    `json:"email"`
-	MailServerId int64   `json:"mail_server_id"`
+	Logins        []int64 `json:"logins"`
+	GroupMask     string  `json:"group_mask" validate:"max=128"`
+	To            string  `json:"to" validate:"max=4096"`
+	Subject       string  `json:"subject" validate:"required,max=128"`
+	Body          string  `json:"body" validate:"required,max=65536"`
+	Internal      *bool   `json:"internal"`
+	Email         bool    `json:"email"`
+	MailServerId  int64   `json:"mail_server_id"`
+	ReplyTo       string  `json:"reply_to"`
+	AttachmentIds []int64 `json:"attachment_ids"`
 }
 
 // BodyPreviewMail is the recipient half of BodySendMail, for the count the dialog shows.
@@ -502,6 +723,18 @@ func (s *HttpServer) SendMail(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errNoChannel)
 	}
 
+	// MT5 parity: internal mail carries the sender's mailbox name, so no name means no send
+	var mailbox string
+	if internal {
+		if err := s.DB.DB.QueryRow(ctx,
+			`SELECT mailbox FROM hst.managers WHERE login = $1`, snap.Login).Scan(&mailbox); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		if mailbox == "" {
+			return s.App.HttpResponseBadRequest(c, errNoMailbox)
+		}
+	}
+
 	where, args, err := mailRecipientsWhere(snap, in.To, in.Logins, in.GroupMask)
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -529,6 +762,23 @@ func (s *HttpServer) SendMail(c *fiber.Ctx) error {
 		}
 	}
 
+	// a reply keeps its conversation; otherwise every copy of this send starts a fresh thread
+	var replyThread string
+	if in.ReplyTo != "" {
+		replyThread, err = s.threadOf(ctx, in.ReplyTo, snap.Login)
+		if err != nil {
+			if errors.Is(err, errBadReplyTo) {
+				return s.App.HttpResponseBadRequest(c, err)
+			}
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
+	var attachId string
+	if internal && len(in.AttachmentIds) > 0 {
+		attachId = uuid.NewString()
+	}
+
 	// sanitized once here, then per-recipient macro values are escaped on the way in
 	body := mailer.SanitizeHTML(in.Body)
 
@@ -539,12 +789,25 @@ func (s *HttpServer) SendMail(c *fiber.Ctx) error {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	if attachId != "" {
+		if err := claimAttachments(ctx, tx, in.AttachmentIds, snap.Login, attachId); err != nil {
+			if errors.Is(err, errBadAttachments) || errors.Is(err, errTooManyAttachments) {
+				return s.App.HttpResponseBadRequest(c, err)
+			}
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
 	var (
 		sent, queued, skipped int
 		delivered             []ViewMail
 		// refs mirrors the batch: an index into delivered for a mails insert, -1 for outbox
 		refs []int
 	)
+
+	const insertMail = `INSERT INTO hst.mails (tracking_id, thread_id, attach_id, sender_login,
+	        recipient_login, subject, body, folder, created_at, updated_at)
+	 VALUES ($1, $2, NULLIF($3, '')::uuid, $4, $5, $6, $7, $8, $9, $9) RETURNING mail_id`
 
 	batch := &pgx.Batch{}
 	for i := range recipients {
@@ -555,19 +818,24 @@ func (s *HttpServer) SendMail(c *fiber.Ctx) error {
 		if internal {
 			v := ViewMail{
 				TrackingId:     uuid.NewString(),
+				AttachId:       attachId,
 				SenderLogin:    snap.Login,
+				SenderName:     mailbox,
 				RecipientLogin: r.Login,
+				RecipientName:  r.Name,
 				Subject:        subject,
 				Body:           expanded,
 				Folder:         MailFolderInbox,
 				CreatedAt:      now,
 				UpdatedAt:      now,
 			}
-			batch.Queue(
-				`INSERT INTO hst.mails (tracking_id, sender_login, recipient_login, subject, body,
-				        folder, created_at, updated_at)
-				 VALUES ($1, $2, $3, $4, $5, $6, $7, $7) RETURNING mail_id`,
-				v.TrackingId, v.SenderLogin, v.RecipientLogin, v.Subject, v.Body, v.Folder, now)
+			v.ThreadId = v.TrackingId
+			if replyThread != "" {
+				v.ThreadId = replyThread
+			}
+			batch.Queue(insertMail,
+				v.TrackingId, v.ThreadId, v.AttachId, v.SenderLogin, v.RecipientLogin,
+				v.Subject, v.Body, v.Folder, now)
 			delivered = append(delivered, v)
 			refs = append(refs, len(delivered)-1)
 			sent++
@@ -585,6 +853,42 @@ func (s *HttpServer) SendMail(c *fiber.Ctx) error {
 			refs = append(refs, -1)
 			queued++
 		}
+	}
+
+	// the sender keeps ONE outbox copy per send, template body un-expanded — MT5 behavior
+	var outboxRow *ViewMail
+	if internal {
+		v := ViewMail{
+			TrackingId:  uuid.NewString(),
+			AttachId:    attachId,
+			SenderLogin: snap.Login,
+			SenderName:  mailbox,
+			Subject:     in.Subject,
+			Body:        body,
+			Folder:      MailFolderOutbox,
+			CreatedAt:   now,
+			UpdatedAt:   now,
+		}
+		if len(recipients) == 1 {
+			v.RecipientName = recipients[0].Name
+		}
+		v.ThreadId = v.TrackingId
+		if replyThread != "" {
+			v.ThreadId = replyThread
+		}
+		// a one-to-one send shares its recipient's thread, so the reply chains on both sides
+		if len(recipients) == 1 {
+			v.RecipientLogin = recipients[0].Login
+			if internal && replyThread == "" && len(delivered) > 0 {
+				v.ThreadId = delivered[0].ThreadId
+			}
+		}
+		batch.Queue(insertMail,
+			v.TrackingId, v.ThreadId, v.AttachId, v.SenderLogin, v.RecipientLogin,
+			v.Subject, v.Body, v.Folder, now)
+		delivered = append(delivered, v)
+		refs = append(refs, len(delivered)-1)
+		outboxRow = &delivered[len(delivered)-1]
 	}
 
 	br := tx.SendBatch(ctx, batch)
@@ -609,6 +913,9 @@ func (s *HttpServer) SendMail(c *fiber.Ctx) error {
 
 	// only after the commit: a socket push for a row that rolled back would show ghost mail
 	for i := range delivered {
+		if outboxRow == &delivered[i] {
+			continue
+		}
 		s.notifyMailInbox(&delivered[i])
 	}
 

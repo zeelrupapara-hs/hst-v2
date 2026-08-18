@@ -99,7 +99,7 @@ func denied(status int, code http.RetCode, reason error) error {
 type ViewMe struct {
 	Login          int64           `json:"login"`
 	ClientId       int64           `json:"client_id"`
-	Group          string          `json:"group"`
+	Group          string          `json:"group,omitempty"`
 	ConnectionType int32           `json:"connection_type"`
 	IsManager      bool            `json:"is_manager"`
 	Restricted     bool            `json:"restricted"`
@@ -598,10 +598,13 @@ func (s *HttpServer) CurrentSession(c *fiber.Ctx) error {
 	view := &ViewMe{
 		Login:          snap.Login,
 		ClientId:       snap.ClientId,
-		Group:          snap.Group,
 		ConnectionType: snap.ConnectionType,
 		IsManager:      snap.IsManager,
 		Restricted:     snap.Restricted,
+	}
+	// a trader is never told which group it sits in; that is desk-side information
+	if snap.IsManager {
+		view.Group = snap.Group
 	}
 	if snap.IsManager {
 		view.Rights = snap.ManagerRights.Flags()

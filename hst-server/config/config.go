@@ -312,7 +312,8 @@ func NewConfig() (*Config, error) {
 	c.HTTP.WriteTimeout = 20 * time.Second
 	c.HTTP.IdleTimeout = 120 * time.Second
 	c.HTTP.ShutdownTimeout = time.Duration(getEnvAsInt(HTTP_SHUTDOWN_TIMEOUT, 15)) * time.Second
-	c.HTTP.BodyLimit = getEnvAsInt(HTTP_BODY_LIMIT, 4*1024*1024)
+	// 16MB of mail attachments plus multipart overhead must fit
+	c.HTTP.BodyLimit = getEnvAsInt(HTTP_BODY_LIMIT, 20*1024*1024)
 	c.HTTP.SwaggerEnabled = getEnvAsBool(SWAGGER_ENABLED, false)
 	c.HTTP.CorsOrigins = splitCsv(getEnv(CORS_ORIGINS, "http://localhost:3000"))
 	c.HTTP.TrustedProxies = splitCsv(getEnv(TRUSTED_PROXIES, ""))
