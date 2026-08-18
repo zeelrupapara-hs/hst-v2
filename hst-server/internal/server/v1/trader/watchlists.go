@@ -34,10 +34,12 @@ type watchlistBody struct {
 }
 
 type watchlistSymbolsBody struct {
-	SymbolIds []int64 `json:"symbol_ids"`
+	SymbolIds []int64  `json:"symbol_ids"`
+	Symbols   []string `json:"symbols"` // symbol names; wins over symbol_ids when present
 }
 
 var errSymbolNotGranted = errors.New("symbol is not granted to this account's group")
+var errSymbolUnknown = errors.New("symbol does not exist")
 
 // GetMyWatchlists lists the caller's Market Watch lists, each with its symbols.
 //
@@ -196,7 +198,7 @@ func (s *Server) DeleteMyWatchlist(c *fiber.Ctx) error {
 //	@Tags		Trader
 //	@Produce	json
 //	@Param		watchlist_id	path		int						true	"list id"
-//	@Param		body			body		watchlistSymbolsBody	true	"symbol ids"
+//	@Param		body			body		watchlistSymbolsBody	true	"symbol ids or names"
 //	@Success	200				{object}	Response{data=ViewWatchlist}
 //	@Failure	400				{object}	Response
 //	@Failure	403				{object}	Response
@@ -218,6 +220,39 @@ func (s *Server) SetMyWatchlistSymbols(c *fiber.Ctx) error {
 	var body watchlistSymbolsBody
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrBadRequest)
+	}
+
+	// names take precedence over ids; they are resolved here so the rest of the
+	// handler keeps working on ids only
+	if names := uniqStrings(body.Symbols); len(names) > 0 {
+		rows, err := s.DB.DB.Query(c.UserContext(),
+			`SELECT s.symbol, s.symbol_id FROM hst.symbols s WHERE s.symbol = ANY($1)`, names)
+		if err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		ids := map[string]int64{}
+		for rows.Next() {
+			var name string
+			var symbolId int64
+			if err := rows.Scan(&name, &symbolId); err != nil {
+				rows.Close()
+				return s.App.HttpResponseInternalServerErrorRequest(c, err)
+			}
+			ids[name] = symbolId
+		}
+		rows.Close()
+		if rows.Err() != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+		}
+
+		body.SymbolIds = make([]int64, 0, len(names))
+		for _, name := range names {
+			symbolId, ok := ids[name]
+			if !ok {
+				return s.App.HttpResponseBadRequest(c, errSymbolUnknown)
+			}
+			body.SymbolIds = append(body.SymbolIds, symbolId)
+		}
 	}
 
 	// a symbol the caller's group was never granted must not enter the list
@@ -353,6 +388,20 @@ func (s *Server) readWatchlists(ctx context.Context, login, id int64) ([]ViewWat
 	}
 
 	return out, nil
+}
+
+// uniqStrings keeps the first occurrence of each non-blank name, so the caller's order survives.
+func uniqStrings(names []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name != "" && !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // uniq keeps the first occurrence of each id, so the caller's order survives.
