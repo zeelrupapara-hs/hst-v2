@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Checkbox, Dropdown, Input } from "antd";
 import {
   LuPanelTop,
@@ -23,29 +23,24 @@ import ContextMenuTable from "../table/ContextMenuTable";
 import MultiOrderScreen from "../order/MultiOrderScreen";
 import SymbolInfoModal from "./components/SymbolInfoModal";
 import SymbolPicker from "./components/SymbolPicker";
-import WatchlistSwitcher from "./components/WatchlistSwitcher";
 import { errorToast } from "../../utils/utils";
 
 const defaultColumns = ["symbol", "bid", "ask", "spread"];
 
 const Symbols = () => {
-  const scrollRef = useRef(null);
   const symbols = useSymbolStore((state) => state.symbols);
-  const symbolGroups = useSymbolStore((state) => state.symbolGroups);
   const setGlobalStore = useGlobalStore((state) => state.setGlobalStore);
   const togglePanel = useGlobalStore((state) => state.togglePanel);
   const visibleColumns = useGlobalStore((state) => state.visibleColumns);
   const setChartSymbol = useGlobalStore((state) => state.setChartSymbol);
   const symbolOneClick = useGlobalStore((state) => state.symbolOneClick);
   const openOrderModal = useGlobalStore((state) => state.openOrderModal);
-  const hasLists = useWatchlistStore((state) => state.watchlists.length > 0);
-  const viewAll = useWatchlistStore((state) => state.viewAll);
+  const watchlistId = useWatchlistStore((state) => state.watchlistId);
   const wishlist = useWatchlistStore((state) => state.wishlist);
   const removeSymbol = useWatchlistStore((state) => state.removeSymbol);
-  const showsWatchlist = hasLists && !viewAll;
+  const showsWatchlist = watchlistId != null;
   const positions = usePositionStore((state) => state.positions);
   const orders = usePositionStore((state) => state.orders);
-  const [selectedGroup, setSelectedGroup] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isSymbolInfoOpen, setIsSymbolInfoOpen] = useState(false);
@@ -53,66 +48,23 @@ const Symbols = () => {
 
   const debouncedSearch = useDebounce(searchTerm);
 
-  // the active watchlist decides what the Market Watch carries; "All Symbols" and an account
-  // that owns no list yet see everything its group grants
+  // the account's Market Watch list decides what the panel carries; an account that owns no
+  // list (no broker default configured) sees everything its group grants
   const baseSymbols = useMemo(() => {
     if (!showsWatchlist) return Object.values(symbols);
     return wishlist.map((name) => symbols[name]).filter(Boolean);
   }, [symbols, showsWatchlist, wishlist]);
 
-  // pills for folders the current list still reaches, so no pill filters to nothing
-  const visibleGroups = useMemo(() => {
-    const ids = new Set();
-    for (const symbol of baseSymbols) {
-      if (symbol?.symbol_class?.id != null) ids.add(symbol.symbol_class.id);
-      if (symbol?.symbol_class?.parent_id != null) ids.add(symbol.symbol_class.parent_id);
-    }
-    return Object.keys(symbolGroups).filter((key) => ids.has(Number(key)));
-  }, [baseSymbols, symbolGroups]);
-
-  useEffect(() => {
-    if (selectedGroup !== "all" && !visibleGroups.includes(selectedGroup)) {
-      setSelectedGroup("all");
-    }
-  }, [selectedGroup, visibleGroups]);
-
   const filteredSymbols = useMemo(() => {
-    let results = baseSymbols;
-
-    if (selectedGroup !== "all") {
-      results = results.filter(
-        (symbol) =>
-          symbol?.symbol_class?.id === Number(selectedGroup) ||
-          symbol?.symbol_class?.parent_id === Number(selectedGroup)
-      );
-    }
-
-    if (debouncedSearch.trim()) {
-      results = results.filter((symbol) =>
-        symbol?.symbol?.toLowerCase().includes(debouncedSearch.toLowerCase())
-      );
-    }
-
-    return results;
-  }, [baseSymbols, selectedGroup, debouncedSearch]);
+    if (!debouncedSearch.trim()) return baseSymbols;
+    return baseSymbols.filter((symbol) =>
+      symbol?.symbol?.toLowerCase().includes(debouncedSearch.toLowerCase())
+    );
+  }, [baseSymbols, debouncedSearch]);
 
   const filteredColumns = useMemo(() => {
     return columns.filter((col) => visibleColumns.includes(col.key));
   }, [visibleColumns]);
-
-  useEffect(() => {
-    const scrollContainer = scrollRef.current;
-    if (!scrollContainer) return;
-
-    const handleWheel = (e) => {
-      if (e.deltaY === 0) return;
-      e.preventDefault();
-      scrollContainer.scrollLeft += e.deltaY;
-    };
-
-    scrollContainer.addEventListener("wheel", handleWheel, { passive: false });
-    return () => scrollContainer.removeEventListener("wheel", handleWheel);
-  }, []);
 
   const handleColumnChange = (key, checked) => {
     if (defaultColumns.includes(key)) return;
@@ -235,23 +187,6 @@ const Symbols = () => {
             </button>
           </Dropdown>
         </div>
-      </div>
-
-      <div ref={scrollRef} className="flex gap-2 p-2 overflow-auto scrollbar-hide scroll-smooth">
-        <WatchlistSwitcher />
-        {["all", ...visibleGroups].map((key) => (
-          <button
-            key={key}
-            className={`text-xs font-medium capitalize px-[10px] py-[2px] border rounded-full whitespace-nowrap ${
-              key === selectedGroup
-                ? "text-primary border-primary dark:text-white dark:border-white"
-                : "border-theme-border"
-            }`}
-            onClick={() => setSelectedGroup(key)}
-          >
-            {key === "all" ? "All" : symbolGroups?.[key]?.desc}
-          </button>
-        ))}
       </div>
 
       {showsWatchlist && !baseSymbols.length ? (

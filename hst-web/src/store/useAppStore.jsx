@@ -15,7 +15,7 @@ const useAppStore = create((set) => ({
 
   fetchAppData: async () => {
     const { fetchSymbols } = useSymbolStore.getState();
-    const { fetchWatchlists } = useWatchlistStore.getState();
+    const { fetchWatchlist } = useWatchlistStore.getState();
     const { fetchPositions } = usePositionStore.getState();
     const { fetchHistory } = useHistoryStore.getState();
     const { fetchAlerts } = useAlertStore.getState();
@@ -28,7 +28,7 @@ const useAppStore = create((set) => ({
       set({ loading: true });
       await fetchSymbols();
       await Promise.all([
-        fetchWatchlists(),
+        fetchWatchlist(),
         fetchPositions(),
         fetchHistory(),
         fetchAlerts(),

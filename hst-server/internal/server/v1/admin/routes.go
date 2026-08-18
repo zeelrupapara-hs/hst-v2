@@ -202,6 +202,12 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	eod.Put("/", s.Middleware.Authorization(model.MgrRightCfgTime), s.UpdateEndOfDay)
 	eod.Post("/run", s.Middleware.Authorization(model.MgrRightCfgTime), s.RunEndOfDay)
 
+	// the default Market Watch a new trading account starts with
+	v1.Get("/system/market-watch", s.Middleware.Protect, s.Middleware.RequireManager,
+		s.Middleware.Authorization(model.MgrRightCfgSymbols), s.GetDefaultMarketWatch)
+	v1.Put("/system/market-watch", s.Middleware.Protect, s.Middleware.RequireManager,
+		s.Middleware.Authorization(model.MgrRightCfgSymbols), s.UpdateDefaultMarketWatch)
+
 	// the server clock: zone, daylight saving and where the time comes from
 	v1.Get("/system/time", s.Middleware.Protect, s.Middleware.RequireManager,
 		s.Middleware.Authorization(model.MgrRightCfgTime), s.GetTimeSettings)

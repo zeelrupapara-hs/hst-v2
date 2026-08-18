@@ -62,7 +62,105 @@ func (s *Server) GetMyWatchlists(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	// an account that never had a list starts on the broker's default Market Watch, the way a
+	// stock MT5 build ships its default symbol set
+	if len(out) == 0 {
+		if err := s.seedDefaultWatchlist(c.UserContext(), snap.Login); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		if out, err = s.readWatchlists(c.UserContext(), snap.Login, 0); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
 	return s.App.HttpResponseOK(c, out)
+}
+
+// seedDefaultWatchlist gives a first-launch account the broker's default Market Watch. The
+// default names every group's instruments at once; whatever this account's group does not grant
+// is left out rather than refused. No configured default, or one this group cannot see any of,
+// seeds nothing — the terminal then shows the whole granted list instead.
+func (s *Server) seedDefaultWatchlist(ctx context.Context, login int64) error {
+	var value string
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT value FROM hst.settings WHERE key = 'default_market_watch'`).Scan(&value)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && value == "") {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	names := strings.Split(value, ",")
+
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT s.symbol, s.symbol_id FROM hst.symbols s
+		  WHERE s.symbol = ANY($2)
+		    AND EXISTS (
+		        SELECT 1
+		          FROM hst.groups_symbols gs
+		          JOIN hst.groups g ON g.group_id = gs.group_id
+		          JOIN hst.users u ON u."group" = g."group"
+		         WHERE u.login = $1
+		           AND (gs.path = '*' OR s.path = gs.path OR starts_with(s.path, rtrim(gs.path, '*')))
+		    )`, login, names)
+	if err != nil {
+		return err
+	}
+	granted := map[string]int64{}
+	for rows.Next() {
+		var name string
+		var symbolId int64
+		if err := rows.Scan(&name, &symbolId); err != nil {
+			rows.Close()
+			return err
+		}
+		granted[name] = symbolId
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	ids := make([]int64, 0, len(names))
+	for _, name := range names {
+		if symbolId, ok := granted[strings.TrimSpace(name)]; ok {
+			ids = append(ids, symbolId)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	tx, err := s.DB.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// created only while the account still has no list, so two first launches side by side
+	// cannot seed twice
+	var id int64
+	err = tx.QueryRow(ctx,
+		`INSERT INTO hst.watchlists (login, name, kind, sort_order, created_at, updated_at)
+		 SELECT $1, 'Favourites', 0, 0, $2, $2
+		  WHERE NOT EXISTS (SELECT 1 FROM hst.watchlists WHERE login = $1)
+		 RETURNING watchlist_id`, login, time.Now().UnixNano()).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	for i, symbolId := range ids {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO hst.watchlist_symbols (watchlist_id, symbol_id, sort_order) VALUES ($1, $2, $3)`,
+			id, symbolId, i); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 // CreateMyWatchlist adds one empty list to the caller.

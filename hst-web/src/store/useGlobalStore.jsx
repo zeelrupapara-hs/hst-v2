@@ -19,8 +19,6 @@ const useGlobalStore = create(
       symbolOneClick: false,
       volume: {},
       orderModals: [],
-      // the Market Watch selection: a watchlist id, or "all" for the whole symbol list
-      activeWatchlistId: null,
 
       setGlobalStore: (data) => set(data),
 
