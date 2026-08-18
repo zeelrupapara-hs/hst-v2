@@ -4,13 +4,17 @@ import {
   LuPanelTop,
   LuCirclePlus,
   LuChartLine,
+  LuEyeOff,
   LuInfo,
+  LuPlus,
   LuSearch,
   LuSettings2,
 } from "react-icons/lu";
 import { MdAdsClick } from "react-icons/md";
 import useSymbolStore from "../../store/useSymbolStore";
 import useGlobalStore from "../../store/useGlobalStore";
+import usePositionStore from "../../store/usePositionStore";
+import useWatchlistStore from "../../store/useWatchlistStore";
 import useDebounce from "../../hooks/useDebounce";
 import columns from "../../columns/symbols";
 import VirtualTable from "../table/VirtualTable";
@@ -18,6 +22,9 @@ import Icon from "../common/Icon";
 import ContextMenuTable from "../table/ContextMenuTable";
 import MultiOrderScreen from "../order/MultiOrderScreen";
 import SymbolInfoModal from "./components/SymbolInfoModal";
+import SymbolPicker from "./components/SymbolPicker";
+import WatchlistSwitcher from "./components/WatchlistSwitcher";
+import { errorToast } from "../../utils/utils";
 
 const defaultColumns = ["symbol", "bid", "ask", "spread"];
 
@@ -31,15 +38,46 @@ const Symbols = () => {
   const setChartSymbol = useGlobalStore((state) => state.setChartSymbol);
   const symbolOneClick = useGlobalStore((state) => state.symbolOneClick);
   const openOrderModal = useGlobalStore((state) => state.openOrderModal);
+  const hasLists = useWatchlistStore((state) => state.watchlists.length > 0);
+  const viewAll = useWatchlistStore((state) => state.viewAll);
+  const wishlist = useWatchlistStore((state) => state.wishlist);
+  const removeSymbol = useWatchlistStore((state) => state.removeSymbol);
+  const showsWatchlist = hasLists && !viewAll;
+  const positions = usePositionStore((state) => state.positions);
+  const orders = usePositionStore((state) => state.orders);
   const [selectedGroup, setSelectedGroup] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isSymbolInfoOpen, setIsSymbolInfoOpen] = useState(false);
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
 
   const debouncedSearch = useDebounce(searchTerm);
 
+  // the active watchlist decides what the Market Watch carries; "All Symbols" and an account
+  // that owns no list yet see everything its group grants
+  const baseSymbols = useMemo(() => {
+    if (!showsWatchlist) return Object.values(symbols);
+    return wishlist.map((name) => symbols[name]).filter(Boolean);
+  }, [symbols, showsWatchlist, wishlist]);
+
+  // pills for folders the current list still reaches, so no pill filters to nothing
+  const visibleGroups = useMemo(() => {
+    const ids = new Set();
+    for (const symbol of baseSymbols) {
+      if (symbol?.symbol_class?.id != null) ids.add(symbol.symbol_class.id);
+      if (symbol?.symbol_class?.parent_id != null) ids.add(symbol.symbol_class.parent_id);
+    }
+    return Object.keys(symbolGroups).filter((key) => ids.has(Number(key)));
+  }, [baseSymbols, symbolGroups]);
+
+  useEffect(() => {
+    if (selectedGroup !== "all" && !visibleGroups.includes(selectedGroup)) {
+      setSelectedGroup("all");
+    }
+  }, [selectedGroup, visibleGroups]);
+
   const filteredSymbols = useMemo(() => {
-    let results = Object.values(symbols);
+    let results = baseSymbols;
 
     if (selectedGroup !== "all") {
       results = results.filter(
@@ -56,7 +94,7 @@ const Symbols = () => {
     }
 
     return results;
-  }, [symbols, symbolGroups, selectedGroup, debouncedSearch]);
+  }, [baseSymbols, selectedGroup, debouncedSearch]);
 
   const filteredColumns = useMemo(() => {
     return columns.filter((col) => visibleColumns.includes(col.key));
@@ -133,6 +171,21 @@ const Symbols = () => {
         label: "Details",
         onClick: () => setIsSymbolInfoOpen(true),
       },
+      // hiding only exists while a watchlist is displayed; hiding from "show everything" would
+      // silently materialize the whole instrument set as a list
+      ...(showsWatchlist
+        ? [
+            {
+              key: 4,
+              icon: <Icon Icon={LuEyeOff} size={16} />,
+              label: "Hide Symbol",
+              onClick: () =>
+                [...positions, ...orders].some((x) => x?.symbol_id === selectedRecord?.id)
+                  ? errorToast("Cannot hide: symbol has an open position or order")
+                  : removeSymbol(selectedRecord?.id),
+            },
+          ]
+        : []),
     ],
   };
 
@@ -148,6 +201,11 @@ const Symbols = () => {
     }
   };
 
+  // the picker takes the whole panel over in place, the way the MT5 terminal does
+  if (isPickerOpen) {
+    return <SymbolPicker onClose={() => setIsPickerOpen(false)} />;
+  }
+
   return (
     <>
       <div className="flex items-center justify-between gap-2">
@@ -159,6 +217,10 @@ const Symbols = () => {
         />
 
         <div className="flex items-center gap-2">
+          <button className="p-2" aria-label="Add Symbol" onClick={() => setIsPickerOpen(true)}>
+            <Icon Icon={LuPlus} size={18} />
+          </button>
+
           <button onClick={toggleOneClick}>
             <Icon Icon={MdAdsClick} isActive={symbolOneClick} />
           </button>
@@ -176,7 +238,8 @@ const Symbols = () => {
       </div>
 
       <div ref={scrollRef} className="flex gap-2 p-2 overflow-auto scrollbar-hide scroll-smooth">
-        {["all", ...Object.keys(symbolGroups)].map((key) => (
+        <WatchlistSwitcher />
+        {["all", ...visibleGroups].map((key) => (
           <button
             key={key}
             className={`text-xs font-medium capitalize px-[10px] py-[2px] border rounded-full whitespace-nowrap ${
@@ -191,18 +254,24 @@ const Symbols = () => {
         ))}
       </div>
 
-      <ContextMenuTable
-        menu={symbolMenu}
-        setSelectedRecord={setSelectedRecord}
-        onRowDoubleClick={(record) => {
-          setGlobalStore({ symbol: record?.id });
-          setChartSymbol(1, record?.id);
-          togglePanel("order", true);
-        }}
-        isDraggable={true}
-      >
-        <VirtualTable columns={filteredColumns} data={filteredSymbols} />
-      </ContextMenuTable>
+      {showsWatchlist && !baseSymbols.length ? (
+        <div className="flex h-1/2 items-center justify-center p-4 text-center text-sm text-gray">
+          Your Market Watch is empty — tap + to add symbols
+        </div>
+      ) : (
+        <ContextMenuTable
+          menu={symbolMenu}
+          setSelectedRecord={setSelectedRecord}
+          onRowDoubleClick={(record) => {
+            setGlobalStore({ symbol: record?.id });
+            setChartSymbol(1, record?.id);
+            togglePanel("order", true);
+          }}
+          isDraggable={true}
+        >
+          <VirtualTable columns={filteredColumns} data={filteredSymbols} />
+        </ContextMenuTable>
+      )}
 
       <SymbolInfoModal
         isOpen={isSymbolInfoOpen}

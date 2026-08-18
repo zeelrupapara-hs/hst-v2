@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import useSymbolStore from "./useSymbolStore";
+import useWatchlistStore from "./useWatchlistStore";
 import usePositionStore from "./usePositionStore";
 import useHistoryStore from "./useHistoryStore";
 import useAlertStore from "./useAlertStore";
@@ -14,6 +15,7 @@ const useAppStore = create((set) => ({
 
   fetchAppData: async () => {
     const { fetchSymbols } = useSymbolStore.getState();
+    const { fetchWatchlists } = useWatchlistStore.getState();
     const { fetchPositions } = usePositionStore.getState();
     const { fetchHistory } = useHistoryStore.getState();
     const { fetchAlerts } = useAlertStore.getState();
@@ -26,6 +28,7 @@ const useAppStore = create((set) => ({
       set({ loading: true });
       await fetchSymbols();
       await Promise.all([
+        fetchWatchlists(),
         fetchPositions(),
         fetchHistory(),
         fetchAlerts(),
