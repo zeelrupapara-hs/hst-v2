@@ -61,6 +61,48 @@ export async function request(path, { method = "GET", body, retry = true } = {})
   };
 }
 
+/** Same envelope as request(), for FormData uploads; the browser sets the multipart boundary. */
+export async function requestForm(path, form, { retry = true } = {}) {
+  let res;
+  try {
+    res = await fetch(getApiBase() + path, {
+      method: "POST",
+      headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+      body: form,
+    });
+  } catch {
+    return { ok: false, status: 0, data: null, message: "server unreachable" };
+  }
+
+  if (res.status === 401 && retry && (await refreshSession())) {
+    return requestForm(path, form, { retry: false });
+  }
+
+  const envelope = await res.json().catch(() => ({}));
+
+  return {
+    ok: res.ok && envelope.success !== false,
+    status: res.status,
+    data: envelope.data ?? null,
+    message: envelope.message || envelope.error || "",
+  };
+}
+
+/** Fetches a protected file and hands it to the browser as a download. */
+export async function downloadFile(path, filename) {
+  const res = await fetch(getApiBase() + path, {
+    headers: getToken() ? { Authorization: `Bearer ${getToken()}` } : {},
+  }).catch(() => null);
+  if (!res?.ok) return false;
+  const url = URL.createObjectURL(await res.blob());
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+  return true;
+}
+
 let refreshing = null;
 
 // The server rotates refresh tokens and revokes the family on reuse, so

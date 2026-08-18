@@ -1,29 +1,70 @@
 import { useEffect, useState } from "react";
-import { Form, Input, Select } from "antd";
-import { LuX } from "react-icons/lu";
+import { Form, Input, Select, Upload } from "antd";
+import { LuPaperclip, LuX } from "react-icons/lu";
 import Icon from "../../../common/Icon";
 import ModalComponent from "../../../modal/ModalComponent";
 import Editor from "../../../common/Editor";
-import { createMail, updateMail } from "../../../../api/request/mail";
+import { createMail, updateMail, getMailboxes, uploadMailAttachments } from "../../../../api/request/mail";
 import { errorToast } from "../../../common/CustomToast";
 import ConfirmationModal from "../../../modal/ConfirmationModal";
 
-const MailModal = ({ isOpen, setIsOpen, mode = "add", record }) => {
+// MT5 attachment limits: 5 files, 8MB each, 16MB in total, whitelisted types
+const ATTACH_MAX_FILES = 5;
+const ATTACH_MAX_FILE = 8 * 1024 * 1024;
+const ATTACH_MAX_TOTAL = 16 * 1024 * 1024;
+const ATTACH_EXTS = [
+  "png", "jpg", "jpeg", "bmp", "gif", "zip", "7z", "doc", "xls",
+  "docx", "xlsx", "odt", "rtf", "csv", "txt", "log",
+];
+
+const checkAttachments = (files) => {
+  if (files.length > ATTACH_MAX_FILES) return `Up to ${ATTACH_MAX_FILES} files can be attached`;
+  let total = 0;
+  for (const f of files) {
+    if (!ATTACH_EXTS.includes(f.name.split(".").pop().toLowerCase())) {
+      return `"${f.name}" cannot be attached`;
+    }
+    if (f.size > ATTACH_MAX_FILE) return `"${f.name}" is over 8MB`;
+    total += f.size;
+  }
+  return total > ATTACH_MAX_TOTAL ? "Attachments exceed 16MB in total" : "";
+};
+
+const MailModal = ({ isOpen, setIsOpen, mode = "add", record, replyTo }) => {
   const [form] = Form.useForm();
   const [formValues, setFormValues] = useState({});
+  const [mailboxes, setMailboxes] = useState([]);
+  const [fileList, setFileList] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
-  const [isConfirmLoading, setIsConfirmLoading] = useState(false);
 
-  const requiredFields = ["subject", "body"];
+  const requiredFields = ["to", "subject", "body"];
   const hasError = requiredFields.some((field) => !formValues?.[field]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    getMailboxes()
+      .then((r) => setMailboxes(r?.data?.data || []))
+      .catch(() => setMailboxes([]));
+  }, [isOpen]);
 
   useEffect(() => {
     if (record) {
       const { to_account_id: to, subject, body } = record;
-      setFormValues({ to, subject, body });
+      const values = { to: to || undefined, subject, body };
+      setFormValues(values);
+      form.setFieldsValue(values);
+    } else if (replyTo) {
+      // a reply is locked to the original sender and quotes the message under a rule
+      const values = {
+        to: replyTo.sender_login,
+        subject: /^re:/i.test(replyTo.subject) ? replyTo.subject : `Re: ${replyTo.subject}`,
+        body: `<p><br></p><hr><blockquote>${replyTo.body}</blockquote>`,
+      };
+      setFormValues(values);
+      form.setFieldsValue(values);
     }
-  }, [record, isOpen]);
+  }, [record, replyTo, isOpen, form]);
 
   const updateFormValue = (key, value) => {
     setFormValues({ ...formValues, [key]: value });
@@ -37,6 +78,16 @@ const MailModal = ({ isOpen, setIsOpen, mode = "add", record }) => {
   const clearAll = () => {
     form.resetFields();
     setFormValues({});
+    setFileList([]);
+  };
+
+  const stageAttachments = async () => {
+    if (!fileList.length) return [];
+    const files = fileList.map((f) => f.originFileObj || f);
+    const bad = checkAttachments(files);
+    if (bad) throw new Error(bad);
+    const res = await uploadMailAttachments(files);
+    return (res?.data?.data || []).map((a) => a.attachment_id);
   };
 
   const handleSubmit = async () => {
@@ -44,7 +95,12 @@ const MailModal = ({ isOpen, setIsOpen, mode = "add", record }) => {
 
     setIsLoading(true);
     try {
-      const payload = { ...formValues, to: [25100007], status: 1 };
+      const payload = {
+        ...formValues,
+        status: 1,
+        replyTo: replyTo?.tracking_id,
+        attachmentIds: await stageAttachments(),
+      };
 
       let data = null;
 
@@ -75,29 +131,18 @@ const MailModal = ({ isOpen, setIsOpen, mode = "add", record }) => {
     setIsOpen(false);
   };
 
-  const handleConfirm = async () => {
-    setIsConfirmLoading(true);
-
-    try {
-      const payload = { ...formValues, to: [25100007], status: 3 };
-      const { data } = await createMail(payload);
-      if (data?.success) {
-        clearAll();
-        setIsConfirmOpen(false);
-        setIsOpen(false);
-      }
-    } catch (error) {
-      errorToast(error?.response?.data?.message || error?.message);
-    } finally {
-      setIsConfirmLoading(false);
-    }
+  // discarding really discards; a draft is only kept when the trader saves one on purpose
+  const handleConfirm = () => {
+    clearAll();
+    setIsConfirmOpen(false);
+    setIsOpen(false);
   };
 
   return (
     <>
       <ModalComponent isOpen={isOpen} width={800}>
         <div className="flex items-center justify-between gap-2 px-4 py-2 bg-primary text-white rounded-t-md">
-          <span>{mode === "edit" ? "Edit" : "Send"} Mail</span>
+          <span>{mode === "edit" ? "Edit" : replyTo ? "Reply" : "Send"} Mail</span>
 
           <button onClick={handleClose}>
             <Icon Icon={LuX} size={18} className="!text-white" />
@@ -110,15 +155,14 @@ const MailModal = ({ isOpen, setIsOpen, mode = "add", record }) => {
             layout="vertical"
             size="medium"
             className="custom-form"
-            initialValues={mode === "edit" ? formValues : { to: 25100007 }}
           >
             <div className="grid grid-cols-2 gap-5">
-              <Form.Item name="to" label="Recipient">
+              <Form.Item name="to" label="To">
                 <Select
-                  placeholder="Select Recipient"
-                  options={[{ value: 25100007, label: "Admin" }]}
+                  placeholder={mailboxes.length ? "Select mailbox" : "No mailboxes available"}
+                  options={mailboxes.map((m) => ({ value: m.login, label: m.mailbox }))}
                   onChange={(value) => updateFormValue("to", value)}
-                  disabled
+                  disabled={Boolean(replyTo) || !mailboxes.length}
                 />
               </Form.Item>
 
@@ -137,13 +181,37 @@ const MailModal = ({ isOpen, setIsOpen, mode = "add", record }) => {
               />
             </Form.Item>
 
-            <button
-              className="btn-primary w-full"
-              onClick={handleSubmit}
-              disabled={hasError || isLoading}
-            >
-              {getButtonText()}
-            </button>
+            <Form.Item label="Attachments">
+              <Upload
+                multiple
+                fileList={fileList}
+                beforeUpload={() => false}
+                accept={ATTACH_EXTS.map((e) => `.${e}`).join(",")}
+                onChange={({ fileList: next }) => {
+                  const bad = checkAttachments(next.map((f) => f.originFileObj || f));
+                  if (bad) return errorToast(bad);
+                  setFileList(next);
+                }}
+                onRemove={(file) => setFileList(fileList.filter((f) => f.uid !== file.uid))}
+              >
+                <button type="button" className="flex items-center gap-1">
+                  <Icon Icon={LuPaperclip} size={16} /> Attach files
+                </button>
+              </Upload>
+            </Form.Item>
+
+            <div className="flex justify-end gap-3">
+              <button type="button" className="btn-outline min-w-24" onClick={handleClose}>
+                Cancel
+              </button>
+              <button
+                className={`btn-primary min-w-24 ${hasError || isLoading || !mailboxes.length ? "btn-disabled" : ""}`}
+                onClick={handleSubmit}
+                disabled={hasError || isLoading || !mailboxes.length}
+              >
+                {getButtonText()}
+              </button>
+            </div>
           </Form>
         </div>
       </ModalComponent>
@@ -152,9 +220,8 @@ const MailModal = ({ isOpen, setIsOpen, mode = "add", record }) => {
         isOpen={isConfirmOpen}
         setIsOpen={setIsConfirmOpen}
         title="Discard changes?"
-        message="Are you sure you want to move this mail to draft?"
+        message="This message has not been sent. Discard it?"
         onConfirm={handleConfirm}
-        isLoading={isConfirmLoading}
       />
     </>
   );

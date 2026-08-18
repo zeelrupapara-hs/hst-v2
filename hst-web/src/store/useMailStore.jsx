@@ -6,6 +6,14 @@ import {
   getAllTrashMails,
 } from "../api/request/activity";
 
+// socket payloads are raw ViewMail rows; give them the same ids the REST fetch maps in
+const adaptLive = (m) => ({
+  ...m,
+  id: m?.tracking_id ?? m?.id,
+  common_id: m?.tracking_id ?? m?.common_id,
+  to_account_id: m?.recipient_login ?? m?.to_account_id,
+});
+
 const useMailStore = create((set, get) => ({
   inboxMails: [],
   outboxMails: [],
@@ -81,12 +89,13 @@ const useMailStore = create((set, get) => ({
   },
 
   addInboxMail: (mail) => {
-    set((state) => ({ inboxMails: [...state.inboxMails, mail] }));
+    set((state) => ({ inboxMails: [adaptLive(mail), ...state.inboxMails] }));
   },
 
   addOutboxMail: (mail) => {
+    mail = adaptLive(mail);
     set((state) => ({
-      outboxMails: [...state.outboxMails, mail],
+      outboxMails: [mail, ...state.outboxMails],
       draftMails: state.draftMails.filter(
         (draft) => draft?.common_id !== mail?.common_id
       ),
@@ -94,7 +103,15 @@ const useMailStore = create((set, get) => ({
   },
 
   addDraftMail: (mail) => {
-    set((state) => ({ draftMails: [...state.draftMails, mail] }));
+    set((state) => ({ draftMails: [adaptLive(mail), ...state.draftMails] }));
+  },
+
+  markRead: (id, readAt) => {
+    set((state) => ({
+      inboxMails: state.inboxMails.map((m) =>
+        m?.id === id ? { ...m, read_at: readAt } : m
+      ),
+    }));
   },
 
   trashMail: (id) => {

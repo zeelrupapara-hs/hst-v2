@@ -23,6 +23,10 @@ const (
 	// family is gated on a right, the group path on the manager's access masks
 	familyGroupSymbols     family = "group_symbols"
 	familyGroupCommissions family = "group_commissions"
+	// the live trade streams the engine publishes per group, so a blotter needs no polling
+	familyPositions family = "positions"
+	familyOrders    family = "orders"
+	familyDeals     family = "deals"
 )
 
 // familyRight is the manager right that gates a family.
@@ -33,12 +37,16 @@ var familyRight = map[family]uint{
 	familyAccounts:         MgrRightAccRead,
 	familyGroupSymbols:     MgrRightCfgGroups,
 	familyGroupCommissions: MgrRightCfgGroups,
+	familyPositions:        MgrRightTradesRead,
+	familyOrders:           MgrRightTradesRead,
+	familyDeals:            MgrRightTradesRead,
 }
 
 // families is every group scoped family, in a stable order.
 var families = []family{
 	familyGroups, familyUsers, familyClients, familyAccounts,
 	familyGroupSymbols, familyGroupCommissions,
+	familyPositions, familyOrders, familyDeals,
 }
 
 // GroupToken turns a group path into subject tokens: demo\forex\usd becomes demo.forex.usd.

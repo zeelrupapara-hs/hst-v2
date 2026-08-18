@@ -218,7 +218,7 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetError, "")
 	}
 
-	h.PublishWS(model.SubjectAccountOrders(saved.Login), model.EventOrderCreate, model.NewWireOrder(&saved))
+	h.PublishOrder(entryGroup(e), model.EventOrderUpdate, &saved)
 
 	res.RetCode = int32(model.RetOK)
 	res.Message = model.RetOK.String()
@@ -439,7 +439,7 @@ func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *boo
 	e.Unlock()
 
 	h.Accounts.Watch(o.Symbol, e)
-	h.PublishWS(model.SubjectAccountOrders(o.Login), model.EventOrderCreate, model.NewWireOrder(o))
+	h.PublishOrder(account.Group, model.EventOrderCreate, o)
 
 	// a working order can reserve margin of its own, so the account changed even with no deal
 	h.CalculateAccountMarginsAndProfits(ctx, e)

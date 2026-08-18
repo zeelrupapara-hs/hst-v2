@@ -77,6 +77,8 @@ export function SessionProvider({ children }) {
     });
     const offBalance = onEvent("balance_create", refreshNav);
     const offRevoked = onEvent("session.revoked", logout);
+    // rights were rewritten in place: reload so every panel respects the new access
+    const offRefreshed = onEvent("session_refreshed", () => window.location.reload());
     return () => {
       offConfig();
       offStatus();
@@ -84,6 +86,7 @@ export function SessionProvider({ children }) {
       offLiveness();
       offBalance();
       offRevoked();
+      offRefreshed();
     };
   }, [state.status, refreshNav, logout]);
 
@@ -96,7 +99,9 @@ export function SessionProvider({ children }) {
         nav,
         can: nav?.can ?? {},
         login: nav?.login,
+        name: nav?.name,
         terminal: nav?.terminal,
+        mailbox: nav?.mailbox ?? "",
         reload: loadNav,
         refreshNav,
         logout,

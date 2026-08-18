@@ -129,8 +129,8 @@ const usePositionStore = create((set, get) => ({
   // modified order would otherwise be listed twice
   addOrder: (order) => {
     set((state) => ({
-      orders: state.orders.some((k) => k?.id === order?.id)
-        ? state.orders.map((k) => (k?.id === order?.id ? order : k))
+      orders: state.orders.some((o) => o?.id === order?.id)
+        ? state.orders.map((o) => (o?.id === order?.id ? order : o))
         : [...state.orders, order],
     }));
   },

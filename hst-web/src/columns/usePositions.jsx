@@ -5,6 +5,7 @@ import {
   defaultRender,
   formatDate,
   formatMoney,
+  formatPrice,
   getOrderType,
 } from "../utils/utils";
 import { LuArrowRight } from "react-icons/lu";
@@ -59,7 +60,9 @@ const usePositions = () => {
       key: "open_price",
       render: (value, record) => (
         <div className="flex items-center gap-2">
-          <span>{value || record?.order_limit_price}</span>
+          <span>
+            {formatPrice(value || record?.order_limit_price, symbols?.[record?.symbol_id]?.digits)}
+          </span>
 
           <Icon Icon={LuArrowRight} size={14} />
 

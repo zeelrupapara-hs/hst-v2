@@ -1,4 +1,6 @@
 import { useState } from "react";
+import { Badge } from "antd";
+import useMailStore from "../../store/useMailStore";
 import { CiCircleList } from "react-icons/ci";
 import { LuGitFork } from "react-icons/lu";
 import { VscHistory } from "react-icons/vsc";
@@ -17,6 +19,9 @@ import Journals from "./journals";
 
 const Activity = () => {
   const [activeMenu, setActiveMenu] = useState(0);
+  const unreadMails = useMailStore(
+    (s) => (s.inboxMails || []).filter((m) => !m?.read_at).length
+  );
 
   const menu = [
     {
@@ -42,7 +47,11 @@ const Activity = () => {
     {
       id: 4,
       title: "Mails",
-      icon: <Icon Icon={IoMailOutline} size={24} />,
+      icon: (
+        <Badge count={unreadMails} size="small" offset={[4, -2]}>
+          <Icon Icon={IoMailOutline} size={24} />
+        </Badge>
+      ),
     },
     {
       id: 5,

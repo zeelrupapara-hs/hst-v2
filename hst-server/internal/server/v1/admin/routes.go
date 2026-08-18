@@ -23,6 +23,8 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	auth.Post("/logout", s.Logout)
 	// a restricted session may reach this one and nothing else
 	auth.Post("/change-password", s.ChangePassword)
+	// moving between the panels, gated by the caller's own terminal rights
+	auth.Post("/switch-terminal", s.SwitchTerminal)
 
 	// clients
 	clients := v1.Group("/clients", s.Middleware.Protect, s.Middleware.RequireManager)
@@ -172,6 +174,19 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	// mail to accounts
 	mails := v1.Group("/mails", s.Middleware.Protect, s.Middleware.RequireManager)
 	mails.Post("/", s.Middleware.Authorization(model.MgrRightEmail), s.SendMail)
+	mails.Post("/preview", s.Middleware.Authorization(model.MgrRightEmail), s.PreviewMail)
+	// a manager's own mailbox needs no Email right, only being staff
+	mails.Get("/", s.GetMyMails)
+	mails.Post("/attachments", s.UploadMailAttachments)
+	mails.Get("/attachments/:attachment_id", s.DownloadMailAttachment)
+	mails.Get("/:tracking_id", s.GetMyMail)
+	mails.Delete("/:tracking_id", s.DeleteMyMail)
+
+	// compose templates, each manager's own
+	mailTemplates := v1.Group("/mail-templates", s.Middleware.Protect, s.Middleware.RequireManager)
+	mailTemplates.Get("/", s.Middleware.Authorization(model.MgrRightEmail), s.ListMailTemplates)
+	mailTemplates.Post("/", s.Middleware.Authorization(model.MgrRightEmail), s.SaveMailTemplate)
+	mailTemplates.Delete("/:id", s.Middleware.Authorization(model.MgrRightEmail), s.DeleteMailTemplate)
 
 	// deals
 	deals := v1.Group("/deals", s.Middleware.Protect, s.Middleware.RequireManager)
@@ -186,6 +201,12 @@ func (s *Server) RegisterAdminV1(api, root fiber.Router) {
 	eod.Get("/", s.Middleware.Authorization(model.MgrRightCfgTime), s.GetEndOfDay)
 	eod.Put("/", s.Middleware.Authorization(model.MgrRightCfgTime), s.UpdateEndOfDay)
 	eod.Post("/run", s.Middleware.Authorization(model.MgrRightCfgTime), s.RunEndOfDay)
+
+	// the default Market Watch a new trading account starts with
+	v1.Get("/system/market-watch", s.Middleware.Protect, s.Middleware.RequireManager,
+		s.Middleware.Authorization(model.MgrRightCfgSymbols), s.GetDefaultMarketWatch)
+	v1.Put("/system/market-watch", s.Middleware.Protect, s.Middleware.RequireManager,
+		s.Middleware.Authorization(model.MgrRightCfgSymbols), s.UpdateDefaultMarketWatch)
 
 	// the server clock: zone, daylight saving and where the time comes from
 	v1.Get("/system/time", s.Middleware.Protect, s.Middleware.RequireManager,

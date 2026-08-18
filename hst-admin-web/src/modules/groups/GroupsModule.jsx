@@ -9,6 +9,7 @@ import { Icon } from "@/components/ui/Icon.jsx";
 import { AuthMode_name, MarginMode_short } from "@/constants/groups.js";
 import { filterGroupsByFolder } from "@/lib/groupTree.js";
 import { deleteGroup } from "@/api/endpoints/groups.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 import { GroupDialog } from "./GroupDialog.jsx";
 
 const ENABLE_CONNECTION = 2;
@@ -21,6 +22,7 @@ export function GroupsModule() {
   const [params, setSearchParams] = useSearchParams();
   const folder = params.get("folder") || "";
   const [selected, setSelected] = useState([]);
+  const { confirm, confirmElement } = useConfirm();
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
   const [sorted, setSorted] = useState(false);
@@ -63,7 +65,7 @@ export function GroupsModule() {
     const targets = selected.map((i) => rows[i]).filter(Boolean);
     if (!targets.length) return;
     const what = targets.length === 1 ? `group '${targets[0].group}'` : `${targets.length} groups`;
-    if (!window.confirm(`Delete ${what}?`)) return;
+    if (!(await confirm({ title: "Groups", message: `Delete ${what}?` }))) return;
     for (const row of targets) {
       const res = await deleteGroup(row.group_id);
       if (!res.ok) window.alert(res.message || "delete failed");
@@ -152,7 +154,7 @@ export function GroupsModule() {
                   <td>{row.company || "—"}</td>
                   <td>{MarginMode_short[row.margin_mode] ?? row.margin_mode}</td>
                   <td>{AuthMode_name[row.auth_mode] ?? row.auth_mode}</td>
-                  <td>{`${row.margin_call ?? 0} / ${row.margin_stop_out ?? 0} %`}</td>
+                  <td>{`${row.margin_call ?? 0} / ${row.margin_stop_out ?? 0} ${row.margin_so_mode === 1 ? row.currency : "%"}`}</td>
                   <td>{row.currency}</td>
                 </tr>
               );
@@ -171,6 +173,7 @@ export function GroupsModule() {
           onSaved={saved}
         />
       )}
+      {confirmElement}
     </div>
   );
 }

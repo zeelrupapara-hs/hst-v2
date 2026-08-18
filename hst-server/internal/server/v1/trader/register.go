@@ -40,7 +40,7 @@ const generatedPasswordLength = 12
 // ViewRegister is what a signup gets back: the login it may now authenticate with.
 type ViewRegister struct {
 	Login int64  `json:"login"`
-	Group string `json:"group"`
+	Group string `json:"-"`
 	Type  string `json:"type"`
 }
 

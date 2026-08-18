@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import useSymbolStore from "../store/useSymbolStore";
-import { defaultRender, getOrderType } from "../utils/utils";
+import { defaultRender, formatPrice, getOrderType } from "../utils/utils";
 import { LuArrowRight } from "react-icons/lu";
 import Icon from "../components/common/Icon";
 import Bid from "../components/marketWatch/components/Bid";
@@ -51,7 +51,7 @@ const useNetTrades = () => {
       key: "open_price",
       render: (value, record) => (
         <div className="flex items-center gap-2">
-          <span>{value}</span>
+          <span>{formatPrice(value, symbols?.[record?.symbol_id]?.digits)}</span>
 
           <Icon Icon={LuArrowRight} size={14} />
 

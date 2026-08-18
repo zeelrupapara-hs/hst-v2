@@ -5,6 +5,7 @@ import { Icon } from "@/components/ui/Icon.jsx";
 import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
 import { formatNs } from "@/lib/time.js";
 import { money } from "@/lib/format.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 const REFRESH_EVERY_MS = 10000;
 
@@ -19,6 +20,7 @@ export function OnlineUsersModule() {
   const [rows, setRows] = useState(null);
   const [selected, setSelected] = useState(null);
   const [menu, setMenu] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
   const live = useLiveAccounts();
 
   const load = () => fetchOnlineUsers().then((res) => res.ok && setRows(res.data || []));
@@ -30,7 +32,7 @@ export function OnlineUsersModule() {
   }, []);
 
   async function disconnect(row) {
-    if (!window.confirm(`Disconnect this ${CLIENT_NAMES[row.connection_type] ?? "session"} of ${row.login}?`)) return;
+    if (!(await confirm({ title: "Online Users", message: `Disconnect this ${CLIENT_NAMES[row.connection_type] ?? "session"} of ${row.login}?` }))) return;
     const res = await disconnectSession(row.session_id);
     if (!res.ok) window.alert(res.message || "disconnect failed");
     load();
@@ -98,6 +100,7 @@ export function OnlineUsersModule() {
           ]}
         />
       )}
+      {confirmElement}
     </div>
   );
 }

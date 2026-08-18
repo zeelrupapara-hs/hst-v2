@@ -23,8 +23,19 @@ const Mails = () => {
   ];
 
   useEffect(() => {
-    if (activeTab === 1) setMails(inboxMails);
-    if (activeTab === 2) setMails(outboxMails);
+    // replies nest under the newest mail of their thread, antd tree-data style
+    const threaded = (rows) => {
+      const byThread = new Map();
+      for (const m of rows || []) {
+        byThread.get(m?.thread_id)?.push(m) ?? byThread.set(m?.thread_id, [m]);
+      }
+      return [...byThread.values()].map(([head, ...rest]) =>
+        rest.length ? { ...head, children: rest } : head
+      );
+    };
+
+    if (activeTab === 1) setMails(threaded(inboxMails));
+    if (activeTab === 2) setMails(threaded(outboxMails));
     if (activeTab === 3) setMails(draftMails);
     if (activeTab === 4) setMails(trashMails);
   }, [activeTab, inboxMails, outboxMails, draftMails, trashMails]);

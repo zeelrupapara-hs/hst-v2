@@ -42,6 +42,7 @@ const (
 	RuleNotInProfile             = "the rule does not belong to this leverage profile"
 	ReorderMustListEveryRule     = "the reorder must list every rule of the profile exactly once"
 	GroupAccessBeyondOwn         = "a manager cannot be granted group access beyond your own"
+	LastStarManager              = "the last manager with full group access cannot lose it"
 	RightsBeyondOwn              = "a manager cannot be granted a right you do not hold"
 	GroupNotFound                = "no such group"
 	RegistrationClosed           = "registration is not open for this account type"
@@ -50,6 +51,7 @@ const (
 	InvalidAmount                = "the amount must not be zero"
 	EngineUnavailable            = "the trading engine did not answer"
 	ReadOnlySession              = "this session may not trade"
+	BulkCloseIsDealing           = "bulk closing is a dealing operation; connect with the Manager terminal"
 	WrongPanel                   = "this login belongs to the other panel"
 	InvalidInstantCheckMode      = "the platform defines only the normal instant check mode"
 	InvalidInstantFlags          = "unknown instant execution flag"
@@ -118,6 +120,7 @@ var (
 	ErrRuleNotInProfile             = errors.New(RuleNotInProfile)
 	ErrReorderMustListEveryRule     = errors.New(ReorderMustListEveryRule)
 	ErrGroupAccessBeyondOwn         = errors.New(GroupAccessBeyondOwn)
+	ErrLastStarManager              = errors.New(LastStarManager)
 	ErrRightsBeyondOwn              = errors.New(RightsBeyondOwn)
 	ErrGroupNotFound                = errors.New(GroupNotFound)
 	ErrRegistrationClosed           = errors.New(RegistrationClosed)
@@ -126,6 +129,7 @@ var (
 	ErrInvalidAmount                = errors.New(InvalidAmount)
 	ErrEngineUnavailable            = errors.New(EngineUnavailable)
 	ErrReadOnlySession              = errors.New(ReadOnlySession)
+	ErrBulkCloseIsDealing           = errors.New(BulkCloseIsDealing)
 	ErrWrongPanel                   = errors.New(WrongPanel)
 	ErrInvalidInstantCheckMode      = errors.New(InvalidInstantCheckMode)
 	ErrInvalidInstantFlags          = errors.New(InvalidInstantFlags)

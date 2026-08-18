@@ -8,6 +8,8 @@ import { useSymbols } from "@/hooks/useSymbols.js";
 import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
 import { GroupTreeSelect } from "@/components/ui/GroupTreeSelect.jsx";
 import { useMarketFeed } from "@/hooks/useMarketFeed.js";
+import { useLiveAccounts } from "@/hooks/useLiveAccounts.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 import { money } from "@/lib/format.js";
 import { OrderType_name } from "@/constants/trades.js";
 
@@ -17,6 +19,7 @@ const px = (v, d = 5) => (v ? Number(v).toFixed(d) : "0.000");
 export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
   const { symbols } = useSymbols();
   const ticks = useMarketFeed();
+  const live = useLiveAccounts();
   const [symbol, setSymbol] = useState(initialSymbol || "");
   const [mask, setMask] = useState("*");
   const [comment, setComment] = useState("");
@@ -26,6 +29,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
   const [preview, setPreview] = useState(null);
   const [results, setResults] = useState(null);
   const [error, setError] = useState("");
+  const { confirm: confirmBox, confirmElement } = useConfirm();
   const { offset, onTitlePointerDown } = useDialogDrag("bulk-close");
   const close = useDialogStack(onClose);
 
@@ -72,7 +76,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
       setError("Tick at least one operation");
       return;
     }
-    if (!window.confirm(`${modes.join(" + ")} over ${preview?.length ?? 0} positions on ${symbol} (${mask}). Are you sure?`)) return;
+    if (!(await confirmBox({ title: "Bulk Operations", message: `${modes.join(" + ")} over ${preview?.length ?? 0} positions on ${symbol} (${mask}). Are you sure?` }))) return;
     setError("");
     const all = [];
     for (const mode of modes) {
@@ -148,19 +152,24 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {(preview || []).map((r, i) => (
-                      <tr key={i}>
-                        <td>{r.login}</td>
-                        <td>{r.kind === "order" ? (OrderType_name[r.action] ?? r.action) : r.action === 0 ? "buy" : "sell"}</td>
-                        <td>{(r.volume ?? 0).toFixed(2)}</td>
-                        <td>{px(r.price, digits)}</td>
-                        <td>{px(r.price_sl, digits)}</td>
-                        <td>{px(r.price_tp, digits)}</td>
-                        <td>{px(r.action === 0 ? tick?.bid : tick?.ask, digits)}</td>
-                        <td>{money(r.storage)}</td>
-                        <td className={r.profit < 0 ? "acc-loss" : "acc-profit"}>{money(r.profit)}</td>
-                      </tr>
-                    ))}
+                    {(preview || []).map((r, i) => {
+                      // the engine's summary line carries each position's live profit; the preview value is its fallback
+                      const profit =
+                        (r.kind === "position" ? live.get(r.login)?.positions?.[r.id] : undefined) ?? r.profit;
+                      return (
+                        <tr key={i}>
+                          <td>{r.login}</td>
+                          <td>{r.kind === "order" ? (OrderType_name[r.action] ?? r.action) : r.action === 0 ? "buy" : "sell"}</td>
+                          <td>{(r.volume ?? 0).toFixed(2)}</td>
+                          <td>{px(r.price, digits)}</td>
+                          <td>{px(r.price_sl, digits)}</td>
+                          <td>{px(r.price_tp, digits)}</td>
+                          <td>{px(r.action === 0 ? tick?.bid : tick?.ask, digits)}</td>
+                          <td>{money(r.storage)}</td>
+                          <td className={profit < 0 ? "acc-loss" : "acc-profit"}>{money(profit)}</td>
+                        </tr>
+                      );
+                    })}
                     {preview !== null && !preview.length && (
                       <tr><td colSpan={9} className="df-empty">No positions match</td></tr>
                     )}
@@ -171,6 +180,7 @@ export function BulkCloseDialog({ initialSymbol, onClose, onDone }) {
           </div>
         </SettingsDialog>
       </div>
+      {confirmElement}
     </DialogOverlay>
   );
 }

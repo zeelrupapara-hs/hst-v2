@@ -61,6 +61,12 @@ export const defaultRender = (value) => (value ?? "--");
 export const formatMoney = (value, digits = 2) =>
   Number(value ?? 0).toFixed(Number.isInteger(digits) && digits >= 0 ? digits : 2);
 
+// A price keeps the symbol's own digits, so 5.199 renders as 5.19900, never trimmed.
+export const formatPrice = (value, digits) =>
+  Number.isFinite(Number(value)) && value !== null && value !== ""
+    ? Number(value).toFixed(Number.isInteger(digits) && digits >= 0 ? digits : 2)
+    : (value ?? "--");
+
 export const formateProfit = (number, digits = 2) => {
   if (!number) return `$${formatMoney(0, digits)}`;
   const formattedNumber = formatMoney(Math.abs(number), digits);

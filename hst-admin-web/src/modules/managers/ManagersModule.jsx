@@ -24,6 +24,7 @@ import {
   ManagerRoleTemplates,
   treeRightKeys,
 } from "@/constants/managerRights.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 
 const ROLES_KEY = "hst_manager_roles";
 
@@ -107,7 +108,11 @@ function ManagerDialog({ manager, onClose, onSaved }) {
 
   useEffect(() => {
     if (isNew) return;
-    fetchManagerRights(manager.login).then((res) => res.ok && setRights(res.data.rights || {}));
+    fetchManagerRights(manager.login).then((res) => {
+      if (res.ok) setRights(res.data.rights || {});
+      // an unreadable right set must not save as an empty one
+      else setError(res.message || "could not load permissions — saving is disabled");
+    });
     fetchManager(manager.login).then((res) => {
       if (!res.ok) return;
       setDraft((prev) => ({
@@ -137,6 +142,17 @@ function ManagerDialog({ manager, onClose, onSaved }) {
       keys.forEach((k) => (next[k] = on));
       return next;
     });
+
+  // a click anywhere outside the editing row discards the edit, like every inline editor
+  useEffect(() => {
+    if (groupEdit == null) return;
+    const discard = (e) => {
+      if (e.target.closest?.(".mgr-group-editing") || e.target.closest?.(".grptree-pop")) return;
+      setGroupEdit(null);
+    };
+    document.addEventListener("mousedown", discard);
+    return () => document.removeEventListener("mousedown", discard);
+  }, [groupEdit != null]);
 
   function commitGroupRow(value) {
     const v = value.trim();
@@ -437,6 +453,7 @@ export function ManagersModule() {
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
+  const { confirm, confirmElement } = useConfirm();
   const [view, setView] = useState({ grid: true, autoArrange: true });
   const canEdit = session.can?.right_cfg_managers !== false;
 
@@ -447,7 +464,7 @@ export function ManagersModule() {
   }, []);
 
   async function onDelete(row) {
-    if (!window.confirm(`Delete manager ${row.login} '${row.name}'?`)) return;
+    if (!(await confirm({ title: "Managers", message: `Delete manager ${row.login} '${row.name}'?` }))) return;
     const res = await deleteManager(row.login);
     if (!res.ok) window.alert(res.message || "delete failed");
     saved();
@@ -527,6 +544,7 @@ export function ManagersModule() {
       {dialog && (
         <ManagerDialog manager={dialog.manager} onClose={() => setDialog(null)} onSaved={saved} />
       )}
+      {confirmElement}
     </div>
   );
 }

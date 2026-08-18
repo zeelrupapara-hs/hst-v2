@@ -34,10 +34,12 @@ type watchlistBody struct {
 }
 
 type watchlistSymbolsBody struct {
-	SymbolIds []int64 `json:"symbol_ids"`
+	SymbolIds []int64  `json:"symbol_ids"`
+	Symbols   []string `json:"symbols"` // symbol names; wins over symbol_ids when present
 }
 
 var errSymbolNotGranted = errors.New("symbol is not granted to this account's group")
+var errSymbolUnknown = errors.New("symbol does not exist")
 
 // GetMyWatchlists lists the caller's Market Watch lists, each with its symbols.
 //
@@ -60,7 +62,105 @@ func (s *Server) GetMyWatchlists(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	// an account that never had a list starts on the broker's default Market Watch, the way a
+	// stock MT5 build ships its default symbol set
+	if len(out) == 0 {
+		if err := s.seedDefaultWatchlist(c.UserContext(), snap.Login); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		if out, err = s.readWatchlists(c.UserContext(), snap.Login, 0); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
 	return s.App.HttpResponseOK(c, out)
+}
+
+// seedDefaultWatchlist gives a first-launch account the broker's default Market Watch. The
+// default names every group's instruments at once; whatever this account's group does not grant
+// is left out rather than refused. No configured default, or one this group cannot see any of,
+// seeds nothing — the terminal then shows the whole granted list instead.
+func (s *Server) seedDefaultWatchlist(ctx context.Context, login int64) error {
+	var value string
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT value FROM hst.settings WHERE key = 'default_market_watch'`).Scan(&value)
+	if errors.Is(err, pgx.ErrNoRows) || (err == nil && value == "") {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	names := strings.Split(value, ",")
+
+	rows, err := s.DB.DB.Query(ctx,
+		`SELECT s.symbol, s.symbol_id FROM hst.symbols s
+		  WHERE s.symbol = ANY($2)
+		    AND EXISTS (
+		        SELECT 1
+		          FROM hst.groups_symbols gs
+		          JOIN hst.groups g ON g.group_id = gs.group_id
+		          JOIN hst.users u ON u."group" = g."group"
+		         WHERE u.login = $1
+		           AND (gs.path = '*' OR s.path = gs.path OR starts_with(s.path, rtrim(gs.path, '*')))
+		    )`, login, names)
+	if err != nil {
+		return err
+	}
+	granted := map[string]int64{}
+	for rows.Next() {
+		var name string
+		var symbolId int64
+		if err := rows.Scan(&name, &symbolId); err != nil {
+			rows.Close()
+			return err
+		}
+		granted[name] = symbolId
+	}
+	rows.Close()
+	if rows.Err() != nil {
+		return rows.Err()
+	}
+
+	ids := make([]int64, 0, len(names))
+	for _, name := range names {
+		if symbolId, ok := granted[strings.TrimSpace(name)]; ok {
+			ids = append(ids, symbolId)
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+
+	tx, err := s.DB.DB.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	// created only while the account still has no list, so two first launches side by side
+	// cannot seed twice
+	var id int64
+	err = tx.QueryRow(ctx,
+		`INSERT INTO hst.watchlists (login, name, kind, sort_order, created_at, updated_at)
+		 SELECT $1, 'Favourites', 0, 0, $2, $2
+		  WHERE NOT EXISTS (SELECT 1 FROM hst.watchlists WHERE login = $1)
+		 RETURNING watchlist_id`, login, time.Now().UnixNano()).Scan(&id)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+
+	for i, symbolId := range ids {
+		if _, err := tx.Exec(ctx,
+			`INSERT INTO hst.watchlist_symbols (watchlist_id, symbol_id, sort_order) VALUES ($1, $2, $3)`,
+			id, symbolId, i); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit(ctx)
 }
 
 // CreateMyWatchlist adds one empty list to the caller.
@@ -196,7 +296,7 @@ func (s *Server) DeleteMyWatchlist(c *fiber.Ctx) error {
 //	@Tags		Trader
 //	@Produce	json
 //	@Param		watchlist_id	path		int						true	"list id"
-//	@Param		body			body		watchlistSymbolsBody	true	"symbol ids"
+//	@Param		body			body		watchlistSymbolsBody	true	"symbol ids or names"
 //	@Success	200				{object}	Response{data=ViewWatchlist}
 //	@Failure	400				{object}	Response
 //	@Failure	403				{object}	Response
@@ -218,6 +318,39 @@ func (s *Server) SetMyWatchlistSymbols(c *fiber.Ctx) error {
 	var body watchlistSymbolsBody
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrBadRequest)
+	}
+
+	// names take precedence over ids; they are resolved here so the rest of the
+	// handler keeps working on ids only
+	if names := uniqStrings(body.Symbols); len(names) > 0 {
+		rows, err := s.DB.DB.Query(c.UserContext(),
+			`SELECT s.symbol, s.symbol_id FROM hst.symbols s WHERE s.symbol = ANY($1)`, names)
+		if err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		ids := map[string]int64{}
+		for rows.Next() {
+			var name string
+			var symbolId int64
+			if err := rows.Scan(&name, &symbolId); err != nil {
+				rows.Close()
+				return s.App.HttpResponseInternalServerErrorRequest(c, err)
+			}
+			ids[name] = symbolId
+		}
+		rows.Close()
+		if rows.Err() != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+		}
+
+		body.SymbolIds = make([]int64, 0, len(names))
+		for _, name := range names {
+			symbolId, ok := ids[name]
+			if !ok {
+				return s.App.HttpResponseBadRequest(c, errSymbolUnknown)
+			}
+			body.SymbolIds = append(body.SymbolIds, symbolId)
+		}
 	}
 
 	// a symbol the caller's group was never granted must not enter the list
@@ -353,6 +486,20 @@ func (s *Server) readWatchlists(ctx context.Context, login, id int64) ([]ViewWat
 	}
 
 	return out, nil
+}
+
+// uniqStrings keeps the first occurrence of each non-blank name, so the caller's order survives.
+func uniqStrings(names []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(names))
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name != "" && !seen[name] {
+			seen[name] = true
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // uniq keeps the first occurrence of each id, so the caller's order survives.

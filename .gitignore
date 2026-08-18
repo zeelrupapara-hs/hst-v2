@@ -1,6 +1,13 @@
-
 # fix session logs and stores, written at runtime
 logs/
 .playwright-mcp/
 hst-sim.db
-*.png
+.DS_Store
+
+# screenshots, written while checking a screen by hand
+/*.png
+
+# local staging runner output: built service binaries and their logs
+.service-bin/
+.service-logs/
+.gstack/

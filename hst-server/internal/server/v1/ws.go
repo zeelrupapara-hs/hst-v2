@@ -2,6 +2,7 @@ package v1
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"hstserver/model"
@@ -132,7 +133,11 @@ func (s *HttpServer) openSubs(c *ws.Client, rights model.ManagerRights, groups [
 	subs := make([]ws.Unsubscriber, 0, len(subjects))
 	for _, subject := range subjects {
 		sub, err := s.Nats.NC.Subscribe(subject, func(msg *natscore.Msg) {
-			c.Send(eventFromMsg(msg))
+			e := eventFromMsg(msg)
+			if !c.IsManager {
+				scrubGroupForTrader(e)
+			}
+			c.Send(e)
 		})
 		if err != nil {
 			return subs, err
@@ -169,12 +174,33 @@ func (s *HttpServer) RefreshLogin(login int64) {
 
 		c.ReplaceSubs(snap.ManagerRights, snap.ManagerGroups, subs)
 
+		// the open screen re-reads its world instead of the manager being thrown out
+		c.Send(&model.Event{Type: "session_refreshed"})
+
 		s.Log.Log(logger.TypeNet, logger.CodeOK, "websocket access refreshed",
 			"session_id", c.SessionId, "login", login, "subjects", len(subs))
 	}
 }
 
 // eventFromMsg turns a nats message into the event the client receives.
+// scrubGroupForTrader strips the group path off an event before a trading terminal sees it:
+// which group an account sits in is the desk's information, not the account's.
+func scrubGroupForTrader(e *model.Event) {
+	e.Group = ""
+	if e.Format != model.FormatJSON || !strings.HasPrefix(string(e.Type), "group") {
+		return
+	}
+
+	var payload map[string]any
+	if json.Unmarshal(e.Payload, &payload) != nil {
+		return
+	}
+	delete(payload, "group")
+	if data, err := json.Marshal(payload); err == nil {
+		e.Payload = data
+	}
+}
+
 func eventFromMsg(msg *natscore.Msg) *model.Event {
 	format, declared := model.FormatFromHeader(
 		msg.Header.Get(model.HeaderFormat),

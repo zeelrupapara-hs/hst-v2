@@ -8,6 +8,7 @@ import {
   modifyPosition,
 } from "@/api/endpoints/trades.js";
 import { useMarketFeed } from "@/hooks/useMarketFeed.js";
+import { useConfirm } from "@/hooks/useConfirm.jsx";
 import { useSymbols } from "@/hooks/useSymbols.js";
 import { onEvent } from "@/api/socket.js";
 import { money } from "@/lib/format.js";
@@ -131,6 +132,7 @@ export function AccountTradeTab({ login }) {
   const [positions, setPositions] = useState(null);
   const [editing, setEditing] = useState(null);
   const [error, setError] = useState("");
+  const { confirm, confirmElement } = useConfirm();
   const [notice, setNotice] = useState("");
 
   const reload = () => fetchAccountPositions(login).then((res) => res.ok && setPositions(res.data || []));
@@ -195,7 +197,7 @@ export function AccountTradeTab({ login }) {
   }
 
   async function close(p) {
-    if (!window.confirm(`Close position #${p.position_id} (${p.volume.toFixed(2)} ${p.symbol})?`)) return;
+    if (!(await confirm({ title: "Trade", message: `Close position #${p.position_id} (${p.volume.toFixed(2)} ${p.symbol})?` }))) return;
     const res = await closePosition(p.position_id, { login, position_id: p.position_id });
     if (!res.ok) window.alert(res.message || "close refused");
     setTimeout(reload, 700);
@@ -350,6 +352,7 @@ export function AccountTradeTab({ login }) {
           )}
         </tbody>
       </table>
+      {confirmElement}
     </>
   );
 }

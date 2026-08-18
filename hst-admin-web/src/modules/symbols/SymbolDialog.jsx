@@ -173,7 +173,8 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
       trimmed === draft.symbol
         ? draft
         : { ...draft, symbol: trimmed, path: folder ? `${folder}\\${trimmed}` : trimmed };
-    if (isNew) {
+    // the reference's clone-by-rename: editing the name creates a new symbol, the original stays
+    if (isNew || trimmed !== original?.symbol) {
       if (!trimmed) {
         setError("Symbol name is required");
         return;

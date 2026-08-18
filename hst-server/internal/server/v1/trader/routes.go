@@ -59,7 +59,10 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Delete("/watchlists/:watchlist_id", s.DeleteMyWatchlist)
 	trader.Put("/watchlists/:watchlist_id/symbols", s.SetMyWatchlistSymbols)
 
+	trader.Get("/mailboxes", s.GetMailboxes)
 	trader.Get("/mails", s.GetMyMails)
+	trader.Post("/mails/attachments", s.UploadMailAttachments)
+	trader.Get("/mails/attachments/:attachment_id", s.DownloadMailAttachment)
 	trader.Get("/mails/:tracking_id", s.GetMyMail)
 	trader.Post("/mails", s.SendMyMail)
 	trader.Put("/mails/:tracking_id", s.UpdateMyDraft)

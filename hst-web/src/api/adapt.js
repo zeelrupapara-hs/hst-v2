@@ -192,6 +192,14 @@ export const alertFromFormula = ({ formula }) => {
   };
 };
 
+// a watchlist's symbols arrive in full; the terminal only keys on the names, in server order
+export const adaptWatchlist = (w) => ({
+  id: w.watchlist_id,
+  name: w.name,
+  kind: w.kind,
+  symbols: (w.symbols ?? []).map((s) => symbolId(s.symbol)),
+});
+
 export const adaptSummary = (a) => ({
   ...a,
   used_margin: a.margin,
