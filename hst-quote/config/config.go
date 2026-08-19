@@ -40,7 +40,8 @@ const (
 	NATS_NAME = "NATS_NAME"
 
 	NEWS_RELOAD_INTERVAL  = "NEWS_RELOAD_INTERVAL"
-	QUOTE_RELOAD_INTERVAL = "QUOTE_RELOAD_INTERVAL"
+	QUOTE_RELOAD_INTERVAL   = "QUOTE_RELOAD_INTERVAL"
+	QUOTE_DATAFEEDS_TIMEOUT = "QUOTE_DATAFEEDS_TIMEOUT"
 	FIX_CONFIG_DIR        = "FIX_CONFIG_DIR"
 
 	HST_SERVER_URL         = "HST_SERVER_URL"
@@ -171,11 +172,14 @@ type Redis struct {
 // Quote config for tick ingestion.
 type Quote struct {
 	ReloadInterval time.Duration
-	FixConfigDir   string
-	ServerURL      string
-	ServiceToken   string
-	InstanceIndex  int
-	InstanceCount  int
+	// DatafeedsTimeout is how long a symbol's active feed may stay silent before a
+	// lower-priority feed takes over.
+	DatafeedsTimeout time.Duration
+	FixConfigDir     string
+	ServerURL        string
+	ServiceToken     string
+	InstanceIndex    int
+	InstanceCount    int
 }
 
 // NewConfig will load the env vars into the config struct
@@ -235,6 +239,7 @@ func NewConfig() (*Config, error) {
 	c.Redis.ConnMaxLifetime = time.Hour
 
 	c.Quote.ReloadInterval = time.Duration(getEnvAsInt(QUOTE_RELOAD_INTERVAL, 60)) * time.Second
+	c.Quote.DatafeedsTimeout = time.Duration(getEnvAsInt(QUOTE_DATAFEEDS_TIMEOUT, 10)) * time.Second
 	c.Quote.FixConfigDir = getEnv(FIX_CONFIG_DIR, "logs/fix")
 	c.Quote.ServerURL = getEnv(HST_SERVER_URL, "http://localhost:8080")
 	c.Quote.ServiceToken = getEnv(INTERNAL_SERVICE_TOKEN, "")
@@ -265,6 +270,9 @@ func (c *Config) validate() error {
 	}
 	if c.Quote.InstanceCount < 1 {
 		return fmt.Errorf("%s must be at least 1", QUOTE_INSTANCE_COUNT)
+	}
+	if c.Quote.DatafeedsTimeout < time.Second {
+		return fmt.Errorf("%s must be at least 1 second", QUOTE_DATAFEEDS_TIMEOUT)
 	}
 	if c.Quote.InstanceIndex < 0 || c.Quote.InstanceIndex >= c.Quote.InstanceCount {
 		return fmt.Errorf("%s must be between 0 and %d", QUOTE_INSTANCE_INDEX, c.Quote.InstanceCount-1)

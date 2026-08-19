@@ -10,6 +10,7 @@ type ConnectorType string
 
 const (
 	TypeFIX ConnectorType = "fix"
+	TypeDDE ConnectorType = "dde"
 )
 
 // RawTick is a tick from an external source before translation.
@@ -50,6 +51,8 @@ func ModuleType(module string) (ConnectorType, bool) {
 		return TypeFIX, true
 	case "fix43", "fix_43", "fix4.3":
 		return TypeFIX, true
+	case "dde", "DDE", "DDEFeeder":
+		return TypeDDE, true
 	default:
 		return "", false
 	}

@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-const workerDatafeedColumns = `datafeed_id, name, module, enable, mode,
+const workerDatafeedColumns = `datafeed_id, name, module, enable, feed_index, mode,
 	feed_server, feed_login, feed_password, timeout_reconnect`
 
 const datafeedSymbolColumns = `feed_symbol_id, datafeed_id, symbol_id, path, exclude, symbol`
@@ -248,7 +248,7 @@ type workerRowScanner interface {
 func scanWorkerDatafeed(row workerRowScanner) (*events.WorkerDatafeedConfig, error) {
 	cfg := &events.WorkerDatafeedConfig{}
 	err := row.Scan(
-		&cfg.DatafeedID, &cfg.Name, &cfg.Module, &cfg.Enable, &cfg.Mode,
+		&cfg.DatafeedID, &cfg.Name, &cfg.Module, &cfg.Enable, &cfg.FeedIndex, &cfg.Mode,
 		&cfg.FeedServer, &cfg.FeedLogin, &cfg.FeedPassword, &cfg.TimeoutReconnect,
 	)
 	return cfg, err

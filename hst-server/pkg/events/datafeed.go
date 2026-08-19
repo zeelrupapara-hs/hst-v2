@@ -76,6 +76,7 @@ type WorkerDatafeedConfig struct {
 	Name             string                 `json:"name"`
 	Module           string                 `json:"module"`
 	Enable           model.DatafeedEnable   `json:"enable"`
+	FeedIndex        int32                  `json:"feed_index"`
 	Mode             model.FeederFlags      `json:"mode"`
 	FeedServer       string                 `json:"feed_server"`
 	FeedLogin        string                 `json:"feed_login"`

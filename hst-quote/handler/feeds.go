@@ -9,10 +9,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"hstquote/internal/arbiter"
 	"hstquote/internal/configclient"
 	"hstquote/internal/filter"
 	"hstquote/internal/fixconfig"
 	"hstquote/internal/provider"
+	"hstquote/internal/provider/ddequotes"
 	"hstquote/internal/provider/fixquotes"
 	"hstquote/internal/session"
 	"hstquote/internal/status"
@@ -54,15 +56,17 @@ func (f *Feeds) stopRunnerLocked(id int64, runner feedRunner) {
 				"datafeed_id", id)
 		}
 	}
+	f.arbiter.Forget(id)
 }
 
 // Feeds manages quote ingestion loops for configured datafeeds.
 type Feeds struct {
-	h      *Handler
-	config *configclient.Client
-	cache  *tickcache.Store
-	status *status.Publisher
-	influx *influxdb.Client
+	h       *Handler
+	config  *configclient.Client
+	cache   *tickcache.Store
+	status  *status.Publisher
+	influx  *influxdb.Client
+	arbiter *arbiter.Selector
 
 	mu        sync.Mutex
 	runners   map[int64]feedRunner
@@ -76,6 +80,7 @@ func newFeeds(h *Handler) *Feeds {
 		cache:     tickcache.New(h.Redis),
 		status:    status.New(h.Nats, h.Cfg.Nats.Name),
 		influx:    h.Influx,
+		arbiter:   arbiter.New(h.Redis, h.Log, h.Cfg.Quote.DatafeedsTimeout),
 		runners:   make(map[int64]feedRunner),
 		liveFeeds: make(map[int64]*atomic.Pointer[model.QuoteFeed]),
 	}
@@ -170,8 +175,8 @@ func (f *Feeds) startRunnerLocked(ctx context.Context, id int64, feed model.Quot
 	f.runners[id] = feedRunner{cancel: cancel, conn: conn, done: done}
 	f.status.Journal(id, status.JournalInfo,
 		fmt.Sprintf("connecting to %s (%s)", feed.Datafeed.FeedServer, feed.Datafeed.Module))
-	// a FIX feed reports Connected on logon, not on process start
-	if conn.Type() != provider.TypeFIX {
+	// session-aware feeds (FIX, DDE) report Connected from the connector, not on process start
+	if conn.Type() != provider.TypeFIX && conn.Type() != provider.TypeDDE {
 		f.status.Connected(feed.Datafeed.DatafeedID)
 		f.status.Journal(id, status.JournalInfo, "connected")
 	}
@@ -275,17 +280,24 @@ func (f *Feeds) newConnector(feedPtr *atomic.Pointer[model.QuoteFeed]) streamCon
 			return nil
 		}
 		inner := fixquotes.NewConnector(settings, cfgPath, fixconfig.ExternalSymbols(*feed), f.h.Log, tickCh)
-		id := feed.Datafeed.DatafeedID
-		inner.OnSession = func(connected bool, detail string) {
-			if connected {
-				f.status.Connected(id)
-				f.status.Journal(id, status.JournalInfo, detail)
-				return
-			}
-			f.status.Disconnected(id)
-			f.status.Journal(id, status.JournalWarn, detail)
+		inner.OnSession = f.sessionStatus(feed.Datafeed.DatafeedID)
+		return &streamRunner{
+			inner: inner,
+			feed:  feedPtr,
+			ticks: tickCh,
+			state: filter.New(),
+			f:     f,
 		}
-		return &fixConnector{
+	case provider.TypeDDE:
+		settings, err := ddequotes.FromFeed(*feed)
+		if err != nil {
+			f.h.Log.Log(logger.TypeNet, logger.CodeErr, "dde settings build failed",
+				"datafeed_id", feed.Datafeed.DatafeedID, "error", err.Error())
+			return nil
+		}
+		inner := ddequotes.NewConnector(settings, f.h.Log, tickCh)
+		inner.OnSession = f.sessionStatus(feed.Datafeed.DatafeedID)
+		return &streamRunner{
 			inner: inner,
 			feed:  feedPtr,
 			ticks: tickCh,
@@ -297,18 +309,40 @@ func (f *Feeds) newConnector(feedPtr *atomic.Pointer[model.QuoteFeed]) streamCon
 	}
 }
 
-// fixConnector wraps FIX and forwards ticks to the feed handler.
-type fixConnector struct {
-	inner *fixquotes.Connector
+// sessionStatus forwards a connector's stream state into the feed's status and journal.
+func (f *Feeds) sessionStatus(id int64) func(connected bool, detail string) {
+	return func(connected bool, detail string) {
+		if connected {
+			f.status.Connected(id)
+			f.status.Journal(id, status.JournalInfo, detail)
+			return
+		}
+		f.status.Disconnected(id)
+		f.status.Journal(id, status.JournalWarn, detail)
+	}
+}
+
+// streamInner is a protocol connector that emits ticks into a shared channel.
+type streamInner interface {
+	Type() provider.ConnectorType
+	Run(ctx context.Context) error
+	Close() error
+	// Logons counts established streams; a change means the stream broke and reconnected.
+	Logons() uint64
+}
+
+// streamRunner wraps a protocol connector and forwards ticks to the feed handler.
+type streamRunner struct {
+	inner streamInner
 	feed  *atomic.Pointer[model.QuoteFeed]
 	ticks <-chan provider.RawTick
 	state *filter.State
 	f     *Feeds
 }
 
-func (c *fixConnector) Type() provider.ConnectorType { return c.inner.Type() }
+func (c *streamRunner) Type() provider.ConnectorType { return c.inner.Type() }
 
-func (c *fixConnector) Run(ctx context.Context) error {
+func (c *streamRunner) Run(ctx context.Context) error {
 	errCh := make(chan error, 1)
 	go func() {
 		errCh <- c.inner.Run(ctx)
@@ -340,12 +374,26 @@ func (c *fixConnector) Run(ctx context.Context) error {
 	}
 }
 
-func (c *fixConnector) Close() error { return c.inner.Close() }
+func (c *streamRunner) Close() error { return c.inner.Close() }
 
 func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *filter.State, raw provider.RawTick) {
 	tick, ok := translate.ApplyMarkup(feed, raw)
 	if !ok {
 		return
+	}
+
+	// one active source per symbol: other feeds' streams for this symbol are
+	// ignored until the active one goes silent
+	accepted, activated := f.arbiter.Claim(ctx, tick.DatafeedID, feed.Datafeed.FeedIndex, tick.SymbolID)
+	if !accepted {
+		return
+	}
+	if activated {
+		// taking over from another source is a stream break, the first tick cannot be filtered
+		st.MarkBreak(tick.SymbolID)
+		f.status.Journal(tick.DatafeedID, status.JournalInfo, tick.Symbol+" activation")
+		f.h.Log.Log(logger.TypeSys, logger.CodeOK, "quote source activated",
+			"datafeed_id", tick.DatafeedID, "symbol", tick.Symbol)
 	}
 
 	set, hasSet := feed.Settings[tick.SymbolID]

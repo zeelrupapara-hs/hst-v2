@@ -33,6 +33,8 @@ export function DatafeedCommonTab({ d, set, modules }) {
     moduleOptions.push({ value: d.module, label: d.module });
   }
   const selected = (modules || []).find((m) => m.module === d.module);
+  // dde is server + credentials only; gateway, company, issuer and the session timeout do not apply
+  const compact = d.module === "dde";
 
   return (
     <>
@@ -69,39 +71,43 @@ export function DatafeedCommonTab({ d, set, modules }) {
           value={d.feed_password ?? ""}
           onChange={(v) => set("feed_password", v)}
         />
-        <span className="df-form-pad" aria-hidden="true" />
-        <button type="button" className="df-link" onClick={() => setShowNetwork((v) => !v)}>
-          Show additional network settings
-        </button>
-        {showNetwork && (
+        {!compact && (
           <>
+            <span className="df-form-pad" aria-hidden="true" />
+            <button type="button" className="df-link" onClick={() => setShowNetwork((v) => !v)}>
+              Show additional network settings
+            </button>
+            {showNetwork && (
+              <>
+                <Field
+                  label="Gateway server"
+                  value={d.gateway_server}
+                  onChange={(v) => set("gateway_server", v)}
+                  width="wide"
+                />
+                <Field
+                  label="Gateway login"
+                  value={loginField(d.gateway_login)}
+                  onChange={(v) => set("gateway_login", v)}
+                />
+                <Field
+                  label="Gateway password"
+                  type="password"
+                  value={d.gateway_password ?? ""}
+                  onChange={(v) => set("gateway_password", v)}
+                />
+              </>
+            )}
+            <Field label="Company" value={d.company} onChange={(v) => set("company", v)} width="wide" />
+            <Field label="Issuer" value={d.issuer} onChange={(v) => set("issuer", v)} width="wide" />
             <Field
-              label="Gateway server"
-              value={d.gateway_server}
-              onChange={(v) => set("gateway_server", v)}
-              width="wide"
-            />
-            <Field
-              label="Gateway login"
-              value={loginField(d.gateway_login)}
-              onChange={(v) => set("gateway_login", v)}
-            />
-            <Field
-              label="Gateway password"
-              type="password"
-              value={d.gateway_password ?? ""}
-              onChange={(v) => set("gateway_password", v)}
+              label="Timeout"
+              value={d.timeout ?? 0}
+              onChange={(v) => set("timeout", Number(v) || 0)}
+              suffix="seconds"
             />
           </>
         )}
-        <Field label="Company" value={d.company} onChange={(v) => set("company", v)} width="wide" />
-        <Field label="Issuer" value={d.issuer} onChange={(v) => set("issuer", v)} width="wide" />
-        <Field
-          label="Timeout"
-          value={d.timeout ?? 0}
-          onChange={(v) => set("timeout", Number(v) || 0)}
-          suffix="seconds"
-        />
       </div>
     </>
   );

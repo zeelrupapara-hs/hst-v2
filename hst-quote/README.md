@@ -51,7 +51,7 @@ Supported **`module`** values depend on **`mode`**. Use `GET /api/v1/datafeeds/m
 
 | `mode` | Supported modules |
 |--------|-------------------|
-| `1` (quotes) | `fix44`, `fix43` |
+| `1` (quotes) | `fix44`, `fix43`, `dde` |
 | `2` (news) | `RSSNewsFeeder` |
 
 | Field | Example | Used for |
@@ -95,6 +95,37 @@ Module defaults when params are omitted:
 | `fix43`, `fix_43`, `fix4.3` | `FIX.4.3` | `FULL_REFRESH` |
 
 Auto-generated QuickFIX cfg is written to `{FIX_CONFIG_DIR}/feed_{datafeed_id}/session.cfg` (default `logs/fix/`).
+
+### DDE module (`module = dde`)
+
+A port of the v1 vfxmarket currency-server client: plain TCP, one raw auth-token write on connect (no ACK), then a push stream of `!`-terminated `MRKTDATAs?<G)_` frames — comma-separated, 16 fields per symbol. The server pushes **all** symbols; there is no subscription, so translates decide which source symbols become platform ticks (unmapped ones are dropped).
+
+Feed row: `feed_server` = `host:port`; `feed_login`/`feed_password` are combined into the v1 handshake token (`&&fBI…?<G)_{user}G)_{pass}G)_+3!` with `)`,`_`,`G` percent-escaped). The connector reports **Connected only when the first frame arrives** — the server never acknowledges the token, so data is the only proof of auth.
+
+| Param key | Aliases | Default | Notes |
+|-----------|---------|---------|-------|
+| `Token` | `token` | — | Raw pre-built handshake token; skips `feed_login`/`feed_password` |
+| `Feed login` | `Username`, `username` | `feed_login` | Token username |
+| `Password` | `password` | `feed_password` | Token password |
+| `SocketConnectHost` | `host` | from `feed_server` | Override host |
+| `SocketConnectPort` | `port` | from `feed_server` | Override port |
+| `ReconnectInterval` | `timeout_reconnect` | `5` | Reconnect delay (seconds) |
+| `FirstFrameTimeout` | — | `30` | Seconds to wait for the first frame after auth before reconnecting |
+| `IdleTimeout` | — | `90` | Seconds without data before the stream is considered dead |
+| `VolumeIndex` | — | off | Chunk field index (0–15) to read volume from |
+
+Known chunk fields: 0=source symbol, 1=bid, 2=ask, 3=high, 4=low, 6=open, 8=close. The rest of the 16-field layout is undocumented (v1 published field 8 as both close and volume); volume stays `0` unless `VolumeIndex` names a field.
+
+### Feed priority
+
+When several enabled feeds translate the same symbol, only **one active source per symbol** is accepted:
+
+- Priority is the feed's position in the admin Data Feeds list (`feed_index`, Move Up/Down; lower index wins).
+- A higher-priority feed takes the symbol over **on its first tick**.
+- A silent active feed loses the symbol to a lower-priority one after **`QUOTE_DATAFEEDS_TIMEOUT`** (seconds, default `10`).
+- Every takeover is journaled on the winning feed as `<SYMBOL> activation`.
+
+Arbitration is a per-symbol claim in Redis (`hstquote:src:{symbol_id}`), so it holds across sharded hst-quote instances. If Redis is unreachable the gate fails open (all sources pass) rather than silencing quotes. Reorders propagate on the periodic config reload.
 
 ### Translates (not params)
 
