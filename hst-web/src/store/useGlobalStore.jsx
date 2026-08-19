@@ -12,6 +12,8 @@ const useGlobalStore = create(
         activity: true,
       },
       visibleColumns: ["symbol", "bid", "ask", "spread"],
+      // which Market Watch tab is open: every granted instrument, or the account's own list
+      marketWatchTab: "all",
       chartLayout: 1,
       chartSymbols: {},
       isDrag: false,

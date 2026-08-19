@@ -1,5 +1,6 @@
 import Ask from "../components/marketWatch/components/Ask";
 import Bid from "../components/marketWatch/components/Bid";
+import LiveDot from "../components/marketWatch/components/LiveDot";
 import NetChange from "../components/marketWatch/components/NetChange";
 import PercentChange from "../components/marketWatch/components/PercentChange";
 import PriceArrow from "../components/marketWatch/components/PriceArrow";
@@ -14,9 +15,10 @@ const columns = [
     width: 100,
     fixed: "left",
     render: (value, record) => (
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
+        <LiveDot symbolId={record?.id} />
         <PriceArrow symbolId={record?.id} />
-        <span>{value}</span>
+        <span className="truncate">{value}</span>
       </div>
     ),
   },

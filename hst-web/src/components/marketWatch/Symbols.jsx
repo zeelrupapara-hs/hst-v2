@@ -4,6 +4,7 @@ import {
   LuPanelTop,
   LuCirclePlus,
   LuChartLine,
+  LuEye,
   LuEyeOff,
   LuInfo,
   LuPlus,
@@ -13,7 +14,6 @@ import {
 import { MdAdsClick } from "react-icons/md";
 import useSymbolStore from "../../store/useSymbolStore";
 import useGlobalStore from "../../store/useGlobalStore";
-import usePositionStore from "../../store/usePositionStore";
 import useWatchlistStore from "../../store/useWatchlistStore";
 import useDebounce from "../../hooks/useDebounce";
 import columns from "../../columns/symbols";
@@ -23,7 +23,6 @@ import ContextMenuTable from "../table/ContextMenuTable";
 import MultiOrderScreen from "../order/MultiOrderScreen";
 import SymbolInfoModal from "./components/SymbolInfoModal";
 import SymbolPicker from "./components/SymbolPicker";
-import { errorToast } from "../../utils/utils";
 
 const defaultColumns = ["symbol", "bid", "ask", "spread"];
 
@@ -38,9 +37,11 @@ const Symbols = () => {
   const watchlistId = useWatchlistStore((state) => state.watchlistId);
   const wishlist = useWatchlistStore((state) => state.wishlist);
   const removeSymbol = useWatchlistStore((state) => state.removeSymbol);
-  const showsWatchlist = watchlistId != null;
-  const positions = usePositionStore((state) => state.positions);
-  const orders = usePositionStore((state) => state.orders);
+  const addSymbol = useWatchlistStore((state) => state.addSymbol);
+  const tab = useGlobalStore((state) => state.marketWatchTab) || "all";
+  const onWatchlistTab = tab === "watchlist";
+  // hiding, and the empty-list message, only make sense while the account's own list shows
+  const showsWatchlist = onWatchlistTab && watchlistId != null;
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isSymbolInfoOpen, setIsSymbolInfoOpen] = useState(false);
@@ -48,12 +49,12 @@ const Symbols = () => {
 
   const debouncedSearch = useDebounce(searchTerm);
 
-  // the account's Market Watch list decides what the panel carries; an account that owns no
-  // list (no broker default configured) sees everything its group grants
+  // the All Symbols tab carries everything the account's group grants; the Watchlist tab
+  // carries only the account's own list, in its own order
   const baseSymbols = useMemo(() => {
-    if (!showsWatchlist) return Object.values(symbols);
+    if (!onWatchlistTab) return Object.values(symbols);
     return wishlist.map((name) => symbols[name]).filter(Boolean);
-  }, [symbols, showsWatchlist, wishlist]);
+  }, [symbols, onWatchlistTab, wishlist]);
 
   const filteredSymbols = useMemo(() => {
     if (!debouncedSearch.trim()) return baseSymbols;
@@ -123,18 +124,26 @@ const Symbols = () => {
         label: "Details",
         onClick: () => setIsSymbolInfoOpen(true),
       },
-      // hiding only exists while a watchlist is displayed; hiding from "show everything" would
-      // silently materialize the whole instrument set as a list
+      // hiding only exists while the account's own list is displayed; on All Symbols the same
+      // slot offers the opposite: putting the instrument on the list. A symbol with an open
+      // position may leave the list: it stays priced and reachable on the All Symbols tab.
       ...(showsWatchlist
         ? [
             {
               key: 4,
               icon: <Icon Icon={LuEyeOff} size={16} />,
               label: "Hide Symbol",
-              onClick: () =>
-                [...positions, ...orders].some((x) => x?.symbol_id === selectedRecord?.id)
-                  ? errorToast("Cannot hide: symbol has an open position or order")
-                  : removeSymbol(selectedRecord?.id),
+              onClick: () => removeSymbol(selectedRecord?.id),
+            },
+          ]
+        : []),
+      ...(!onWatchlistTab && !wishlist.includes(selectedRecord?.id)
+        ? [
+            {
+              key: 5,
+              icon: <Icon Icon={LuEye} size={16} />,
+              label: "Add to Watchlist",
+              onClick: () => addSymbol(selectedRecord?.id),
             },
           ]
         : []),
@@ -158,8 +167,28 @@ const Symbols = () => {
     return <SymbolPicker onClose={() => setIsPickerOpen(false)} />;
   }
 
+  const tabClass = (active) =>
+    `flex-1 py-2.5 text-xs font-semibold uppercase tracking-wider border-b-2 transition-colors ${
+      active ? "text-primary border-primary" : "text-gray border-transparent hover:text-theme-text"
+    }`;
+
   return (
     <>
+      <div className="flex border-b border-theme-border">
+        <button
+          className={tabClass(!onWatchlistTab)}
+          onClick={() => setGlobalStore({ marketWatchTab: "all" })}
+        >
+          All Symbols
+        </button>
+        <button
+          className={tabClass(onWatchlistTab)}
+          onClick={() => setGlobalStore({ marketWatchTab: "watchlist" })}
+        >
+          Watchlist
+        </button>
+      </div>
+
       <div className="flex items-center justify-between gap-2">
         <Input
           placeholder="Search..."
@@ -169,9 +198,11 @@ const Symbols = () => {
         />
 
         <div className="flex items-center gap-2">
-          <button className="p-2" aria-label="Add Symbol" onClick={() => setIsPickerOpen(true)}>
-            <Icon Icon={LuPlus} size={18} />
-          </button>
+          {onWatchlistTab && (
+            <button className="p-2" aria-label="Add Symbol" onClick={() => setIsPickerOpen(true)}>
+              <Icon Icon={LuPlus} size={18} />
+            </button>
+          )}
 
           <button onClick={toggleOneClick}>
             <Icon Icon={MdAdsClick} isActive={symbolOneClick} />
@@ -189,7 +220,7 @@ const Symbols = () => {
         </div>
       </div>
 
-      {showsWatchlist && !baseSymbols.length ? (
+      {onWatchlistTab && !baseSymbols.length ? (
         <div className="flex h-1/2 items-center justify-center p-4 text-center text-sm text-gray">
           Your Market Watch is empty — tap + to add symbols
         </div>

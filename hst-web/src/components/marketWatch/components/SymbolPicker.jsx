@@ -9,32 +9,26 @@ import {
   LuX,
 } from "react-icons/lu";
 import useSymbolStore from "../../../store/useSymbolStore";
-import usePositionStore from "../../../store/usePositionStore";
 import useWatchlistStore from "../../../store/useWatchlistStore";
 import useDebounce from "../../../hooks/useDebounce";
 import Icon from "../../common/Icon";
-import { errorToast } from "../../../utils/utils";
 
 // the picker's categories are MT5's top folder, read straight off each symbol's path
 const topFolder = (symbol) => String(symbol?.path || "").split("\\")[0] || "Other";
 
-const SymbolRow = ({ symbol, inWishlist, locked, onToggle }) => (
+const SymbolRow = ({ symbol, inWishlist, onToggle }) => (
   <div className="flex items-center justify-between gap-2 px-3 py-2 border-b border-theme-border last:border-b-0">
     <div className="min-w-0">
       <div className="text-sm font-semibold text-theme-text truncate">{symbol.symbol}</div>
       <div className="text-xs text-gray truncate">{symbol.description}</div>
     </div>
     <button
-      className={`p-1 shrink-0 ${locked ? "cursor-default" : ""}`}
+      className="p-1 shrink-0"
       aria-label={`${inWishlist ? "Remove" : "Add"} ${symbol.id}`}
       onClick={() => onToggle(symbol.id)}
     >
       {inWishlist ? (
-        <span
-          className={`flex h-5 w-5 items-center justify-center rounded-full ${
-            locked ? "bg-gray" : "bg-primary"
-          }`}
-        >
+        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-primary">
           <LuCheck size={12} className="text-white" />
         </span>
       ) : (
@@ -49,8 +43,6 @@ const SymbolRow = ({ symbol, inWishlist, locked, onToggle }) => (
 // back to the quotes list.
 const SymbolPicker = ({ onClose }) => {
   const symbols = useSymbolStore((state) => state.symbols);
-  const positions = usePositionStore((state) => state.positions);
-  const orders = usePositionStore((state) => state.orders);
   const wishlist = useWatchlistStore((state) => state.wishlist);
   const addSymbol = useWatchlistStore((state) => state.addSymbol);
   const removeSymbol = useWatchlistStore((state) => state.removeSymbol);
@@ -60,12 +52,6 @@ const SymbolPicker = ({ onClose }) => {
   const debouncedSearch = useDebounce(searchTerm);
 
   const wishlistSet = useMemo(() => new Set(wishlist), [wishlist]);
-
-  // a symbol carrying an open position or a pending order cannot leave the Market Watch
-  const locked = useMemo(
-    () => new Set([...positions, ...orders].map((x) => x?.symbol_id)),
-    [positions, orders]
-  );
 
   const categories = useMemo(() => {
     const byFolder = {};
@@ -94,13 +80,9 @@ const SymbolPicker = ({ onClose }) => {
       .sort((a, b) => a.symbol.localeCompare(b.symbol));
   }, [symbols, debouncedSearch]);
 
-  const toggle = (name) => {
-    if (!wishlistSet.has(name)) return addSymbol(name);
-    if (locked.has(name)) {
-      return errorToast("Cannot remove: symbol has an open position or order");
-    }
-    removeSymbol(name);
-  };
+  // the list is the trader's own; a symbol with an open position stays priced and reachable
+  // on the All Symbols tab and in the blotter, so leaving the list is always allowed
+  const toggle = (name) => (wishlistSet.has(name) ? removeSymbol(name) : addSymbol(name));
 
   const current = folder && categories.find((c) => c.name === folder);
 
@@ -127,7 +109,6 @@ const SymbolPicker = ({ onClose }) => {
                 key={symbol.id}
                 symbol={symbol}
                 inWishlist={wishlistSet.has(symbol.id)}
-                locked={locked.has(symbol.id)}
                 onToggle={toggle}
               />
             ))
@@ -153,7 +134,6 @@ const SymbolPicker = ({ onClose }) => {
                 key={symbol.id}
                 symbol={symbol}
                 inWishlist={wishlistSet.has(symbol.id)}
-                locked={locked.has(symbol.id)}
                 onToggle={toggle}
               />
             ))}
