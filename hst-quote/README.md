@@ -116,6 +116,17 @@ Feed row: `feed_server` = `host:port`; `feed_login`/`feed_password` are combined
 
 Known chunk fields: 0=source symbol, 1=bid, 2=ask, 3=high, 4=low, 6=open, 8=close. The rest of the 16-field layout is undocumented (v1 published field 8 as both close and volume); volume stays `0` unless `VolumeIndex` names a field.
 
+### Feed priority
+
+When several enabled feeds translate the same symbol, only **one active source per symbol** is accepted:
+
+- Priority is the feed's position in the admin Data Feeds list (`feed_index`, Move Up/Down; lower index wins).
+- A higher-priority feed takes the symbol over **on its first tick**.
+- A silent active feed loses the symbol to a lower-priority one after **`QUOTE_DATAFEEDS_TIMEOUT`** (seconds, default `10`).
+- Every takeover is journaled on the winning feed as `<SYMBOL> activation`.
+
+Arbitration is a per-symbol claim in Redis (`hstquote:src:{symbol_id}`), so it holds across sharded hst-quote instances. If Redis is unreachable the gate fails open (all sources pass) rather than silencing quotes. Reorders propagate on the periodic config reload.
+
 ### Translates (not params)
 
 | Field | Example | Notes |

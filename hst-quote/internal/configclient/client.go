@@ -26,6 +26,7 @@ type Snapshot struct {
 	Name             string               `json:"name"`
 	Module           string               `json:"module"`
 	Enable           model.DatafeedEnable `json:"enable"`
+	FeedIndex        int32                `json:"feed_index"`
 	Mode             model.FeederFlags    `json:"mode"`
 	FeedServer       string               `json:"feed_server"`
 	FeedLogin        string               `json:"feed_login"`
@@ -227,6 +228,7 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 			Name:             s.Name,
 			Module:           s.Module,
 			Enable:           s.Enable,
+			FeedIndex:        s.FeedIndex,
 			Mode:             s.Mode,
 			FeedServer:       s.FeedServer,
 			FeedLogin:        s.FeedLogin,

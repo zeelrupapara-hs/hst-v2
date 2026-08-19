@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"hstquote/internal/arbiter"
 	"hstquote/internal/configclient"
 	"hstquote/internal/filter"
 	"hstquote/internal/fixconfig"
@@ -55,15 +56,17 @@ func (f *Feeds) stopRunnerLocked(id int64, runner feedRunner) {
 				"datafeed_id", id)
 		}
 	}
+	f.arbiter.Forget(id)
 }
 
 // Feeds manages quote ingestion loops for configured datafeeds.
 type Feeds struct {
-	h      *Handler
-	config *configclient.Client
-	cache  *tickcache.Store
-	status *status.Publisher
-	influx *influxdb.Client
+	h       *Handler
+	config  *configclient.Client
+	cache   *tickcache.Store
+	status  *status.Publisher
+	influx  *influxdb.Client
+	arbiter *arbiter.Selector
 
 	mu        sync.Mutex
 	runners   map[int64]feedRunner
@@ -77,6 +80,7 @@ func newFeeds(h *Handler) *Feeds {
 		cache:     tickcache.New(h.Redis),
 		status:    status.New(h.Nats, h.Cfg.Nats.Name),
 		influx:    h.Influx,
+		arbiter:   arbiter.New(h.Redis, h.Log, h.Cfg.Quote.DatafeedsTimeout),
 		runners:   make(map[int64]feedRunner),
 		liveFeeds: make(map[int64]*atomic.Pointer[model.QuoteFeed]),
 	}
@@ -376,6 +380,20 @@ func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *fil
 	tick, ok := translate.ApplyMarkup(feed, raw)
 	if !ok {
 		return
+	}
+
+	// one active source per symbol: other feeds' streams for this symbol are
+	// ignored until the active one goes silent
+	accepted, activated := f.arbiter.Claim(ctx, tick.DatafeedID, feed.Datafeed.FeedIndex, tick.SymbolID)
+	if !accepted {
+		return
+	}
+	if activated {
+		// taking over from another source is a stream break, the first tick cannot be filtered
+		st.MarkBreak(tick.SymbolID)
+		f.status.Journal(tick.DatafeedID, status.JournalInfo, tick.Symbol+" activation")
+		f.h.Log.Log(logger.TypeSys, logger.CodeOK, "quote source activated",
+			"datafeed_id", tick.DatafeedID, "symbol", tick.Symbol)
 	}
 
 	set, hasSet := feed.Settings[tick.SymbolID]
