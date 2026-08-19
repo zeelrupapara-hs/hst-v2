@@ -37,6 +37,12 @@ var (
 			description: "QuickFIX initiator, full refresh by default",
 			aliases:     aliasSet("fix43", "fix_43", "fix4.3"),
 		},
+		{
+			canonical:   "dde",
+			label:       "DDE",
+			description: "Currency server TCP push stream, quotes only",
+			aliases:     aliasSet("dde", "DDE", "DDEFeeder"),
+		},
 	}
 	newsModules = []moduleDef{
 		{
