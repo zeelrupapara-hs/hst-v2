@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import useSymbolStore from "../../../store/useSymbolStore";
+import useGlobalStore from "../../../store/useGlobalStore";
+import useChartLayoutStore from "../../../store/useChartLayoutStore";
 import { useTheme } from "../../../context/ThemeContext";
 import { widget } from "../../../assets/charting_library";
 import { marketHistory } from "../../../api/request/symbol";
@@ -31,22 +33,35 @@ export const publishNewTick = (tick, symbolId) => {
   }
 };
 
-const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
-  const lastBarsCache = new Map();
+const themeOverrides = (darkMode) => ({
+  "paneProperties.background": darkMode ? "#101013" : "#ffffff",
+  "paneProperties.backgroundType": "solid",
+  "scalesProperties.textColor": darkMode ? "#89898b" : "#151924",
+});
+
+const ChartComponent = ({ chartId = 1, symbolId = "25100016", isLive = true }) => {
+  const lastBarsCacheRef = useRef(new Map());
   const chartContainerRef = useRef(null);
   const chartWidgetRef = useRef(null);
   const isLiveRef = useRef(isLive);
+  const readyRef = useRef(false);
   const [useExternalOverlay, setUseExternalOverlay] = useState(false);
   const symbols = useSymbolStore((state) => state?.symbols);
   const { theme } = useTheme();
 
   const darkMode = theme === "dark";
 
+  // The widget lives for the whole mount while props keep changing, so the
+  // datafeed and the ready callbacks read these refs instead of stale closures.
+  const symbolsRef = useRef(symbols);
+  const darkModeRef = useRef(darkMode);
   isLiveRef.current = isLive;
+  symbolsRef.current = symbols;
+  darkModeRef.current = darkMode;
 
   const syncInactiveState = () => {
     const applied = applyChartInactiveState(chartContainerRef.current, !isLiveRef.current, {
-      darkMode,
+      darkMode: darkModeRef.current,
     });
 
     setUseExternalOverlay(!applied && !isLiveRef.current);
@@ -98,7 +113,7 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
       onReady: (callback) => {
         const symbolsTypeMap = new Map();
 
-        Object.values(symbols)?.forEach((symbol) => {
+        Object.values(symbolsRef.current ?? {})?.forEach((symbol) => {
           if (symbolsTypeMap.has(symbol?.symbol_class?.desc)) return;
 
           symbolsTypeMap.set(symbol?.symbol_class?.desc, true);
@@ -115,7 +130,7 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
       },
 
       resolveSymbol: async (symbolName, onSymbolResolvedCallback) => {
-        const symbol = Object.values(symbols).find(
+        const symbol = Object.values(symbolsRef.current ?? {}).find(
           (item) => item?.symbol === symbolName
         );
 
@@ -149,12 +164,12 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
         symbolType,
         onResultReadyCallback
       ) => {
-        if (!Object.values(symbols).length) return;
+        if (!Object.values(symbolsRef.current ?? {}).length) return;
 
         const lowerInput = userInput?.toLowerCase() || "";
         const lowerType = symbolType?.toLowerCase() || "";
 
-        const filteredSymbols = Object.values(symbols)
+        const filteredSymbols = Object.values(symbolsRef.current ?? {})
           .filter(({ symbol, symbol_class }) => {
             const matchesInput = symbol?.toLowerCase().includes(lowerInput);
             if (lowerType && lowerType !== "all") {
@@ -189,7 +204,7 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
 
         const { from, to, firstDataRequest, countBack } = periodParams;
 
-        const symbol = Object.values(symbols).find(
+        const symbol = Object.values(symbolsRef.current ?? {}).find(
           (symbol) => symbol?.symbol === symbolInfo?.name
         );
 
@@ -235,7 +250,7 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
                 hasData = true;
 
                 if (firstDataRequest) {
-                  lastBarsCache.set(symbolInfo?.id, {
+                  lastBarsCacheRef.current.set(symbolInfo?.id, {
                     ...historyData[historyData.length - 1],
                   });
                 }
@@ -251,7 +266,9 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
               onHistoryCallback([], { noData: true });
             } else {
               if (firstDataRequest) {
-                lastBarsCache.set(symbolInfo?.id, { ...data[data.length - 1] });
+                lastBarsCacheRef.current.set(symbolInfo?.id, {
+                  ...data[data.length - 1],
+                });
               }
               onHistoryCallback(data, { noData: false });
             }
@@ -281,7 +298,7 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
         subscriptionItem = {
           subscriberUID,
           resolution,
-          lastDailyBar: lastBarsCache.get(symbolInfo?.id),
+          lastDailyBar: lastBarsCacheRef.current.get(symbolInfo?.id),
           handlers: [handler],
         };
         channelToSubscription.set(symbolInfo?.id, subscriptionItem);
@@ -293,10 +310,15 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
       },
     };
 
+    // The trader's saved state, fetched before any chart renders; its symbol,
+    // interval and studies win over the defaults below.
+    const savedState = useChartLayoutStore.getState().layouts[chartId];
+    const constructedDark = darkModeRef.current;
+
     const chartWidget = new widget({
       studies_access: accessList,
       autosize: true,
-      symbol: symbols?.[symbolId]?.symbol,
+      symbol: symbolsRef.current?.[symbolId]?.symbol,
       interval: "1",
       timezone: "UTC",
       locale: "en",
@@ -305,11 +327,18 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
       allow_symbol_change: true,
       enable_publishing: false,
       style: "1",
-      theme: darkMode ? "dark" : "light",
+      theme: constructedDark ? "dark" : "light",
       container: chartContainerRef.current,
       datafeed: dataFeed,
       library_path: "/charting_library_cloned_data/charting_library/",
-      studies: ["Moving Average"],
+      auto_save_delay: 5,
+      ...(savedState ? { saved_data: savedState } : { studies: ["Moving Average"] }),
+      settings_adapter: {
+        initialSettings: useChartLayoutStore.getState().settings,
+        setValue: (key, value) =>
+          useChartLayoutStore.getState().setSetting(key, value),
+        removeValue: (key) => useChartLayoutStore.getState().removeSetting(key),
+      },
       withdateranges: true,
       hide_side_toolbar: false,
       volumePaneSize: "hide",
@@ -319,9 +348,7 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
       overrides: {
         "scalesProperties.showSymbolLabels": false,
         "mainSeriesProperties.highLowAvgPrice.highLowPriceLabelsVisible": true,
-        "paneProperties.background": darkMode ? "#101013" : "#ffffff",
-        "paneProperties.backgroundType": "solid",
-        "scalesProperties.textColor": darkMode ? "#89898b" : "#151924",
+        ...themeOverrides(constructedDark),
       },
       disabled_features: [
         "use_localstorage_for_settings",
@@ -333,21 +360,114 @@ const ChartComponent = ({ symbolId = "25100016", isLive = true }) => {
 
     chartWidgetRef.current = chartWidget;
 
+    const saveNow = () => {
+      chartWidget.save((state) =>
+        useChartLayoutStore.getState().saveLayoutDebounced(chartId, state)
+      );
+    };
+
     chartWidget.onChartReady(() => {
-      chartWidget.applyOverrides({
-        "paneProperties.background": darkMode ? "#101013" : "#ffffff",
-        "paneProperties.backgroundType": "solid",
-        "scalesProperties.textColor": darkMode ? "#89898b" : "#151924",
-      });
+      readyRef.current = true;
+
+      chartWidget.applyOverrides(themeOverrides(darkModeRef.current));
+      // the theme may have been toggled between construction and ready
+      if (darkModeRef.current !== constructedDark) {
+        chartWidget
+          .changeTheme(darkModeRef.current ? "dark" : "light", { disableUndo: true })
+          .then(() => chartWidget.applyOverrides(themeOverrides(darkModeRef.current)));
+      }
+
+      // silent MT5-style persistence: the library raises this on every change
+      // worth keeping, auto_save_delay seconds after the trader's last touch
+      chartWidget.subscribe("onAutoSaveNeeded", saveNow);
+
+      // keep the slot assignment in step with the symbol the chart actually
+      // shows, whether restored from the blob or picked in the chart's own
+      // toolbar; direct setGlobalStore since setChartSymbol's duplicate guard
+      // would block this sync
+      const syncStoreSymbol = () => {
+        const name = chartWidget.activeChart().symbol();
+        const { chartSymbols, setGlobalStore } = useGlobalStore.getState();
+        if (name && chartSymbols?.[chartId] !== name) {
+          setGlobalStore({
+            chartSymbols: { ...(chartSymbols ?? {}), [chartId]: name },
+          });
+        }
+      };
+      syncStoreSymbol();
+      chartWidget
+        .activeChart()
+        .onSymbolChanged()
+        .subscribe(null, () => {
+          syncStoreSymbol();
+          saveNow();
+        });
 
       syncInactiveState();
       setTimeout(syncInactiveState, 300);
     });
 
     return () => {
+      const w = chartWidgetRef.current;
+      const wasReady = readyRef.current;
       chartWidgetRef.current = null;
+      readyRef.current = false;
+      if (!w) return;
+
+      try {
+        if (wasReady) {
+          let saved = false;
+          w.save((state) => {
+            saved = true;
+            useChartLayoutStore.getState().flushLayout(chartId, state);
+          });
+          // if the save could not complete before teardown, push the last
+          // autosaved copy instead
+          if (!saved) useChartLayoutStore.getState().flushLayout(chartId);
+        }
+      } catch {
+        // widget already torn down
+      }
+      try {
+        w.remove();
+      } catch {
+        // iframe already gone
+      }
     };
-  }, [symbolId, theme]);
+    // mount-once: symbol and theme changes are applied to the live widget below
+    // instead of rebuilding it, which would wipe the trader's session state
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chartId]);
+
+  // symbol changes (drag-drop, market watch) retarget the live chart
+  useEffect(() => {
+    const w = chartWidgetRef.current;
+    if (!w || !readyRef.current) return;
+
+    const name = symbolsRef.current?.[symbolId]?.symbol;
+    if (!name) return;
+
+    try {
+      if (w.activeChart().symbol() === name) return;
+      // capture the outgoing symbol's state before the switch
+      w.save((state) =>
+        useChartLayoutStore.getState().saveLayoutDebounced(chartId, state)
+      );
+      w.activeChart().setSymbol(name);
+    } catch {
+      // chart not ready yet; the constructor symbol covers first paint
+    }
+  }, [symbolId, chartId]);
+
+  // theme changes restyle the live chart instead of rebuilding it
+  useEffect(() => {
+    const w = chartWidgetRef.current;
+    if (!w || !readyRef.current) return;
+
+    w.changeTheme(darkMode ? "dark" : "light", { disableUndo: true }).then(() => {
+      chartWidgetRef.current?.applyOverrides(themeOverrides(darkMode));
+    });
+  }, [darkMode]);
 
   useEffect(() => {
     syncInactiveState();

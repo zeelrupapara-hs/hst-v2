@@ -1,4 +1,5 @@
 import useGlobalStore from "../../../store/useGlobalStore";
+import useChartLayoutStore from "../../../store/useChartLayoutStore";
 import useSymbolLive from "../../../hooks/useSymbolLive";
 import ChartComponent from "./ChartComponent";
 
@@ -7,6 +8,9 @@ const ChartSlot = ({ chartId }) => {
   const chartSymbols = useGlobalStore((state) => state.chartSymbols);
   const setChartSymbol = useGlobalStore((state) => state.setChartSymbol);
   const isDrag = useGlobalStore((state) => state.isDrag);
+  // Saved chart state must be in hand before a widget exists, both to restore
+  // it and to keep an empty default from overwriting it.
+  const layoutsLoaded = useChartLayoutStore((state) => state.loaded);
 
   const symbolId = chartSymbols?.[chartId];
   const isLive = useSymbolLive(symbolId);
@@ -18,7 +22,7 @@ const ChartSlot = ({ chartId }) => {
     setGlobalStore({ isDrag: false });
   };
 
-  if (!symbolId) return null;
+  if (!layoutsLoaded || !symbolId) return null;
 
   return (
     <div
@@ -28,7 +32,7 @@ const ChartSlot = ({ chartId }) => {
     >
       {isDrag && <div className="absolute h-full w-full top-0 left-0 z-50" />}
 
-      <ChartComponent symbolId={symbolId} isLive={isLive} />
+      <ChartComponent chartId={chartId} symbolId={symbolId} isLive={isLive} />
     </div>
   );
 };
