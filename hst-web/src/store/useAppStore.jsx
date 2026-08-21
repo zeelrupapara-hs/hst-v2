@@ -8,6 +8,7 @@ import useMailStore from "./useMailStore";
 import useReportStore from "./useReportStore";
 import useNewsStore from "./useNewsStore";
 import useJournalStore from "./useJournalStore";
+import useChartLayoutStore from "./useChartLayoutStore";
 
 const useAppStore = create((set) => ({
   loading: false,
@@ -23,6 +24,7 @@ const useAppStore = create((set) => ({
     const { fetchReports } = useReportStore.getState();
     const { fetchNews } = useNewsStore.getState();
     const { fetchJournals } = useJournalStore.getState();
+    const { fetchChartState } = useChartLayoutStore.getState();
 
     try {
       set({ loading: true });
@@ -36,6 +38,7 @@ const useAppStore = create((set) => ({
         fetchReports(),
         fetchNews(),
         fetchJournals(),
+        fetchChartState(),
       ]);
     } catch (error) {
       console.error("Error loading app data:", error);

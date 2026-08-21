@@ -59,6 +59,14 @@ func (s *Server) RegisterTraderV1(api, root fiber.Router) {
 	trader.Delete("/watchlists/:watchlist_id", s.DeleteMyWatchlist)
 	trader.Put("/watchlists/:watchlist_id/symbols", s.SetMyWatchlistSymbols)
 
+	// chart layouts: the terminal's per-slot TradingView state
+	trader.Get("/charts", s.GetMyCharts)
+	// the literal settings path must be registered before the :chart_id wildcard below
+	trader.Get("/charts/settings", s.GetMyChartSettings)
+	trader.Put("/charts/settings", s.SetMyChartSettings)
+	trader.Put("/charts/:chart_id", s.SetMyChart)
+	trader.Delete("/charts/:chart_id", s.DeleteMyChart)
+
 	trader.Get("/mailboxes", s.GetMailboxes)
 	trader.Get("/mails", s.GetMyMails)
 	trader.Post("/mails/attachments", s.UploadMailAttachments)
