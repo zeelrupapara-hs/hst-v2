@@ -203,7 +203,7 @@ func updateOrder(ctx context.Context, tx pgx.Tx, o *model.Order) error {
 		  WHERE order_id = $22`,
 		o.State, o.Type, o.TypeFill, o.TypeTime, o.TimeExpiration, o.TimeDone,
 		o.PriceOrder, o.PriceTrigger, o.PriceCurrent, o.PriceSL, o.PriceTP,
-		o.VolumeCurrent, o.VolumeExt, o.PositionId, o.PositionById, o.Comment,
+		model.Legacy(o.VolumeCurrent), o.VolumeCurrent, o.PositionId, o.PositionById, o.Comment,
 		o.ActivationMode, o.ActivationTime, o.ActivationPrice, o.ActivationFlags,
 		Now(), o.OrderId)
 

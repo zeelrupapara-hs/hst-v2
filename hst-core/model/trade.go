@@ -75,15 +75,6 @@ const (
 	ActivationStopOut   = 5
 )
 
-// Which levels the engine must leave alone because something upstream owns them.
-const (
-	ActivationFlagNone        int32 = 0x00
-	ActivationFlagNoExpiry    int32 = 0x01
-	ActivationFlagNoSL        int32 = 0x02
-	ActivationFlagNoTP        int32 = 0x04
-	ActivationFlagNoStopLimit int32 = 0x08
-)
-
 func (o *Order) Lots() float64 { return Lots(o.VolumeCurrent) }
 
 func (o *Order) Kind() OrderType { return o.Type }

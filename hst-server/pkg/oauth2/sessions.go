@@ -27,6 +27,7 @@ var (
 	KeyFail    = func(login int64) string { return fmt.Sprintf("hst:auth:fail:%d", login) }
 	KeyFailIP  = func(ip string) string { return "hst:auth:fail:ip:" + ip }
 	KeyRTLock  = func(hash string) string { return "hst:auth:rtlock:" + hash }
+	KeyCallIP  = func(ip string) string { return "hst:auth:call:ip:" + ip }
 )
 
 // ChannelInvalidate carries revocations to every instance.
@@ -142,8 +143,36 @@ func (o *OAuth2) LockRefresh(ctx context.Context, token string) (bool, error) {
 	return o.Redis.Client.SetNX(ctx, KeyRTLock(crypto.HashTokenHex(token)), 1, 5*time.Second).Result()
 }
 
-// RevokeSession kills one session everywhere.
+// dropRefreshTokens deletes the refresh keys of the sessions a predicate selects, so a revoked session cannot be refreshed back to life.
+func (o *OAuth2) dropRefreshTokens(ctx context.Context, where string, arg any) error {
+	rows, err := o.DB.DB.Query(ctx, `SELECT encode(token_hash, 'hex') FROM hst.sessions WHERE revoked_at = 0 AND (`+where+`)`, arg)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	keys := []string{}
+	for rows.Next() {
+		var hash string
+		if err := rows.Scan(&hash); err != nil {
+			return err
+		}
+		keys = append(keys, KeyRefresh(hash))
+	}
+	if rows.Err() != nil || len(keys) == 0 {
+		return rows.Err()
+	}
+
+	return o.Redis.Client.Del(ctx, keys...).Err()
+}
+
+// RevokeSession kills one session everywhere, refresh tokens of its family included.
 func (o *OAuth2) RevokeSession(ctx context.Context, sid string, reason string) error {
+	if err := o.dropRefreshTokens(ctx,
+		`family_id = (SELECT family_id FROM hst.sessions WHERE session_id = $1)`, sid); err != nil {
+		return err
+	}
+
 	if _, err := o.DB.DB.Exec(ctx,
 		`UPDATE hst.sessions SET revoked_at = $1, revoked_reason = $2
 		  WHERE session_id = $3 AND revoked_at = 0`,
@@ -163,6 +192,10 @@ func (o *OAuth2) RevokeSession(ctx context.Context, sid string, reason string) e
 
 // RevokeFamily kills every session in a rotation chain.
 func (o *OAuth2) RevokeFamily(ctx context.Context, familyId string, reason string) error {
+	if err := o.dropRefreshTokens(ctx, `family_id = $1`, familyId); err != nil {
+		return err
+	}
+
 	if _, err := o.DB.DB.Exec(ctx,
 		`UPDATE hst.sessions SET revoked_at = $1, revoked_reason = $2
 		  WHERE family_id = $3 AND revoked_at = 0`,
@@ -189,6 +222,10 @@ func (o *OAuth2) RevokeFamily(ctx context.Context, familyId string, reason strin
 
 // InvalidateLogin is called after any change to rights, group or a password.
 func (o *OAuth2) InvalidateLogin(ctx context.Context, login int64, reason string) error {
+	if err := o.dropRefreshTokens(ctx, `login = $1`, login); err != nil {
+		return err
+	}
+
 	sids, err := o.Redis.Client.SMembers(ctx, KeyUser(login)).Result()
 	if err != nil && err != redis.Nil {
 		return err
@@ -228,6 +265,15 @@ func (o *OAuth2) RefreshLogin(ctx context.Context, login int64, mgr *model.Manag
 			continue
 		}
 
+		// a session on a terminal or from an address the manager may no longer use is closed, not rewritten
+		if !mgr.PermitsTerminal(model.UsersConnectionTypes(snap.ConnectionType)) || !o.sessionIPPermitted(ctx, sid, mgr) {
+			if err := o.RevokeSession(ctx, sid, model.SessionRevokedRightsChanged); err != nil {
+				o.Log.Log(logger.TypeUser, logger.CodeWarn, "could not revoke a session",
+					"session_id", sid, "error", err.Error())
+			}
+			continue
+		}
+
 		snap.ManagerRights = PackManagerRights(mgr)
 		snap.ManagerGroups = mgr.Groups
 		snap.Version++
@@ -251,6 +297,35 @@ func (o *OAuth2) RefreshLogin(ctx context.Context, login int64, mgr *model.Manag
 	o.publish(ctx, invalidateMessage{Login: login, Reason: ReasonRefreshed})
 
 	return nil
+}
+
+// sessionIPPermitted checks the session's address against the allowlist, reading the row only when there is one.
+func (o *OAuth2) sessionIPPermitted(ctx context.Context, sid string, mgr *model.Manager) bool {
+	if len(mgr.Access) == 0 {
+		return true
+	}
+
+	var ip string
+	if err := o.DB.DB.QueryRow(ctx, `SELECT ip FROM hst.sessions WHERE session_id = $1`, sid).Scan(&ip); err != nil {
+		return false
+	}
+
+	return mgr.PermitsIP(ip)
+}
+
+// PublicCallThrottled counts one call to a public auth route per address and refuses above the per-ip failure limit.
+func (o *OAuth2) PublicCallThrottled(ctx context.Context, ip string) bool {
+	if ip == "" {
+		return false
+	}
+
+	count, err := o.Redis.Client.Incr(ctx, KeyCallIP(ip)).Result()
+	if err != nil {
+		return false
+	}
+	_ = o.Redis.Client.Expire(ctx, KeyCallIP(ip), o.Cfg.Auth.LockoutDuration).Err()
+
+	return int(count) > o.Cfg.Auth.MaxFailedPerIP
 }
 
 // RegisterFailure counts a bad password and locks the login once the limit is reached.

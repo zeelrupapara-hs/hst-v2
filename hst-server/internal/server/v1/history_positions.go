@@ -65,7 +65,10 @@ func (s *HttpServer) GetMyClosedPositions(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
-	p := readPage(c, 100)
+	p, err := s.historyPage(c, 100)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
 	// the range is judged on the close, so a position appears in the window it was closed in
 	where, args := p.bound("h.time_close", "TRUE", []any{snap.Login})
 

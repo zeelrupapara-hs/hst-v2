@@ -73,7 +73,7 @@ type Handler struct {
 	// rules is the routing list in evaluation order, replaced wholesale on reload
 	rules []model.RoutingRule
 
-	// subs are unsubscribed on Stop
+	// subs are unsubscribed on Stop; guarded by mu
 	subs []*natscore.Subscription
 
 	// dealing is the request queue this pod is working, by request id
@@ -81,7 +81,7 @@ type Handler struct {
 	// dealingMu guards the queue on its own, off the rule list's lock
 	dealingMu sync.Mutex
 
-	// mu guards the rule list, which is swapped wholesale on reload
+	// mu guards the rule list, the shard map and the subscription list, each swapped wholesale
 	mu sync.RWMutex
 
 	// stop cancels everything Start launched
@@ -123,10 +123,9 @@ func (h *Handler) Start(ctx context.Context) error {
 	h.Workers.Start(ctx)
 
 	// requests that were on a desk when this pod went down go back on it
-	h.RecoverDealingRequests()
+	h.RecoverDealingRequests(nil)
 
 	h.Go(func() { h.RunEndOfDay(ctx) })
-	h.Go(func() { h.WatchPodMembership(ctx) })
 	h.Go(func() { h.RunDealingSweep(ctx) })
 
 	// subscribe last: no message should arrive before the state it reads
@@ -135,6 +134,9 @@ func (h *Handler) Start(ctx context.Context) error {
 		return err
 	}
 
+	// the membership watch starts once the first map is subscribed, so a move never races the boot
+	h.Go(func() { h.WatchPodMembership(ctx) })
+
 	h.Log.Log(logger.TypeSys, logger.CodeOK, "handler started", "workers", NumCPU)
 	return nil
 }
@@ -142,7 +144,12 @@ func (h *Handler) Start(ctx context.Context) error {
 // Stop unsubscribes, cancels the background work and waits. Safe to call more than once.
 func (h *Handler) Stop() {
 	h.once.Do(func() {
-		for _, s := range h.subs {
+		h.mu.Lock()
+		subs := h.subs
+		h.subs = nil
+		h.mu.Unlock()
+
+		for _, s := range subs {
 			if err := s.Unsubscribe(); err != nil {
 				h.Log.Log(logger.TypeNet, logger.CodeWarn, "unsubscribe failed",
 					"subject", s.Subject, "error", err.Error())
@@ -165,7 +172,7 @@ func (h *Handler) Subscribe(subject string, cb natscore.MsgHandler) error {
 	if err != nil {
 		return err
 	}
-	h.subs = append(h.subs, sub)
+	h.keepSub(sub)
 
 	h.Log.Log(logger.TypeNet, logger.CodeOK, "watching subject", "subject", subject)
 	return nil
@@ -177,7 +184,7 @@ func (h *Handler) QueueSubscribe(subject, queue string, cb natscore.MsgHandler) 
 	if err != nil {
 		return err
 	}
-	h.subs = append(h.subs, sub)
+	h.keepSub(sub)
 
 	h.Log.Log(logger.TypeNet, logger.CodeOK, "watching subject", "subject", subject, "queue", queue)
 
@@ -190,9 +197,16 @@ func (h *Handler) subscribeQuiet(subject string, cb natscore.MsgHandler) error {
 	if err != nil {
 		return err
 	}
-	h.subs = append(h.subs, sub)
+	h.keepSub(sub)
 
 	return nil
+}
+
+// keepSub records a subscription for shutdown and for the shard inboxes that close on a move.
+func (h *Handler) keepSub(sub *natscore.Subscription) {
+	h.mu.Lock()
+	h.subs = append(h.subs, sub)
+	h.mu.Unlock()
 }
 
 // Go runs f in a goroutine the handler waits for on Stop.

@@ -30,6 +30,9 @@ const (
 	AlertCondLess    = 2
 )
 
+// SubjectSystemAlertsUpdated tells every pod that the alerts table changed.
+const SubjectSystemAlertsUpdated = "system.alerts.updated"
+
 // AlertIsPrice is whether a kind is quoted rather than banked.
 func AlertIsPrice(kind int32) bool { return kind == AlertKindAsk || kind == AlertKindBid }
 
@@ -62,6 +65,15 @@ var alerts = &alertBook{bySymbol: map[string][]armedAlert{}, byLogin: map[int64]
 func (s *HttpServer) StartAlerts() {
 	if err := s.ReloadAlerts(context.Background()); err != nil {
 		s.Log.Log(logger.TypeSys, logger.CodeErr, "could not load alerts", "error", err.Error())
+	}
+
+	// a write on any pod rebuilds the book on every pod
+	if _, err := s.Nats.NC.Subscribe("system.alerts.>", func(*natscore.Msg) {
+		if err := s.ReloadAlerts(context.Background()); err != nil {
+			s.Log.Log(logger.TypeSys, logger.CodeErr, "could not reload alerts", "error", err.Error())
+		}
+	}); err != nil {
+		s.Log.Log(logger.TypeNet, logger.CodeErr, "could not watch alert changes", "error", err.Error())
 	}
 
 	if _, err := s.Nats.NC.Subscribe("websocket.accounts.*.summary", s.AlertSummaryHandler); err != nil {

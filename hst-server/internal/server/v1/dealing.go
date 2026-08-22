@@ -2,10 +2,14 @@ package v1
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"hstserver/model"
+	errs "hstserver/pkg/errors"
 	nethttp "hstserver/pkg/http"
+
+	"github.com/jackc/pgx/v5"
 )
 
 // ConfirmRequest fills the queued request.
@@ -50,8 +54,30 @@ type ReturnRequestBody struct {
 
 // sendDealing hands the dealer's answer to the pod holding the account.
 func (s *HttpServer) sendDealing(ctx context.Context, e *model.DealingEvent) (*model.TradeResult, int, error) {
+	if status, err := s.bindRequest(ctx, e.RequestId, e.Login); err != nil {
+		return nil, status, err
+	}
 	e.At = time.Now().UnixNano()
 	return s.request(ctx, model.SubjectSystemDealing, e)
+}
+
+// bindRequest refuses a request id that is not a waiting request of the named login, since the engine looks it up by id alone.
+func (s *HttpServer) bindRequest(ctx context.Context, requestId string, login int64) (int, error) {
+	var one int
+	err := s.DB.DB.QueryRow(ctx,
+		`SELECT 1 FROM hst.orders WHERE (order_id::text = $1 OR external_id = $1) AND login = $2 AND state = ANY($3)`,
+		requestId, login, []int32{
+			int32(model.OrderState_request_add),
+			int32(model.OrderState_request_modify),
+			int32(model.OrderState_request_cancel),
+		}).Scan(&one)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nethttp.StatusNotFound, errs.ErrNotFound
+	}
+	if err != nil {
+		return nethttp.StatusInternalServerError, err
+	}
+	return 0, nil
 }
 
 func (s *HttpServer) confirmRequest(ctx context.Context, payload *ConfirmRequest, dealer int64) (*model.TradeResult, int, error) {

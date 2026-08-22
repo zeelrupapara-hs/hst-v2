@@ -8,10 +8,11 @@ package handler
 const (
 	SubjectNewsItem = "hstnews.item.%d"
 
-	SubjectDatafeedCreated = "hstserver.datafeed.created"
-	SubjectDatafeedUpdated = "hstserver.datafeed.updated"
-	SubjectDatafeedDeleted = "hstserver.datafeed.deleted"
-	SubjectDatafeedConfig  = "hstserver.datafeed.config.>"
+	// same subjects hst-server publishes on (see hst-quote/model/subjects.go)
+	SubjectDatafeedCreated = "system.datafeeds.created"
+	SubjectDatafeedUpdated = "system.datafeeds.updated"
+	SubjectDatafeedDeleted = "system.datafeeds.deleted"
+	SubjectDatafeedConfig  = "system.datafeeds.config.>"
 
 	GroupDatafeedConfig = "hstnews-datafeed"
 )

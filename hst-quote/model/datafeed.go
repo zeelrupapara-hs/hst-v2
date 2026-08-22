@@ -29,13 +29,13 @@ const (
 
 // Datafeed is MT5 data feed configuration plus runtime session counters.
 type Datafeed struct {
-	DatafeedID       int64                 `db:"datafeed_id"`
-	Name             string                `db:"name"`
-	Module           string                `db:"module"`
-	Enable           DatafeedEnable        `db:"enable"`
+	DatafeedID int64          `db:"datafeed_id"`
+	Name       string         `db:"name"`
+	Module     string         `db:"module"`
+	Enable     DatafeedEnable `db:"enable"`
 	// FeedIndex is the feed's position in the admin list; lower index wins symbol arbitration.
-	FeedIndex int32       `db:"feed_index"`
-	Mode      FeederFlags `db:"mode"`
+	FeedIndex        int32                 `db:"feed_index"`
+	Mode             FeederFlags           `db:"mode"`
 	FeedServer       string                `db:"feed_server"`
 	FeedLogin        string                `db:"feed_login"`
 	FeedPassword     string                `db:"feed_password"`

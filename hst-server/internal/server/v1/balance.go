@@ -213,15 +213,15 @@ func (s *HttpServer) FixBalance(c *fiber.Ctx) error {
 	}
 
 	if math.Abs(check.ValidBalance-check.Balance) >= balanceTolerance {
-		if _, _, err := s.sendFix(c.UserContext(), body.Login, model.DealAction_correction,
-			check.ValidBalance, snap.Login); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		if res, status, err := s.sendFix(c.UserContext(), body.Login, model.DealAction_correction,
+			check.ValidBalance, snap.Login); err != nil || res.RetCode != 0 {
+			return s.answer(c, res, status, err)
 		}
 	}
 	if math.Abs(check.ValidCredit-check.Credit) >= balanceTolerance {
-		if _, _, err := s.sendFix(c.UserContext(), body.Login, model.DealAction_credit,
-			check.ValidCredit, snap.Login); err != nil {
-			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		if res, status, err := s.sendFix(c.UserContext(), body.Login, model.DealAction_credit,
+			check.ValidCredit, snap.Login); err != nil || res.RetCode != 0 {
+			return s.answer(c, res, status, err)
 		}
 	}
 
@@ -347,13 +347,16 @@ func (s *HttpServer) BulkBalance(c *fiber.Ctx) error {
 		row := BulkBalanceResult{Login: op.Login}
 		if !reach[op.Login] {
 			row.Message = "out of scope"
-		} else if _, _, err := s.makeBalance(c.UserContext(), &CrtBalance{
+		} else if res, _, err := s.makeBalance(c.UserContext(), &CrtBalance{
 			Login:   op.Login,
 			Action:  op.Action,
 			Amount:  op.Amount,
 			Comment: body.Comment,
 		}, snap.Login); err != nil {
 			row.Message = err.Error()
+		} else if res.RetCode != 0 {
+			// the engine refused, which is not an error here but is not done either
+			row.Message = res.Message
 		} else {
 			row.Ok = true
 			done++

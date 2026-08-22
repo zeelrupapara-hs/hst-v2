@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"strings"
 )
 
 // Every subject this feed uses. The tick stream is named by the shared contract so the engine and
@@ -17,8 +18,13 @@ const (
 	GroupDatafeedConfig = "hstquote-datafeed"
 )
 
-// SubjectTick is one instrument's price stream.
-func SubjectTick(symbol string) string { return fmt.Sprintf("hstquote.tick.%s", symbol) }
+// tickSubjectEscaper keeps the subject one token: "." splits tokens and " " is invalid in NATS.
+var tickSubjectEscaper = strings.NewReplacer(".", "_", " ", "_")
+
+// SubjectTick is one instrument's price stream; the symbol is escaped, consumers read it from the payload.
+func SubjectTick(symbol string) string {
+	return "hstquote.tick." + tickSubjectEscaper.Replace(symbol)
+}
 
 // SubjectJournal is one datafeed's operating journal: connects, logons, errors.
 func SubjectJournal(datafeedId int64) string {

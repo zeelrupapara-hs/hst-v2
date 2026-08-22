@@ -330,6 +330,12 @@ func (s *Server) GetGroupSymbol(c *fiber.Ctx) error {
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
+	if err := groupExists(c, s, groupID); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
 
 	v, err := scanViewGroupSymbol(s.DB.DB.QueryRow(c.UserContext(),
 		`SELECT `+groupSymbolColumns+` FROM hst.groups_symbols
@@ -548,6 +554,12 @@ func (s *Server) UpdateGroupSymbol(c *fiber.Ctx) error {
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
+	if err := groupExists(c, s, groupID); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
 
 	var body UptGroupSymbol
 	if err := c.BodyParser(&body); err != nil {
@@ -703,6 +715,12 @@ func (s *Server) DeleteGroupSymbol(c *fiber.Ctx) error {
 	symbolID, err := c.ParamsInt("symbolId")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+	if err := groupExists(c, s, groupID); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	ct, err := s.DB.DB.Exec(c.UserContext(),

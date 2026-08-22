@@ -84,9 +84,14 @@ func (h *Handler) MarginForSymbol(e *book.Entry, symbol string, r *settings.Rule
 	uncovered := larger.volume - smaller.volume
 	margin := MarginForType(r, model.Lots(uncovered), larger.price(), leverage, rate, kind, maintenance)
 
-	// the covered part is charged at the instrument's hedged rate, which is often zero
+	// the covered part goes through the same formula with the hedged size standing in for the contract
 	if r.MarginHedged > 0 {
-		margin += model.Lots(smaller.volume) * r.MarginHedged * rate
+		hedged := *r
+		hedged.ContractSize = r.MarginHedged
+		if r.MarginInitial > 0 {
+			hedged.MarginInitial = r.MarginHedged
+		}
+		margin += MarginForTypePlain(&hedged, model.Lots(smaller.volume), larger.price(), leverage, rate, kind, maintenance)
 	}
 
 	return margin
@@ -173,6 +178,7 @@ func maintenanceRate(r *settings.Rules) float64 {
 // needs the money state goes through here, so no caller can settle against stale margin or
 // against the wrong free margin rule.
 func (h *Handler) CalculateAccountMargins(e *book.Entry) Money {
+	e.Dirty = true
 	reserved := h.RemargeAccount(e)
 
 	free := model.FreeMarginMode_use_pl

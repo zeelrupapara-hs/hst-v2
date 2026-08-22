@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"sort"
+	"strconv"
 	"time"
 
 	"hstcore/internal/book"
@@ -11,23 +12,23 @@ import (
 	"hstcore/pkg/logger"
 )
 
-// Every pod claims itself in redis.
+// Every pod claims itself in redis, and every shard it serves is leased there under its name.
 
 const (
 	// podKeyPrefix is where a pod says it is alive.
 	podKeyPrefix = "core:pods:"
+	// shardKeyPrefix is where a pod says it serves a shard; the gainer waits until the loser's lease is gone.
+	shardKeyPrefix = "core:shard:"
 	// podTTL is how long that claim stands without a refresh
 	podTTL = 15 * time.Second
 	// podRefresh is how often the claim is renewed
 	podRefresh = 5 * time.Second
+	// leaseRetry is how often a gainer asks again for a shard still leased to another pod
+	leaseRetry = 250 * time.Millisecond
 )
 
 // WatchPodMembership keeps this pod registered and reacts to the others.
 func (h *Handler) WatchPodMembership(ctx context.Context) {
-	// register before the first look, so this pod is in its own first map
-	h.register(ctx)
-	h.ReassignShards(ctx)
-
 	ticker := time.NewTicker(podRefresh)
 	defer ticker.Stop()
 
@@ -43,10 +44,24 @@ func (h *Handler) WatchPodMembership(ctx context.Context) {
 	}
 }
 
-// register says this pod is alive for another podTTL.
+// register says this pod is alive for another podTTL, and renews the lease on every shard it serves.
 func (h *Handler) register(ctx context.Context) {
 	if err := h.Redis.Client.Set(ctx, podKeyPrefix+h.name, "1", podTTL).Err(); err != nil {
 		h.Log.Log(logger.TypeSys, logger.CodeWarn, "could not register this pod",
+			"pod", h.name, "error", err.Error())
+	}
+
+	m := h.shards()
+	if m == nil {
+		return
+	}
+
+	pipe := h.Redis.Client.Pipeline()
+	for _, s := range m.Mine() {
+		pipe.Expire(ctx, shardKey(s), podTTL)
+	}
+	if _, err := pipe.Exec(ctx); err != nil {
+		h.Log.Log(logger.TypeSys, logger.CodeWarn, "could not renew the shard leases",
 			"pod", h.name, "error", err.Error())
 	}
 }
@@ -62,14 +77,25 @@ func (h *Handler) unregister() {
 	}
 }
 
-// livePods lists the pods currently claiming to be alive.
+// shards is the current map, read under the lock that guards its swap.
+func (h *Handler) shards() *shardmap.Map {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.Shards
+}
+
+func shardKey(shard uint32) string {
+	return shardKeyPrefix + strconv.FormatUint(uint64(shard), 10)
+}
+
+// livePods lists the pods currently claiming to be alive, or nil when redis could not say.
 func (h *Handler) livePods(ctx context.Context) []string {
 	keys, err := h.Redis.Client.Keys(ctx, podKeyPrefix+"*").Result()
 	if err != nil {
 		h.Log.Log(logger.TypeSys, logger.CodeWarn, "could not read the pod list",
 			"error", err.Error())
-		// alone is the safe assumption: keep what we have rather than drop unclaimed accounts
-		return []string{h.name}
+		// nothing is known, so nothing moves: the map that stands keeps standing
+		return nil
 	}
 
 	pods := make([]string, 0, len(keys))
@@ -85,14 +111,63 @@ func (h *Handler) livePods(ctx context.Context) []string {
 	return pods
 }
 
+// acquireLeases claims each shard, waiting for whoever served it last to let go or expire.
+func (h *Handler) acquireLeases(ctx context.Context, shards []uint32) {
+	for _, s := range shards {
+		key := shardKey(s)
+
+		for {
+			ok, err := h.Redis.Client.SetNX(ctx, key, h.name, podTTL).Result()
+			if err != nil {
+				h.Log.Log(logger.TypeSys, logger.CodeWarn, "could not lease a shard",
+					"shard", s, "error", err.Error())
+			} else if ok {
+				break
+			} else if holder, _ := h.Redis.Client.Get(ctx, key).Result(); holder == h.name {
+				// a lease this pod left behind when it last went down
+				break
+			}
+
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(leaseRetry):
+			}
+
+			// the wait must not cost this pod its own registration
+			if err := h.Redis.Client.Set(ctx, podKeyPrefix+h.name, "1", podTTL).Err(); err != nil {
+				h.Log.Log(logger.TypeSys, logger.CodeWarn, "could not register this pod",
+					"pod", h.name, "error", err.Error())
+			}
+		}
+	}
+}
+
+// releaseLeases lets go of shards this pod flushed, so the gainer can load them.
+func (h *Handler) releaseLeases(ctx context.Context, shards []uint32) {
+	if len(shards) == 0 {
+		return
+	}
+
+	pipe := h.Redis.Client.Pipeline()
+	for _, s := range shards {
+		pipe.Del(ctx, shardKey(s))
+	}
+	if _, err := pipe.Exec(ctx); err != nil {
+		h.Log.Log(logger.TypeSys, logger.CodeWarn, "could not release the shard leases",
+			"shards", len(shards), "error", err.Error())
+	}
+}
+
 // ReassignShards rebuilds the map and moves accounts if the membership changed.
 func (h *Handler) ReassignShards(ctx context.Context) {
 	pods := h.livePods(ctx)
+	if pods == nil {
+		return
+	}
 	next := shardmap.New(h.name, pods)
 
-	h.mu.Lock()
-	current := h.Shards
-	h.mu.Unlock()
+	current := h.shards()
 
 	if current != nil && sameShards(current.Mine(), next.Mine()) {
 		return
@@ -112,6 +187,7 @@ func (h *Handler) ReassignShards(ctx context.Context) {
 	// and start listening only once the accounts are here to answer for
 	h.CloseLostInboxes(lost)
 	h.ReleaseLostAccounts(ctx, lost)
+	h.acquireLeases(ctx, gained)
 	h.LoadGainedAccounts(ctx, gained)
 	h.OpenGainedInboxes(gained)
 }
@@ -166,6 +242,9 @@ func (h *Handler) ReleaseLostAccounts(ctx context.Context, lost []uint32) {
 		}
 	})
 
+	// the dealer queue is in memory too, so the requests of moved accounts go back on the desk of the new owner
+	h.dropDealingFor(set)
+
 	// the margin and profit worked out since the last write only exist here, so they go to the
 	// database before the account does, or the pod taking it over reads a stale balance
 	for _, login := range dropped {
@@ -176,15 +255,24 @@ func (h *Handler) ReleaseLostAccounts(ctx context.Context, lost []uint32) {
 		h.Accounts.Remove(login)
 	}
 
+	h.releaseLeases(ctx, lost)
+
 	h.Log.Log(logger.TypeSys, logger.CodeOK, "accounts released",
 		"shards", len(lost), "accounts", len(dropped))
 }
 
-// flushAccount writes one account's money before this pod stops holding it.
+// flushAccount marks an account released and writes its money if this pod ever changed it.
 func (h *Handler) flushAccount(ctx context.Context, e *book.Entry) {
 	e.Lock()
+	e.Released = true
+	dirty := e.Dirty
+	e.Dirty = false
 	account := *e.Account
 	e.Unlock()
+
+	if !dirty {
+		return
+	}
 
 	if err := h.SaveAccount(ctx, &account); err != nil {
 		h.Log.Log(logger.TypeSys, logger.CodeErr, "could not write an account being released",
@@ -211,6 +299,9 @@ func (h *Handler) LoadGainedAccounts(ctx context.Context, gained []uint32) {
 			"shards", len(gained), "error", err.Error())
 		return
 	}
+
+	// requests the old owner had on a desk are answerable only here now
+	h.RecoverDealingRequests(set)
 
 	h.Log.Log(logger.TypeSys, logger.CodeOK, "accounts taken on",
 		"shards", len(gained), "accounts", h.Accounts.Len()-before)
@@ -252,5 +343,3 @@ func (h *Handler) OpenGainedInboxes(gained []uint32) {
 		}
 	}
 }
-
-const ShardCount = shardmap.Count

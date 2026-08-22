@@ -39,7 +39,11 @@ type feedRunner struct {
 	done   chan struct{}
 }
 
-const runnerStopTimeout = 10 * time.Second
+const (
+	runnerStopTimeout = 10 * time.Second
+	// runnerRestartBackoff is the pause before a runner whose connector died is restarted.
+	runnerRestartBackoff = 5 * time.Second
+)
 
 // stopRunnerLocked cancels a feed runner and waits for its goroutine to exit so
 // QuickFIX can release the SessionID before a replacement initiator starts.
@@ -181,12 +185,34 @@ func (f *Feeds) startRunnerLocked(ctx context.Context, id int64, feed model.Quot
 		f.status.Journal(id, status.JournalInfo, "connected")
 	}
 	f.h.Go(func() {
-		defer close(done)
-		if err := conn.Run(runCtx); err != nil && runCtx.Err() == nil {
-			f.h.Log.Log(logger.TypeNet, logger.CodeErr, "quote feed stopped",
-				"datafeed_id", feed.Datafeed.DatafeedID, "error", err.Error())
-			f.status.Disconnected(feed.Datafeed.DatafeedID)
-			f.status.Journal(id, status.JournalErr, "feed stopped: "+err.Error())
+		err := conn.Run(runCtx)
+		close(done)
+		if err == nil || runCtx.Err() != nil {
+			return
+		}
+		f.h.Log.Log(logger.TypeNet, logger.CodeErr, "quote feed stopped",
+			"datafeed_id", feed.Datafeed.DatafeedID, "error", err.Error())
+		f.status.Disconnected(feed.Datafeed.DatafeedID)
+		f.status.Journal(id, status.JournalErr, "feed stopped: "+err.Error())
+		// the connector died on its own: drop the dead entry and restart after a pause
+		select {
+		case <-runCtx.Done():
+			return
+		case <-time.After(runnerRestartBackoff):
+		}
+		f.mu.Lock()
+		cur, ok := f.runners[id]
+		if ok && cur.done == done {
+			cancel()
+			delete(f.runners, id)
+		}
+		f.mu.Unlock()
+		if !ok || cur.done != done {
+			return
+		}
+		if err := f.reloadOne(context.Background(), id); err != nil {
+			f.h.Log.Log(logger.TypeNet, logger.CodeErr, "quote feed restart failed",
+				"datafeed_id", id, "error", err.Error())
 		}
 	})
 }

@@ -12,9 +12,13 @@ import (
 	"hstnews/model"
 )
 
-const defaultHTTPTimeout = 30 * time.Second
+const (
+	defaultHTTPTimeout = 30 * time.Second
+	// maxFeedBytes caps the body read from an admin-configured URL.
+	maxFeedBytes = 16 << 20
+)
 
-// RSS polls RSS/Atom XML feeds over HTTP(S).
+// RSS polls RSS 2.0 XML feeds over HTTP(S); Atom is rejected with a clear error.
 type RSS struct {
 	Client *http.Client
 }
@@ -22,6 +26,7 @@ type RSS struct {
 func (r *RSS) Type() ConnectorType { return TypeRSSPoll }
 
 type rssFeed struct {
+	XMLName xml.Name
 	Channel rssChannel `xml:"channel"`
 }
 
@@ -74,14 +79,20 @@ func (r *RSS) Fetch(ctx context.Context, feed model.NewsFeed) ([]RawItem, int64,
 		return nil, 0, fmt.Errorf("feed %d: http %d from %s", feed.Datafeed.DatafeedID, resp.StatusCode, url)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxFeedBytes+1))
 	if err != nil {
 		return nil, 0, err
+	}
+	if len(body) > maxFeedBytes {
+		return nil, int64(len(body)), fmt.Errorf("feed %d: body over %d bytes", feed.Datafeed.DatafeedID, maxFeedBytes)
 	}
 
 	var parsed rssFeed
 	if err := xml.Unmarshal(body, &parsed); err != nil {
 		return nil, int64(len(body)), fmt.Errorf("feed %d: parse rss: %w", feed.Datafeed.DatafeedID, err)
+	}
+	if parsed.XMLName.Local != "rss" {
+		return nil, int64(len(body)), fmt.Errorf("feed %d: not an RSS document (<%s>), Atom is not supported", feed.Datafeed.DatafeedID, parsed.XMLName.Local)
 	}
 
 	items := make([]RawItem, 0, len(parsed.Channel.Items))

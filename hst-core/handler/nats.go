@@ -1,10 +1,11 @@
 package handler
 
 import (
-	"encoding/json"
-	"hstcore/internal/shardmap"
-
 	"context"
+	"encoding/json"
+	"time"
+
+	"hstcore/internal/shardmap"
 
 	"hstcore/internal/book"
 	"hstcore/model"
@@ -57,14 +58,15 @@ func (h *Handler) subscribe() error {
 	}
 
 	// and the private inbox of each shard this pod holds, where a forwarded command arrives
-	for _, shard := range h.Shards.Mine() {
+	mine := h.shards().Mine()
+	for _, shard := range mine {
 		if err := h.subscribeOwned(shard); err != nil {
 			return err
 		}
 	}
 
 	h.Log.Log(logger.TypeNet, logger.CodeOK, "engine listening",
-		"shards", len(h.Shards.Mine()), "ticks", model.SubjectSystemMarketFeedAll)
+		"shards", len(mine), "ticks", model.SubjectSystemMarketFeedAll)
 
 	return nil
 }
@@ -101,20 +103,40 @@ func (h *Handler) subscribeOwned(shard uint32) error {
 	return nil
 }
 
+// forwardTimeout is how long the owning pod has to answer a forwarded command.
+const forwardTimeout = 5 * time.Second
+
 // forwarded hands a command to the pod holding the account and reports that it did.
 //
-// A pod that does not own an account must not refuse the trade: it passes the message on with the
-// caller's reply subject intact, so the owner answers the caller directly and the client never
-// learns that more than one pod was involved.
+// A pod that does not own an account must not refuse the trade: it asks the owner and relays the
+// answer to the caller, so the client never learns that more than one pod was involved. When no
+// pod answers, the caller hears that rather than nothing.
 func (h *Handler) forwarded(msg *natscore.Msg, topic string, login int64) bool {
-	if login == 0 || h.Shards.HoldsLogin(login) {
+	if login == 0 || h.shards().HoldsLogin(login) {
 		return false
 	}
 
 	owner := model.SubjectOwner(shardmap.ShardOf(login), topic)
-	if err := h.Nats.NC.PublishRequest(owner, msg.Reply, msg.Data); err != nil {
-		h.Log.Log(logger.TypeNet, logger.CodeErr, "could not forward to the owning pod",
-			"login", login, "topic", topic, "error", err.Error())
+
+	// off the subscription, so one slow owner does not stall every other command on this pod
+	relay := func(context.Context) {
+		answer, err := h.Nats.NC.Request(owner, msg.Data, forwardTimeout)
+		if err != nil {
+			h.Log.Log(logger.TypeNet, logger.CodeErr, "no pod answered for the account",
+				"login", login, "topic", topic, "error", err.Error())
+			h.reply(msg, &model.TradeResult{Login: login,
+				RetCode: int32(model.RetTradeNotProcessed), Message: "no pod holds this account"})
+			return
+		}
+		if msg.Reply != "" {
+			if err := msg.Respond(answer.Data); err != nil {
+				h.Log.Log(logger.TypeNet, logger.CodeWarn, "could not relay an answer",
+					"login", login, "error", err.Error())
+			}
+		}
+	}
+	if !h.Workers.Submit(relay) {
+		relay(context.Background())
 	}
 
 	return true
@@ -226,7 +248,7 @@ func (h *Handler) AccountSystemEventHandler(msg *natscore.Msg) {
 		return
 	}
 
-	if !h.Shards.HoldsLogin(ev.Login) {
+	if !h.shards().HoldsLogin(ev.Login) {
 		return
 	}
 	// an account already held has had its group, leverage or rights changed instead
@@ -302,7 +324,9 @@ func (h *Handler) OrderSystemEventHandler(msg *natscore.Msg) {
 
 	switch e.EventType {
 	case model.OrderEvent_new_order:
-		res = h.NewOrder(ctx, e.Data)
+		// a rule may delay the order, and the wait must not hold the subscription
+		h.NewOrder(ctx, e.Data, func(res *model.TradeResult) { h.reply(msg, res) })
+		return
 	case model.OrderEvent_update_order:
 		res = h.UpdateOrder(ctx, e.Data)
 	case model.OrderEvent_cancel_order:

@@ -20,7 +20,8 @@ func (h *Handler) pendingHits(e *book.Entry, t model.Tick) []pendingHit {
 	var hits []pendingHit
 
 	for _, o := range e.Orders {
-		if o.Symbol != t.Symbol || !o.State.IsLive() {
+		// an order on a dealer's desk waits for the dealer, not for the price
+		if o.Symbol != t.Symbol || !o.State.IsLive() || o.State.IsAwaitingDealer() {
 			continue
 		}
 
@@ -95,6 +96,8 @@ func (h *Handler) cookStopLimit(ctx context.Context, e *book.Entry, o *model.Ord
 
 // removeOrder takes a working order off. The account's lock is held on entry.
 func (h *Handler) removeOrder(ctx context.Context, e *book.Entry, o *model.Order, comment string) {
+	before := *o
+
 	delete(e.Orders, o.OrderId)
 
 	o.State = model.OrderState_canceled
@@ -109,6 +112,11 @@ func (h *Handler) removeOrder(ctx context.Context, e *book.Entry, o *model.Order
 	if err := h.writeOrder(ctx, &saved); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not cancel an order",
 			"login", saved.Login, "order", saved.OrderId, "error", err.Error())
+		// the row still says working, so the book must too
+		e.Lock()
+		*o = before
+		e.Orders[o.OrderId] = o
+		e.Unlock()
 		return
 	}
 
@@ -122,18 +130,24 @@ func (h *Handler) removeOrder(ctx context.Context, e *book.Entry, o *model.Order
 		"login", saved.Login, "order", saved.OrderId, "comment", comment)
 }
 
-// ExpireOrders takes off the orders whose time has run out.
-func (h *Handler) ExpireOrders(ctx context.Context, e *book.Entry, symbol string) {
+// ExpireOrders takes off the orders whose time has run out; at the end of the day that includes every day order.
+func (h *Handler) ExpireOrders(ctx context.Context, e *book.Entry, symbol string, endOfDay bool) {
 	now := Now()
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return
+	}
 
 	var expired []*model.Order
 	for _, o := range e.Orders {
-		if o.Symbol != symbol || !o.State.IsLive() {
+		if o.Symbol != symbol || !o.State.IsLive() || o.State.IsAwaitingDealer() {
 			continue
 		}
 		if o.TimeExpiration > 0 && o.TimeExpiration <= now {
+			expired = append(expired, o)
+			continue
+		}
+		if endOfDay && o.TypeTime == model.OrderTime_day {
 			expired = append(expired, o)
 		}
 	}
@@ -151,7 +165,9 @@ func (h *Handler) ExpireOrders(ctx context.Context, e *book.Entry, symbol string
 			continue
 		}
 
-		e.Lock()
+		if !h.lockHeld(e) {
+			return
+		}
 		if _, still := e.Orders[o.OrderId]; !still {
 			e.Unlock()
 			continue

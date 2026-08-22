@@ -38,8 +38,8 @@ var (
 type CrtDatafeed struct {
 	Name               string                `json:"name" validate:"required,max=64"`
 	Module             string                `json:"module" validate:"required,max=128"`
-	Enable             *model.DatafeedEnable `json:"enable"`
-	AllowImportSymbols *int16                `json:"allow_import_symbols"`
+	Enable             *model.DatafeedEnable `json:"enable" validate:"omitempty,oneof=0 1"`
+	AllowImportSymbols *int16                `json:"allow_import_symbols" validate:"omitempty,oneof=0 1"`
 	Mode               *model.FeederFlags    `json:"mode"`
 	GatewayServer      string                `json:"gateway_server" validate:"max=255"`
 	FeedServer         string                `json:"feed_server" validate:"max=255"`
@@ -47,10 +47,10 @@ type CrtDatafeed struct {
 	FeedPassword       string                `json:"feed_password"`
 	GatewayLogin       string                `json:"gateway_login" validate:"max=64"`
 	GatewayPassword    string                `json:"gateway_password"`
-	Timeout            *int32                `json:"timeout"`
-	TimeoutReconnect   *int32                `json:"timeout_reconnect"`
-	TimeoutSleep       *int32                `json:"timeout_sleep"`
-	AttemptsSleep      *int32                `json:"attempts_sleep"`
+	Timeout            *int32                `json:"timeout" validate:"omitempty,gte=0"`
+	TimeoutReconnect   *int32                `json:"timeout_reconnect" validate:"omitempty,gte=0"`
+	TimeoutSleep       *int32                `json:"timeout_sleep" validate:"omitempty,gte=0"`
+	AttemptsSleep      *int32                `json:"attempts_sleep" validate:"omitempty,gte=0"`
 	Company            string                `json:"company" validate:"max=255"`
 	Issuer             string                `json:"issuer" validate:"max=255"`
 }
@@ -59,8 +59,8 @@ type CrtDatafeed struct {
 type UptDatafeed struct {
 	Name               *string               `json:"name" validate:"omitempty,max=64"`
 	Module             *string               `json:"module" validate:"omitempty,max=128"`
-	Enable             *model.DatafeedEnable `json:"enable"`
-	AllowImportSymbols *int16                `json:"allow_import_symbols"`
+	Enable             *model.DatafeedEnable `json:"enable" validate:"omitempty,oneof=0 1"`
+	AllowImportSymbols *int16                `json:"allow_import_symbols" validate:"omitempty,oneof=0 1"`
 	Mode               *model.FeederFlags    `json:"mode"`
 	GatewayServer      *string               `json:"gateway_server" validate:"omitempty,max=255"`
 	FeedServer         *string               `json:"feed_server" validate:"omitempty,max=255"`
@@ -68,10 +68,10 @@ type UptDatafeed struct {
 	FeedPassword       *string               `json:"feed_password"`
 	GatewayLogin       *string               `json:"gateway_login" validate:"omitempty,max=64"`
 	GatewayPassword    *string               `json:"gateway_password"`
-	Timeout            *int32                `json:"timeout"`
-	TimeoutReconnect   *int32                `json:"timeout_reconnect"`
-	TimeoutSleep       *int32                `json:"timeout_sleep"`
-	AttemptsSleep      *int32                `json:"attempts_sleep"`
+	Timeout            *int32                `json:"timeout" validate:"omitempty,gte=0"`
+	TimeoutReconnect   *int32                `json:"timeout_reconnect" validate:"omitempty,gte=0"`
+	TimeoutSleep       *int32                `json:"timeout_sleep" validate:"omitempty,gte=0"`
+	AttemptsSleep      *int32                `json:"attempts_sleep" validate:"omitempty,gte=0"`
 	Company            *string               `json:"company" validate:"omitempty,max=255"`
 	Issuer             *string               `json:"issuer" validate:"omitempty,max=255"`
 }
@@ -149,14 +149,14 @@ type ViewDatafeedSymbol struct {
 // CrtDatafeedParam creates an additional feed parameter.
 type CrtDatafeedParam struct {
 	ParamKey string                 `json:"param_key" validate:"required,max=64"`
-	Type     *model.FeederParamType `json:"type"`
+	Type     *model.FeederParamType `json:"type" validate:"omitempty,oneof=0 1 2 3 4 5 6 7 8 9"`
 	Value    string                 `json:"value"`
 }
 
 // UptDatafeedParam patches a feed parameter.
 type UptDatafeedParam struct {
 	ParamKey *string                `json:"param_key" validate:"omitempty,max=64"`
-	Type     *model.FeederParamType `json:"type"`
+	Type     *model.FeederParamType `json:"type" validate:"omitempty,oneof=0 1 2 3 4 5 6 7 8 9"`
 	Value    *string                `json:"value"`
 	Priority *int32                 `json:"priority"`
 }
@@ -1276,9 +1276,15 @@ func deleteDatafeedParamWithCompact(ctx context.Context, tx pgx.Tx, datafeedID, 
 		return err
 	}
 
+	// the unique index is checked per row, so park the tail below zero before shifting it down
+	if _, err = tx.Exec(ctx,
+		`UPDATE hst.datafeed_params SET priority = -priority - 1
+		  WHERE datafeed_id = $1 AND priority > $2`, datafeedID, gone); err != nil {
+		return err
+	}
 	_, err = tx.Exec(ctx,
-		`UPDATE hst.datafeed_params SET priority = priority - 1
-		  WHERE datafeed_id = $1 AND priority > $2`, datafeedID, gone)
+		`UPDATE hst.datafeed_params SET priority = -priority - 2
+		  WHERE datafeed_id = $1 AND priority < 0`, datafeedID)
 	return err
 }
 

@@ -85,6 +85,25 @@ const userColumns = `u.login, COALESCE(u.client_id, 0), u."group", u.rights, u.n
 
 const userJoin = ` FROM hst.users u LEFT JOIN hst.managers m ON m.login = u.login`
 
+var (
+	errSelfEdit      = errors.New("you cannot change your own rights or group")
+	errUserFunded    = errors.New("the account holds funds, withdraw them first")
+	errUserTrading   = errors.New("the account has open positions or orders, close them first")
+	errUserIsManager = errors.New("the login is a manager, remove the manager role first")
+)
+
+// groupInScope refuses a group the caller's masks do not cover; an administrator covers every group.
+func (s *Server) groupInScope(c *fiber.Ctx, group string) error {
+	snap, ok := utils.GetClient(c)
+	if !ok {
+		return errs.ErrCouldNotParseClientCfg
+	}
+	if snap.ManagerRights.Has(model.MgrRightAdmin) || model.MasksCover(snap.ManagerGroups, []string{group}) {
+		return nil
+	}
+	return errs.ErrGroupAccessBeyondOwn
+}
+
 // CreateUser creates the identity and its 1:1 account row in one transaction.
 //
 //	@Id			CreateUser
@@ -105,6 +124,10 @@ func (s *Server) CreateUser(c *fiber.Ctx) error {
 	}
 	if err := s.Validate.Struct(body); err != nil {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
+	}
+
+	if err := s.groupInScope(c, body.Group); err != nil {
+		return s.App.HttpResponseForbidden(c, err)
 	}
 
 	// every slot the account opens with answers to the group it opens in
@@ -258,12 +281,21 @@ func (s *Server) UpdateUser(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, utils.ValidatorMessage(err))
 	}
 
+	// nobody widens its own rights or moves itself out of sight
+	snap, _ := utils.GetClient(c)
+	if int64(login) == snap.Login && (body.Rights != nil || body.Group != nil) {
+		return s.App.HttpResponseForbidden(c, errSelfEdit)
+	}
+
 	// the previous group is needed before the write, the losers have to be told
 	var oldGroup string
 	if body.Group != nil {
 		// a move lands the login in a real group or nowhere at all
 		if err := s.GroupExists(ctx, *body.Group); err != nil {
 			return s.App.HttpResponseBadRequest(c, err)
+		}
+		if err := s.groupInScope(c, *body.Group); err != nil {
+			return s.App.HttpResponseForbidden(c, err)
 		}
 
 		if err := s.DB.DB.QueryRow(ctx,
@@ -304,7 +336,6 @@ func (s *Server) UpdateUser(c *fiber.Ctx) error {
 		}
 	}
 
-	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "user updated",
 		"actor", snap.Login, "target", login)
 
@@ -344,6 +375,23 @@ func (s *Server) DeleteUser(c *fiber.Ctx) error {
 	}
 	if !reach {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
+	// money, open trades and a staff role all outrank the delete
+	var funded, trading, staff bool
+	if err := s.DB.DB.QueryRow(ctx,
+		`SELECT EXISTS (SELECT 1 FROM hst.accounts WHERE login = $1 AND (balance <> 0 OR credit <> 0 OR equity <> 0)),
+		        EXISTS (SELECT 1 FROM hst.positions WHERE login = $1) OR EXISTS (SELECT 1 FROM hst.orders WHERE login = $1),
+		        EXISTS (SELECT 1 FROM hst.managers WHERE login = $1)`, login).Scan(&funded, &trading, &staff); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	switch {
+	case funded:
+		return s.App.HttpResponseConflict(c, errUserFunded)
+	case trading:
+		return s.App.HttpResponseConflict(c, errUserTrading)
+	case staff:
+		return s.App.HttpResponseConflict(c, errUserIsManager)
 	}
 
 	// returning the group saves a read: it is needed to announce the delete and it does not exist afterwards

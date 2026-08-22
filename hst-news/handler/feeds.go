@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"sync"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 
 type feedRunner struct {
 	cancel context.CancelFunc
+	feed   model.NewsFeed
 }
 
 // Feeds manages polling loops for configured news sources.
@@ -86,11 +88,16 @@ func (f *Feeds) reload(ctx context.Context) error {
 	}
 
 	for id, feed := range want {
-		if _, running := f.runners[id]; running {
-			continue
+		if runner, running := f.runners[id]; running {
+			if reflect.DeepEqual(runner.feed, feed) {
+				continue
+			}
+			// config changed: restart the poller with the new feed
+			runner.cancel()
+			delete(f.runners, id)
 		}
 		runCtx, cancel := context.WithCancel(ctx)
-		f.runners[id] = feedRunner{cancel: cancel}
+		f.runners[id] = feedRunner{cancel: cancel, feed: feed}
 		feedCopy := feed
 		f.status.Connected(feedCopy.Datafeed.DatafeedID)
 		f.h.Go(func() { f.runFeed(runCtx, feedCopy) })
@@ -134,7 +141,7 @@ func (f *Feeds) reloadOne(ctx context.Context, datafeedID int64) error {
 
 	runCtx, cancel := context.WithCancel(ctx)
 	f.mu.Lock()
-	f.runners[datafeedID] = feedRunner{cancel: cancel}
+	f.runners[datafeedID] = feedRunner{cancel: cancel, feed: *feed}
 	f.mu.Unlock()
 	f.status.Connected(datafeedID)
 
@@ -183,7 +190,7 @@ func (f *Feeds) pollOnce(ctx context.Context, feed model.NewsFeed) {
 		return
 	}
 
-	raw, _, err := conn.Fetch(ctx, feed)
+	raw, bytes, err := conn.Fetch(ctx, feed)
 	if err != nil {
 		f.status.Disconnected(feed.Datafeed.DatafeedID)
 		f.h.Log.Log(logger.TypeNet, logger.CodeErr, "news fetch failed",
@@ -200,8 +207,15 @@ func (f *Feeds) pollOnce(ctx context.Context, feed model.NewsFeed) {
 		return
 	}
 
+	// every successful poll is a heartbeat; hst-server only counts deltas
+	f.status.Publish(status.Event{
+		DatafeedID:         feed.Datafeed.DatafeedID,
+		Connected:          true,
+		SysLastTime:        now.UnixNano(),
+		NewsDelta:          int64(len(newItems)),
+		BytesReceivedDelta: bytes,
+	})
 	if len(newItems) == 0 {
-		f.status.Connected(feed.Datafeed.DatafeedID)
 		return
 	}
 

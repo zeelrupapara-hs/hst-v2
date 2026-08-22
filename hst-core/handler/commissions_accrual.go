@@ -19,8 +19,9 @@ type turnover struct {
 	Deals int
 }
 
+// ChargeDailyCommissions covers the trading day that just closed: from the previous end of day to this one.
 func (h *Handler) ChargeDailyCommissions(ctx context.Context, at time.Time) {
-	from := time.Date(at.Year(), at.Month(), at.Day(), 0, 0, 0, 0, at.Location())
+	from := at.Add(-24 * time.Hour)
 
 	h.chargePeriod(ctx, chargeDaily, model.DealAction_commission_daily,
 		from.UnixNano(), at.UnixNano(), "daily commission")
@@ -32,7 +33,7 @@ func (h *Handler) ChargeMonthlyCommissions(ctx context.Context, at time.Time) {
 		return
 	}
 
-	from := time.Date(at.Year(), at.Month(), 1, 0, 0, 0, 0, at.Location())
+	from := at.AddDate(0, -1, 0)
 
 	h.chargePeriod(ctx, chargeMonthly, model.DealAction_commission_monthly,
 		from.UnixNano(), at.UnixNano(), "monthly commission")
@@ -74,7 +75,7 @@ func (h *Handler) chargePeriod(ctx context.Context, mode int32, action model.Dea
 		}
 
 		accounts++
-		if h.applyPeriodCharge(ctx, e, action, -amount, what) {
+		if h.applyPeriodCharge(ctx, e, action, -amount, what, to) {
 			charged++
 		}
 	})
@@ -122,14 +123,15 @@ func (h *Handler) periodCommission(e *book.Entry, bySymbol map[string]*turnover,
 			continue
 		}
 
-		total += c.periodCharge(band)
+		amount, currency := c.periodCharge(band)
+		total += h.inDeposit(amount, currency, e.Account)
 	}
 
 	return total
 }
 
-// periodCharge picks the tier the period's total falls in and applies it once.
-func (c *Commission) periodCharge(t turnover) float64 {
+// periodCharge picks the tier the period's total falls in and applies it once, naming its currency.
+func (c *Commission) periodCharge(t turnover) (float64, string) {
 	measure := t.Lots
 	if c.RangeMode == rangeTurnoverMoney {
 		measure = t.Money
@@ -145,7 +147,7 @@ func (c *Commission) periodCharge(t turnover) float64 {
 	}
 
 	if tier == nil {
-		return 0
+		return 0, ""
 	}
 
 	amount := tier.Value
@@ -157,13 +159,13 @@ func (c *Commission) periodCharge(t turnover) float64 {
 		amount = tier.Minimal
 	}
 
-	return amount
+	return amount, c.currencyOf(tier)
 }
 
 // turnoverBetween is what every account on this pod traded in the window, by symbol.
 func (h *Handler) turnoverBetween(ctx context.Context, from, to int64) (map[int64]map[string]*turnover, error) {
 	rows, err := h.DB.DB.Query(ctx,
-		`SELECT login, symbol, SUM(volume), SUM(ABS(price * volume * contract_size)), count(*)
+		`SELECT login, symbol, SUM(volume_ext), SUM(ABS(price * volume * contract_size)), count(*)
 		   FROM hst.deals
 		  WHERE time >= $1 AND time < $2 AND action IN ($3, $4) AND symbol <> ''
 		  GROUP BY login, symbol`,
@@ -199,14 +201,14 @@ func (h *Handler) turnoverBetween(ctx context.Context, from, to int64) (map[int6
 	return out, rows.Err()
 }
 
-// chargedBetween reports whether this period was already settled for the account.
+// chargedBetween reports whether this period was already settled: its charge is stamped with the period's end.
 func (h *Handler) chargedBetween(ctx context.Context, login int64, action model.DealAction,
 	from, to int64) (bool, error) {
 	var n int
 
 	if err := h.DB.DB.QueryRow(ctx,
 		`SELECT count(*) FROM hst.deals
-		  WHERE login = $1 AND action = $2 AND time >= $3 AND time < $4`,
+		  WHERE login = $1 AND action = $2 AND time > $3 AND time <= $4`,
 		login, action, from, to).Scan(&n); err != nil {
 		return false, err
 	}
@@ -214,9 +216,9 @@ func (h *Handler) chargedBetween(ctx context.Context, login int64, action model.
 	return n > 0, nil
 }
 
-// applyPeriodCharge takes the money and writes the deal that explains it.
+// applyPeriodCharge takes the money and writes the deal that explains it, stamped with the period it closes.
 func (h *Handler) applyPeriodCharge(ctx context.Context, e *book.Entry, action model.DealAction,
-	amount float64, comment string) bool {
+	amount float64, comment string, at int64) bool {
 	e.Lock()
 
 	e.Account.Balance += amount
@@ -228,7 +230,7 @@ func (h *Handler) applyPeriodCharge(ctx context.Context, e *book.Entry, action m
 		Action:         action,
 		Entry:          model.DealEntry_in,
 		DigitsCurrency: e.Account.CurrencyDigits,
-		Time:           Now(),
+		Time:           at,
 		Profit:         amount,
 		Value:          amount,
 		Commission:     amount,

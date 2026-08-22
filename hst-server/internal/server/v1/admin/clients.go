@@ -42,66 +42,66 @@ type CrtClient struct {
 
 // UptClient patches a client.
 type UptClient struct {
-	ClientType                *model.ClientType             `json:"client_type"`
-	ClientStatus              *model.ClientStatus           `json:"client_status"`
-	KycStatus                 *model.KycStatus              `json:"kyc_status"`
+	ClientType                *model.ClientType             `json:"client_type" validate:"omitempty,gte=0,lte=3"`
+	ClientStatus              *model.ClientStatus           `json:"client_status" validate:"omitempty,oneof=0 100 200 300 400 500 600 700 800 900 1000 1100 1200 1300"`
+	KycStatus                 *model.KycStatus              `json:"kyc_status" validate:"omitempty,gte=0,lte=2"`
 	AssignedManager           *int64                        `json:"assigned_manager"`
 	ComplianceApprovedBy      *int64                        `json:"compliance_approved_by"`
-	ComplianceClientCategory  *string                       `json:"compliance_client_category"`
+	ComplianceClientCategory  *string                       `json:"compliance_client_category" validate:"omitempty,max=64"`
 	ComplianceDateApproval    *int64                        `json:"compliance_date_approval"`
 	ComplianceDateTermination *int64                        `json:"compliance_date_termination"`
-	Comment                   *string                       `json:"comment"`
-	LeadCampaign              *string                       `json:"lead_campaign"`
-	LeadSource                *string                       `json:"lead_source"`
+	Comment                   *string                       `json:"comment" validate:"omitempty,max=4096"`
+	LeadCampaign              *string                       `json:"lead_campaign" validate:"omitempty,max=128"`
+	LeadSource                *string                       `json:"lead_source" validate:"omitempty,max=128"`
 	Introducer                *int64                        `json:"introducer"`
-	ClientOrigin              *model.ClientOrigin           `json:"client_origin"`
+	ClientOrigin              *model.ClientOrigin           `json:"client_origin" validate:"omitempty,gte=0,lte=4"`
 	ClientOriginLogin         *int64                        `json:"client_origin_login"`
-	PersonTitle               *string                       `json:"person_title"`
-	PersonName                *string                       `json:"person_name"`
-	PersonMiddleName          *string                       `json:"person_middle_name"`
-	PersonLastName            *string                       `json:"person_last_name"`
+	PersonTitle               *string                       `json:"person_title" validate:"omitempty,max=32"`
+	PersonName                *string                       `json:"person_name" validate:"omitempty,max=128"`
+	PersonMiddleName          *string                       `json:"person_middle_name" validate:"omitempty,max=64"`
+	PersonLastName            *string                       `json:"person_last_name" validate:"omitempty,max=64"`
 	PersonBirthDate           *int64                        `json:"person_birth_date"`
-	PersonCitizenship         *string                       `json:"person_citizenship"`
-	PersonGender              *model.Gender                 `json:"person_gender"`
-	PersonTaxId               *string                       `json:"person_tax_id"`
-	PersonDocumentType        *string                       `json:"person_document_type"`
-	PersonDocumentNumber      *string                       `json:"person_document_number"`
+	PersonCitizenship         *string                       `json:"person_citizenship" validate:"omitempty,max=64"`
+	PersonGender              *model.Gender                 `json:"person_gender" validate:"omitempty,gte=0,lte=2"`
+	PersonTaxId               *string                       `json:"person_tax_id" validate:"omitempty,max=64"`
+	PersonDocumentType        *string                       `json:"person_document_type" validate:"omitempty,max=64"`
+	PersonDocumentNumber      *string                       `json:"person_document_number" validate:"omitempty,max=64"`
 	PersonDocumentDate        *int64                        `json:"person_document_date"`
-	PersonDocumentExtra       *string                       `json:"person_document_extra"`
-	PersonEmployment          *model.Employment             `json:"person_employment"`
-	PersonIndustry            *model.ClientIndustry         `json:"person_industry"`
-	PersonEducation           *model.EducationLevel         `json:"person_education"`
-	PersonWealthSource        *model.WealthSource           `json:"person_wealth_source"`
-	PersonAnnualIncome        *float64                      `json:"person_annual_income"`
-	PersonNetWorth            *float64                      `json:"person_net_worth"`
-	PersonAnnualDeposit       *float64                      `json:"person_annual_deposit"`
-	CompanyName               *string                       `json:"company_name"`
-	CompanyRegNumber          *string                       `json:"company_reg_number"`
-	CompanyRegDate            *string                       `json:"company_reg_date"`
-	CompanyRegAuthority       *string                       `json:"company_reg_authority"`
-	CompanyVat                *string                       `json:"company_vat"`
-	CompanyLei                *string                       `json:"company_lei"`
-	CompanyLicenseNumber      *string                       `json:"company_license_number"`
-	CompanyLicenseAuthority   *string                       `json:"company_license_authority"`
-	CompanyCountry            *string                       `json:"company_country"`
-	CompanyAddress            *string                       `json:"company_address"`
-	CompanyWebsite            *string                       `json:"company_website"`
-	ContactPreferred          *model.PreferredCommunication `json:"contact_preferred"`
-	ContactLanguage           *string                       `json:"contact_language"`
-	ContactEmail              *string                       `json:"contact_email"`
-	ContactPhone              *string                       `json:"contact_phone"`
-	ContactMessengers         *string                       `json:"contact_messengers"`
-	ContactSocialNetworks     *string                       `json:"contact_social_networks"`
+	PersonDocumentExtra       *string                       `json:"person_document_extra" validate:"omitempty,max=256"`
+	PersonEmployment          *model.Employment             `json:"person_employment" validate:"omitempty,gte=0,lte=5"`
+	PersonIndustry            *model.ClientIndustry         `json:"person_industry" validate:"omitempty,gte=0,lte=16"`
+	PersonEducation           *model.EducationLevel         `json:"person_education" validate:"omitempty,gte=0,lte=5"`
+	PersonWealthSource        *model.WealthSource           `json:"person_wealth_source" validate:"omitempty,gte=0,lte=3"`
+	PersonAnnualIncome        *float64                      `json:"person_annual_income" validate:"omitempty,gte=0"`
+	PersonNetWorth            *float64                      `json:"person_net_worth" validate:"omitempty,gte=0"`
+	PersonAnnualDeposit       *float64                      `json:"person_annual_deposit" validate:"omitempty,gte=0"`
+	CompanyName               *string                       `json:"company_name" validate:"omitempty,max=255"`
+	CompanyRegNumber          *string                       `json:"company_reg_number" validate:"omitempty,max=64"`
+	CompanyRegDate            *string                       `json:"company_reg_date" validate:"omitempty,max=32"`
+	CompanyRegAuthority       *string                       `json:"company_reg_authority" validate:"omitempty,max=128"`
+	CompanyVat                *string                       `json:"company_vat" validate:"omitempty,max=64"`
+	CompanyLei                *string                       `json:"company_lei" validate:"omitempty,max=64"`
+	CompanyLicenseNumber      *string                       `json:"company_license_number" validate:"omitempty,max=64"`
+	CompanyLicenseAuthority   *string                       `json:"company_license_authority" validate:"omitempty,max=128"`
+	CompanyCountry            *string                       `json:"company_country" validate:"omitempty,max=64"`
+	CompanyAddress            *string                       `json:"company_address" validate:"omitempty,max=1024"`
+	CompanyWebsite            *string                       `json:"company_website" validate:"omitempty,max=255"`
+	ContactPreferred          *model.PreferredCommunication `json:"contact_preferred" validate:"omitempty,gte=0,lte=4"`
+	ContactLanguage           *string                       `json:"contact_language" validate:"omitempty,max=16"`
+	ContactEmail              *string                       `json:"contact_email" validate:"omitempty,email,max=255"`
+	ContactPhone              *string                       `json:"contact_phone" validate:"omitempty,max=64"`
+	ContactMessengers         *string                       `json:"contact_messengers" validate:"omitempty,max=256"`
+	ContactSocialNetworks     *string                       `json:"contact_social_networks" validate:"omitempty,max=256"`
 	ContactLastDate           *int64                        `json:"contact_last_date"`
-	AddressCountry            *string                       `json:"address_country"`
-	AddressPostcode           *string                       `json:"address_postcode"`
-	AddressStreet             *string                       `json:"address_street"`
-	AddressState              *string                       `json:"address_state"`
-	AddressCity               *string                       `json:"address_city"`
-	ExperienceFx              *model.TradingExperience      `json:"experience_fx"`
-	ExperienceCfd             *model.TradingExperience      `json:"experience_cfd"`
-	ExperienceFutures         *model.TradingExperience      `json:"experience_futures"`
-	ExperienceStocks          *model.TradingExperience      `json:"experience_stocks"`
+	AddressCountry            *string                       `json:"address_country" validate:"omitempty,max=64"`
+	AddressPostcode           *string                       `json:"address_postcode" validate:"omitempty,max=32"`
+	AddressStreet             *string                       `json:"address_street" validate:"omitempty,max=1024"`
+	AddressState              *string                       `json:"address_state" validate:"omitempty,max=64"`
+	AddressCity               *string                       `json:"address_city" validate:"omitempty,max=64"`
+	ExperienceFx              *model.TradingExperience      `json:"experience_fx" validate:"omitempty,gte=0,lte=2"`
+	ExperienceCfd             *model.TradingExperience      `json:"experience_cfd" validate:"omitempty,gte=0,lte=2"`
+	ExperienceFutures         *model.TradingExperience      `json:"experience_futures" validate:"omitempty,gte=0,lte=2"`
+	ExperienceStocks          *model.TradingExperience      `json:"experience_stocks" validate:"omitempty,gte=0,lte=2"`
 }
 
 // ViewClient is what the panel renders.

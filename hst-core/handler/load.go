@@ -18,7 +18,6 @@ import (
 
 // Configuration is loaded whole into every pod; accounts only for the shards this pod owns.
 
-// load fills the caches, before the first subscription.
 // StartMarket fills memory from the database. Everything the engine prices against lives in
 // memory, so on a restart it is read back in the order it depends on: configuration first, then
 // the accounts, then what those accounts already had open when the pod went down.
@@ -45,11 +44,21 @@ func (h *Handler) StartMarket(ctx context.Context) error {
 		return err
 	}
 
-	// which accounts belong to this pod
-	h.Shards = shardmap.New(h.name, []string{h.name})
+	// which accounts belong to this pod: the live membership, with this pod registered in it first
+	h.register(ctx)
+	pods := h.livePods(ctx)
+	if pods == nil {
+		return errors.New("could not read the pod list from redis")
+	}
+	h.mu.Lock()
+	h.Shards = shardmap.New(h.name, pods)
+	h.mu.Unlock()
+
+	// nothing is read before the pod that served it has written it out
+	h.acquireLeases(ctx, h.shards().Mine())
 
 	// accounts, and what they had open: this is the case of a crash
-	if err := h.LoadAccount(ctx); err != nil {
+	if err := h.LoadAllAccounts(ctx); err != nil {
 		return err
 	}
 
@@ -60,7 +69,7 @@ func (h *Handler) StartMarket(ctx context.Context) error {
 		"sessions", h.Sessions.Len(),
 		"holidays", h.Holidays.Len(),
 		"rules", len(h.rules),
-		"shards", len(h.Shards.Mine()),
+		"shards", len(h.shards().Mine()),
 		"accounts", h.Accounts.Len(),
 		"positions", h.Accounts.Positions(),
 		"orders", h.Accounts.Orders())
@@ -440,13 +449,13 @@ func (h *Handler) canExecute(rules []model.RoutingRule) bool {
 	return false
 }
 
-// loadAccounts reads this pod's accounts with their open orders and positions.
-// LoadAccount takes on a single account, for one that appeared after boot.
+// LoadAccountById takes on a single account, for one that appeared after boot.
 func (h *Handler) LoadAccountById(ctx context.Context, login int64) error {
 	return h.readAccounts(ctx, nil, `AND u.login = $1`, login)
 }
 
-func (h *Handler) LoadAccount(ctx context.Context) error {
+// LoadAllAccounts reads every account in the shards this pod holds, with their open orders and positions.
+func (h *Handler) LoadAllAccounts(ctx context.Context) error {
 	return h.readAccounts(ctx, nil, "")
 }
 
@@ -485,7 +494,7 @@ func (h *Handler) readAccounts(ctx context.Context, shards map[uint32]bool, and 
 			return err
 		}
 
-		if !h.Shards.HoldsLogin(a.Login) {
+		if !h.shards().HoldsLogin(a.Login) {
 			continue
 		}
 
@@ -552,7 +561,7 @@ func (h *Handler) LoadPositions(ctx context.Context, and string, args ...any) er
 	return rows.Err()
 }
 
-// loadOrders puts every working order back on its account; history stays on disk.
+// LoadPendingOrders puts every working order back on its account; history stays on disk.
 func (h *Handler) LoadPendingOrders(ctx context.Context, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT order_id, login, dealer, symbol, digits, digits_currency, contract_size,

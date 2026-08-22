@@ -61,7 +61,7 @@ func (s *Server) Register(c *fiber.Ctx) error {
 	ip := utils.GetRealIP(c)
 
 	// turned away before argon2 runs, so a signup flood costs a lookup rather than a hash
-	if s.OAuth2.IPThrottled(ctx, ip) {
+	if s.OAuth2.IPThrottled(ctx, ip) || s.OAuth2.PublicCallThrottled(ctx, ip) {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
 	}
 

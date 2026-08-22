@@ -104,6 +104,7 @@ func (c *Connector) session(ctx context.Context, addr string) {
 		_ = conn.Close()
 	}()
 
+	_ = conn.SetWriteDeadline(time.Now().Add(c.cfg.DialTimeout))
 	if _, err := conn.Write([]byte(c.cfg.Token)); err != nil {
 		c.log.Log(logger.TypeNet, logger.CodeErr, "dde auth write failed",
 			"feed", c.cfg.Name, "error", err.Error())

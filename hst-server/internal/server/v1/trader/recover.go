@@ -61,7 +61,7 @@ func (s *Server) ForgotPassword(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 	ip := utils.GetRealIP(c)
 
-	if s.OAuth2.IPThrottled(ctx, ip) {
+	if s.OAuth2.IPThrottled(ctx, ip) || s.OAuth2.PublicCallThrottled(ctx, ip) {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
 	}
 
@@ -135,7 +135,7 @@ func (s *Server) ForgotPassword(c *fiber.Ctx) error {
 func (s *Server) VerifyCode(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
-	if s.OAuth2.IPThrottled(ctx, utils.GetRealIP(c)) {
+	if ip := utils.GetRealIP(c); s.OAuth2.IPThrottled(ctx, ip) || s.OAuth2.PublicCallThrottled(ctx, ip) {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
 	}
 
@@ -174,7 +174,7 @@ func (s *Server) VerifyCode(c *fiber.Ctx) error {
 func (s *Server) ResetPassword(c *fiber.Ctx) error {
 	ctx := c.UserContext()
 
-	if s.OAuth2.IPThrottled(ctx, utils.GetRealIP(c)) {
+	if ip := utils.GetRealIP(c); s.OAuth2.IPThrottled(ctx, ip) || s.OAuth2.PublicCallThrottled(ctx, ip) {
 		return s.App.HttpResponseTooManyRequests(c, errs.ErrTooManyRequests)
 	}
 

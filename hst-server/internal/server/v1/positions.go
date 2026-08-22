@@ -136,7 +136,10 @@ func (s *HttpServer) closePosition(ctx context.Context, payload *ClosePosition, 
 
 	// zero means all of it, which is what a client asking to close a position means
 	closing := model.LotsToVolume(payload.Volume)
-	if closing <= 0 || closing > volume {
+	if closing > volume {
+		return nil, nethttp.StatusBadRequest, fmt.Errorf("volume %.2f exceeds the position", payload.Volume)
+	}
+	if closing <= 0 {
 		closing = volume
 	}
 

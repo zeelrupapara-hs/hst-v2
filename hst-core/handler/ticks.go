@@ -29,7 +29,9 @@ func (h *Handler) NotifyAll(t model.Tick) {
 
 // CalculateAccountProfits brings one account up to date with a new price.
 func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t model.Tick) {
-	e.Lock()
+	if !h.lockHeld(e) {
+		return
+	}
 
 	group := e.Account.Group
 
@@ -73,7 +75,7 @@ func (h *Handler) CalculateAccountProfits(ctx context.Context, e *book.Entry, t 
 	}
 
 	// expiry before anything else.
-	h.ExpireOrders(ctx, e, t.Symbol)
+	h.ExpireOrders(ctx, e, t.Symbol, false)
 
 	for _, hit := range hits {
 		kind := model.RouteFlags_sl

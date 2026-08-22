@@ -209,6 +209,12 @@ func (s *Server) GetGroupCommission(c *fiber.Ctx) error {
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
+	if err := groupExists(c, s, groupID); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
 
 	ctx := c.UserContext()
 	v, err := scanViewCommission(s.DB.DB.QueryRow(ctx,
@@ -350,6 +356,12 @@ func (s *Server) UpdateGroupCommission(c *fiber.Ctx) error {
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
+	if err := groupExists(c, s, groupID); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
 
 	var body UptCommission
 	if err := c.BodyParser(&body); err != nil {
@@ -453,6 +465,12 @@ func (s *Server) DeleteGroupCommission(c *fiber.Ctx) error {
 	commissionID, err := c.ParamsInt("commissionId")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+	if err := groupExists(c, s, groupID); err != nil {
+		if errors.Is(err, errs.ErrNotFound) {
+			return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+		}
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	ct, err := s.DB.DB.Exec(c.UserContext(),

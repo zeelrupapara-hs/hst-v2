@@ -130,11 +130,12 @@ func (s *Subscriber) Start(nc *nats.Nats) error {
 func (s *Subscriber) Stop() {
 	s.stopOnce.Do(func() { close(s.stopCh) })
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	for _, sub := range s.subs {
 		_ = sub.Unsubscribe()
 	}
 	s.subs = nil
+	s.mu.Unlock()
+	// flushAll takes the lock itself
 	s.flushAll(context.Background())
 }
 

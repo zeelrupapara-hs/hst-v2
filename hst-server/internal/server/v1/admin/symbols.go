@@ -24,6 +24,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // CrtSymbolSession is one session window on create/replace.
@@ -162,127 +163,127 @@ type CrtSymbol struct {
 
 // UptSymbol patches a symbol, and sending sessions replaces every row.
 type UptSymbol struct {
-	Symbol               *string               `json:"symbol"`
-	Path                 *string               `json:"path"`
-	Isin                 *string               `json:"isin"`
-	Description          *string               `json:"description"`
-	International        *string               `json:"international"`
-	Category             *string               `json:"category"`
-	Exchange             *string               `json:"exchange"`
-	Cfi                  *string               `json:"cfi"`
-	Sector               *model.SymbolSector   `json:"sector"`
-	Industry             *model.SymbolIndustry `json:"industry"`
-	Country              *string               `json:"country"`
-	Basis                *string               `json:"basis"`
-	Source               *string               `json:"source"`
-	Page                 *string               `json:"page"`
-	CurrencyBase         *string               `json:"currency_base"`
-	CurrencyBaseDigits   *int32                `json:"currency_base_digits"`
-	CurrencyProfit       *string               `json:"currency_profit"`
-	CurrencyProfitDigits *int32                `json:"currency_profit_digits"`
-	CurrencyMargin       *string               `json:"currency_margin"`
-	CurrencyMarginDigits *int32                `json:"currency_margin_digits"`
+	Symbol               *string               `json:"symbol" validate:"omitempty,max=64"`
+	Path                 *string               `json:"path" validate:"omitempty,max=255"`
+	Isin                 *string               `json:"isin" validate:"omitempty,max=32"`
+	Description          *string               `json:"description" validate:"omitempty,max=255"`
+	International        *string               `json:"international" validate:"omitempty,max=64"`
+	Category             *string               `json:"category" validate:"omitempty,max=128"`
+	Exchange             *string               `json:"exchange" validate:"omitempty,max=128"`
+	Cfi                  *string               `json:"cfi" validate:"omitempty,max=16"`
+	Sector               *model.SymbolSector   `json:"sector" validate:"omitempty,gte=0"`
+	Industry             *model.SymbolIndustry `json:"industry" validate:"omitempty,gte=0"`
+	Country              *string               `json:"country" validate:"omitempty,max=64"`
+	Basis                *string               `json:"basis" validate:"omitempty,max=64"`
+	Source               *string               `json:"source" validate:"omitempty,max=128"`
+	Page                 *string               `json:"page" validate:"omitempty,max=255"`
+	CurrencyBase         *string               `json:"currency_base" validate:"omitempty,max=16"`
+	CurrencyBaseDigits   *int32                `json:"currency_base_digits" validate:"omitempty,gte=0,lte=12"`
+	CurrencyProfit       *string               `json:"currency_profit" validate:"omitempty,max=16"`
+	CurrencyProfitDigits *int32                `json:"currency_profit_digits" validate:"omitempty,gte=0,lte=12"`
+	CurrencyMargin       *string               `json:"currency_margin" validate:"omitempty,max=16"`
+	CurrencyMarginDigits *int32                `json:"currency_margin_digits" validate:"omitempty,gte=0,lte=12"`
 	Color                *int64                `json:"color"`
 	ColorBackground      *int64                `json:"color_background"`
-	Digits               *int32                `json:"digits"`
-	TickFlags            *model.TickFlags      `json:"tick_flags"`
+	Digits               *int32                `json:"digits" validate:"omitempty,gte=0,lte=12"`
+	TickFlags            *model.TickFlags      `json:"tick_flags" validate:"omitempty,gte=0"`
 	// TickBookDepth > 0 enables exchange DOM; spread markup fields are locked on patch.
-	TickBookDepth      *int32                 `json:"tick_book_depth"`
-	TickBookVolume     *int32                 `json:"tick_book_volume"`
-	FilterSoft         *int32                 `json:"filter_soft"`
-	FilterSoftTicks    *int32                 `json:"filter_soft_ticks"`
-	FilterHard         *int32                 `json:"filter_hard"`
-	FilterHardTicks    *int32                 `json:"filter_hard_ticks"`
-	FilterDiscard      *int32                 `json:"filter_discard"`
-	FilterSpreadMax    *int32                 `json:"filter_spread_max"`
-	FilterSpreadMin    *int32                 `json:"filter_spread_min"`
-	SubscriptionsDelay *int32                 `json:"subscriptions_delay"`
-	TradeMode          *model.TradeMode       `json:"trade_mode"`
-	CalcMode           *model.CalcMode        `json:"calc_mode"`
-	ExecMode           *model.ExecMode        `json:"exec_mode"`
-	GtcMode            *model.GTCMode         `json:"gtc_mode"`
-	FillFlags          *model.FillingFlags    `json:"fill_flags"`
-	ExpirFlags         *model.ExpirationFlags `json:"expir_flags"`
+	TickBookDepth      *int32                 `json:"tick_book_depth" validate:"omitempty,gte=0"`
+	TickBookVolume     *int32                 `json:"tick_book_volume" validate:"omitempty,gte=0"`
+	FilterSoft         *int32                 `json:"filter_soft" validate:"omitempty,gte=0"`
+	FilterSoftTicks    *int32                 `json:"filter_soft_ticks" validate:"omitempty,gte=0"`
+	FilterHard         *int32                 `json:"filter_hard" validate:"omitempty,gte=0"`
+	FilterHardTicks    *int32                 `json:"filter_hard_ticks" validate:"omitempty,gte=0"`
+	FilterDiscard      *int32                 `json:"filter_discard" validate:"omitempty,gte=0"`
+	FilterSpreadMax    *int32                 `json:"filter_spread_max" validate:"omitempty,gte=0"`
+	FilterSpreadMin    *int32                 `json:"filter_spread_min" validate:"omitempty,gte=0"`
+	SubscriptionsDelay *int32                 `json:"subscriptions_delay" validate:"omitempty,gte=0"`
+	TradeMode          *model.TradeMode       `json:"trade_mode" validate:"omitempty,gte=0,lte=4"`
+	CalcMode           *model.CalcMode        `json:"calc_mode" validate:"omitempty,gte=0"`
+	ExecMode           *model.ExecMode        `json:"exec_mode" validate:"omitempty,gte=0,lte=3"`
+	GtcMode            *model.GTCMode         `json:"gtc_mode" validate:"omitempty,gte=0,lte=2"`
+	FillFlags          *model.FillingFlags    `json:"fill_flags" validate:"omitempty,gte=0"`
+	ExpirFlags         *model.ExpirationFlags `json:"expir_flags" validate:"omitempty,gte=0"`
 	// Ignored at quote time when TickBookDepth > 0; cannot be changed via PATCH while DOM is on.
 	Spread                         *int32                   `json:"spread"`
 	SpreadBalance                  *int32                   `json:"spread_balance"`
 	SpreadDiff                     *int32                   `json:"spread_diff"`
 	SpreadDiffBalance              *int32                   `json:"spread_diff_balance"`
-	TickValue                      *float64                 `json:"tick_value"`
-	TickSize                       *float64                 `json:"tick_size"`
-	ContractSize                   *float64                 `json:"contract_size"`
-	StopsLevel                     *int32                   `json:"stops_level"`
-	FreezeLevel                    *int32                   `json:"freeze_level"`
-	QuotesTimeout                  *int32                   `json:"quotes_timeout"`
-	VolumeMin                      *int64                   `json:"volume_min"`
-	VolumeMinExt                   *int64                   `json:"volume_min_ext"`
-	VolumeMax                      *int64                   `json:"volume_max"`
-	VolumeMaxExt                   *int64                   `json:"volume_max_ext"`
-	VolumeStep                     *int64                   `json:"volume_step"`
-	VolumeStepExt                  *int64                   `json:"volume_step_ext"`
-	VolumeLimit                    *int64                   `json:"volume_limit"`
-	VolumeLimitExt                 *int64                   `json:"volume_limit_ext"`
-	MarginFlags                    *model.SymbolMarginFlags `json:"margin_flags"`
-	MarginInitial                  *float64                 `json:"margin_initial"`
-	MarginMaintenance              *float64                 `json:"margin_maintenance"`
-	MarginInitialBuy               *float64                 `json:"margin_initial_buy"`
-	MarginInitialSell              *float64                 `json:"margin_initial_sell"`
-	MarginInitialBuyLimit          *float64                 `json:"margin_initial_buy_limit"`
-	MarginInitialSellLimit         *float64                 `json:"margin_initial_sell_limit"`
-	MarginInitialBuyStop           *float64                 `json:"margin_initial_buy_stop"`
-	MarginInitialSellStop          *float64                 `json:"margin_initial_sell_stop"`
-	MarginInitialBuyStopLimit      *float64                 `json:"margin_initial_buy_stop_limit"`
-	MarginInitialSellStopLimit     *float64                 `json:"margin_initial_sell_stop_limit"`
-	MarginMaintenanceBuy           *float64                 `json:"margin_maintenance_buy"`
-	MarginMaintenanceSell          *float64                 `json:"margin_maintenance_sell"`
-	MarginMaintenanceBuyLimit      *float64                 `json:"margin_maintenance_buy_limit"`
-	MarginMaintenanceSellLimit     *float64                 `json:"margin_maintenance_sell_limit"`
-	MarginMaintenanceBuyStop       *float64                 `json:"margin_maintenance_buy_stop"`
-	MarginMaintenanceSellStop      *float64                 `json:"margin_maintenance_sell_stop"`
-	MarginMaintenanceBuyStopLimit  *float64                 `json:"margin_maintenance_buy_stop_limit"`
-	MarginMaintenanceSellStopLimit *float64                 `json:"margin_maintenance_sell_stop_limit"`
-	MarginHedged                   *float64                 `json:"margin_hedged"`
-	SwapMode                       *model.SwapMode          `json:"swap_mode"`
+	TickValue                      *float64                 `json:"tick_value" validate:"omitempty,gte=0"`
+	TickSize                       *float64                 `json:"tick_size" validate:"omitempty,gte=0"`
+	ContractSize                   *float64                 `json:"contract_size" validate:"omitempty,gte=0"`
+	StopsLevel                     *int32                   `json:"stops_level" validate:"omitempty,gte=0"`
+	FreezeLevel                    *int32                   `json:"freeze_level" validate:"omitempty,gte=0"`
+	QuotesTimeout                  *int32                   `json:"quotes_timeout" validate:"omitempty,gte=0"`
+	VolumeMin                      *int64                   `json:"volume_min" validate:"omitempty,gte=0"`
+	VolumeMinExt                   *int64                   `json:"volume_min_ext" validate:"omitempty,gte=0"`
+	VolumeMax                      *int64                   `json:"volume_max" validate:"omitempty,gte=0"`
+	VolumeMaxExt                   *int64                   `json:"volume_max_ext" validate:"omitempty,gte=0"`
+	VolumeStep                     *int64                   `json:"volume_step" validate:"omitempty,gte=0"`
+	VolumeStepExt                  *int64                   `json:"volume_step_ext" validate:"omitempty,gte=0"`
+	VolumeLimit                    *int64                   `json:"volume_limit" validate:"omitempty,gte=0"`
+	VolumeLimitExt                 *int64                   `json:"volume_limit_ext" validate:"omitempty,gte=0"`
+	MarginFlags                    *model.SymbolMarginFlags `json:"margin_flags" validate:"omitempty,gte=0"`
+	MarginInitial                  *float64                 `json:"margin_initial" validate:"omitempty,gte=0"`
+	MarginMaintenance              *float64                 `json:"margin_maintenance" validate:"omitempty,gte=0"`
+	MarginInitialBuy               *float64                 `json:"margin_initial_buy" validate:"omitempty,gte=0"`
+	MarginInitialSell              *float64                 `json:"margin_initial_sell" validate:"omitempty,gte=0"`
+	MarginInitialBuyLimit          *float64                 `json:"margin_initial_buy_limit" validate:"omitempty,gte=0"`
+	MarginInitialSellLimit         *float64                 `json:"margin_initial_sell_limit" validate:"omitempty,gte=0"`
+	MarginInitialBuyStop           *float64                 `json:"margin_initial_buy_stop" validate:"omitempty,gte=0"`
+	MarginInitialSellStop          *float64                 `json:"margin_initial_sell_stop" validate:"omitempty,gte=0"`
+	MarginInitialBuyStopLimit      *float64                 `json:"margin_initial_buy_stop_limit" validate:"omitempty,gte=0"`
+	MarginInitialSellStopLimit     *float64                 `json:"margin_initial_sell_stop_limit" validate:"omitempty,gte=0"`
+	MarginMaintenanceBuy           *float64                 `json:"margin_maintenance_buy" validate:"omitempty,gte=0"`
+	MarginMaintenanceSell          *float64                 `json:"margin_maintenance_sell" validate:"omitempty,gte=0"`
+	MarginMaintenanceBuyLimit      *float64                 `json:"margin_maintenance_buy_limit" validate:"omitempty,gte=0"`
+	MarginMaintenanceSellLimit     *float64                 `json:"margin_maintenance_sell_limit" validate:"omitempty,gte=0"`
+	MarginMaintenanceBuyStop       *float64                 `json:"margin_maintenance_buy_stop" validate:"omitempty,gte=0"`
+	MarginMaintenanceSellStop      *float64                 `json:"margin_maintenance_sell_stop" validate:"omitempty,gte=0"`
+	MarginMaintenanceBuyStopLimit  *float64                 `json:"margin_maintenance_buy_stop_limit" validate:"omitempty,gte=0"`
+	MarginMaintenanceSellStopLimit *float64                 `json:"margin_maintenance_sell_stop_limit" validate:"omitempty,gte=0"`
+	MarginHedged                   *float64                 `json:"margin_hedged" validate:"omitempty,gte=0"`
+	SwapMode                       *model.SwapMode          `json:"swap_mode" validate:"omitempty,gte=0,lte=9"`
 	SwapLong                       *float64                 `json:"swap_long"`
 	SwapShort                      *float64                 `json:"swap_short"`
-	SwapYearDay                    *int32                   `json:"swap_year_day"`
-	SwapFlags                      *model.SwapFlags         `json:"swap_flags"`
-	SwapRateSunday                 *float64                 `json:"swap_rate_sunday"`
-	SwapRateMonday                 *float64                 `json:"swap_rate_monday"`
-	SwapRateTuesday                *float64                 `json:"swap_rate_tuesday"`
-	SwapRateWednesday              *float64                 `json:"swap_rate_wednesday"`
-	SwapRateThursday               *float64                 `json:"swap_rate_thursday"`
-	SwapRateFriday                 *float64                 `json:"swap_rate_friday"`
-	SwapRateSaturday               *float64                 `json:"swap_rate_saturday"`
-	TimeStart                      *int64                   `json:"time_start"`
-	TimeExpiration                 *int64                   `json:"time_expiration"`
-	ReFlags                        *model.RequestFlags      `json:"re_flags"`
-	ReTimeout                      *int32                   `json:"re_timeout"`
-	IeCheckMode                    *model.InstantMode       `json:"ie_check_mode"`
-	IeTimeout                      *int32                   `json:"ie_timeout"`
-	IeSlipProfit                   *int32                   `json:"ie_slip_profit"`
-	IeFlags                        *model.InstantFlags      `json:"ie_flags"`
-	IeSlipLosing                   *int32                   `json:"ie_slip_losing"`
-	IeVolumeMax                    *int64                   `json:"ie_volume_max"`
-	IeVolumeMaxExt                 *int64                   `json:"ie_volume_max_ext"`
-	PriceSettle                    *float64                 `json:"price_settle"`
-	PriceLimitMax                  *float64                 `json:"price_limit_max"`
-	PriceLimitMin                  *float64                 `json:"price_limit_min"`
-	TradeFlags                     *model.SymbolTradeFlags  `json:"trade_flags"`
-	OrderFlags                     *model.OrderFlags        `json:"order_flags"`
-	MarginRateLiquidity            *float64                 `json:"margin_rate_liquidity"`
-	MarginRateCurrency             *float64                 `json:"margin_rate_currency"`
-	FaceValue                      *float64                 `json:"face_value"`
-	AccruedInterest                *float64                 `json:"accrued_interest"`
-	SpliceType                     *model.SpliceType        `json:"splice_type"`
-	SpliceTimeType                 *model.SpliceTimeType    `json:"splice_time_type"`
-	SpliceTimeDays                 *int32                   `json:"splice_time_days"`
-	OptionMode                     *model.OptionMode        `json:"option_mode"`
-	PriceStrike                    *float64                 `json:"price_strike"`
-	FilterGap                      *int32                   `json:"filter_gap"`
-	FilterGapTicks                 *int32                   `json:"filter_gap_ticks"`
-	TickChartMode                  *model.ChartMode         `json:"tick_chart_mode"`
-	Sessions                       *[]CrtSymbolSession      `json:"sessions"`
+	SwapYearDay                    *int32                   `json:"swap_year_day" validate:"omitempty,gte=0"`
+	SwapFlags                      *model.SwapFlags         `json:"swap_flags" validate:"omitempty,gte=0"`
+	SwapRateSunday                 *float64                 `json:"swap_rate_sunday" validate:"omitempty,gte=0"`
+	SwapRateMonday                 *float64                 `json:"swap_rate_monday" validate:"omitempty,gte=0"`
+	SwapRateTuesday                *float64                 `json:"swap_rate_tuesday" validate:"omitempty,gte=0"`
+	SwapRateWednesday              *float64                 `json:"swap_rate_wednesday" validate:"omitempty,gte=0"`
+	SwapRateThursday               *float64                 `json:"swap_rate_thursday" validate:"omitempty,gte=0"`
+	SwapRateFriday                 *float64                 `json:"swap_rate_friday" validate:"omitempty,gte=0"`
+	SwapRateSaturday               *float64                 `json:"swap_rate_saturday" validate:"omitempty,gte=0"`
+	TimeStart                      *int64                   `json:"time_start" validate:"omitempty,gte=0"`
+	TimeExpiration                 *int64                   `json:"time_expiration" validate:"omitempty,gte=0"`
+	ReFlags                        *model.RequestFlags      `json:"re_flags" validate:"omitempty,gte=0"`
+	ReTimeout                      *int32                   `json:"re_timeout" validate:"omitempty,gte=0"`
+	IeCheckMode                    *model.InstantMode       `json:"ie_check_mode" validate:"omitempty,gte=0"`
+	IeTimeout                      *int32                   `json:"ie_timeout" validate:"omitempty,gte=0"`
+	IeSlipProfit                   *int32                   `json:"ie_slip_profit" validate:"omitempty,gte=0"`
+	IeFlags                        *model.InstantFlags      `json:"ie_flags" validate:"omitempty,gte=0"`
+	IeSlipLosing                   *int32                   `json:"ie_slip_losing" validate:"omitempty,gte=0"`
+	IeVolumeMax                    *int64                   `json:"ie_volume_max" validate:"omitempty,gte=0"`
+	IeVolumeMaxExt                 *int64                   `json:"ie_volume_max_ext" validate:"omitempty,gte=0"`
+	PriceSettle                    *float64                 `json:"price_settle" validate:"omitempty,gte=0"`
+	PriceLimitMax                  *float64                 `json:"price_limit_max" validate:"omitempty,gte=0"`
+	PriceLimitMin                  *float64                 `json:"price_limit_min" validate:"omitempty,gte=0"`
+	TradeFlags                     *model.SymbolTradeFlags  `json:"trade_flags" validate:"omitempty,gte=0"`
+	OrderFlags                     *model.OrderFlags        `json:"order_flags" validate:"omitempty,gte=0"`
+	MarginRateLiquidity            *float64                 `json:"margin_rate_liquidity" validate:"omitempty,gte=0"`
+	MarginRateCurrency             *float64                 `json:"margin_rate_currency" validate:"omitempty,gte=0"`
+	FaceValue                      *float64                 `json:"face_value" validate:"omitempty,gte=0"`
+	AccruedInterest                *float64                 `json:"accrued_interest" validate:"omitempty,gte=0"`
+	SpliceType                     *model.SpliceType        `json:"splice_type" validate:"omitempty,gte=0"`
+	SpliceTimeType                 *model.SpliceTimeType    `json:"splice_time_type" validate:"omitempty,gte=0"`
+	SpliceTimeDays                 *int32                   `json:"splice_time_days" validate:"omitempty,gte=0"`
+	OptionMode                     *model.OptionMode        `json:"option_mode" validate:"omitempty,gte=0"`
+	PriceStrike                    *float64                 `json:"price_strike" validate:"omitempty,gte=0"`
+	FilterGap                      *int32                   `json:"filter_gap" validate:"omitempty,gte=0"`
+	FilterGapTicks                 *int32                   `json:"filter_gap_ticks" validate:"omitempty,gte=0"`
+	TickChartMode                  *model.ChartMode         `json:"tick_chart_mode" validate:"omitempty,gte=0"`
+	Sessions                       *[]CrtSymbolSession      `json:"sessions" validate:"omitempty,dive"`
 }
 
 // ViewSymbolDetail is the full instrument plus sessions.
@@ -828,6 +829,9 @@ func validateSessions(sessions []CrtSymbolSession) error {
 	}
 	by := map[key][]CrtSymbolSession{}
 	for _, s := range sessions {
+		if s.Type < 0 || s.Type > 1 || s.Day < 0 || s.Day > 6 {
+			return fmt.Errorf("session type must be 0 or 1 and day 0..6")
+		}
 		if s.Open >= s.Close {
 			return fmt.Errorf("session open must be < close")
 		}
@@ -1788,6 +1792,15 @@ func (s *Server) DeleteSymbol(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
+	// open trades reference the symbol by name, so a live instrument cannot be dropped
+	inUse, err := symbolsInUse(c.UserContext(), s.DB.DB, `SELECT symbol FROM hst.symbols WHERE symbol_id = $1`, id)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if inUse {
+		return s.App.HttpResponseConflict(c, errs.ErrDeleteWhileNotEmpty)
+	}
+
 	var symbol, path string
 	if err := s.DB.DB.QueryRow(c.UserContext(),
 		`DELETE FROM hst.symbols WHERE symbol_id = $1 RETURNING symbol, path`, id).
@@ -1809,4 +1822,13 @@ func (s *Server) DeleteSymbol(c *fiber.Ctx) error {
 	s.JournalEntry(c, model.JournalType_symbols, logger.CodeWarn, journal.SymbolDeletedMsg(symbol), ref)
 
 	return s.App.HttpResponseNoContent(c)
+}
+
+// symbolsInUse reports whether any position or order names a symbol picked by the subquery.
+func symbolsInUse(ctx context.Context, db *pgxpool.Pool, symbolsSQL string, args ...any) (bool, error) {
+	var n int
+	err := db.QueryRow(ctx,
+		`SELECT count(*) FROM (SELECT symbol FROM hst.positions UNION ALL SELECT symbol FROM hst.orders) t
+		  WHERE symbol IN (`+symbolsSQL+`)`, args...).Scan(&n)
+	return n > 0, err
 }

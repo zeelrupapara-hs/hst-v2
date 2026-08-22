@@ -24,6 +24,64 @@ type Entry struct {
 	StopOutBusy bool
 	// StopOutStarved remembers that a stop out found nothing it may close, so it is said once.
 	StopOutStarved bool
+
+	// Dirty says the money changed since it was last read from or written to the database.
+	Dirty bool
+	// Released says the account moved to another pod; a handler holding it must do nothing more.
+	Released bool
+}
+
+// Snapshot copies the account and everything open on it, for a write that may fail. Caller holds the lock.
+func (e *Entry) Snapshot() *Entry {
+	s := &Entry{
+		Orders:    make(map[int64]*model.Order, len(e.Orders)),
+		Positions: make(map[int64]*model.Position, len(e.Positions)),
+	}
+	if e.Account != nil {
+		a := *e.Account
+		s.Account = &a
+	}
+	for id, o := range e.Orders {
+		c := *o
+		s.Orders[id] = &c
+	}
+	for id, p := range e.Positions {
+		c := *p
+		s.Positions[id] = &c
+	}
+
+	return s
+}
+
+// Restore puts a snapshot back, writing into the pointers still held so nobody keeps a stale one. Caller holds the lock.
+func (e *Entry) Restore(s *Entry) {
+	if s.Account != nil && e.Account != nil {
+		*e.Account = *s.Account
+	}
+	for id := range e.Orders {
+		if _, keep := s.Orders[id]; !keep {
+			delete(e.Orders, id)
+		}
+	}
+	for id, o := range s.Orders {
+		if live, ok := e.Orders[id]; ok {
+			*live = *o
+		} else {
+			e.Orders[id] = o
+		}
+	}
+	for id := range e.Positions {
+		if _, keep := s.Positions[id]; !keep {
+			delete(e.Positions, id)
+		}
+	}
+	for id, p := range s.Positions {
+		if live, ok := e.Positions[id]; ok {
+			*live = *p
+		} else {
+			e.Positions[id] = p
+		}
+	}
 }
 
 // Sent is one instrument's last published summary for an account.
@@ -91,26 +149,35 @@ func New() *Book {
 
 // Add puts an account in the book and indexes what it holds.
 func (b *Book) Add(e *Entry) {
+	// the entry lock is never taken under the book lock, or unwatchIfLast deadlocks against it
+	e.Lock()
+	symbols := e.Symbols()
+	e.Unlock()
+
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
 	b.accounts[e.Account.Login] = e
-	for _, sym := range e.Symbols() {
+	for _, sym := range symbols {
 		b.indexLocked(sym, e)
 	}
 }
 
 // Remove drops an account, and any symbol index entries it was the last holder of.
 func (b *Book) Remove(login int64) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	e, ok := b.accounts[login]
+	e, ok := b.Get(login)
 	if !ok {
 		return
 	}
 
-	for _, sym := range e.Symbols() {
+	e.Lock()
+	symbols := e.Symbols()
+	e.Unlock()
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	for _, sym := range symbols {
 		if set := b.bySymbol[sym]; set != nil {
 			delete(set, login)
 			if len(set) == 0 {
@@ -207,30 +274,24 @@ func (b *Book) indexLocked(symbol string, e *Entry) {
 
 // Positions is how many open positions the pod is holding, across every account.
 func (b *Book) Positions() int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
 	var n int
-	for _, e := range b.accounts {
+	b.Each(func(e *Entry) {
 		e.Lock()
 		n += len(e.Positions)
 		e.Unlock()
-	}
+	})
 
 	return n
 }
 
 // Orders is how many working orders the pod is holding, across every account.
 func (b *Book) Orders() int {
-	b.mu.RLock()
-	defer b.mu.RUnlock()
-
 	var n int
-	for _, e := range b.accounts {
+	b.Each(func(e *Entry) {
 		e.Lock()
 		n += len(e.Orders)
 		e.Unlock()
-	}
+	})
 
 	return n
 }

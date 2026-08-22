@@ -37,8 +37,8 @@ type Connector struct {
 	log     *logger.Logger
 	ticks   chan<- provider.RawTick
 
-	shutdown  chan struct{}
-	logons    atomic.Uint64
+	shutdown chan struct{}
+	logons   atomic.Uint64
 	// OnSession, when set, hears every FIX logon and logout; set before Run.
 	OnSession func(connected bool, detail string)
 	initiator *quickfix.Initiator

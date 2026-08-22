@@ -2,6 +2,8 @@ package v1
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"hstserver/pkg/logger"
@@ -127,7 +129,8 @@ const orderFrom = ` FROM hst.orders o JOIN hst.users u ON u.login = o.login WHER
 
 // checkOrderEnums refuses a value that is not a member of its enum, which a numeric bound cannot do.
 func checkOrderEnums(t model.OrderType, f model.OrderFilling, tt model.OrderTime) (int, error) {
-	if !model.Valid(t, model.OrderType_name) {
+	// close_by is a position verb, never a new order
+	if !model.Valid(t, model.OrderType_name) || t == model.OrderType_close_by {
 		return nethttp.StatusBadRequest, errs.ErrInvalidOrderType
 	}
 	if !model.Valid(f, model.OrderFilling_name) {
@@ -385,9 +388,11 @@ func (s *HttpServer) readOrders(ctx context.Context, where string, args []any, p
 	return out, rows.Err()
 }
 
-// newRequestId is the handle a client matches an answer to.
+// newRequestId is the handle a client matches an answer to: random, so it is unique across pods and not guessable.
 func (s *HttpServer) newRequestId() string {
-	return time.Now().Format("20060102150405.000000000")
+	var b [16]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }
 
 // crtFromMy fills the login from the session, which is the only difference between the two forms.
@@ -432,10 +437,6 @@ func (s *HttpServer) accepted(c *fiber.Ctx, res *Accepted, status int, err error
 	s.journalAsked(c, res, err)
 
 	if err != nil {
-		if status == nethttp.StatusServiceUnavailable {
-			return s.App.HttpResponseServiceUnavailable(c, err)
-		}
-
 		return s.App.HttpResponseStatus(c, status, err)
 	}
 
@@ -471,9 +472,6 @@ func (s *HttpServer) answer(c *fiber.Ctx, res *model.TradeResult, status int, er
 	s.journalTrade(c, res, err)
 
 	if err != nil {
-		if status == nethttp.StatusServiceUnavailable {
-			return s.App.HttpResponseServiceUnavailable(c, err)
-		}
 		return s.App.HttpResponseStatus(c, status, err)
 	}
 

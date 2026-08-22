@@ -143,7 +143,7 @@ const (
 	SubjectSystemEndOfDay     = "system.core.endofday"
 	SubjectSystemEndOfDayTime = "system.core.endofday.time"
 
-	SubjectQuoteTickAll  = "hstquote.tick.*"
+	SubjectQuoteTickAll  = "hstquote.tick.>"
 	SubjectQuoteSnapshot = "hstquote.snapshot"
 )
 

@@ -290,6 +290,8 @@ func (s *Server) RenameSymbolFolder(c *fiber.Ctx) error {
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "symbol folder renamed",
 		"actor", snap.Login, "from", from, "to", to)
+	s.NotifyWS(model.SubjectSymbol, model.EventSymbolUpdated, ViewSymbolFolder{Path: to})
+	s.NotifySystem(model.SubjectSystemSymbolUpdated, ViewSymbolFolder{Path: to})
 	s.JournalEntry(c, model.JournalType_symbols, logger.CodeOK,
 		fmt.Sprintf("symbol folder '%s' was renamed to '%s'", from, to), ViewSymbolFolder{Path: to})
 
@@ -338,6 +340,13 @@ func (s *Server) DeleteSymbolFolder(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 	if symbolCount > 0 && !body.Cascade {
+		return s.App.HttpResponseConflict(c, errs.ErrDeleteWhileNotEmpty)
+	}
+	inUse, err := symbolsInUse(ctx, s.DB.DB, `SELECT symbol FROM hst.symbols WHERE `+sqlPathUnderFolder, path)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if inUse {
 		return s.App.HttpResponseConflict(c, errs.ErrDeleteWhileNotEmpty)
 	}
 

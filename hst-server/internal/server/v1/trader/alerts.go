@@ -309,9 +309,11 @@ func (s *Server) alertCheckFailed(c *fiber.Ctx, err error) error {
 	}
 }
 
-// reloadAlerts keeps the evaluator current after a write.
+// reloadAlerts keeps the evaluator current after a write, on this pod now and on the others by event.
 func (s *Server) reloadAlerts(c *fiber.Ctx) {
 	if err := s.ReloadAlerts(c.UserContext()); err != nil {
 		s.Log.Log(logger.TypeSys, logger.CodeErr, "could not reload alerts", "error", err.Error())
 	}
+	snap, _ := utils.GetClient(c)
+	s.NotifySystem(v1.SubjectSystemAlertsUpdated, fiber.Map{"login": snap.Login})
 }

@@ -187,8 +187,13 @@ func (s *HttpServer) LoginAs(c *fiber.Ctx, staffOnly bool) error {
 	s.Log.Log(logger.TypeUser, logger.CodeLogin, "login",
 		"login", login, "ip", ip, "connection_type", body.ConnectionType)
 
+	// tokens never reach the journal, any reader of it would hold a live session
 	s.WriteJournalFrom(ctx, login, ip, connType.Channel(), utils.OperatingSystem(utils.GetUserAgent(c)),
-		model.JournalType_auth, logger.CodeLogin, journal.SignedInMsg(ip), view)
+		model.JournalType_auth, logger.CodeLogin, journal.SignedInMsg(ip),
+		struct {
+			Login          int64 `json:"login"`
+			ConnectionType int32 `json:"connection_type"`
+		}{login, body.ConnectionType})
 
 	return s.App.HttpResponseRetCode(c, view.Code, view)
 }
@@ -409,6 +414,11 @@ func (s *HttpServer) RefreshSession(c *fiber.Ctx, staffOnly bool) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	// a revoked session stays revoked, whatever token it left behind
+	if old.RevokedAt != 0 {
+		return s.App.HttpResponseDenied(c, http.StatusUnauthorized, http.RetSessionExpired, errs.ErrInvalidSession)
+	}
+
 	// a session refreshes on the panel that issued it, and being on the wrong one is a plain refusal.
 	if model.UsersConnectionTypes(old.ConnectionType).IsStaff() != staffOnly {
 		return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthClientInvalid, errs.ErrWrongPanel)
@@ -450,6 +460,15 @@ func (s *HttpServer) RefreshSession(c *fiber.Ctx, staffOnly bool) error {
 		}
 		if err != nil {
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+
+		// the gate a login walks through, walked again: a demoted manager does not refresh its way back in
+		if !mgr.PermitsTerminal(model.UsersConnectionTypes(old.ConnectionType)) || !mgr.PermitsIP(utils.GetRealIP(c)) {
+			if rerr := s.OAuth2.RevokeFamily(ctx, rec.FamilyId, model.SessionRevokedRightsChanged); rerr != nil {
+				s.Log.Log(logger.TypeUser, logger.CodeErr, "failed to revoke family",
+					"family_id", rec.FamilyId, "error", rerr.Error())
+			}
+			return s.App.HttpResponseDenied(c, http.StatusForbidden, http.RetAuthManagerType, errs.ErrTerminalNotPermitted)
 		}
 	}
 

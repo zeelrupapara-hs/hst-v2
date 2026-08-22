@@ -351,6 +351,11 @@ func (s *Server) GetGroup(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
+	// a group the masks do not cover reads as absent
+	if err := groupExists(c, s, id); err != nil {
+		return s.groupLookupFailed(c, err)
+	}
+
 	v, err := scanViewGroup(s.DB.DB.QueryRow(c.UserContext(),
 		`SELECT `+groupColumns+` FROM hst.groups WHERE group_id = $1`, id))
 	if errors.Is(err, pgx.ErrNoRows) {
@@ -457,6 +462,12 @@ func (s *Server) CreateGroup(c *fiber.Ctx) error {
 	path, err := groupPath(body.Group)
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
+	}
+
+	// a restricted manager creates under its own masks; one granted none yet is let through and granted the group it makes
+	if snap, ok := utils.GetClient(c); ok && !snap.ManagerRights.Has(model.MgrRightAdmin) &&
+		len(snap.ManagerGroups) > 0 && !model.MasksCover(snap.ManagerGroups, []string{path}) {
+		return s.App.HttpResponseForbidden(c, errs.ErrGroupAccessBeyondOwn)
 	}
 
 	// exchange margin is accepted by the schema but the engine still nets, so it would silently lie
@@ -592,6 +603,11 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
+	// a group the masks do not cover reads as absent
+	if err := groupExists(c, s, id); err != nil {
+		return s.groupLookupFailed(c, err)
+	}
+
 	var body UptGroup
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -636,7 +652,23 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 		renamed = &path
 	}
 
-	v, err := scanViewGroup(s.DB.DB.QueryRow(c.UserContext(),
+	// a rename carries its users and the manager masks along, or it dangles every login in the group
+	tx, err := s.DB.DB.Begin(c.UserContext())
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	defer func() { _ = tx.Rollback(c.UserContext()) }()
+
+	var oldPath string
+	if renamed != nil {
+		if err := tx.QueryRow(c.UserContext(),
+			`SELECT "group" FROM hst.groups WHERE group_id = $1 FOR UPDATE`, id).Scan(&oldPath); err != nil &&
+			!errors.Is(err, pgx.ErrNoRows) {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
+	v, err := scanViewGroup(tx.QueryRow(c.UserContext(),
 		`UPDATE hst.groups SET
 		    permission_flags         = COALESCE($2, permission_flags),
 		    auth_mode                = COALESCE($3, auth_mode),
@@ -703,14 +735,101 @@ func (s *Server) UpdateGroup(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	var movedUsers, movedManagers []int64
+	if renamed != nil && oldPath != "" && oldPath != v.Group {
+		if movedUsers, err = collectLogins(tx.Query(c.UserContext(),
+			`UPDATE hst.users SET "group" = $2, updated_at = $3 WHERE "group" = $1 RETURNING login`,
+			oldPath, v.Group, now)); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+		// a mask naming the old path, or anything under it, is rewritten to the new one
+		if movedManagers, err = collectLogins(tx.Query(c.UserContext(),
+			`UPDATE hst.managers
+			    SET groups = ARRAY(SELECT CASE WHEN m = $1 THEN $2
+			                                   WHEN starts_with(m, $1 || $4) THEN $2 || substr(m, length($1) + 1)
+			                                   ELSE m END
+			                         FROM unnest(groups) m),
+			        updated_at = $3
+			  WHERE EXISTS (SELECT 1 FROM unnest(groups) m WHERE m = $1 OR starts_with(m, $1 || $4))
+			  RETURNING login`,
+			oldPath, v.Group, now, model.GroupSep)); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
+	if err := tx.Commit(c.UserContext()); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "group updated",
 		"actor", snap.Login, "group_id", v.GroupID)
+
+	// the moved logins and the rewritten masks are stale in every session that carries them
+	for _, login := range append(movedUsers, movedManagers...) {
+		if err := s.OAuth2.InvalidateLogin(c.UserContext(), login, model.SessionRevokedRightsChanged); err != nil {
+			s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not drop sessions after a group rename",
+				"login", login, "error", err.Error())
+		}
+	}
+	for _, login := range movedUsers {
+		ref := v1.ViewUserRef{Login: login, Group: v.Group}
+		s.NotifyWS(model.SubjectUser(oldPath), model.EventUserMoved, v1.ViewUserRef{Login: login, Group: oldPath})
+		s.NotifyWS(model.SubjectUser(v.Group), model.EventUserUpdated, ref)
+		s.NotifySystem(model.SubjectSystemUserUpdated, ref)
+	}
+
+	// closing the door on a group closes every session inside it
+	if flags != nil && *flags&model.PermissionsFlags_enable_connection == 0 {
+		s.disconnectGroup(c.UserContext(), v.Group)
+	}
 
 	s.NotifyWS(model.SubjectGroup(v.Group), model.EventGroupUpdated, v)
 	s.NotifySystem(model.SubjectSystemGroupUpdated, v)
 	s.JournalEntry(c, model.JournalType_groups, logger.CodeOK, journal.GroupUpdatedMsg(v.Group), v)
 
 	return s.App.HttpResponseOK(c, v)
+}
+
+// collectLogins drains a query that returns login numbers.
+func collectLogins(rows pgx.Rows, err error) ([]int64, error) {
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []int64{}
+	for rows.Next() {
+		var login int64
+		if err := rows.Scan(&login); err != nil {
+			return nil, err
+		}
+		out = append(out, login)
+	}
+	return out, rows.Err()
+}
+
+// disconnectGroup ends the sessions of every login in a group whose connection was turned off.
+func (s *Server) disconnectGroup(ctx context.Context, group string) {
+	logins, err := collectLogins(s.DB.DB.Query(ctx, `SELECT login FROM hst.users WHERE "group" = $1`, group))
+	if err != nil {
+		s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not list the logins of a disabled group",
+			"group", group, "error", err.Error())
+		return
+	}
+	for _, login := range logins {
+		if err := s.OAuth2.InvalidateLogin(ctx, login, model.SessionRevokedRightsChanged); err != nil {
+			s.Log.Log(logger.TypeUser, logger.CodeWarn, "could not drop sessions of a disabled group",
+				"login", login, "error", err.Error())
+		}
+	}
+}
+
+// groupLookupFailed maps a reach failure to the response: out of reach reads as absent.
+func (s *Server) groupLookupFailed(c *fiber.Ctx, err error) error {
+	if errors.Is(err, errs.ErrNotFound) {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+	return s.App.HttpResponseInternalServerErrorRequest(c, err)
 }
 
 // DeleteGroup removes a leaf group with no users on that path.
@@ -730,6 +849,11 @@ func (s *Server) DeleteGroup(c *fiber.Ctx) error {
 	id, err := c.ParamsInt("id")
 	if err != nil {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
+
+	// a group the masks do not cover reads as absent
+	if err := groupExists(c, s, id); err != nil {
+		return s.groupLookupFailed(c, err)
 	}
 
 	ctx := c.UserContext()

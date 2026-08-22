@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"hstcore/internal/book"
+	"hstcore/internal/shardmap"
 
 	"hstcore/internal/settings"
 	"hstcore/model"
@@ -27,8 +28,10 @@ const dealingReasonMax = 31
 
 // Pending is one request sitting in the queue.
 type Pending struct {
-	Request  *model.TradeRequest
-	Order    *model.Order
+	Request *model.TradeRequest
+	Order   *model.Order
+	// Target is the working order a modification is queued against; Order then holds what it should become.
+	Target   *model.Order
 	Dealers  []int64
 	Returned map[int64]bool
 	At       int64
@@ -40,6 +43,14 @@ type Pending struct {
 	// Holder is where in Dealers the request currently sits. The list is the rule's own order,
 	// so the request travels down it: whoever holds it answers, and passing it back moves it on.
 	Holder int
+}
+
+// live is the order sitting on the book for this request: the target of a modification, or the order itself.
+func (p *Pending) live() *model.Order {
+	if p.Target != nil {
+		return p.Target
+	}
+	return p.Order
 }
 
 // holder is the dealer the request is with, or 0 when it has run off the end of the list.
@@ -65,6 +76,17 @@ func (h *Handler) DealingSystemEventHandler(msg *natscore.Msg) {
 
 	ctx := context.Background()
 	res := &model.TradeResult{RequestId: e.RequestId, Login: e.Login}
+
+	// a command naming a login acts on that login's request only
+	if e.Login != 0 {
+		h.dealingMu.Lock()
+		p, ok := h.dealing[h.dealingKey(e.RequestId)]
+		h.dealingMu.Unlock()
+		if ok && p.Request.Login != e.Login {
+			h.reply(msg, h.refuse(res, model.RetTradeAccountNotFound, "the request belongs to another account"))
+			return
+		}
+	}
 
 	switch e.EventType {
 	case model.DealingEvent_accept:
@@ -95,20 +117,16 @@ func (h *Handler) SendDealing(req *model.TradeRequest, o *model.Order,
 		return h.refuse(res, model.RetTradeNotProcessed, "no dealer is assigned to this request")
 	}
 
-	o.State = model.OrderState_request_add
-	if o.OrderId > 0 {
-		o.State = model.OrderState_request_modify
+	// the caller says what kind of request this is; a fresh order is an add
+	if !o.State.IsAwaitingDealer() {
+		o.State = model.OrderState_request_add
+		if o.OrderId > 0 {
+			o.State = model.OrderState_request_modify
+		}
 	}
 
 	// the rule is written down so the desk can show each dealer only their own queue
 	o.RoutingId = routingId
-
-	// the row goes down first, so the request is visible in the back office while it waits
-	if err := h.saveRequest(context.Background(), o); err != nil {
-		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not record a dealer request",
-			"login", req.Login, "request", req.RequestId, "error", err.Error())
-		return h.refuse(res, model.RetError, "")
-	}
 
 	p := &Pending{
 		Request:  req,
@@ -116,6 +134,31 @@ func (h *Handler) SendDealing(req *model.TradeRequest, o *model.Order,
 		Dealers:  dealers,
 		Returned: make(map[int64]bool, len(dealers)),
 		At:       Now(),
+	}
+
+	// a modification is queued against the working order, which keeps its own prices until a dealer confirms
+	if o.State == model.OrderState_request_modify && o.OrderId > 0 {
+		if e, ok := h.Accounts.Get(o.Login); ok {
+			e.Lock()
+			if live := e.Orders[o.OrderId]; live != nil && live != o {
+				live.State = model.OrderState_request_modify
+				live.RoutingId = routingId
+				p.Target = live
+			}
+			e.Unlock()
+		}
+	}
+
+	// the row goes down first, so the request is visible in the back office while it waits
+	if err := h.saveRequest(context.Background(), p.live()); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not record a dealer request",
+			"login", req.Login, "request", req.RequestId, "error", err.Error())
+		if e, ok := h.Accounts.Get(o.Login); ok && p.Target != nil {
+			e.Lock()
+			p.Target.State = model.OrderState_placed
+			e.Unlock()
+		}
+		return h.refuse(res, model.RetError, "")
 	}
 
 	h.dealingMu.Lock()
@@ -164,12 +207,49 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 
 	// a queued cancel is settled by taking the order off, not by filling it
 	if o.State == model.OrderState_request_cancel {
-		e.Lock()
+		if !h.lockHeld(e) {
+			return h.refuse(res, model.RetTradeAccountNotFound, "")
+		}
 		h.removeOrder(ctx, e, o, "deleted [by dealer]")
 
 		res.RetCode = int32(model.RetOK)
 		res.Message = model.RetOK.String()
 		res.OrderId = o.OrderId
+
+		h.done(p, ev.Dealer)
+
+		return res
+	}
+
+	// a queued modification is applied to the working order now, and only now
+	if p.Target != nil {
+		if !h.lockHeld(e) {
+			return h.refuse(res, model.RetTradeAccountNotFound, "")
+		}
+		before := *p.Target
+		want := *o
+		want.State = model.OrderState_placed
+		*p.Target = want
+		saved := *p.Target
+		e.Unlock()
+
+		if err := h.writeOrder(ctx, &saved); err != nil {
+			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not modify an order",
+				"login", saved.Login, "order", saved.OrderId, "error", err.Error())
+			e.Lock()
+			*p.Target = before
+			e.Unlock()
+			h.done(p, ev.Dealer)
+			return h.refuse(res, model.RetError, "")
+		}
+
+		h.PublishOrder(entryGroup(e), model.EventOrderUpdate, &saved)
+
+		res.RetCode = int32(model.RetOK)
+		res.Message = model.RetOK.String()
+		res.OrderId = saved.OrderId
+		res.Price = saved.PriceOrder
+		res.Volume = saved.VolumeCurrent
 
 		h.done(p, ev.Dealer)
 
@@ -196,7 +276,11 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 
 	o.State = model.OrderState_started
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
+
+	snapshot := e.Snapshot()
 
 	// it waited on the book so the back office could see it; filling now takes it off again
 	delete(e.Orders, o.OrderId)
@@ -222,6 +306,7 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 	if err := h.SaveOrderAndPublish(ctx, e, o, fill, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a confirmed request",
 			"login", res.Login, "request", res.RequestId, "error", err.Error())
+		h.restore(e, snapshot)
 		h.done(p, ev.Dealer)
 
 		return h.refuse(res, model.RetError, "")
@@ -619,15 +704,54 @@ func (h *Handler) takeRequest(id string) *Pending {
 	return p
 }
 
-// dropRequest takes the order the request was for off the book.
+// dropRequest settles a request nobody confirmed: a new order comes off the book, a queued change
+// or cancel leaves the working order exactly as it was.
 func (h *Handler) dropRequest(ctx context.Context, p *Pending, comment string) {
 	e, ok := h.Accounts.Get(p.Request.Login)
 	if !ok {
 		return
 	}
 
-	e.Lock()
-	h.removeOrder(ctx, e, p.Order, comment)
+	o := p.live()
+
+	if !h.lockHeld(e) {
+		return
+	}
+
+	if o.State == model.OrderState_request_add {
+		h.removeOrder(ctx, e, o, comment)
+		return
+	}
+
+	o.State = model.OrderState_placed
+	saved := *o
+	e.Unlock()
+
+	if err := h.writeOrder(ctx, &saved); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not put an order back to working",
+			"login", saved.Login, "order", saved.OrderId, "error", err.Error())
+		return
+	}
+
+	h.PublishOrder(entryGroup(e), model.EventOrderUpdate, &saved)
+}
+
+// dropDealingFor forgets the requests of accounts in the shards given, so the pod taking them on can re-queue them.
+func (h *Handler) dropDealingFor(shards map[uint32]bool) {
+	h.dealingMu.Lock()
+	var moved []*Pending
+	for id, p := range h.dealing {
+		if shards[shardmap.ShardOf(p.Request.Login)] {
+			moved = append(moved, p)
+			delete(h.dealing, id)
+		}
+	}
+	h.dealingMu.Unlock()
+
+	// off the dealers' screens here; the new owner offers it again under its own id
+	for _, p := range moved {
+		h.announceDone(p, 0)
+	}
 }
 
 // saveRequest writes down the order a queued request is for.
@@ -659,16 +783,20 @@ func (h *Handler) saveRequest(ctx context.Context, o *model.Order) error {
 }
 
 // RecoverDealingRequests puts the requests that were waiting on a dealer back on the desk after
-// a restart.
+// a restart, or for the shards just gained when the set is not nil.
 //
 // The order row survives a pod going down; the queue it was sitting in does not. Without this
 // the request would stay in its request state for good, answerable by nobody and swept by
 // nothing. The rule that queued it was written down with it, so it goes back to the same desk
 // with its clock started again.
-func (h *Handler) RecoverDealingRequests() {
+func (h *Handler) RecoverDealingRequests(shards map[uint32]bool) {
 	var back, dropped int
 
 	h.Accounts.Each(func(e *book.Entry) {
+		if shards != nil && !shards[shardmap.ShardOf(e.Account.Login)] {
+			return
+		}
+
 		e.Lock()
 		waiting := make([]*model.Order, 0, 2)
 		for _, o := range e.Orders {
@@ -685,6 +813,20 @@ func (h *Handler) RecoverDealingRequests() {
 				// removeOrder takes the entry locked and gives it back unlocked.
 				e.Lock()
 				h.removeOrder(context.Background(), e, o, "no dealer is assigned")
+				dropped++
+				continue
+			}
+
+			// a queued change has no record of what was asked, so the order is simply working again
+			if o.State != model.OrderState_request_add {
+				e.Lock()
+				o.State = model.OrderState_placed
+				saved := *o
+				e.Unlock()
+				if err := h.writeOrder(context.Background(), &saved); err != nil {
+					h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not put an order back to working",
+						"login", saved.Login, "order", saved.OrderId, "error", err.Error())
+				}
 				dropped++
 				continue
 			}

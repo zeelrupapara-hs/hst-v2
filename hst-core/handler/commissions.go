@@ -77,11 +77,15 @@ const (
 )
 
 // CommissionFor is what one deal costs, in the deposit currency.
-func (h *Handler) CommissionFor(d *model.Deal, r *settings.Rules) float64 {
+func (h *Handler) CommissionFor(d *model.Deal, r *settings.Rules, a *model.Account) float64 {
 	var total float64
 
-	for i := range h.commissions[r.Group.GroupId] {
-		c := &h.commissions[r.Group.GroupId][i]
+	h.mu.RLock()
+	list := h.commissions[r.Group.GroupId]
+	h.mu.RUnlock()
+
+	for i := range list {
+		c := &list[i]
 
 		if !c.covers(d, r) {
 			continue
@@ -91,10 +95,27 @@ func (h *Handler) CommissionFor(d *model.Deal, r *settings.Rules) float64 {
 			continue
 		}
 
-		total += c.charge(d)
+		amount, currency := c.charge(d)
+		total += h.inDeposit(amount, currency, a)
 	}
 
 	return total
+}
+
+// inDeposit converts a commission from the currency it was written in to the account's.
+func (h *Handler) inDeposit(amount float64, currency string, a *model.Account) float64 {
+	if amount == 0 || currency == "" || currency == a.Currency {
+		return amount
+	}
+
+	rate, ok := h.crossRate(a.Group, currency, a.Currency, true)
+	if !ok {
+		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "no conversion rate, commission charged 1:1",
+			"from", currency, "to", a.Currency, "login", a.Login)
+		return amount
+	}
+
+	return NormalisePrice(amount*rate, a.CurrencyDigits)
 }
 
 // covers reports whether this commission applies to the deal.
@@ -144,13 +165,13 @@ func (c *Commission) covers(d *model.Deal, r *settings.Rules) bool {
 	return true
 }
 
-// charge works out what the deal costs under this commission.
-func (c *Commission) charge(d *model.Deal) float64 {
+// charge works out what the deal costs under this commission, and the currency that is in.
+func (c *Commission) charge(d *model.Deal) (float64, string) {
 	lots := model.Lots(d.Volume)
 
 	tier := c.tierFor(lots, d)
 	if tier == nil {
-		return 0
+		return 0, ""
 	}
 
 	var amount float64
@@ -167,7 +188,15 @@ func (c *Commission) charge(d *model.Deal) float64 {
 		amount = tier.Minimal
 	}
 
-	return amount
+	return amount, c.currencyOf(tier)
+}
+
+// currencyOf is the currency a tier is written in, falling back to the commission's own.
+func (c *Commission) currencyOf(t *CommissionTier) string {
+	if t.Currency != "" {
+		return t.Currency
+	}
+	return c.Currency
 }
 
 // tierFor picks the band the trade falls into.

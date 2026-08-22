@@ -12,39 +12,58 @@ import (
 
 // The order verbs.
 
-// NewOrder runs one request all the way through.
-func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.TradeResult {
+// NewOrder runs one request all the way through and hands the answer to reply.
+//
+// A rule may ask to wait before deciding, and that wait runs off the caller, so reply may be
+// called after NewOrder has returned.
+func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest, reply func(*model.TradeResult)) {
 	res := &model.TradeResult{RequestId: req.RequestId, Login: req.Login}
+
+	// anything past the pending types is not an order a client can place
+	if req.Type < model.OrderType_buy || req.Type > model.OrderType_sell_stop_limit {
+		reply(h.refuse(res, model.RetInvalidData, "unknown order type"))
+		return
+	}
 
 	e, ok := h.Accounts.Get(req.Login)
 	if !ok {
-		return h.refuse(res, model.RetTradeAccountNotFound, "")
+		reply(h.refuse(res, model.RetTradeAccountNotFound, ""))
+		return
+	}
+
+	if !h.lockHeld(e) {
+		reply(h.refuse(res, model.RetTradeAccountNotFound, ""))
+		return
 	}
 
 	r, ok := h.Settings.For(e.Account.Group, req.Symbol)
 	if !ok {
-		return h.refuse(res, model.RetTradeBadSymbol, "")
+		e.Unlock()
+		reply(h.refuse(res, model.RetTradeBadSymbol, ""))
+		return
 	}
 
 	tick, ok := h.QuoteFor(r, req.Symbol)
 	if !ok {
-		return h.refuse(res, model.RetTradeNoQuotes, "")
+		e.Unlock()
+		reply(h.refuse(res, model.RetTradeNoQuotes, ""))
+		return
 	}
 
 	order := h.orderFrom(req, r, e.Account, tick)
 
-	e.Lock()
-
 	if code := h.ValidateOrder(e, order, r, tick); !code.OK() {
 		e.Unlock()
-		return h.refuse(res, code, "")
+		reply(h.refuse(res, code, ""))
+		return
 	}
 
 	code, kind := h.checkExecution(order, r, tick)
 	if !code.OK() {
 		e.Unlock()
 		res.Bid, res.Ask = tick.Bid, tick.Ask
-		return h.refuse(res, code, "")
+		reply(h.refuse(res, code, ""))
+		return
 	}
 
 	decision := h.Route(&Request{
@@ -59,11 +78,26 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 
 	e.Unlock()
 
-	// a rule asked to wait before deciding.
-	if decision.Delay > 0 {
-		time.Sleep(decision.Delay)
+	finish := func() {
+		reply(h.finishOrder(ctx, res, e, r, req, order, kind, decision, tick))
 	}
 
+	// a rule asked to wait before deciding; the wait must not hold the subscription this came in on
+	if decision.Delay > 0 {
+		h.Go(func() {
+			time.Sleep(decision.Delay)
+			finish()
+		})
+		return
+	}
+
+	finish()
+}
+
+// finishOrder is the half of a new order that runs once the routing decision stands.
+func (h *Handler) finishOrder(ctx context.Context, res *model.TradeResult, e *book.Entry,
+	r *settings.Rules, req *model.TradeRequest, order *model.Order, kind model.RouteFlags,
+	decision Decision, tick model.Tick) *model.TradeResult {
 	if !decision.Executes() {
 		return h.refuseByRule(res, decision, e, req, order, model.OrderState_request_add)
 	}
@@ -73,7 +107,9 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 		return h.placeOrder(ctx, res, e, order, decision.Rule.Name)
 	}
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
 
 	if t, ok := h.QuoteFor(r, req.Symbol); ok {
 		tick = t
@@ -88,12 +124,15 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 		}
 	}
 
-	// confirm-by-request-price fills where the client asked; confirm-by-market fills here
+	// only instant execution fills where the client asked, and only when the rule says so;
+	// every other mode fills at the market whatever price the request carried
 	price := order.PriceOrder
-	if decision.AtMarket() || price <= 0 {
+	if kind != model.RouteFlags_instant || decision.AtMarket() || price <= 0 {
 		price = tick.OpenPrice(order.Kind().IsBuy())
 	}
 	price = NormalisePrice(price, r.Digits)
+
+	snapshot := e.Snapshot()
 
 	fill := h.Execute(e, order, r, price, Now())
 
@@ -105,6 +144,7 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 	if err := h.SaveOrderAndPublish(ctx, e, order, fill, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a trade",
 			"login", req.Login, "error", err.Error())
+		h.restore(e, snapshot)
 		return h.refuse(res, model.RetError, "")
 	}
 
@@ -130,6 +170,23 @@ func (h *Handler) NewOrder(ctx context.Context, req *model.TradeRequest) *model.
 	return res
 }
 
+// lockHeld takes the account for writing, unless it has moved to another pod, in which case it is not taken.
+func (h *Handler) lockHeld(e *book.Entry) bool {
+	e.Lock()
+	if e.Released {
+		e.Unlock()
+		return false
+	}
+	return true
+}
+
+// restore puts the book back as it was before a write that failed, so memory never runs ahead of the database.
+func (h *Handler) restore(e *book.Entry, snapshot *book.Entry) {
+	e.Lock()
+	e.Restore(snapshot)
+	e.Unlock()
+}
+
 // UpdateOrder moves a working pending order's price, levels and expiry.
 func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *model.TradeResult {
 	res := &model.TradeResult{RequestId: req.RequestId, Login: req.Login}
@@ -139,14 +196,17 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
 
 	o, ok := e.Orders[req.OrderId]
 	if !ok {
 		e.Unlock()
 		return h.refuse(res, model.RetNotFound, "")
 	}
-	if !o.State.IsLive() {
+	// an order on a dealer's desk is theirs to settle first
+	if !o.State.IsLive() || o.State.IsAwaitingDealer() {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeFrozen, "")
 	}
@@ -179,12 +239,11 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 	if req.TypeTime > 0 || req.ExpiryAt > 0 {
 		want.TypeTime, want.TimeExpiration = req.TypeTime, req.ExpiryAt
 	}
-
-	if code := h.checkExpiry(&want, r); !code.OK() {
-		e.Unlock()
-		return h.refuse(res, code, "")
+	if req.Comment != "" {
+		want.Comment = req.Comment
 	}
-	if code := h.checkStops(&want, r, tick); !code.OK() {
+
+	if code := h.ValidateOrderEdit(e, &want, r, tick); !code.OK() {
 		e.Unlock()
 		return h.refuse(res, code, "")
 	}
@@ -204,6 +263,8 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuseByRule(res, decision, e, req, &want, model.OrderState_request_modify)
 	}
 
+	before := *o
+
 	*o = want
 	if req.Dealer != 0 {
 		o.Dealer = req.Dealer
@@ -215,6 +276,9 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 	if err := h.writeOrder(ctx, &saved); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not modify an order",
 			"login", saved.Login, "order", saved.OrderId, "error", err.Error())
+		e.Lock()
+		*o = before
+		e.Unlock()
 		return h.refuse(res, model.RetError, "")
 	}
 
@@ -242,14 +306,16 @@ func (h *Handler) CancelOrder(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
 
 	o, ok := e.Orders[req.OrderId]
 	if !ok {
 		e.Unlock()
 		return h.refuse(res, model.RetNotFound, "")
 	}
-	if !o.State.IsLive() {
+	if !o.State.IsLive() || o.State.IsAwaitingDealer() {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeFrozen, "")
 	}
@@ -293,7 +359,9 @@ func (h *Handler) CancelOrder(ctx context.Context, req *model.TradeRequest) *mod
 func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, t model.Tick) error {
 	o := hit.order
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return nil
+	}
 
 	// another tick may have taken it already
 	if _, still := e.Orders[o.OrderId]; !still {
@@ -308,7 +376,7 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 	}
 
 	// expiry first: an order whose time has run out must not fill on the tick that expires it
-	if o.ActivationFlags&model.ActivationFlagNoExpiry == 0 &&
+	if o.ActivationFlags&int32(model.ActivationFlags_no_expiry) == 0 &&
 		o.TimeExpiration > 0 && o.TimeExpiration <= Now() {
 		h.removeOrder(ctx, e, o, "expired")
 		return nil
@@ -360,12 +428,14 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 		return nil
 	}
 
-	// a limit fills at its own price; anything else fills at the market
+	// a limit fills at its own price; a stop fills at the market, whatever the rule says
 	price := o.PriceOrder
-	if decision.AtMarket() && o.Kind() != model.OrderType_buy_limit && o.Kind() != model.OrderType_sell_limit {
+	if o.Kind() != model.OrderType_buy_limit && o.Kind() != model.OrderType_sell_limit {
 		price = t.OpenPrice(o.Kind().IsBuy())
 	}
 	price = NormalisePrice(price, r.Digits)
+
+	snapshot := e.Snapshot()
 
 	// the fill is a market order of the same side and size, against the pending order's ticket
 	fillOrder := *o
@@ -390,6 +460,7 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 	if err := h.SaveOrderAndPublish(ctx, e, o, fill, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save an activation",
 			"login", o.Login, "order", o.OrderId, "error", err.Error())
+		h.restore(e, snapshot)
 		return err
 	}
 
@@ -428,7 +499,14 @@ func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *boo
 	account := *e.Account
 	e.Unlock()
 
-	if err := h.save(ctx, e, o, &Fill{}, &account); err != nil {
+	// an order a dealer let through already has its row and its place on the book
+	var err error
+	if o.OrderId > 0 {
+		err = h.writeOrder(ctx, o)
+	} else {
+		err = h.save(ctx, e, o, &Fill{}, &account)
+	}
+	if err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not place an order",
 			"login", o.Login, "error", err.Error())
 		return h.refuse(res, model.RetError, "")
@@ -478,8 +556,8 @@ func (h *Handler) bookFill(e *book.Entry, o *model.Order, f *Fill, r *settings.R
 
 	for _, p := range f.Closed {
 		delete(e.Positions, p.PositionId)
-		h.SettleSwap(e, p)
 	}
+	h.SettleSwap(e, f)
 
 	h.creditRealised(e, f.Profit)
 

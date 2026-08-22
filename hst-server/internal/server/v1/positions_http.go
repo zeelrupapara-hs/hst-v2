@@ -504,15 +504,16 @@ func (s *HttpServer) FixPosition(c *fiber.Ctx) error {
 		return s.App.HttpResponseOK(c, check)
 	}
 
-	if _, _, err := s.request(c.UserContext(), model.SubjectSystemPositions, &model.PositionEvent{
+	res, status, err := s.request(c.UserContext(), model.SubjectSystemPositions, &model.PositionEvent{
 		EventType: model.PositionEvent_fix,
 		Data: &model.TradeRequest{
 			RequestId: s.newRequestId(), Login: check.Login, PositionId: check.PositionId,
-			Volume: check.validVolumeExt / model.ExtPerUnit, Price: check.ValidPrice,
+			Volume: check.validVolumeExt, Price: check.ValidPrice,
 			Comment: "position fix", Dealer: snap.Login,
 		},
-	}); err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	})
+	if err != nil || res.RetCode != 0 {
+		return s.answer(c, res, status, err)
 	}
 
 	s.Log.Log(logger.TypeTrade, logger.CodeAtt, "position fixed",
@@ -566,15 +567,15 @@ func (s *HttpServer) DeletePosition(c *fiber.Ctx) error {
 		return err
 	}
 
-	res, _, err := s.request(c.UserContext(), model.SubjectSystemPositions, &model.PositionEvent{
+	res, status, err := s.request(c.UserContext(), model.SubjectSystemPositions, &model.PositionEvent{
 		EventType: model.PositionEvent_delete,
 		Data: &model.TradeRequest{
 			RequestId: s.newRequestId(), Login: check.Login, PositionId: check.PositionId,
 			Comment: "position delete", Dealer: snap.Login,
 		},
 	})
-	if err != nil {
-		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	if err != nil || res.RetCode != 0 {
+		return s.answer(c, res, status, err)
 	}
 
 	s.Log.Log(logger.TypeTrade, logger.CodeAtt, "position deleted",

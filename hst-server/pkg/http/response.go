@@ -132,6 +132,12 @@ func (a *App) HttpResponseStatus(c *fiber.Ctx, status int, message error) error 
 		return a.HttpResponseNotFound(c, message)
 	case StatusConflict:
 		return a.HttpResponseConflict(c, message)
+	case StatusUnauthorized:
+		return a.HttpResponseUnauthorized(c, message)
+	case StatusTooManyRequests:
+		return a.HttpResponseTooManyRequests(c, message)
+	case StatusServiceUnavailable:
+		return a.HttpResponseServiceUnavailable(c, message)
 	default:
 		return a.HttpResponseInternalServerErrorRequest(c, message)
 	}

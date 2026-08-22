@@ -90,8 +90,11 @@ func (h *Handler) CheckPendingOrdersExpiration(ctx context.Context) {
 	var swept int
 
 	h.Accounts.Each(func(e *book.Entry) {
-		for _, symbol := range e.Symbols() {
-			h.ExpireOrders(ctx, e, symbol)
+		e.Lock()
+		symbols := e.Symbols()
+		e.Unlock()
+		for _, symbol := range symbols {
+			h.ExpireOrders(ctx, e, symbol, true)
 			swept++
 		}
 	})
@@ -139,7 +142,8 @@ func (h *Handler) AccrueSwap(ctx context.Context, e *book.Entry) bool {
 
 		p.Storage += swap
 		p.TimeUpdate = Now()
-		touched = append(touched, p)
+		saved := *p
+		touched = append(touched, &saved)
 	}
 
 	if len(touched) == 0 {
@@ -152,8 +156,17 @@ func (h *Handler) AccrueSwap(ctx context.Context, e *book.Entry) bool {
 	account := *e.Account
 	e.Unlock()
 
+	// written here and now: a swap that only lives in memory is lost with the pod
 	for _, p := range touched {
-		h.SavePositionAndPublishAsync(account.Group, p)
+		if err := h.SavePositionAndPublish(ctx, account.Group, p); err != nil {
+			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a swap",
+				"login", p.Login, "position", p.PositionId, "error", err.Error())
+		}
+	}
+
+	if err := h.SaveAccount(ctx, &account); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save an account after swaps",
+			"login", account.Login, "error", err.Error())
 	}
 
 	h.PublishAccount(&account, nil)
@@ -254,7 +267,15 @@ func (h *Handler) CalculateSwaps(r *settings.Rules, p *model.Position, a *model.
 		swap = factor * (lots * r.ContractSize * p.PriceOpen) * (rate / 100) / float64(r.SwapYearDay)
 	}
 
-	if rate, ok := h.crossRate(a.Group, r.CurrencyProfit, a.Currency, p.IsBuy()); ok {
+	// the mode says what currency the number above came out in
+	from := r.CurrencyProfit
+	switch r.SwapMode {
+	case SwapMarginCurrency:
+		from = r.CurrencyMargin
+	case SwapDepositRate:
+		from = a.Currency
+	}
+	if rate, ok := h.crossRate(a.Group, from, a.Currency, p.IsBuy()); ok {
 		swap *= rate
 	}
 

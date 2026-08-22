@@ -530,6 +530,12 @@ func (s *Server) UpdateManager(c *fiber.Ctx) error {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 
+	if beyond, err := s.outranksCaller(c, int64(login)); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	} else if beyond != nil {
+		return s.App.HttpResponseForbidden(c, beyond)
+	}
+
 	var body UptManager
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -609,6 +615,12 @@ func (s *Server) DeleteManager(c *fiber.Ctx) error {
 	}
 	if !reach {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
+	if beyond, err := s.outranksCaller(c, int64(login)); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	} else if beyond != nil {
+		return s.App.HttpResponseForbidden(c, beyond)
 	}
 
 	if orphan, err := s.wouldOrphanStar(ctx, int64(login), nil); err != nil {
@@ -742,6 +754,18 @@ func (s *Server) materializeStar(c *fiber.Ctx, groups []string) []string {
 	}
 
 	return out
+}
+
+// outranksCaller names why a manager already holding a right or mask the caller lacks may not be touched; a missing row is fine.
+func (s *Server) outranksCaller(c *fiber.Ctx, login int64) (beyond error, err error) {
+	existing, err := s.SelectManager(c.UserContext(), login)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.withinOwnScope(c, existing.Groups, oauth2.PackManagerRights(existing)), nil
 }
 
 func (s *Server) withinOwnScope(c *fiber.Ctx, groups []string, rights model.ManagerRights) error {

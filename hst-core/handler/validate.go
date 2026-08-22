@@ -58,6 +58,36 @@ func (h *Handler) ValidateOrder(e *book.Entry, o *model.Order, r *settings.Rules
 	return model.RetOK
 }
 
+// ValidateOrderEdit is the chain for a working order being modified: everything but the size and the money.
+func (h *Handler) ValidateOrderEdit(e *book.Entry, o *model.Order, r *settings.Rules, t model.Tick) model.RetCode {
+	if code := h.checkAccount(e); !code.OK() {
+		return code
+	}
+	if code := h.checkSymbol(o, r); !code.OK() {
+		return code
+	}
+	if code := h.checkMarket(o, r); !code.OK() {
+		return code
+	}
+	if code := h.checkQuote(r, t); !code.OK() {
+		return code
+	}
+	if code := h.checkOrderFlags(o, r); !code.OK() {
+		return code
+	}
+	if code := h.checkExpert(o, r); !code.OK() {
+		return code
+	}
+	if code := h.checkExpiry(o, r); !code.OK() {
+		return code
+	}
+	if code := h.checkStops(o, r, t); !code.OK() {
+		return code
+	}
+
+	return h.checkFreeze(o, r, t)
+}
+
 // ValidatePosition checks a change of levels on a position that must still be open.
 func (h *Handler) ValidatePosition(e *book.Entry, p *model.Position, req *model.TradeRequest,
 	r *settings.Rules, t model.Tick) model.RetCode {
@@ -453,13 +483,13 @@ func (h *Handler) checkExpiry(o *model.Order, r *settings.Rules) model.RetCode {
 	return model.RetOK
 }
 
-// checkStops keeps stop loss, take profit and a pending order's price far enough from the market, using.
+// checkStops keeps stop loss, take profit and a pending order's price on the right side of the market, and far enough from it.
 func (h *Handler) checkStops(o *model.Order, r *settings.Rules, t model.Tick) model.RetCode {
-	if r.StopsLevel <= 0 || r.Point <= 0 {
-		return model.RetOK
+	// with no stops level the side still has to be right, or the level fires on the next tick
+	var minDistance float64
+	if r.StopsLevel > 0 && r.Point > 0 {
+		minDistance = float64(r.StopsLevel) * r.Point
 	}
-
-	minDistance := float64(r.StopsLevel) * r.Point
 	buy := o.Kind().IsBuy()
 
 	// the price the levels are measured against: where this side would close
@@ -483,9 +513,41 @@ func (h *Handler) checkStops(o *model.Order, r *settings.Rules, t model.Tick) mo
 		}
 	}
 
-	// a pending order must also sit away from the current price, or it would fill at once
-	if o.Kind().IsPending() && o.PriceOrder > 0 {
-		if math.Abs(t.OpenPrice(buy)-o.PriceOrder) < minDistance {
+	if !o.Kind().IsPending() {
+		return model.RetOK
+	}
+
+	// a pending order must sit on its own side of the current price, and away from it, or it would fill at once
+	if o.PriceOrder <= 0 {
+		return model.RetTradeInvalidStops
+	}
+
+	open := t.OpenPrice(buy)
+
+	switch o.Kind() {
+	case model.OrderType_buy_limit:
+		if open-o.PriceOrder < minDistance {
+			return model.RetTradeInvalidStops
+		}
+	case model.OrderType_sell_limit:
+		if o.PriceOrder-open < minDistance {
+			return model.RetTradeInvalidStops
+		}
+	case model.OrderType_buy_stop:
+		if o.PriceOrder-open < minDistance {
+			return model.RetTradeInvalidStops
+		}
+	case model.OrderType_sell_stop:
+		if open-o.PriceOrder < minDistance {
+			return model.RetTradeInvalidStops
+		}
+	case model.OrderType_buy_stop_limit:
+		// the trigger sits like a stop, and the limit sits below it like a limit would
+		if o.PriceTrigger <= 0 || o.PriceTrigger-open < minDistance || o.PriceTrigger-o.PriceOrder < minDistance {
+			return model.RetTradeInvalidStops
+		}
+	case model.OrderType_sell_stop_limit:
+		if o.PriceTrigger <= 0 || open-o.PriceTrigger < minDistance || o.PriceOrder-o.PriceTrigger < minDistance {
 			return model.RetTradeInvalidStops
 		}
 	}

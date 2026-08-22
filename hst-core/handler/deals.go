@@ -26,8 +26,17 @@ func (h *Handler) MakeDealOut(o *model.Order, r *settings.Rules, e *book.Entry,
 
 	d := h.dealFor(o, r, e, price, o.VolumeCurrent, closed, entry, p.PositionId, now)
 	d.PricePosition = p.PriceOpen
+	d.Storage = storageShare(p, closed)
 
 	return d
+}
+
+// storageShare is the swap a position has accrued on the volume now closing, all of it for a full close.
+func storageShare(p *model.Position, closed int64) float64 {
+	if p.Volume <= 0 || closed >= p.Volume {
+		return p.Storage
+	}
+	return NormalisePrice(p.Storage*float64(closed)/float64(p.Volume), p.DigitsCurrency)
 }
 
 // MakeDealOutBy is the row for one leg of a close against an opposite position.
@@ -36,6 +45,7 @@ func (h *Handler) MakeDealOutBy(o *model.Order, r *settings.Rules, e *book.Entry
 	d := h.dealFor(o, r, e, price, volume, volume, model.DealEntry_out_by, p.PositionId, now)
 
 	d.PricePosition = p.PriceOpen
+	d.Storage = storageShare(p, volume)
 	d.Comment = fmt.Sprintf("close hedge by #%d", by.PositionId)
 
 	// the side is the position being taken off, not the order that asked for it

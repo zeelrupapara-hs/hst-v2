@@ -24,7 +24,7 @@ type Tick struct {
 }
 
 // SubjectTickAll matches every symbol's quotes.
-const SubjectTickAll = "hstquote.tick.*"
+const SubjectTickAll = "hstquote.tick.>"
 
 // UnmarshalJSON accepts either timestamp form, because refusing one drops every quote silently.
 func (t *Tick) UnmarshalJSON(b []byte) error {

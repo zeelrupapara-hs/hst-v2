@@ -9,6 +9,7 @@ import (
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
 	"hstserver/pkg/events"
+	"hstserver/pkg/journal"
 	"hstserver/pkg/logger"
 	"hstserver/utils"
 
@@ -32,17 +33,8 @@ type ViewClonedSymbol struct {
 	Path     string `json:"path"`
 }
 
-// cloneColumns are every column a copy inherits; symbol_id and the two names are set by the copy.
-const cloneColumns = `isin, description, international, category, exchange, cfi, sector, industry,
-	country, basis, source, page, currency_base, currency_base_digits, currency_profit,
-	currency_profit_digits, currency_margin, currency_margin_digits, color, color_background,
-	digits, point, multiply, tick_flags, tick_book_depth, tick_book_volume, filter_soft,
-	filter_soft_ticks, filter_hard, filter_hard_ticks, filter_discard, filter_spread_max,
-	filter_spread_min, subscriptions_delay, trade_mode, calc_mode, exec_mode, gtc_mode,
-	fill_flags, expir_flags, spread, spread_balance, spread_diff, spread_diff_balance,
-	tick_value, tick_size, contract_size, stops_level, freeze_level, quotes_timeout,
-	volume_min, volume_max, volume_step, volume_limit, margin_flags, margin_initial,
-	margin_maintenance, margin_hedged, swap_mode, swap_long, swap_short, swap_year_day, swap_flags`
+// cloneColumns are every column a copy inherits; symbol_id, the two names and dates are set by the copy.
+var cloneColumns = strings.TrimSuffix(strings.TrimPrefix(strings.TrimSpace(symbolInsertColumns), "symbol, path,"), ", date_created, date_modified")
 
 // CloneSymbol copies the selected symbols, or a folder of them, under a new postfix.
 //
@@ -74,7 +66,7 @@ func (s *Server) CloneSymbol(c *fiber.Ctx) error {
 
 	where, args := "symbol_id = ANY($1)", []any{body.Symbols}
 	if len(body.Symbols) == 0 {
-		where, args = "path LIKE $1", []any{body.Path + `\%`}
+		where, args = sqlPathUnderFolder, []any{body.Path}
 	}
 
 	copyTo := strings.TrimSpace(body.CopyTo)
@@ -97,9 +89,15 @@ func (s *Server) CloneSymbol(c *fiber.Ctx) error {
 		pathExpr = "regexp_replace(path, '\\\\' || symbol || '$', '') || " + fix + pathSep + "symbol || " + fix
 	}
 
-	rows, err := s.DB.DB.Query(ctx,
-		`INSERT INTO hst.symbols (symbol, path, date_modified, `+cloneColumns+`)
-		 SELECT `+symbolExpr+`, `+pathExpr+`, `+mod+`, `+cloneColumns+`
+	tx, err := s.DB.DB.Begin(ctx)
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	rows, err := tx.Query(ctx,
+		`INSERT INTO hst.symbols (symbol, path, date_created, date_modified, `+cloneColumns+`)
+		 SELECT `+symbolExpr+`, `+pathExpr+`, `+mod+`, `+mod+`, `+cloneColumns+`
 		   FROM hst.symbols WHERE `+where+`
 		 RETURNING symbol_id, symbol, path`, args...)
 	if err != nil {
@@ -108,23 +106,46 @@ func (s *Server) CloneSymbol(c *fiber.Ctx) error {
 		}
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
-	defer rows.Close()
 
 	out := []ViewClonedSymbol{}
+	ids := []int64{}
 	for rows.Next() {
 		var v ViewClonedSymbol
 		if err := rows.Scan(&v.SymbolId, &v.Symbol, &v.Path); err != nil {
+			rows.Close()
 			return s.App.HttpResponseInternalServerErrorRequest(c, err)
 		}
 		out = append(out, v)
+		ids = append(ids, v.SymbolId)
 	}
+	rows.Close()
 	if rows.Err() != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+	}
+
+	// the copy's name is source || postfix, which is how each session row finds its new owner
+	if _, err := tx.Exec(ctx,
+		`INSERT INTO hst.symbols_sessions (symbol_id, type, day, open, close)
+		 SELECT n.symbol_id, ss.type, ss.day, ss.open, ss.close
+		   FROM hst.symbols n
+		   JOIN hst.symbols o ON o.symbol || $2 = n.symbol
+		   JOIN hst.symbols_sessions ss ON ss.symbol_id = o.symbol_id
+		  WHERE n.symbol_id = ANY($1)`, ids, postfix); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeCfg, logger.CodeOK, "symbols cloned",
 		"actor", snap.Login, "count", len(out), "postfix", postfix)
+	for _, v := range out {
+		s.NotifyWS(model.SubjectSymbol, model.EventSymbolCreated, v)
+		s.NotifySystem(model.SubjectSystemSymbolCreated, v)
+		s.JournalEntry(c, model.JournalType_symbols, logger.CodeOK, journal.SymbolCreatedMsg(v.Symbol), v)
+	}
 
 	return s.App.HttpResponseCreated(c, out)
 }
@@ -161,6 +182,20 @@ func (s *Server) ReorderDatafeed(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
+
+	// the body must name every feed exactly once, or the ones left out keep a parked index
+	var total int
+	if err := tx.QueryRow(ctx,
+		`SELECT count(*) FROM hst.datafeeds WHERE datafeed_id = ANY($1)`, body.DatafeedIds).Scan(&total); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	var all int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM hst.datafeeds`).Scan(&all); err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if total != all || total != len(body.DatafeedIds) {
+		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
+	}
 
 	// feed_index is unique, so the whole list parks on negatives before taking its new places
 	if _, err := tx.Exec(ctx, `UPDATE hst.datafeeds SET feed_index = -feed_index - 1`); err != nil {
@@ -329,6 +364,15 @@ func (s *Server) ResetUserPassword(c *fiber.Ctx) error {
 		return s.App.HttpResponseBadRequest(c, errs.ErrRequiredParams)
 	}
 
+	// a login the masks do not cover reads as absent, so the id space cannot be walked
+	reach, err := s.AccountInReach(c, int64(login))
+	if err != nil {
+		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	if !reach {
+		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
+	}
+
 	var body ResetPassword
 	if err := c.BodyParser(&body); err != nil {
 		return s.App.HttpResponseBadRequest(c, err)
@@ -362,9 +406,16 @@ func (s *Server) ResetUserPassword(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 
+	// a new main or api password ends the account's sessions; the investor one never opens any
+	if body.Kind != "investor" {
+		if err := s.OAuth2.InvalidateLogin(ctx, int64(login), model.SessionRevokedRightsChanged); err != nil {
+			return s.App.HttpResponseInternalServerErrorRequest(c, err)
+		}
+	}
+
 	snap, _ := utils.GetClient(c)
 	s.Log.Log(logger.TypeUser, logger.CodeWarn, "password reset by staff",
-		"actor", snap.Login, "login", login, "kind", body.Kind)
+		"actor", snap.Login, "target", login, "kind", body.Kind)
 	s.JournalEntry(c, model.JournalType_auth, logger.CodeWarn,
 		body.Kind+" password of account #"+strconv.FormatInt(int64(login), 10)+" was reset", nil)
 

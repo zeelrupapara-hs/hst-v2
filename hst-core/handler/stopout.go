@@ -27,7 +27,9 @@ func soLevel(g *model.Group, m Money) float64 {
 // margined pending orders first, then closes positions biggest loser first, one at a time,
 // until the account is back above the line.
 func (h *Handler) checkStopOut(ctx context.Context, e *book.Entry, g *model.Group, t model.Tick) {
-	e.Lock()
+	if !h.lockHeld(e) {
+		return
+	}
 
 	if e.StopOutBusy {
 		e.Unlock()

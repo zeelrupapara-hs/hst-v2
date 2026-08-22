@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"errors"
 	"time"
 
 	"hstserver/model"
@@ -10,6 +11,7 @@ import (
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/jackc/pgx/v5"
 )
 
 // The rollover: swaps, held profit, period commissions and expired orders, all at one hour of
@@ -48,7 +50,9 @@ func (s *Server) GetEndOfDay(c *fiber.Ctx) error {
 	err := s.DB.DB.QueryRow(c.UserContext(),
 		`SELECT value, updated_at FROM hst.settings WHERE key = $1`, endOfDayKey).
 		Scan(&v.At, &v.UpdatedAt)
-	if err != nil {
+	if errors.Is(err, pgx.ErrNoRows) {
+		v.At = "23:59"
+	} else if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
 

@@ -259,12 +259,14 @@ func (h *Handler) QuoteFor(r *settings.Rules, symbol string) (model.Tick, bool) 
 // ChargeCommission takes the commission for every deal in a fill off the balance.
 func (h *Handler) ChargeCommission(e *book.Entry, f *Fill, r *settings.Rules) {
 	for _, d := range f.Deals {
-		d.Commission = -h.CommissionFor(d, r)
+		d.Commission = -h.CommissionFor(d, r, e.Account)
 		e.Account.Balance += d.Commission
 	}
 }
 
-// SettleSwap moves the swap accrued on a closing position onto the balance.
-func (h *Handler) SettleSwap(e *book.Entry, p *model.Position) {
-	e.Account.Balance += p.Storage
+// SettleSwap moves the swap the closing deals carry onto the balance; a partial close carries its share.
+func (h *Handler) SettleSwap(e *book.Entry, f *Fill) {
+	for _, d := range f.Deals {
+		e.Account.Balance += d.Storage
+	}
 }

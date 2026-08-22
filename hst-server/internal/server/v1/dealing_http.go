@@ -237,6 +237,10 @@ func (s *HttpServer) AcceptMyRequote(c *fiber.Ctx) error {
 		return s.App.HttpResponseInternalServerErrorRequest(c, errs.ErrCouldNotParseClientCfg)
 	}
 
+	if isReadOnlyScope(snap.Scope) {
+		return s.App.HttpResponseForbidden(c, errs.ErrReadOnlySession)
+	}
+
 	body := AcceptRequote{RequestId: c.Params("request_id"), Login: snap.Login}
 
 	res, status, err := s.acceptRequote(c.UserContext(), &body)

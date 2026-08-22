@@ -34,6 +34,7 @@ func (h *Handler) Execute(e *book.Entry, o *model.Order, r *settings.Rules, pric
 
 	// an order naming a ticket takes that ticket off, whatever the margin mode.
 	if p := h.positionById(e, o.PositionId); p != nil {
+		h.refreshRateProfit(e, r, p)
 		if o.VolumeCurrent < p.Volume {
 			h.reducePosition(f, e, p, o, r, price, now)
 		} else {
@@ -98,7 +99,9 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
 
 	p := h.positionById(e, req.PositionId)
 	if p == nil {
@@ -134,8 +137,10 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 
 	if !decision.Executes() {
 		e.Unlock()
-		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_modify)
+		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_add)
 	}
+
+	before := *p
 
 	p.PriceSL, p.PriceTP = o.PriceSL, o.PriceTP
 	p.TimeUpdate = Now()
@@ -146,6 +151,9 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 	if err := h.SavePositionAndPublish(ctx, entryGroup(e), &saved); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not modify a position",
 			"login", saved.Login, "position", saved.PositionId, "error", err.Error())
+		e.Lock()
+		*p = before
+		e.Unlock()
 		return h.refuse(res, model.RetError, "")
 	}
 
@@ -167,7 +175,9 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
 
 	p := h.positionById(e, req.PositionId)
 	if p == nil {
@@ -187,6 +197,11 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 		return h.refuse(res, model.RetTradeNoQuotes, "")
 	}
 
+	if code := h.checkAccount(e); !code.OK() {
+		e.Unlock()
+		return h.refuse(res, code, "")
+	}
+
 	if !h.firstInLine(e, p, r) {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeCloseOrderExist, "")
@@ -195,6 +210,14 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 	o := h.closingOrder(p, r, req.Reason, req.Volume, req.Comment)
 	o.Dealer = req.Dealer
 	o.PriceOrder = req.Price
+
+	// a partial close has to leave a volume the instrument can still hold
+	if req.Volume > 0 && req.Volume < p.Volume {
+		if code := h.checkVolume(o, r); !code.OK() {
+			e.Unlock()
+			return h.refuse(res, code, "")
+		}
+	}
 
 	code, kind := h.checkExecution(o, r, tick)
 	if !code.OK() {
@@ -210,14 +233,17 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 
 	if !decision.Executes() {
 		e.Unlock()
-		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_modify)
+		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_add)
 	}
 
+	// only instant execution closes where the client asked; every other mode closes at the market
 	price := o.PriceOrder
-	if decision.AtMarket() || price <= 0 {
+	if kind != model.RouteFlags_instant || decision.AtMarket() || price <= 0 {
 		price = tick.ClosePrice(p.IsBuy())
 	}
 	price = NormalisePrice(price, r.Digits)
+
+	snapshot := e.Snapshot()
 
 	volume := o.VolumeCurrent
 	fill := h.Execute(e, o, r, price, Now())
@@ -230,6 +256,7 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 	if err := h.SaveOrderAndPublish(ctx, e, o, fill, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a close",
 			"login", req.Login, "position", req.PositionId, "error", err.Error())
+		h.restore(e, snapshot)
 		return h.refuse(res, model.RetError, "")
 	}
 
@@ -262,7 +289,9 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
 
 	p, by := h.positionById(e, req.PositionId), h.positionById(e, req.PositionById)
 	if p == nil || by == nil || p.PositionId == by.PositionId {
@@ -276,6 +305,10 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 		return h.refuse(res, model.RetTradeBadSymbol, "")
 	}
 
+	if code := h.checkAccount(e); !code.OK() {
+		e.Unlock()
+		return h.refuse(res, code, "")
+	}
 	if !model.MarginMode(r.Group.MarginMode).Hedging() {
 		e.Unlock()
 		return h.refuse(res, model.RetTradeHedgeProhibited, "")
@@ -327,8 +360,13 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 
 	if !decision.Executes() {
 		e.Unlock()
-		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_modify)
+		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_add)
 	}
+
+	h.refreshRateProfit(e, r, p)
+	h.refreshRateProfit(e, r, by)
+
+	snapshot := e.Snapshot()
 
 	f := &Fill{Price: by.PriceOpen, RetCode: model.RetOK}
 	h.closeAgainst(f, e, p, by, o, r, volume, now)
@@ -344,6 +382,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 	if err := h.SaveOrderAndPublish(ctx, e, o, f, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a close by",
 			"login", req.Login, "position", req.PositionId, "error", err.Error())
+		h.restore(e, snapshot)
 		return h.refuse(res, model.RetError, "")
 	}
 
@@ -373,7 +412,9 @@ func (h *Handler) CloseAtMarket(ctx context.Context, e *book.Entry, p *model.Pos
 // out uses to record the level it fired at.
 func (h *Handler) closeAtMarket(ctx context.Context, e *book.Entry, p *model.Position,
 	t model.Tick, reason model.OrderReason, kind model.RouteFlags, comment string) {
-	e.Lock()
+	if !h.lockHeld(e) {
+		return
+	}
 
 	// it may already have gone: two ticks can pick up the same level
 	if _, still := e.Positions[p.PositionId]; !still {
@@ -404,6 +445,8 @@ func (h *Handler) closeAtMarket(ctx context.Context, e *book.Entry, p *model.Pos
 		return
 	}
 
+	snapshot := e.Snapshot()
+
 	price := NormalisePrice(t.ClosePrice(p.IsBuy()), r.Digits)
 	fill := h.Execute(e, o, r, price, Now())
 
@@ -415,6 +458,7 @@ func (h *Handler) closeAtMarket(ctx context.Context, e *book.Entry, p *model.Pos
 	if err := h.SaveOrderAndPublish(ctx, e, o, fill, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a close",
 			"login", p.Login, "position", p.PositionId, "error", err.Error())
+		h.restore(e, snapshot)
 		return
 	}
 
@@ -435,8 +479,8 @@ func (h *Handler) CookPosition(e *book.Entry, t model.Tick) []trigger {
 		// a position closes at the opposite side to the one it opened on
 		price := t.ClosePrice(p.IsBuy())
 
-		sl := p.PriceSL > 0 && p.ActivationFlags&model.ActivationFlagNoSL == 0
-		tp := p.PriceTP > 0 && p.ActivationFlags&model.ActivationFlagNoTP == 0
+		sl := p.PriceSL > 0 && p.ActivationFlags&int32(model.ActivationFlags_no_sl) == 0
+		tp := p.PriceTP > 0 && p.ActivationFlags&int32(model.ActivationFlags_no_tp) == 0
 
 		var hit trigger
 
@@ -493,6 +537,8 @@ func (h *Handler) netInto(f *Fill, e *book.Entry, o *model.Order, r *settings.Ru
 		return
 	}
 
+	h.refreshRateProfit(e, r, existing)
+
 	if existing.IsBuy() == o.Kind().IsBuy() {
 		h.growPosition(f, e, existing, o, r, price, now)
 		return
@@ -529,15 +575,17 @@ func (h *Handler) reducePosition(f *Fill, e *book.Entry, p *model.Position, o *m
 	closed := o.VolumeCurrent
 	profit := ProfitFor(r, p.IsBuy(), model.Lots(closed), p.PriceOpen, price, p.RateProfit)
 
+	// the deal is shaped before the position shrinks, so it carries the swap share of what went
+	d := h.MakeDealOut(o, r, e, p, price, closed, now)
+	d.Profit = profit
+
 	p.Volume -= closed
+	p.Storage -= d.Storage
 	p.TimeUpdate = now
 	p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
 
 	f.Profit += profit
 	f.Changed = append(f.Changed, p)
-
-	d := h.MakeDealOut(o, r, e, p, price, closed, now)
-	d.Profit = profit
 	f.Deals = append(f.Deals, d)
 }
 
@@ -623,6 +671,7 @@ func (h *Handler) takeOff(f *Fill, e *book.Entry, p *model.Position, r *settings
 		return
 	}
 
+	p.Storage -= storageShare(p, volume)
 	p.Volume -= volume
 	p.TimeUpdate = now
 	p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
@@ -635,25 +684,15 @@ func (h *Handler) SavePositionAndPublish(ctx context.Context, group string, p *m
 	if _, err := h.DB.DB.Exec(ctx,
 		`UPDATE hst.positions
 		    SET price_sl = $1, price_tp = $2, activation_flags = $3, time_update = $4,
-		        date_modified = $4
+		        date_modified = $4, storage = $6
 		  WHERE position_id = $5`,
-		p.PriceSL, p.PriceTP, p.ActivationFlags, p.TimeUpdate, p.PositionId); err != nil {
+		p.PriceSL, p.PriceTP, p.ActivationFlags, p.TimeUpdate, p.PositionId, p.Storage); err != nil {
 		return err
 	}
 
 	h.PublishPosition(group, model.EventPositionUpdate, p)
 
 	return nil
-}
-
-// SavePositionAndPublishAsync hands the write to the worker pool.
-func (h *Handler) SavePositionAndPublishAsync(group string, p *model.Position) {
-	h.Workers.Submit(func(ctx context.Context) {
-		if err := h.SavePositionAndPublish(ctx, group, p); err != nil {
-			h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a position",
-				"login", p.Login, "position", p.PositionId, "error", err.Error())
-		}
-	})
 }
 
 // positionFor finds the account's position on a symbol. Under netting there is at most one.
@@ -753,9 +792,17 @@ func (h *Handler) CalcPosition(e *book.Entry, symbol string, t model.Tick) {
 			continue
 		}
 
+		h.refreshRateProfit(e, r, p)
 		p.PriceCurrent = t.ClosePrice(p.IsBuy())
 		p.Profit = ProfitFor(r, p.IsBuy(), p.Lots(), p.PriceOpen, p.PriceCurrent, p.RateProfit)
 		p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
+	}
+}
+
+// refreshRateProfit values the position at today's conversion rate, keeping the last one known when the cross is missing.
+func (h *Handler) refreshRateProfit(e *book.Entry, r *settings.Rules, p *model.Position) {
+	if rate, ok := h.crossRate(e.Account.Group, r.CurrencyProfit, e.Account.Currency, p.IsBuy()); ok {
+		p.RateProfit = rate
 	}
 }
 
@@ -803,7 +850,9 @@ func (h *Handler) FixPosition(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
 
 	p := h.positionById(e, req.PositionId)
 	if p == nil {
@@ -811,8 +860,9 @@ func (h *Handler) FixPosition(ctx context.Context, req *model.TradeRequest) *mod
 		return h.refuse(res, model.RetNotFound, "")
 	}
 
+	before := *p
+
 	p.Volume = req.Volume
-	p.VolumeExt = model.FromLegacy(req.Volume)
 	if req.Price > 0 {
 		p.PriceOpen = req.Price
 	}
@@ -836,6 +886,10 @@ func (h *Handler) FixPosition(ctx context.Context, req *model.TradeRequest) *mod
 	if err := h.savePositionFix(ctx, &saved, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not save a position fix",
 			"login", saved.Login, "position", saved.PositionId, "error", err.Error())
+		e.Lock()
+		*p = before
+		h.CalculateAccountMargins(e).Apply(e.Account)
+		e.Unlock()
 		return h.refuse(res, model.RetError, "")
 	}
 
@@ -864,7 +918,9 @@ func (h *Handler) DeletePosition(ctx context.Context, req *model.TradeRequest) *
 		return h.refuse(res, model.RetTradeAccountNotFound, "")
 	}
 
-	e.Lock()
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
 
 	p := h.positionById(e, req.PositionId)
 	if p == nil {
@@ -872,19 +928,21 @@ func (h *Handler) DeletePosition(ctx context.Context, req *model.TradeRequest) *
 		return h.refuse(res, model.RetNotFound, "")
 	}
 
+	snapshot := e.Snapshot()
 	saved := *p
 	delete(e.Positions, p.PositionId)
 	h.CalculateAccountMargins(e).Apply(e.Account)
 	account := *e.Account
 	e.Unlock()
 
-	h.unwatchIfLast(e, saved.Symbol)
-
 	if err := h.deletePositionRow(ctx, &saved, &account); err != nil {
 		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not delete a position",
 			"login", saved.Login, "position", saved.PositionId, "error", err.Error())
+		h.restore(e, snapshot)
 		return h.refuse(res, model.RetError, "")
 	}
+
+	h.unwatchIfLast(e, saved.Symbol)
 
 	h.PublishPosition(account.Group, model.EventPositionClose, &saved)
 	h.PublishAccount(&account, nil)
@@ -911,7 +969,7 @@ func (h *Handler) savePositionFix(ctx context.Context, p *model.Position, a *mod
 		`UPDATE hst.positions
 		    SET volume = $1, volume_ext = $2, price_open = $3, time_update = $4, date_modified = $4
 		  WHERE position_id = $5`,
-		p.Volume, p.VolumeExt, p.PriceOpen, p.TimeUpdate, p.PositionId); err != nil {
+		model.Legacy(p.Volume), p.Volume, p.PriceOpen, p.TimeUpdate, p.PositionId); err != nil {
 		return err
 	}
 	if err := saveAccount(ctx, tx, a, Now()); err != nil {
