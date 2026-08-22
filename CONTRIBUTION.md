@@ -138,3 +138,14 @@ make down     # stop containers
 
 Written to `hst-server/logs/YYYYMMDD.log`, one file per day, JSON. Console
 output is human readable.
+
+## CI
+
+`.github/workflows/e2e.yml` runs on every pull request to `develop` or `main`,
+on every push to `develop`, nightly at 02:00 UTC and by hand. The `lint` job
+runs `make check` in each of the four Go modules. The `e2e` job starts
+postgres, nats, redis and influx, migrates, builds and starts the four services
+with `AUTH_ARGON2_MEMORY_KIB=8192` and a 5-try lockout, then runs `tests/e2e`.
+Service logs and `e2e.json` are uploaded as the `ci-logs` artifact and failed
+tests are listed in the job summary. The same thing locally, against your
+`make up` stack: `make -C tests/e2e test-e2e`.

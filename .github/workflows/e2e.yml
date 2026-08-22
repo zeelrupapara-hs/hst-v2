@@ -1,0 +1,212 @@
+name: e2e
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop]
+  schedule:
+    # nightly, 02:00 UTC
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # make check per module: gofmt, vet, staticcheck, errcheck, gosec, govulncheck
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [hst-server, hst-core, hst-quote, hst-news]
+    defaults:
+      run:
+        working-directory: ${{ matrix.module }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: ${{ matrix.module }}/go.mod
+          cache-dependency-path: ${{ matrix.module }}/go.sum
+      # hst-server's tools also brings swag, which make check needs for the swagger target
+      - run: make tools
+      - run: make check
+      # make check runs gofmt -w, so any diff means unformatted code was pushed
+      - run: git diff --exit-code
+
+  # full stack on one runner, then tests/e2e against it
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      ADMIN_PASSWORD: Ci-Admin-2026!
+      SERVICE_TOKEN: ci-service-token
+      INFLUX_TOKEN: dev-influx-token
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: hst
+          POSTGRES_PASSWORD: hst
+          POSTGRES_DB: hst
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U hst -d hst"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:8-alpine
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping | grep -q PONG"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      influxdb:
+        image: influxdb:2.7-alpine
+        env:
+          DOCKER_INFLUXDB_INIT_MODE: setup
+          DOCKER_INFLUXDB_INIT_USERNAME: admin
+          DOCKER_INFLUXDB_INIT_PASSWORD: adminpassword
+          DOCKER_INFLUXDB_INIT_ORG: HybridSolutions
+          DOCKER_INFLUXDB_INIT_BUCKET: marketwatch
+          DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: dev-influx-token
+        ports: ["8086:8086"]
+        options: >-
+          --health-cmd "influx ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # services: cannot pass a command, and nats needs --jetstream, so it runs by hand
+      - name: Start nats
+        run: |
+          docker run -d --name nats -p 4222:4222 -p 8222:8222 nats:2.12-alpine --jetstream --http_port=8222
+          for i in $(seq 1 30); do
+            wget -q -O- http://localhost:8222/healthz && exit 0
+            sleep 1
+          done
+          echo "nats did not come up"; docker logs nats; exit 1
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: hst-server/go.mod
+          cache-dependency-path: |
+            hst-server/go.sum
+            hst-core/go.sum
+            hst-quote/go.sum
+            hst-news/go.sum
+            tests/e2e/go.sum
+
+      # migrate for the schema, swag because hst-server/cmd imports the generated swagger packages
+      - name: Install migrate and swag
+        run: |
+          go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@v4.19.1
+          go install github.com/swaggo/swag/cmd/swag@v1.16.6
+
+      - name: Migrate
+        run: make -C hst-server migrate-up
+
+      - name: Build binaries
+        run: |
+          make -C hst-server build
+          make -C hst-core build
+          make -C hst-quote build
+          make -C hst-news build
+
+      # every service reads its own .env, written from .env.example with CI values
+      - name: Write .env files
+        run: |
+          JWT=$(cd hst-server && go run ./cmd/genkeys | sed -n 's/^AUTH_JWT_PRIVATE_KEY=//p')
+          setenv() { # file key value: replace or append
+            if grep -q "^$2=" "$1"; then sed -i "s|^$2=.*|$2=$3|" "$1"; else echo "$2=$3" >> "$1"; fi
+          }
+
+          cp hst-server/.env.example hst-server/.env
+          setenv hst-server/.env AUTH_JWT_PRIVATE_KEY "$JWT"
+          setenv hst-server/.env FIRST_MANAGER_PASSWORD "$ADMIN_PASSWORD"
+          setenv hst-server/.env INTERNAL_SERVICE_TOKEN "$SERVICE_TOKEN"
+          setenv hst-server/.env AUTH_ARGON2_MEMORY_KIB 8192
+          setenv hst-server/.env AUTH_ARGON2_TIME 1
+          setenv hst-server/.env AUTH_MAX_FAILED_ATTEMPTS 5
+          setenv hst-server/.env AUTH_MAX_FAILED_PER_IP 5
+          setenv hst-server/.env AUTH_LOCKOUT_SECONDS 5
+          setenv hst-server/.env INFLUX_ENABLED true
+          setenv hst-server/.env INFLUX_TOKEN "$INFLUX_TOKEN"
+          setenv hst-server/.env SWAGGER_ENABLED false
+
+          cp hst-core/.env.example hst-core/.env
+          setenv hst-core/.env HEALTH_PORT 8081
+          setenv hst-core/.env POD_NAME core-a
+
+          cp hst-quote/.env.example hst-quote/.env
+          setenv hst-quote/.env HEALTH_PORT 8082
+          setenv hst-quote/.env GRPC_PORT 3001
+          setenv hst-quote/.env INTERNAL_SERVICE_TOKEN "$SERVICE_TOKEN"
+          setenv hst-quote/.env INFLUX_TOKEN "$INFLUX_TOKEN"
+
+          cp hst-news/.env.example hst-news/.env
+          setenv hst-news/.env HEALTH_PORT 8083
+          setenv hst-news/.env GRPC_PORT 3002
+          setenv hst-news/.env INTERNAL_SERVICE_TOKEN "$SERVICE_TOKEN"
+
+      # nothing loads .env by itself, make does it locally, so export it around each binary
+      - name: Start services
+        run: |
+          mkdir -p ci-logs
+          start() { # module binary
+            (set -a; . "$1/.env"; set +a; cd "$1" && nohup "./bin/$2" > "../ci-logs/$1.log" 2>&1 &)
+          }
+          start hst-server hstserver
+          start hst-core hstcore
+          start hst-quote hstquote
+          start hst-news hstnews
+
+      - name: Wait for readiness
+        run: |
+          wait_for() { # url
+            for i in $(seq 1 60); do
+              curl -fsS "$1" > /dev/null && { echo "ready: $1"; return 0; }
+              sleep 2
+            done
+            echo "timeout: $1"; return 1
+          }
+          wait_for http://localhost:8080/api/v1/system/monitor/health
+          wait_for http://localhost:8081/readyz
+          wait_for http://localhost:8082/readyz
+          wait_for http://localhost:8083/readyz
+
+      - name: Run e2e
+        working-directory: tests/e2e
+        env:
+          E2E_BASE_URL: http://localhost:8080
+          E2E_NATS: nats://localhost:4222
+          E2E_DB: postgres://hst:hst@localhost:5432/hst?sslmode=disable
+          E2E_REDIS: localhost:6379
+          E2E_ADMIN_PASSWORD: ${{ env.ADMIN_PASSWORD }}
+          E2E_FEED_PORT: "6100"
+        run: |
+          set -o pipefail
+          go test -tags e2e -count=1 -p 1 -timeout 40m ./... -json | tee ../../ci-logs/e2e.json
+
+      # failed tests by name, so nobody has to open the json artifact
+      - name: Summarize failures
+        if: failure()
+        run: |
+          {
+            echo "## Failed e2e tests"
+            jq -r 'select(.Action=="fail" and .Test!=null) | "- \(.Package) \(.Test)"' ci-logs/e2e.json 2>/dev/null
+            echo
+            echo "Service logs are in the ci-logs artifact."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop services
+        if: always()
+        run: pkill -f 'bin/hst' || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ci-logs
+          path: ci-logs/
+          if-no-files-found: ignore

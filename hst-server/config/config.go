@@ -55,6 +55,10 @@ const (
 	AUTH_REFRESH_TTL       = "AUTH_REFRESH_TTL"
 	AUTH_ARGON2_MEMORY_KIB = "AUTH_ARGON2_MEMORY_KIB"
 	AUTH_ARGON2_TIME       = "AUTH_ARGON2_TIME"
+	// login throttle, lowered in tests so lockout scenarios finish in seconds
+	AUTH_MAX_FAILED_ATTEMPTS = "AUTH_MAX_FAILED_ATTEMPTS"
+	AUTH_MAX_FAILED_PER_IP   = "AUTH_MAX_FAILED_PER_IP"
+	AUTH_LOCKOUT_SECONDS     = "AUTH_LOCKOUT_SECONDS"
 	// #nosec G101 -- env var name, not a credential
 	AUTH_PASSWORD_PEPPER = "AUTH_PASSWORD_PEPPER"
 
@@ -376,9 +380,9 @@ func NewConfig() (*Config, error) {
 	c.Auth.Argon2Parallelism = 2
 	c.Auth.Argon2SaltLength = 16
 	c.Auth.Argon2KeyLength = 32
-	c.Auth.MaxFailedAttempts = 10
-	c.Auth.LockoutDuration = 15 * time.Minute
-	c.Auth.MaxFailedPerIP = 50
+	c.Auth.MaxFailedAttempts = getEnvAsInt(AUTH_MAX_FAILED_ATTEMPTS, 10)
+	c.Auth.LockoutDuration = time.Duration(getEnvAsInt(AUTH_LOCKOUT_SECONDS, 900)) * time.Second
+	c.Auth.MaxFailedPerIP = getEnvAsInt(AUTH_MAX_FAILED_PER_IP, 50)
 	c.Auth.FirstManagerPassword = getEnv(FIRST_MANAGER_PASSWORD, "")
 
 	// Register
@@ -447,6 +451,16 @@ func (c *Config) validate() error {
 	}
 	if c.Cache.MaxAccounts < 1 {
 		return fmt.Errorf("%s must be at least 1", MAX_ACCOUNT_PER_SHARD)
+	}
+	// zero would lock every login on its first failure or never expire the counter
+	if c.Auth.MaxFailedAttempts < 1 {
+		return fmt.Errorf("%s must be at least 1", AUTH_MAX_FAILED_ATTEMPTS)
+	}
+	if c.Auth.MaxFailedPerIP < 1 {
+		return fmt.Errorf("%s must be at least 1", AUTH_MAX_FAILED_PER_IP)
+	}
+	if c.Auth.LockoutDuration < time.Second {
+		return fmt.Errorf("%s must be at least 1", AUTH_LOCKOUT_SECONDS)
 	}
 	return nil
 }

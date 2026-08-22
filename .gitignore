@@ -11,3 +11,5 @@ hst-sim.db
 .service-bin/
 .service-logs/
 .gstack/
+tests/e2e/logs/
+tests/e2e/bin/
