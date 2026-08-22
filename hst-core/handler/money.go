@@ -75,9 +75,12 @@ func marginBasePlain(r *settings.Rules, lots float64, price float64, leverage in
 		base = lots * r.ContractSize * price
 	}
 
-	// an explicit initial margin on the instrument replaces the formula
+	// an explicit initial margin on the instrument replaces the formula; forex modes still apply the client leverage
 	if r.MarginInitial > 0 && r.CalcMode != model.CalcMode_futures {
 		base = lots * r.MarginInitial
+		if r.CalcMode == model.CalcMode_forex || r.CalcMode == model.CalcMode_cfd_leverage {
+			base /= divisor
+		}
 	}
 
 	if rate <= 0 {

@@ -136,6 +136,8 @@ func (h *Handler) UpdatePosition(ctx context.Context, req *model.TradeRequest) *
 	})
 
 	if !decision.Executes() {
+		// a level change carries no volume, which is how a queued one is told apart from a close
+		o.VolumeInitial, o.VolumeCurrent = 0, 0
 		e.Unlock()
 		return h.refuseByRule(res, decision, e, req, o, model.OrderState_request_add)
 	}

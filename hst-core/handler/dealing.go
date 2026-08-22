@@ -221,6 +221,11 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 		return res
 	}
 
+	// a queued level change is written to the position, never filled
+	if o.PositionId != 0 && o.VolumeCurrent == 0 {
+		return h.confirmLevels(ctx, res, e, p, ev.Dealer)
+	}
+
 	// a queued modification is applied to the working order now, and only now
 	if p.Target != nil {
 		if !h.lockHeld(e) {
@@ -891,4 +896,48 @@ func (h *Handler) dealersOfRule(routingId int64) []int64 {
 // recoveredRequestId names a request whose original id went down with the pod.
 func recoveredRequestId(orderId int64) string {
 	return "recovered." + strconv.FormatInt(orderId, 10)
+}
+
+// confirmLevels applies a dealer-approved SL/TP change to the position and takes the request row off the book.
+func (h *Handler) confirmLevels(ctx context.Context, res *model.TradeResult, e *book.Entry, p *Pending, dealer int64) *model.TradeResult {
+	o := p.Order
+
+	if !h.lockHeld(e) {
+		return h.refuse(res, model.RetTradeAccountNotFound, "")
+	}
+
+	pos := h.positionById(e, o.PositionId)
+	if pos == nil {
+		h.removeOrder(ctx, e, o, "position gone [by dealer]")
+		h.done(p, dealer)
+		return h.refuse(res, model.RetNotFound, "")
+	}
+
+	before := *pos
+	pos.PriceSL, pos.PriceTP = o.PriceSL, o.PriceTP
+	pos.TimeUpdate = Now()
+	saved := *pos
+	e.Unlock()
+
+	if err := h.SavePositionAndPublish(ctx, entryGroup(e), &saved); err != nil {
+		h.Log.Log(logger.TypeTrade, logger.CodeErr, "could not modify a position",
+			"login", saved.Login, "position", saved.PositionId, "error", err.Error())
+		e.Lock()
+		*pos = before
+		e.Unlock()
+		h.done(p, dealer)
+		return h.refuse(res, model.RetError, "")
+	}
+
+	e.Lock()
+	h.removeOrder(ctx, e, o, "levels set [by dealer]")
+
+	res.RetCode = int32(model.RetOK)
+	res.Message = model.RetOK.String()
+	res.PositionId = saved.PositionId
+	res.Volume = saved.Volume
+
+	h.done(p, dealer)
+
+	return res
 }
