@@ -211,7 +211,7 @@ type UptSymbol struct {
 	SpreadDiffBalance              *int32                   `json:"spread_diff_balance"`
 	TickValue                      *float64                 `json:"tick_value" validate:"omitempty,gte=0"`
 	TickSize                       *float64                 `json:"tick_size" validate:"omitempty,gte=0"`
-	ContractSize                   *float64                 `json:"contract_size" validate:"omitempty,gte=0"`
+	ContractSize                   *float64                 `json:"contract_size" validate:"omitempty,gt=0"`
 	StopsLevel                     *int32                   `json:"stops_level" validate:"omitempty,gte=0"`
 	FreezeLevel                    *int32                   `json:"freeze_level" validate:"omitempty,gte=0"`
 	QuotesTimeout                  *int32                   `json:"quotes_timeout" validate:"omitempty,gte=0"`

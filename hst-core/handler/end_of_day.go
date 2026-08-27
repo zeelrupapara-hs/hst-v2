@@ -95,6 +95,7 @@ func (h *Handler) CheckPendingOrdersExpiration(ctx context.Context) {
 		e.Unlock()
 		for _, symbol := range symbols {
 			h.ExpireOrders(ctx, e, symbol, true)
+			h.applyGtcMode(ctx, e, symbol)
 			swept++
 		}
 	})
@@ -297,4 +298,53 @@ func (h *Handler) untilEndOfDay(now time.Time) time.Duration {
 func defaultEndOfDay() time.Time {
 	t, _ := time.Parse("15:04:05", "23:59:59")
 	return t
+}
+
+// applyGtcMode is the symbol's GTC mode at the day change (MT5 EnGTCMode): daily drops every pending
+// order and the SL/TP of open positions, daily-no-stops drops the pending orders only.
+func (h *Handler) applyGtcMode(ctx context.Context, e *book.Entry, symbol string) {
+	r, ok := h.Settings.For(e.Account.Group, symbol)
+	// 0 = good till cancelled, 1 = daily incl. SL/TP, 2 = daily excl. SL/TP
+	if !ok || r.Symbol.GtcMode == 0 {
+		return
+	}
+
+	if !h.lockHeld(e) {
+		return
+	}
+	var pending []*model.Order
+	for _, o := range e.Orders {
+		if o.Symbol == symbol && o.State.IsLive() && !o.State.IsAwaitingDealer() {
+			pending = append(pending, o)
+		}
+	}
+	var stops []*model.Position
+	if r.Symbol.GtcMode == 1 {
+		for _, p := range e.Positions {
+			if p.Symbol == symbol && (p.PriceSL > 0 || p.PriceTP > 0) {
+				p.PriceSL, p.PriceTP = 0, 0
+				p.TimeUpdate = Now()
+				saved := *p
+				stops = append(stops, &saved)
+			}
+		}
+	}
+	e.Unlock()
+
+	for _, o := range pending {
+		if !h.lockHeld(e) {
+			return
+		}
+		if _, still := e.Orders[o.OrderId]; !still {
+			e.Unlock()
+			continue
+		}
+		h.removeOrder(ctx, e, o, "end of day")
+	}
+	for _, p := range stops {
+		if err := h.SavePositionAndPublish(ctx, entryGroup(e), p); err != nil {
+			h.Log.Log(logger.TypeTrade, logger.CodeErr, "end of day could not clear stops",
+				"login", p.Login, "position", p.PositionId, "error", err.Error())
+		}
+	}
 }

@@ -116,7 +116,7 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 
 	rows, err = h.DB.DB.Query(ctx,
 		`SELECT symbol_id, symbol, path, description, digits, point, calc_mode, trade_mode, exec_mode,
-		        international, isin, category, exchange, cfi, industry, country, basis, source, page, color_background, tick_flags,
+		        international, isin, category, exchange, cfi, industry, country, basis, source, page, color_background, tick_flags, trade_flags,
 		        fill_flags, expir_flags, sector, gtc_mode, tick_chart_mode,
 		        contract_size, tick_value, tick_size,
 		        spread, spread_diff, spread_diff_balance, stops_level, freeze_level,
@@ -146,7 +146,7 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 		s := &model.Symbol{}
 		if err := rows.Scan(&s.SymbolId, &s.Symbol, &s.Path, &s.Description, &s.Digits, &s.Point,
 			&s.CalcMode, &s.TradeMode, &s.ExecMode,
-			&s.International, &s.ISIN, &s.Category, &s.Exchange, &s.CFI, &s.Industry, &s.Country, &s.Basis, &s.Source, &s.Page, &s.ColorBackground, &s.TickFlags,
+			&s.International, &s.ISIN, &s.Category, &s.Exchange, &s.CFI, &s.Industry, &s.Country, &s.Basis, &s.Source, &s.Page, &s.ColorBackground, &s.TickFlags, &s.TradeFlags,
 			&s.FillFlags, &s.ExpirFlags,
 			&s.Sector, &s.GtcMode, &s.TickChartMode,
 			&s.ContractSize, &s.TickValue, &s.TickSize,
@@ -526,7 +526,7 @@ func (h *Handler) readAccounts(ctx context.Context, shards map[uint32]bool, and 
 func (h *Handler) LoadPositions(ctx context.Context, and string, args ...any) error {
 	rows, err := h.DB.DB.Query(ctx,
 		`SELECT position_id, login, dealer, symbol, action, digits, digits_currency, reason,
-		        contract_size, time_create, time_update, price_open, price_current,
+		        contract_size, tick_size, tick_value, time_create, time_update, price_open, price_current,
 		        price_sl, price_tp, volume, volume_ext, profit, storage, rate_profit,
 		        rate_margin, expert_id, comment, activation_flags
 		   FROM hst.positions
@@ -541,7 +541,7 @@ func (h *Handler) LoadPositions(ctx context.Context, and string, args ...any) er
 		var legacyVolume int64
 
 		if err := rows.Scan(&p.PositionId, &p.Login, &p.Dealer, &p.Symbol, &p.Action,
-			&p.Digits, &p.DigitsCurrency, &p.Reason, &p.ContractSize,
+			&p.Digits, &p.DigitsCurrency, &p.Reason, &p.ContractSize, &p.TickSize, &p.TickValue,
 			&p.TimeCreate, &p.TimeUpdate, &p.PriceOpen, &p.PriceCurrent,
 			&p.PriceSL, &p.PriceTP, &legacyVolume, &p.Volume, &p.Profit, &p.Storage,
 			&p.RateProfit, &p.RateMargin, &p.ExpertId, &p.Comment,

@@ -30,4 +30,6 @@ export const SOCKET_EVENTS = {
   REPORT_DELETE: "report_delete",
 
   GROUP_UPDATED: "group_updated",
+
+  SYMBOL_UPDATED: "symbol_updated",
 };

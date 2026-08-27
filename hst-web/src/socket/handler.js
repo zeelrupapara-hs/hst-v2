@@ -9,6 +9,7 @@ import handleAlertMessage from "./handlers/alert";
 import handleMailMessage from "./handlers/mail";
 import handleReportMessage from "./handlers/report";
 import handleGroupMessage from "./handlers/group";
+import handleSymbolMessage from "./handlers/symbol";
 
 export const handleSocketMessage = (raw) => {
   if (!raw?.type) return;
@@ -67,6 +68,9 @@ export const handleSocketMessage = (raw) => {
       break;
     // an admin editing the group this account trades under: the digits money is shown to are the
     // group's to decide, so the terminal takes the new one without waiting for a reload
+    case "symbol":
+      handleSymbolMessage(message);
+      break;
     case "group":
       handleGroupMessage(message);
       break;

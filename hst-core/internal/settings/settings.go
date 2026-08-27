@@ -24,6 +24,7 @@ type Rules struct {
 	ContractSize float64
 	TickValue    float64
 	TickSize     float64
+	TradeFlags   int32
 	CalcMode     model.CalcMode
 
 	SpreadDiff        int32
@@ -228,6 +229,7 @@ func resolve(g *model.Group, sym *model.Symbol, o *model.GroupSymbol) *Rules {
 		ContractSize: sym.ContractSize,
 		TickValue:    sym.TickValue,
 		TickSize:     sym.TickSize,
+		TradeFlags:   sym.TradeFlags,
 		CalcMode:     model.CalcMode(sym.CalcMode),
 
 		CurrencyBase:   sym.CurrencyBase,

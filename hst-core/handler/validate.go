@@ -137,10 +137,6 @@ func (h *Handler) ValidatePosition(e *book.Entry, p *model.Position, req *model.
 
 // checkOrderFlags refuses an order type, or a level, the group does not offer on this instrument.
 func (h *Handler) checkOrderFlags(o *model.Order, r *settings.Rules) model.RetCode {
-	if r.OrderFlags == 0 {
-		return model.RetOK
-	}
-
 	if want := model.OrderFlagFor(o.Kind()); want != 0 && r.OrderFlags&want == 0 {
 		return model.RetTradeDisabled
 	}
@@ -420,10 +416,6 @@ func (h *Handler) checkFilling(o *model.Order, r *settings.Rules) model.RetCode 
 		return model.RetTradeFillPolicy
 	}
 
-	if r.FillFlags == 0 {
-		return model.RetOK
-	}
-
 	var want int32
 
 	switch o.TypeFill {
@@ -452,7 +444,7 @@ func (h *Handler) checkExpiry(o *model.Order, r *settings.Rules) model.RetCode {
 		return model.RetTradeExpiration
 	}
 
-	if r.ExpirFlags != 0 {
+	{
 		var want int32
 
 		switch o.TypeTime {

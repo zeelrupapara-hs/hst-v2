@@ -2,7 +2,7 @@ import useLiveSymbolStore from "../../../store/useLiveSymbolStore";
 import Ask from "../../marketWatch/components/Ask";
 import Bid from "../../marketWatch/components/Bid";
 
-const BuySell = ({ symbolId, formValues, disabled, createOrder }) => {
+const BuySell = ({ symbolId, formValues, disabled, disableBuy: buyOff, disableSell: sellOff, createOrder }) => {
   const { last_bid } = useLiveSymbolStore(
     (state) => state.liveSymbols?.[symbolId]
   );
@@ -13,12 +13,14 @@ const BuySell = ({ symbolId, formValues, disabled, createOrder }) => {
   const disableBuy =
     (stop_loss && stop_loss >= price) ||
     (take_profit && take_profit <= price) ||
-    disabled;
+    disabled ||
+    buyOff;
 
   const disableSell =
     (stop_loss && stop_loss <= price) ||
     (take_profit && take_profit >= price) ||
-    disabled;
+    disabled ||
+    sellOff;
 
   return (
     <div className="grid grid-cols-2 gap-2">

@@ -71,9 +71,9 @@ func (h *Handler) writeFill(ctx context.Context, tx pgx.Tx, e *book.Entry, o *mo
 			   (login, dealer, symbol, action, digits, digits_currency, reason, contract_size,
 			    time_create, time_update, price_open, price_current, price_sl, price_tp,
 			    volume, volume_ext, profit, storage, rate_profit, rate_margin, expert_id,
-			    comment, activation_flags, date_created, date_modified)
+			    comment, activation_flags, date_created, date_modified, tick_size, tick_value)
 			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
-			         $20,$21,$22,$23,$24,$24)
+			         $20,$21,$22,$23,$24,$24,$25,$26)
 			 RETURNING position_id`,
 			f.Opened.Login, f.Opened.Dealer, f.Opened.Symbol, f.Opened.Action,
 			f.Opened.Digits, f.Opened.DigitsCurrency, f.Opened.Reason, f.Opened.ContractSize,
@@ -81,7 +81,7 @@ func (h *Handler) writeFill(ctx context.Context, tx pgx.Tx, e *book.Entry, o *mo
 			f.Opened.PriceSL, f.Opened.PriceTP, model.Legacy(f.Opened.Volume), f.Opened.Volume,
 			f.Opened.Profit, f.Opened.Storage, f.Opened.RateProfit, f.Opened.RateMargin,
 			f.Opened.ExpertId, f.Opened.Comment, f.Opened.ActivationFlags,
-			now).Scan(&f.Opened.PositionId); err != nil {
+			now, f.Opened.TickSize, f.Opened.TickValue).Scan(&f.Opened.PositionId); err != nil {
 			return err
 		}
 

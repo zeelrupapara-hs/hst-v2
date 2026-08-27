@@ -21,6 +21,12 @@ export const ORDER_TYPES = {
   4: "Sell Stop", // price < last_bid
 };
 
+export const FILL_POLICY = {
+  0: "Fill or Kill",
+  1: "Immediate or Cancel",
+  2: "Return",
+};
+
 export const EXPIRATION_POLICY = {
   0: "GTC",
   1: "Today",

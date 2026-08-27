@@ -1,5 +1,5 @@
 import useGlobalStore from "../../../store/useGlobalStore";
-import useSymbolLive from "../../../hooks/useSymbolLive";
+import useSymbolQuoted from "../../../hooks/useSymbolQuoted";
 import ChartComponent from "./ChartComponent";
 
 const ChartSlot = ({ chartId }) => {
@@ -9,7 +9,7 @@ const ChartSlot = ({ chartId }) => {
   const isDrag = useGlobalStore((state) => state.isDrag);
 
   const symbolId = chartSymbols?.[chartId];
-  const isLive = useSymbolLive(symbolId);
+  const isLive = useSymbolQuoted(symbolId);
 
   const handleDrop = (e) => {
     e.preventDefault();

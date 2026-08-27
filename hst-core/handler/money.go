@@ -8,8 +8,23 @@ import (
 
 // What a trade reserves, what a position is worth, and where the account stands. All pure.
 
+// ForPosition is the rule set with the contract size and tick size/value the position was opened on,
+// so a later symbol edit prices only the trades opened after it (MT5 IMTPosition::ContractSize).
+func ForPosition(r *settings.Rules, p *model.Position) *settings.Rules {
+	if p.ContractSize <= 0 {
+		return r
+	}
+	rp := *r
+	rp.ContractSize = p.ContractSize
+	if p.TickSize > 0 {
+		rp.TickSize, rp.TickValue = p.TickSize, p.TickValue
+	}
+	return &rp
+}
+
 // MarginForPosition is what one position reserves, charged at its own side's rate.
 func MarginForPosition(r *settings.Rules, p *model.Position, price float64, leverage int32) float64 {
+	r = ForPosition(r, p)
 	kind := model.OrderType_buy
 	if !p.IsBuy() {
 		kind = model.OrderType_sell

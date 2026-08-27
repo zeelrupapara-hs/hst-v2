@@ -140,6 +140,24 @@ function FmtInput({ value, digits, onChange, className = "" }) {
   );
 }
 
+// RawNumInput keeps what is typed while typing, so "0.01" survives the "0." moment.
+function RawNumInput({ value, onChange, className = "" }) {
+  const [raw, setRaw] = useState(null);
+  return (
+    <input
+      type="text"
+      className={className}
+      value={raw ?? String(value ?? "")}
+      onFocus={() => setRaw(String(value ?? ""))}
+      onBlur={() => setRaw(null)}
+      onChange={(e) => {
+        setRaw(e.target.value);
+        onChange(e.target.value === "" ? 0 : Number(e.target.value) || 0);
+      }}
+    />
+  );
+}
+
 function NumField({ label, value, onChange, readOnly, digits, suffix, offWhenZero, lockField, fieldKey, inputClassName = "" }) {
   const locked = lockField?.(fieldKey);
   if (locked) {
@@ -874,7 +892,14 @@ export function TradeTab({ s, set, lockField }) {
         placed orders, allowed trade volumes, etc.
       </TabIntro>
       <div className="form-grid sym-form-two-col sym-trade-grid">
-        <NumField label="Contract size" fieldKey="contract_size" lockField={lockField} value={s.contract_size} onChange={(v) => set("contract_size", v)} />
+        {lockField?.("contract_size") ? (
+          <Field label="Contract size" value={s.contract_size} readOnly />
+        ) : (
+          <>
+            <label>Contract size</label>
+            <RawNumInput value={s.contract_size} onChange={(v) => set("contract_size", v)} />
+          </>
+        )}
         <NumField label="Limit & stop level" fieldKey="stops_level" lockField={lockField} value={s.stops_level} suffix="pt" onChange={(v) => set("stops_level", v)} />
         <SelectField label="Calculation" fieldKey="calc_mode" lockField={lockField} value={s.calc_mode} names={CalcMode_name} order={CalcMode_order} onChange={(v) => set("calc_mode", v)} />
         <NumField label="Freeze level" fieldKey="freeze_level" lockField={lockField} value={s.freeze_level} suffix="pt" onChange={(v) => set("freeze_level", v)} />

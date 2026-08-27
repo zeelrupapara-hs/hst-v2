@@ -24,6 +24,21 @@ const useSymbolStore = create((set, get) => ({
     }
   },
 
+  // settings only: prices and the chart choice are left as they are
+  refreshSymbols: async () => {
+    try {
+      const list = (await getAllSymbols())?.data?.data;
+      if (!Array.isArray(list) || !list.length) return;
+      set((state) => {
+        const symbols = { ...state.symbols };
+        for (const s of list) symbols[s.id] = { ...symbols[s.id], ...s, newSpread: symbols[s.id]?.newSpread };
+        return { symbols, symbolGroups: groupsFromSymbols(list) };
+      });
+    } catch (error) {
+      console.error("[symbols] refresh failed", error);
+    }
+  },
+
   fetchAllSymbols: async () => {
     const { setLiveSymbols } = useLiveSymbolStore.getState();
     const { symbol, chartSymbols, setGlobalStore } = useGlobalStore.getState();

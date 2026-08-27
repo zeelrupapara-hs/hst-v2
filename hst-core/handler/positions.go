@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"hstcore/internal/book"
@@ -70,6 +71,8 @@ func (h *Handler) NewPosition(f *Fill, e *book.Entry, o *model.Order, r *setting
 		DigitsCurrency:  e.Account.CurrencyDigits,
 		Reason:          positionReason(o.Reason),
 		ContractSize:    r.ContractSize,
+		TickSize:        r.TickSize,
+		TickValue:       r.TickValue,
 		TimeCreate:      now,
 		TimeUpdate:      now,
 		PriceOpen:       price,
@@ -221,6 +224,16 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 		}
 	}
 
+	// MT5 freeze level: a position whose SL/TP sits within the band cannot be closed or resized
+	if r.FreezeLevel > 0 {
+		band := float64(r.FreezeLevel) * r.Point
+		cur := tick.ClosePrice(p.IsBuy())
+		if (p.PriceSL > 0 && math.Abs(cur-p.PriceSL) < band) || (p.PriceTP > 0 && math.Abs(cur-p.PriceTP) < band) {
+			e.Unlock()
+			return h.refuse(res, model.RetTradeFrozen, "")
+		}
+	}
+
 	code, kind := h.checkExecution(o, r, tick)
 	if !code.OK() {
 		e.Unlock()
@@ -276,7 +289,7 @@ func (h *Handler) ClosePosition(ctx context.Context, req *model.TradeRequest) *m
 	}
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "position closed by the client",
-		"login", req.Login, "position", req.PositionId, "volume", model.Lots(volume),
+		"login", req.Login, "position", req.PositionId, "symbol", p.Symbol, "volume", model.Lots(volume),
 		"price", price, "profit", fill.Profit)
 
 	return res
@@ -398,7 +411,7 @@ func (h *Handler) CloseByPosition(ctx context.Context, req *model.TradeRequest) 
 	res.Rule = decision.Rule.Name
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "position closed by an opposite one",
-		"login", req.Login, "position", p.PositionId, "against", by.PositionId,
+		"login", req.Login, "position", p.PositionId, "symbol", p.Symbol, "against", by.PositionId,
 		"volume", model.Lots(volume), "profit", f.Profit)
 
 	return res
@@ -443,7 +456,7 @@ func (h *Handler) closeAtMarket(ctx context.Context, e *book.Entry, p *model.Pos
 	if !decision.Executes() {
 		e.Unlock()
 		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "a close was not admitted by any rule",
-			"login", p.Login, "position", p.PositionId, "reason", reason)
+			"login", p.Login, "position", p.PositionId, "symbol", p.Symbol, "reason", reason)
 		return
 	}
 
@@ -465,7 +478,7 @@ func (h *Handler) closeAtMarket(ctx context.Context, e *book.Entry, p *model.Pos
 	}
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "position closed",
-		"login", p.Login, "position", p.PositionId, "reason", reason,
+		"login", p.Login, "position", p.PositionId, "symbol", p.Symbol, "reason", reason,
 		"price", price, "profit", fill.Profit)
 }
 
@@ -574,8 +587,9 @@ func (h *Handler) growPosition(f *Fill, e *book.Entry, p *model.Position, o *mod
 // reducePosition closes part of a position and books the profit on the part that went.
 func (h *Handler) reducePosition(f *Fill, e *book.Entry, p *model.Position, o *model.Order,
 	r *settings.Rules, price float64, now int64) {
+	p.RateProfit = h.closeRate(e, r, p, price)
 	closed := o.VolumeCurrent
-	profit := ProfitFor(r, p.IsBuy(), model.Lots(closed), p.PriceOpen, price, p.RateProfit)
+	profit := ProfitFor(ForPosition(r, p), p.IsBuy(), model.Lots(closed), p.PriceOpen, price, p.RateProfit)
 
 	// the deal is shaped before the position shrinks, so it carries the swap share of what went
 	d := h.MakeDealOut(o, r, e, p, price, closed, now)
@@ -594,7 +608,8 @@ func (h *Handler) reducePosition(f *Fill, e *book.Entry, p *model.Position, o *m
 // closeInto takes the whole position off.
 func (h *Handler) closeInto(f *Fill, e *book.Entry, p *model.Position, o *model.Order,
 	r *settings.Rules, price float64, now int64) {
-	profit := ProfitFor(r, p.IsBuy(), p.Lots(), p.PriceOpen, price, p.RateProfit)
+	p.RateProfit = h.closeRate(e, r, p, price)
+	profit := ProfitFor(ForPosition(r, p), p.IsBuy(), p.Lots(), p.PriceOpen, price, p.RateProfit)
 
 	f.Profit += profit
 	f.Closed = append(f.Closed, p)
@@ -607,7 +622,8 @@ func (h *Handler) closeInto(f *Fill, e *book.Entry, p *model.Position, o *model.
 // reversePosition closes what was open and opens the remainder the other way.
 func (h *Handler) reversePosition(f *Fill, e *book.Entry, p *model.Position, o *model.Order,
 	r *settings.Rules, price float64, now int64) {
-	profit := ProfitFor(r, p.IsBuy(), p.Lots(), p.PriceOpen, price, p.RateProfit)
+	p.RateProfit = h.closeRate(e, r, p, price)
+	profit := ProfitFor(ForPosition(r, p), p.IsBuy(), p.Lots(), p.PriceOpen, price, p.RateProfit)
 	remainder := o.VolumeCurrent - p.Volume
 
 	f.Profit += profit
@@ -632,6 +648,8 @@ func (h *Handler) reversePosition(f *Fill, e *book.Entry, p *model.Position, o *
 		DigitsCurrency:  e.Account.CurrencyDigits,
 		Reason:          positionReason(o.Reason),
 		ContractSize:    r.ContractSize,
+		TickSize:        r.TickSize,
+		TickValue:       r.TickValue,
 		TimeCreate:      now,
 		TimeUpdate:      now,
 		PriceOpen:       price,
@@ -653,7 +671,7 @@ func (h *Handler) reversePosition(f *Fill, e *book.Entry, p *model.Position, o *
 // closeAgainst offsets two opposite positions.
 func (h *Handler) closeAgainst(f *Fill, e *book.Entry, p, by *model.Position, o *model.Order,
 	r *settings.Rules, volume, now int64) {
-	profit := ProfitFor(r, p.IsBuy(), model.Lots(volume), p.PriceOpen, by.PriceOpen, p.RateProfit)
+	profit := ProfitFor(ForPosition(r, p), p.IsBuy(), model.Lots(volume), p.PriceOpen, by.PriceOpen, p.RateProfit)
 	f.Profit += profit
 
 	d := h.MakeDealOutBy(o, r, e, p, by, by.PriceOpen, volume, now)
@@ -796,7 +814,7 @@ func (h *Handler) CalcPosition(e *book.Entry, symbol string, t model.Tick) {
 
 		h.refreshRateProfit(e, r, p)
 		p.PriceCurrent = t.ClosePrice(p.IsBuy())
-		p.Profit = ProfitFor(r, p.IsBuy(), p.Lots(), p.PriceOpen, p.PriceCurrent, p.RateProfit)
+		p.Profit = ProfitFor(ForPosition(r, p), p.IsBuy(), p.Lots(), p.PriceOpen, p.PriceCurrent, p.RateProfit)
 		p.Margin = MarginForPosition(r, p, p.PriceOpen, e.Account.Leverage)
 	}
 }
@@ -904,7 +922,7 @@ func (h *Handler) FixPosition(ctx context.Context, req *model.TradeRequest) *mod
 	res.Volume = saved.Volume
 
 	h.Log.Log(logger.TypeTrade, logger.CodeAtt, "position fix",
-		"login", saved.Login, "position", saved.PositionId,
+		"login", saved.Login, "position", saved.PositionId, "symbol", saved.Symbol,
 		"volume", saved.Volume, "price", saved.PriceOpen, "dealer", req.Dealer)
 
 	return res
@@ -954,7 +972,7 @@ func (h *Handler) DeletePosition(ctx context.Context, req *model.TradeRequest) *
 	res.PositionId = saved.PositionId
 
 	h.Log.Log(logger.TypeTrade, logger.CodeAtt, "position deleted",
-		"login", saved.Login, "position", saved.PositionId, "dealer", req.Dealer)
+		"login", saved.Login, "position", saved.PositionId, "symbol", saved.Symbol, "dealer", req.Dealer)
 
 	return res
 }
@@ -998,4 +1016,18 @@ func (h *Handler) deletePositionRow(ctx context.Context, p *model.Position, a *m
 	}
 
 	return tx.Commit(ctx)
+}
+
+// closeRate is the profit conversion rate a closing deal is booked at. MT5 "Convert profit": by deal
+// (default) keeps the rate of the closing direction; by market, Forex only, takes Bid when the deal is
+// profitable and Ask when it is losing.
+func (h *Handler) closeRate(e *book.Entry, r *settings.Rules, p *model.Position, price float64) float64 {
+	if r.CalcMode != model.CalcMode_forex || r.TradeFlags&model.TradeFlagProfitByMarket == 0 {
+		return p.RateProfit
+	}
+	profitable := ProfitFor(ForPosition(r, p), p.IsBuy(), p.Lots(), p.PriceOpen, price, 1) >= 0
+	if rate, ok := h.crossRate(e.Account.Group, r.CurrencyProfit, e.Account.Currency, !profitable); ok {
+		return rate
+	}
+	return p.RateProfit
 }

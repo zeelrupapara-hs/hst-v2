@@ -1,9 +1,9 @@
-import useSymbolLive from "../../../hooks/useSymbolLive";
+import useSymbolQuoted from "../../../hooks/useSymbolQuoted";
 
 // The little status lamp before a symbol's name: green while prices flow, grey when the
 // instrument is quiet — a dead feed and a closed session read the same at a glance.
 const LiveDot = ({ symbolId }) => {
-  const isLive = useSymbolLive(symbolId);
+  const isLive = useSymbolQuoted(symbolId);
 
   return (
     <span

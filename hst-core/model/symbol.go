@@ -19,21 +19,23 @@ type Symbol struct {
 	Page            string
 	ColorBackground int64
 	TickFlags       int32
-	Digits          int32
-	Point           float64
-	CalcMode        int32
-	TradeMode       int32
-	ExecMode        int32
-	FillFlags       int32
-	ExpirFlags      int32
-	Sector          int32
-	GtcMode         int32
-	TickChartMode   int32
-	ContractSize    float64
-	TickValue       float64
-	TickSize        float64
-	Spread          int32
-	SpreadDiff      int32
+	// TradeFlags bit 1 = convert profit by market (Forex), bit 2 = trading signals allowed
+	TradeFlags    int32
+	Digits        int32
+	Point         float64
+	CalcMode      int32
+	TradeMode     int32
+	ExecMode      int32
+	FillFlags     int32
+	ExpirFlags    int32
+	Sector        int32
+	GtcMode       int32
+	TickChartMode int32
+	ContractSize  float64
+	TickValue     float64
+	TickSize      float64
+	Spread        int32
+	SpreadDiff    int32
 	// SpreadDiffBalance skews the group widening between the two sides, MT-style signed split.
 	SpreadDiffBalance int32
 	StopsLevel        int32
@@ -78,6 +80,12 @@ type Symbol struct {
 	TimeStart      int64
 	TimeExpiration int64
 }
+
+// Symbol trade flags (MT5 EnTradeFlags).
+const (
+	TradeFlagProfitByMarket int32 = 1
+	TradeFlagAllowSignals   int32 = 2
+)
 
 // Which filling policies a symbol allows, as a set of flags.
 const (

@@ -89,6 +89,8 @@ type Position struct {
 	DigitsCurrency int32          `json:"digits_currency"`
 	Reason         OrderReason    `json:"reason"`
 	ContractSize   float64        `json:"contract_size"`
+	TickSize       float64        `json:"tick_size"`
+	TickValue      float64        `json:"tick_value"`
 	TimeCreate     int64          `json:"time_create"`
 	TimeUpdate     int64          `json:"time_update"`
 	PriceOpen      float64        `json:"price_open"`

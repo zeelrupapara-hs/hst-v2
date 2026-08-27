@@ -11,7 +11,8 @@ import PriceInput from "./components/PriceInput";
 import SLTPInput from "./components/SLTPInput";
 import BuySell from "./components/BuySell";
 import { getOptions } from "../../utils/utils";
-import { EXPIRATION_POLICY, ORDER_TYPES } from "../../utils/constants";
+import { EXPIRATION_POLICY, ORDER_TYPES, FILL_POLICY } from "../../utils/constants";
+import { ORDER_FLAG, EXPIR_FLAG, FILL_FLAG, hasFlag, canBuy, canSell } from "../../utils/symbol";
 import { getSide, validateOrderField } from "../../utils/validation";
 import { SOCKET_EVENTS } from "../../socket/events";
 import useSymbolLive from "../../hooks/useSymbolLive";
@@ -26,6 +27,31 @@ const Order = ({ symbolId, showHeader = true }) => {
   const [errors, setErrors] = useState({});
   const isLive = useSymbolLive(symbolId);
 
+  // what the admin allowed on this symbol (Trade tab: Orders, Expiration, Filling)
+  const orderFlags = symbolDeatils?.order_flags ?? 0;
+  const expirFlags = symbolDeatils?.expir_flags ?? 0;
+  const fillFlags = symbolDeatils?.fill_flags ?? 0;
+  const execMode = symbolDeatils?.exec_mode ?? 0;
+  const typeAllowed = { 0: ORDER_FLAG.MARKET, 1: ORDER_FLAG.LIMIT, 2: ORDER_FLAG.STOP, 3: ORDER_FLAG.LIMIT, 4: ORDER_FLAG.STOP };
+  const typeOptions = getOptions(ORDER_TYPES).filter((o) => hasFlag(orderFlags, typeAllowed[o.value]));
+  const expiryAllowed = { 0: EXPIR_FLAG.GTC, 1: EXPIR_FLAG.DAY, 2: EXPIR_FLAG.SPECIFIED, 3: EXPIR_FLAG.SPECIFIED_DAY };
+  const expiryOptions = getOptions(EXPIRATION_POLICY).filter((o) => hasFlag(expirFlags, expiryAllowed[o.value]));
+  // the filling policy is the trader's choice for market orders only; instant and request execution are always fill-or-kill
+  const fillOptions =
+    execMode === 0 || execMode === 1
+      ? [{ value: 0, label: FILL_POLICY[0] }]
+      : getOptions(FILL_POLICY).filter((o) => (o.value === 0 && hasFlag(fillFlags, FILL_FLAG.FOK)) || (o.value === 1 && hasFlag(fillFlags, FILL_FLAG.IOC)) || (o.value === 2 && execMode === 3));
+  const allowSL = hasFlag(orderFlags, ORDER_FLAG.SL);
+  const allowTP = hasFlag(orderFlags, ORDER_FLAG.TP);
+  const buyAllowed = canBuy(symbolDeatils);
+  const sellAllowed = canSell(symbolDeatils);
+
+  useEffect(() => {
+    if (typeOptions.length && !typeOptions.some((o) => o.value === formValues?.type)) updateFormValue("type", typeOptions[0].value);
+    if (expiryOptions.length && !expiryOptions.some((o) => o.value === formValues?.expiration_policy)) updateFormValue("expiration_policy", expiryOptions[0].value);
+    if (fillOptions.length && !fillOptions.some((o) => o.value === (formValues?.fill_policy ?? 0))) updateFormValue("fill_policy", fillOptions[0].value);
+  }, [orderFlags, expirFlags, fillFlags, execMode]);
+
   const minVolume = storedVolume || symbolDeatils?.min_value || 0.01;
 
   const defaultValues = {
@@ -33,8 +59,9 @@ const Order = ({ symbolId, showHeader = true }) => {
     order_price: null,
     stop_loss: null,
     take_profit: null,
-    expiration_policy: 0,
+    expiration_policy: expiryOptions[0]?.value ?? 0,
     expiry_at: null,
+    fill_policy: fillOptions[0]?.value ?? 0,
     comment: null,
   };
 
@@ -86,7 +113,9 @@ const Order = ({ symbolId, showHeader = true }) => {
       ...(formValues?.type === 0 && { order_price: 1 }),
       side: getSide(formValues?.type, side),
       symbol_id: symbolId,
-      fill_policy: 0,
+      fill_policy: formValues?.type === 0 ? formValues?.fill_policy ?? 0 : 0,
+      ...(!allowSL && { stop_loss: null }),
+      ...(!allowTP && { take_profit: null }),
     };
 
     sendEvent(SOCKET_EVENTS.ORDER_CREATE, payload);
@@ -116,7 +145,7 @@ const Order = ({ symbolId, showHeader = true }) => {
             <Select
               value={formValues?.type}
               onChange={(val) => updateFormValue("type", val)}
-              options={getOptions(ORDER_TYPES)}
+              options={typeOptions}
             />
           </Form.Item>
 
@@ -142,7 +171,18 @@ const Order = ({ symbolId, showHeader = true }) => {
             />
           )}
 
+          {formValues?.type === 0 && fillOptions.length > 1 && (
+            <Form.Item label={"Filling"} name="fill_policy">
+              <Select
+                value={formValues?.fill_policy ?? 0}
+                onChange={(val) => updateFormValue("fill_policy", val)}
+                options={fillOptions}
+              />
+            </Form.Item>
+          )}
+
           <div className="grid grid-cols-2 gap-5">
+            {allowSL && (
             <SLTPInput
               name={"stop_loss"}
               label={"SL"}
@@ -154,7 +194,9 @@ const Order = ({ symbolId, showHeader = true }) => {
               }
               setError={(error) => updateError("stop_loss", error)}
             />
+            )}
 
+            {allowTP && (
             <SLTPInput
               name={"take_profit"}
               label={"TP"}
@@ -166,6 +208,7 @@ const Order = ({ symbolId, showHeader = true }) => {
               }
               setError={(error) => updateError("take_profit", error)}
             />
+            )}
           </div>
 
           {formValues?.type !== 0 && (
@@ -173,7 +216,7 @@ const Order = ({ symbolId, showHeader = true }) => {
               <Select
                 value={formValues?.expiration_policy}
                 onChange={(val) => updateFormValue("expiration_policy", val)}
-                options={getOptions(EXPIRATION_POLICY)}
+                options={expiryOptions}
               />
             </Form.Item>
           )}
@@ -256,13 +299,15 @@ const Order = ({ symbolId, showHeader = true }) => {
               symbolId={symbolId}
               formValues={formValues}
               disabled={errors?.volume || !isLive}
+              disableBuy={!buyAllowed}
+              disableSell={!sellAllowed}
               createOrder={createOrder}
             />
           ) : (
             <button
               className="btn-primary w-full"
               onClick={createOrder}
-              disabled={hasErrors || !isLive}
+              disabled={hasErrors || !isLive || !typeOptions.length || ([1, 2].includes(formValues?.type) ? !buyAllowed : !sellAllowed)}
             >
               Place Order
             </button>

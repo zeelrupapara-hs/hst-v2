@@ -67,3 +67,16 @@ Every core change is done by substituting values **into the existing `Rules` obj
 - Settings resolution (`Store.For`, `pick`, NULL-inherit, first-match) — correct per MT5.
 - Profit/margin formulas — verified.
 - Anything under Calculation, Limit&stop, Max quote delay — working.
+
+## Status (2026-08-27)
+
+Implemented and verified live (admin API/UI → hst-core → trader terminal):
+
+1. Contract size fixed at open — a position keeps its own contract size / tick size / tick value (`ForPosition` in `money.go`; `hst.positions.tick_size/tick_value` added). Verified: position at 200 kept −0.04/−0.08 P/L after the symbol went back to 100000; a netting add keeps the position's size. Admin input accepts `0.01`; PATCH refuses `0`.
+2. Terminal refreshes symbol settings on `symbol_updated` (debounced refetch, prices untouched). Verified: Min 0.5 shown within 1 s.
+3. Order form built from `order_flags` / `expir_flags` / `fill_flags` / `exec_mode`; new Filling picker (market orders; FOK forced for instant/request); SL/TP hidden when not allowed; long-only / short-only disable the other side. Core treats flags `0` as none (migration set MT5 defaults on old rows).
+4. Trade Disabled / Close-only: chart and market watch keep ticking; opening disabled; closing allowed.
+5. GTC modes at end of day: 1 cancels pendings and clears SL/TP, 2 cancels pendings only. Verified both.
+6. Convert profit "by market" (trade_flags bit 1, Forex): closing rate takes Bid for a profitable deal, Ask for a losing one. Not observable on a USD-deposit account; code path only.
+7. Freeze level refuses a close while SL/TP sits inside the band (retcode 10019). Verified.
+8. Tick-size rounding of feed prices — not done (optional).
