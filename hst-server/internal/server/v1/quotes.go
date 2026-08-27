@@ -19,8 +19,8 @@ import (
 // CrtQuote is a dealer-thrown quote for one symbol.
 type CrtQuote struct {
 	Symbol string  `json:"symbol" validate:"required,max=32"`
-	Bid    float64 `json:"bid" validate:"required,gt=0"`
-	Ask    float64 `json:"ask" validate:"required,gt=0"`
+	Bid    float64 `json:"bid" validate:"required"`
+	Ask    float64 `json:"ask" validate:"required"`
 }
 
 // wireTick mirrors hst-quote's published tick so every consumer parses it the same way.
@@ -65,15 +65,19 @@ func (s *HttpServer) ThrowQuote(c *fiber.Ctx) error {
 	}
 
 	var symbolId int64
-	var digits int32
+	var digits, tickFlags int32
 	err := s.DB.DB.QueryRow(c.UserContext(),
-		`SELECT symbol_id, digits FROM hst.symbols WHERE symbol = $1`, body.Symbol).
-		Scan(&symbolId, &digits)
+		`SELECT symbol_id, digits, tick_flags FROM hst.symbols WHERE symbol = $1`, body.Symbol).
+		Scan(&symbolId, &digits, &tickFlags)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return s.App.HttpResponseNotFound(c, errs.ErrNotFound)
 	}
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
+	}
+	// "Allow negative prices" on the symbol's Quotes tab, MT5 tick_flags bit 8
+	if tickFlags&8 == 0 && (body.Bid <= 0 || body.Ask <= 0) {
+		return s.App.HttpResponseBadRequest(c, errors.New("negative prices are not allowed for this symbol"))
 	}
 
 	pow := math.Pow10(int(digits))

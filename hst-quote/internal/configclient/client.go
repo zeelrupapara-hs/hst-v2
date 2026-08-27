@@ -36,6 +36,14 @@ type Snapshot struct {
 	Translates       []Translate          `json:"translates"`
 	Sessions         []SnapshotSession    `json:"sessions"`
 	Settings         []SymbolSettings     `json:"settings"`
+	Mirrors          []Mirror             `json:"mirrors"`
+}
+
+type Mirror struct {
+	SymbolID  int64  `json:"symbol_id"`
+	Symbol    string `json:"symbol"`
+	Source    string `json:"source"`
+	TickFlags int32  `json:"tick_flags"`
 }
 
 type SymbolSettings struct {
@@ -222,6 +230,14 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 			SpreadBalance:   st.SpreadBalance,
 		}
 	}
+	mirrors := make(map[string][]model.Mirror, len(s.Mirrors))
+	for _, m := range s.Mirrors {
+		// the mirror's own "Allow realtime quotes" tick still gates it
+		if m.TickFlags&model.TickFlagRealtime == 0 {
+			continue
+		}
+		mirrors[m.Source] = append(mirrors[m.Source], model.Mirror{SymbolID: m.SymbolID, Symbol: m.Symbol})
+	}
 	return model.QuoteFeed{
 		Datafeed: model.Datafeed{
 			DatafeedID:       s.DatafeedID,
@@ -239,6 +255,7 @@ func toQuoteFeed(s Snapshot) model.QuoteFeed {
 		Translates: translates,
 		Sessions:   sessions,
 		Settings:   settings,
+		Mirrors:    mirrors,
 	}
 }
 

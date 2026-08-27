@@ -297,7 +297,7 @@ func (h *Handler) MarketSystemEventHandler(msg *natscore.Msg) {
 		return
 	}
 
-	if t.Symbol == "" || !t.Ok() {
+	if t.Symbol == "" || (!t.Ok() && !h.Settings.NegativeAllowed(t.Symbol)) {
 		return
 	}
 	if t.Time == 0 {

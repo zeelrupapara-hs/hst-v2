@@ -1,14 +1,11 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SettingsDialog } from "@/components/ui/SettingsDialog.jsx";
 import { DialogOverlay } from "@/components/ui/DialogOverlay.jsx";
 import { useDialogStack, prevTabEscape } from "@/hooks/useDialogStack.jsx";
 import { useDialogDrag } from "@/hooks/useDialogDrag.js";
 import { createSymbol, fetchSymbol, updateSymbol } from "@/api/endpoints/symbols.js";
 import {
-  CFD_CALC_MODES,
-  currencyDigits,
   deriveSymbolCurrencies,
-  isForexDerived,
 } from "@/lib/symbolCurrency.js";
 import {
   CommonTab,
@@ -55,6 +52,7 @@ function newDraft(folderPath) {
     fill_flags: 3,
     expir_flags: 15,
     order_flags: 127,
+    tick_flags: 1,
     volume_min: 10000,
     volume_max: 100000000,
     volume_step: 10000,
@@ -106,8 +104,17 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
     });
   }, [symbolId, isNew]);
 
+  // the stored currencies stand on open; only a new name or calculation re-derives them
+  const derivedFor = useRef(null);
   useEffect(() => {
     if (!draft) return;
+    const key = `${draft.symbol}|${draft.calc_mode}`;
+    if (derivedFor.current === null && !isNew) {
+      derivedFor.current = key;
+      return;
+    }
+    if (derivedFor.current === key) return;
+    derivedFor.current = key;
     const patch = deriveSymbolCurrencies({
       symbol: draft.symbol,
       calc_mode: draft.calc_mode,
@@ -127,24 +134,6 @@ export function SymbolDialog({ symbolId, folderPath = "", onClose, onSaved }) {
       return changed ? next : prev;
     });
   }, [draft?.symbol, draft?.calc_mode]);
-
-  useEffect(() => {
-    if (!draft || isForexDerived(draft.calc_mode)) return;
-    if (!CFD_CALC_MODES.has(Number(draft.calc_mode))) return;
-    const profit = String(draft.currency_profit ?? "").trim() || "USD";
-    const marginDigits = currencyDigits(profit);
-    setDraft((prev) => {
-      if (!prev) return prev;
-      if (prev.currency_margin === profit && prev.currency_margin_digits === marginDigits) {
-        return prev;
-      }
-      return {
-        ...prev,
-        currency_margin: profit,
-        currency_margin_digits: marginDigits,
-      };
-    });
-  }, [draft?.calc_mode, draft?.currency_profit]);
 
   function set(keyOrFields, value) {
     setDraft((prev) => {

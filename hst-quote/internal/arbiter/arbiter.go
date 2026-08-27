@@ -76,8 +76,8 @@ func sourceKey(symbolID int64) string {
 }
 
 // Claim decides whether this feed's tick for a symbol is the accepted stream.
-// activated reports a transition into ownership, which is worth a journal line.
-func (s *Selector) Claim(ctx context.Context, datafeedID int64, feedIndex int32, symbolID int64) (accepted, activated bool) {
+// activated and lost report a transition in or out of ownership, each worth a journal line.
+func (s *Selector) Claim(ctx context.Context, datafeedID int64, feedIndex int32, symbolID int64) (accepted, activated, lost bool) {
 	owner := fmt.Sprintf("%d:%d", feedIndex, datafeedID)
 	res, err := s.script.Run(ctx, s.rds.Client, []string{sourceKey(symbolID)},
 		owner, s.timeout.Milliseconds()).Int()
@@ -92,7 +92,7 @@ func (s *Selector) Claim(ctx context.Context, datafeedID int64, feedIndex int32,
 		} else {
 			s.mu.Unlock()
 		}
-		return true, false
+		return true, false, false
 	}
 
 	s.mu.Lock()
@@ -104,7 +104,7 @@ func (s *Selector) Claim(ctx context.Context, datafeedID int64, feedIndex int32,
 		if wasActive {
 			delete(owned, symbolID)
 		}
-		return false, false
+		return false, false, wasActive
 	default:
 		if !wasActive {
 			if owned == nil {
@@ -114,7 +114,7 @@ func (s *Selector) Claim(ctx context.Context, datafeedID int64, feedIndex int32,
 			owned[symbolID] = struct{}{}
 		}
 		// res 2 with wasActive is a quiet symbol re-claiming after expiry, not a switch
-		return true, res == 2 && !wasActive
+		return true, res == 2 && !wasActive, false
 	}
 }
 

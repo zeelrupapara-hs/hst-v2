@@ -253,3 +253,6 @@ input::-webkit-inner-spin-button {
 .custom-editor .ck-content {
   @apply !bg-theme-bg !text-theme-text !border-theme-border !rounded-b-sm;
 }
+
+/* Market Watch symbol background colour from the symbol settings; cells must not paint over the row */
+.row-tinted > .ant-table-cell, .ant-table-tbody > tr.row-tinted > td { background: transparent !important; }

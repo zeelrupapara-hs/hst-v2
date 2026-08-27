@@ -42,8 +42,9 @@ const symbolCountLabel = (counts, feed) => {
 export function DatafeedsModule() {
   const { datafeeds, loading, reload } = useDatafeeds();
   const session = useSession();
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const highlight = Number(params.get("feed")) || null;
+  const editFromNav = params.get("edit") === "1";
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
@@ -127,6 +128,9 @@ export function DatafeedsModule() {
     return (
       <div className="module-root">
         <DatafeedStatusPage feed={statusFeed} canEdit={canEdit} onSaved={saved} />
+        {editFromNav && canEdit && (
+          <DatafeedDialog feedId={statusFeed.datafeed_id} onClose={() => setParams({ feed: String(statusFeed.datafeed_id) })} onSaved={saved} />
+        )}
       </div>
     );
   }

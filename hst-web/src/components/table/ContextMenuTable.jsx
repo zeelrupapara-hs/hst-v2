@@ -7,6 +7,7 @@ const ContextMenuTable = ({
   setSelectedRecord,
   onRowClick,
   onRowDoubleClick,
+  rowStyle,
   isDraggable = false,
   isContextMenuAllowed = () => true,
   children,
@@ -49,7 +50,8 @@ const ContextMenuTable = ({
 
   const wrappedChild = cloneElement(children, {
     onRow: (record) => ({
-      className: "cursor-pointer",
+      className: `cursor-pointer${rowStyle?.(record) ? " row-tinted" : ""}`,
+      ...(rowStyle && { style: rowStyle(record) }),
       onContextMenu: (event) => handleContextMenu(event, record),
       ...(onRowClick && { onClick: () => onRowClick(record) }),
       ...(onRowDoubleClick && {

@@ -399,9 +399,14 @@ func (s *HttpServer) listWorkerDatafeedConfigs(ctx context.Context, mode int32) 
 	if err != nil {
 		return nil, err
 	}
+	mirrors, err := loadSourceMirrors(ctx, s)
+	if err != nil {
+		return nil, err
+	}
 	for i := range out {
 		out[i].Sessions = flattenQuoteSessions(out[i].Translates, sessionsBySymbol)
 		out[i].Settings = symbolSettingsForTranslates(out[i].Translates, settingsBySymbol)
+		out[i].Mirrors = mirrors
 	}
 
 	return out, nil
@@ -757,6 +762,24 @@ func loadQuoteSessionsBySymbolIDs(ctx context.Context, s *HttpServer, symbolIDs 
 			return nil, err
 		}
 		out[sess.SymbolID] = append(out[sess.SymbolID], sess)
+	}
+	return out, rows.Err()
+}
+
+// loadSourceMirrors lists every symbol that takes its quotes from another symbol; global, any feed may tick the source.
+func loadSourceMirrors(ctx context.Context, s *HttpServer) ([]events.WorkerMirror, error) {
+	rows, err := s.DB.DB.Query(ctx, `SELECT symbol_id, symbol, source, tick_flags FROM hst.symbols WHERE source <> '' AND source <> symbol`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []events.WorkerMirror{}
+	for rows.Next() {
+		var m events.WorkerMirror
+		if err := rows.Scan(&m.SymbolID, &m.Symbol, &m.Source, &m.TickFlags); err != nil {
+			return nil, err
+		}
+		out = append(out, m)
 	}
 	return out, rows.Err()
 }

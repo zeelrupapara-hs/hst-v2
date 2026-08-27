@@ -73,6 +73,13 @@ type QuoteFeed struct {
 	Translates []DatafeedTranslate
 	Sessions   []SymbolSession
 	Settings   map[int64]SymbolSettings
+	// Mirrors are the symbols that take their quotes from the key symbol (Source), MT5 IMTConSymbol::Source
+	Mirrors map[string][]Mirror
+}
+
+type Mirror struct {
+	SymbolID int64
+	Symbol   string
 }
 
 // SymbolSettings is the per-symbol quote handling config from hst.symbols.
@@ -103,6 +110,7 @@ const (
 	TickFlagRealtime   int32 = 1
 	TickFlagCollectRaw int32 = 2
 	TickFlagFeedStats  int32 = 4
+	TickFlagNegative   int32 = 8
 )
 
 // PointValue is the symbol point, falling back to digits when the column is unset.
@@ -116,10 +124,14 @@ func (s SymbolSettings) PointValue() float64 {
 	return 1e-5
 }
 
-// RealtimeAllowed treats an unconfigured tick_flags as "allow", never blackholing a feed.
-func (s SymbolSettings) RealtimeAllowed() bool {
-	return s.TickFlags == 0 || s.TickFlags&TickFlagRealtime != 0
-}
+// RealtimeAllowed is the "Allow realtime quotes from datafeeds" tick; unticked means the dealer throws quotes by hand.
+func (s SymbolSettings) RealtimeAllowed() bool { return s.TickFlags&TickFlagRealtime != 0 }
+
+// NegativeAllowed is the "Allow negative prices" tick; without it a non-positive price is a feed error and dropped.
+func (s SymbolSettings) NegativeAllowed() bool { return s.TickFlags&TickFlagNegative != 0 }
+
+// FeedStats is "Receive market statistics from datafeeds": OHLC comes from the feed instead of being worked out here.
+func (s SymbolSettings) FeedStats() bool { return s.TickFlags&TickFlagFeedStats != 0 }
 
 func (s SymbolSettings) CollectRaw() bool { return s.TickFlags&TickFlagCollectRaw != 0 }
 

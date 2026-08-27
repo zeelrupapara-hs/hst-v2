@@ -147,6 +147,18 @@ func (h *Handler) symbolInfo(r *settings.Rules, g *model.Group) model.SymbolInfo
 		Path:        r.Symbol.Path,
 		Description: r.Symbol.Description,
 
+		International:   r.Symbol.International,
+		ISIN:            r.Symbol.ISIN,
+		Category:        r.Symbol.Category,
+		Exchange:        r.Symbol.Exchange,
+		CFI:             r.Symbol.CFI,
+		Industry:        r.Symbol.Industry,
+		Country:         r.Symbol.Country,
+		Basis:           r.Symbol.Basis,
+		Source:          r.Symbol.Source,
+		Page:            r.Symbol.Page,
+		ColorBackground: r.Symbol.ColorBackground,
+
 		Digits:        r.Digits,
 		Point:         r.Point,
 		ContractSize:  r.ContractSize,

@@ -10,6 +10,7 @@ import { getSymbolSessions } from "../../../api/request/symbol";
 import useLiveSymbolStore from "../../../store/useLiveSymbolStore";
 import {
   SECTOR,
+  INDUSTRY,
   CALC_MODE,
   TRADE_MODE,
   CHART_MODE,
@@ -169,6 +170,29 @@ const SymbolInfoModal = ({ isOpen, setIsOpen, data }) => {
     data.sector ??
     (String(data.path || "").split("\\")[0] === "Forex" ? 12 : undefined);
 
+  // the Common tab of the symbol, as the MT terminal specification shows it
+  const commonLeft = [
+    { label: "Exchange", value: data.exchange || "—" },
+    { label: "International", value: data.international || "—" },
+    { label: "ISIN", value: data.isin || "—" },
+    { label: "CFI", value: data.cfi || "—" },
+    { label: "Industry", value: lookup(INDUSTRY, data.industry, 0) },
+  ];
+  const commonRight = [
+    { label: "Basis", value: data.basis || "—" },
+    { label: "Source", value: data.source || "—" },
+    { label: "Country", value: data.country || "—" },
+    { label: "Category", value: data.category || "—" },
+    {
+      label: "Page",
+      value: data.page ? (
+        <a href={data.page} target="_blank" rel="noreferrer" className="text-primary underline truncate max-w-[260px] inline-block">
+          {data.page}
+        </a>
+      ) : "—",
+    },
+  ];
+
   const contractSpecLeft = [
     { label: "Margin currency", value: data.currency_margin },
     { label: "Calculation", value: lookup(CALC_MODE, calcMode) },
@@ -237,6 +261,21 @@ const SymbolInfoModal = ({ isOpen, setIsOpen, data }) => {
             <HeaderStat label="Contract size" value={fmtNum(data.contract_size, 0)} />
           </div>
         </div>
+
+        <div className="grid grid-cols-2 gap-x-16 gap-y-0 text-sm">
+          <div className="space-y-0.5">
+            {commonLeft.map((row) => (
+              <SpecRow key={row.label} {...row} />
+            ))}
+          </div>
+          <div className="space-y-0.5">
+            {commonRight.map((row) => (
+              <SpecRow key={row.label} {...row} />
+            ))}
+          </div>
+        </div>
+
+        <Divider className="!border-theme-border !my-4" />
 
         <div className="grid grid-cols-2 gap-x-16 gap-y-0 text-sm">
           <div className="space-y-0.5">

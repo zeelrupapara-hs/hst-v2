@@ -86,6 +86,7 @@ type WorkerDatafeedConfig struct {
 	Translates       []WorkerTranslate      `json:"translates"`
 	Sessions         []WorkerSymbolSession  `json:"sessions"`
 	Settings         []WorkerSymbolSettings `json:"settings"`
+	Mirrors          []WorkerMirror         `json:"mirrors"`
 }
 
 // ConfigSubject returns the per-feed config subject.
@@ -127,4 +128,12 @@ func PublishConfigSnapshot(nc *nats.Nats, cfg WorkerDatafeedConfig) error {
 		return fmt.Errorf("publish datafeed config: %w", err)
 	}
 	return nil
+}
+
+// WorkerMirror is a symbol whose quotes are copied from Source (MT5 IMTConSymbol::Source).
+type WorkerMirror struct {
+	SymbolID  int64  `json:"symbol_id"`
+	Symbol    string `json:"symbol"`
+	Source    string `json:"source"`
+	TickFlags int32  `json:"tick_flags"`
 }

@@ -126,6 +126,14 @@ func (s *Store) Groups() int {
 	return len(s.groups)
 }
 
+// NegativeAllowed is the symbol's "Allow negative prices" tick (tick_flags bit 8).
+func (s *Store) NegativeAllowed(symbol string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	sym, ok := s.symbols[symbol]
+	return ok && sym.TickFlags&8 != 0
+}
+
 // SymbolNames is every instrument the platform knows.
 func (s *Store) SymbolNames() []string {
 	s.mu.RLock()

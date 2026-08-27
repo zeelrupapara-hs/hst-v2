@@ -16,9 +16,20 @@ type QueryResult struct {
 
 // SymbolInfo is one instrument under the group's resolved rules, not the instrument's own, plus its live price.
 type SymbolInfo struct {
-	Symbol      string `json:"symbol"`
-	Path        string `json:"path"`
-	Description string `json:"description"`
+	Symbol          string `json:"symbol"`
+	Path            string `json:"path"`
+	Description     string `json:"description"`
+	International   string `json:"international"`
+	ISIN            string `json:"isin"`
+	Category        string `json:"category"`
+	Exchange        string `json:"exchange"`
+	CFI             string `json:"cfi"`
+	Industry        int32  `json:"industry"`
+	Country         string `json:"country"`
+	Basis           string `json:"basis"`
+	Source          string `json:"source"`
+	Page            string `json:"page"`
+	ColorBackground int64  `json:"color_background"`
 
 	Digits        int32   `json:"digits"`
 	Point         float64 `json:"point"`

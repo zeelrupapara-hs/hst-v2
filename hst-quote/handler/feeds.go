@@ -410,7 +410,10 @@ func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *fil
 
 	// one active source per symbol: other feeds' streams for this symbol are
 	// ignored until the active one goes silent
-	accepted, activated := f.arbiter.Claim(ctx, tick.DatafeedID, feed.Datafeed.FeedIndex, tick.SymbolID)
+	accepted, activated, lost := f.arbiter.Claim(ctx, tick.DatafeedID, feed.Datafeed.FeedIndex, tick.SymbolID)
+	if lost {
+		f.status.Journal(tick.DatafeedID, status.JournalWarn, tick.Symbol+" deactivation: another source took over")
+	}
 	if !accepted {
 		return
 	}
@@ -423,8 +426,10 @@ func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *fil
 	}
 
 	set, hasSet := feed.Settings[tick.SymbolID]
-	// every discard path feeds the raw series, that is what it is for
-	discard := func() {
+	// every discard path feeds the raw series, that is what it is for; the first drop of a symbol
+	// is on the journal so the desk sees why a price stands still without reading the pod log
+	discard := func(reason string) {
+		f.status.Journal(tick.DatafeedID, status.JournalWarn, tick.Symbol+" tick dropped: "+reason)
 		if hasSet && set.CollectRaw() && f.influx != nil {
 			f.influx.WriteRawTick(*tick)
 		}
@@ -432,27 +437,27 @@ func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *fil
 
 	if hasSet && !set.RealtimeAllowed() {
 		st.MarkBreak(tick.SymbolID)
-		if st.WarnOnce(tick.SymbolID) {
-			f.h.Log.Log(logger.TypeSys, logger.CodeWarn, "symbol drops ticks, realtime flag off",
-				"datafeed_id", tick.DatafeedID, "symbol", tick.Symbol, "tick_flags", set.TickFlags)
-		}
-		discard()
+		discard("realtime flag off")
 		return
 	}
 
 	// a closed quote session is no stream at all, so the next tick starts a fresh channel
 	if !f.isQuoteSessionOpen(feed, tick.SymbolID) {
 		st.MarkBreak(tick.SymbolID)
-		discard()
+		discard("quote session closed")
 		return
 	}
 
-	if !st.Apply(set, tick) {
-		discard()
+	if why := st.Apply(set, tick); why != "" {
+		discard(why)
 		return
+	}
+	for _, note := range st.Notes(tick.SymbolID) {
+		f.status.Journal(tick.DatafeedID, status.JournalInfo, tick.Symbol+" "+note)
 	}
 
 	translate.ApplySpread(set, tick)
+	st.Stats(set, tick)
 
 	if err := f.cache.Put(ctx, *tick); err != nil {
 		f.h.Log.Log(logger.TypeNet, logger.CodeErr, "tick cache failed",
@@ -466,6 +471,15 @@ func (f *Feeds) handleRawTick(ctx context.Context, feed model.QuoteFeed, st *fil
 	payload := f.publishTick(*tick)
 	if f.status != nil && len(payload) > 0 {
 		f.status.Tick(tick.DatafeedID, int64(len(payload)))
+	}
+
+	// ponytail: mirrors take the source price as is, no own filters/sessions/spread; add if a client asks
+	for _, m := range feed.Mirrors[tick.Symbol] {
+		copy := *tick
+		copy.SymbolID, copy.Symbol, copy.Source = m.SymbolID, m.Symbol, tick.Symbol
+		if err := f.cache.Put(ctx, copy); err == nil {
+			f.publishTick(copy)
+		}
 	}
 }
 

@@ -20,6 +20,7 @@ import columns from "../../columns/symbols";
 import VirtualTable from "../table/VirtualTable";
 import Icon from "../common/Icon";
 import ContextMenuTable from "../table/ContextMenuTable";
+import { symbolBackgroundCss } from "../../utils/symbolSpec";
 import MultiOrderScreen from "../order/MultiOrderScreen";
 import SymbolInfoModal from "./components/SymbolInfoModal";
 import SymbolPicker from "./components/SymbolPicker";
@@ -234,6 +235,10 @@ const Symbols = () => {
             togglePanel("order", true);
           }}
           isDraggable={true}
+          rowStyle={(record) => {
+            const bg = symbolBackgroundCss(record?.color_background);
+            return bg ? { background: bg } : undefined;
+          }}
         >
           <VirtualTable columns={filteredColumns} data={filteredSymbols} />
         </ContextMenuTable>

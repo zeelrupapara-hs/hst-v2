@@ -1,0 +1,1 @@
+ALTER TABLE hst.symbols ALTER COLUMN tick_flags SET DEFAULT 0;

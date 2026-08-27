@@ -126,3 +126,12 @@ export const displayInitialMargin = (data) => {
   if (calc === 0 || calc === 5) return fmtNum(data?.contract_size, 0);
   return margin === 0 ? "—" : fmtNum(margin, 0);
 };
+
+export { SymbolIndustry_name as INDUSTRY } from "./symbolIndustry.generated.js";
+
+// MT stores colours as 0x00BBGGRR; 0 and 0xFFFFFFFF mean none
+export const symbolBackgroundCss = (v) => {
+  const n = Number(v) >>> 0;
+  if (!v || n === 0 || n === 0xffffffff) return null;
+  return `#${(n & 0xff).toString(16).padStart(2, "0")}${((n >> 8) & 0xff).toString(16).padStart(2, "0")}${((n >> 16) & 0xff).toString(16).padStart(2, "0")}`;
+};

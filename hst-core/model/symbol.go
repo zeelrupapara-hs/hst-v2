@@ -2,25 +2,38 @@ package model
 
 // Symbol is an instrument, with only the columns a trade actually reads.
 type Symbol struct {
-	SymbolId      int64
-	Symbol        string
-	Path          string
-	Description   string
-	Digits        int32
-	Point         float64
-	CalcMode      int32
-	TradeMode     int32
-	ExecMode      int32
-	FillFlags     int32
-	ExpirFlags    int32
-	Sector        int32
-	GtcMode       int32
-	TickChartMode int32
-	ContractSize  float64
-	TickValue     float64
-	TickSize      float64
-	Spread        int32
-	SpreadDiff    int32
+	SymbolId    int64
+	Symbol      string
+	Path        string
+	Description string
+	// the rest of the Common tab, shown on the terminal's specification and Market Watch
+	International   string
+	ISIN            string
+	Category        string
+	Exchange        string
+	CFI             string
+	Industry        int32
+	Country         string
+	Basis           string
+	Source          string
+	Page            string
+	ColorBackground int64
+	TickFlags       int32
+	Digits          int32
+	Point           float64
+	CalcMode        int32
+	TradeMode       int32
+	ExecMode        int32
+	FillFlags       int32
+	ExpirFlags      int32
+	Sector          int32
+	GtcMode         int32
+	TickChartMode   int32
+	ContractSize    float64
+	TickValue       float64
+	TickSize        float64
+	Spread          int32
+	SpreadDiff      int32
 	// SpreadDiffBalance skews the group widening between the two sides, MT-style signed split.
 	SpreadDiffBalance int32
 	StopsLevel        int32

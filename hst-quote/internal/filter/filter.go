@@ -1,6 +1,7 @@
 package filter
 
 import (
+	"fmt"
 	"math"
 	"time"
 
@@ -30,7 +31,8 @@ type symbolState struct {
 	lastTime   time.Time
 	broken     bool
 	seen       bool
-	warned     bool
+	notes      []string // journal lines from the last Apply
+	stats      dayStats
 }
 
 // State holds filter channels for one feed runner; one goroutine owns it, so no lock.
@@ -51,15 +53,8 @@ func (s *State) get(symbolID int64) *symbolState {
 	return st
 }
 
-// WarnOnce reports true the first time it is asked about a symbol, so drops are logged once.
-func (s *State) WarnOnce(symbolID int64) bool {
-	st := s.get(symbolID)
-	if st.warned {
-		return false
-	}
-	st.warned = true
-	return true
-}
+// Notes are the journal lines from the last Apply for a symbol (gap mode and one-sided filtering).
+func (s *State) Notes(symbolID int64) []string { return s.get(symbolID).notes }
 
 // MarkBreak arms a stream break so filters are skipped on the next tick.
 func (s *State) MarkBreak(symbolID int64) {
@@ -76,29 +71,31 @@ func (s *State) Reset() {
 // points is a price difference in symbol points, rounded so an exact bound survives float error.
 func points(diff, pt float64) float64 { return math.Round(diff / pt) }
 
-// Apply runs filtration and gap detection, mutating the tick; false means the tick is rejected.
-func (s *State) Apply(set model.SymbolSettings, t *model.Tick) bool {
+// Apply runs filtration and gap detection, mutating the tick; a non-empty reason means the tick is rejected.
+// Notes holds the journal lines the pass produced.
+func (s *State) Apply(set model.SymbolSettings, t *model.Tick) (reason string) {
 	st := s.get(t.SymbolID)
+	st.notes = st.notes[:0]
 	pt := set.PointValue()
 
-	if !set.IsExchange() && (t.Bid <= 0 || t.Ask <= 0) {
-		return false
+	if !set.IsExchange() && !set.NegativeAllowed() && (t.Bid <= 0 || t.Ask <= 0) {
+		return "non-positive price"
 	}
 
 	// min/max spread applies to floating-spread OTC symbols only
 	if !set.IsExchange() && set.FloatingSpread() {
 		sp := points(t.Ask-t.Bid, pt)
 		if set.FilterSpreadMin > 0 && sp < float64(set.FilterSpreadMin) {
-			return false
+			return fmt.Sprintf("spread %d below minimum %d", int(sp), set.FilterSpreadMin)
 		}
 		if set.FilterSpreadMax > 0 && sp > float64(set.FilterSpreadMax) {
-			return false
+			return fmt.Sprintf("spread %d above maximum %d", int(sp), set.FilterSpreadMax)
 		}
 	}
 
 	if st.seen && t.Bid == st.lastBid && t.Ask == st.lastAsk && t.Volume == st.lastVolume &&
 		t.Time.Truncate(time.Minute).Equal(st.lastTime.Truncate(time.Minute)) {
-		return false
+		return "duplicate"
 	}
 	st.seen, st.lastBid, st.lastAsk, st.lastVolume, st.lastTime = true, t.Bid, t.Ask, t.Volume, t.Time
 
@@ -109,7 +106,7 @@ func (s *State) Apply(set model.SymbolSettings, t *model.Tick) bool {
 		st.bid.reset(t.Bid)
 		st.ask.reset(t.Ask)
 		gapUpdate(st, set, t, pt, firstTick)
-		return true
+		return ""
 	}
 
 	if st.broken {
@@ -117,31 +114,35 @@ func (s *State) Apply(set model.SymbolSettings, t *model.Tick) bool {
 		st.ask.reset(t.Ask)
 		st.broken = false
 		gapUpdate(st, set, t, pt, true)
-		return true
+		return ""
 	}
 
-	okBid := checkSide(&st.bid, t.Bid, set, pt)
-	okAsk := checkSide(&st.ask, t.Ask, set, pt)
-	if !okBid && !okAsk {
-		return false
+	prevBid, prevAsk := st.bid.prev, st.ask.prev
+	whyBid := checkSide(&st.bid, t.Bid, set, pt)
+	whyAsk := checkSide(&st.ask, t.Ask, set, pt)
+	if whyBid != "" && whyAsk != "" {
+		return fmt.Sprintf("%s by bid from %v to %v, %s by ask from %v to %v", whyBid, prevBid, t.Bid, whyAsk, prevAsk, t.Ask)
 	}
 	// a rejected side keeps its last accepted price so the other side can still publish
-	if !okBid {
+	if whyBid != "" {
+		st.notes = append(st.notes, fmt.Sprintf("%s by bid from %v to %v, bid kept", whyBid, prevBid, t.Bid))
 		t.Bid = st.bid.prev
 	}
-	if !okAsk {
+	if whyAsk != "" {
+		st.notes = append(st.notes, fmt.Sprintf("%s by ask from %v to %v, ask kept", whyAsk, prevAsk, t.Ask))
 		t.Ask = st.ask.prev
 	}
 
 	gapUpdate(st, set, t, pt, false)
-	return true
+	return ""
 }
 
-func checkSide(sd *side, price float64, set model.SymbolSettings, pt float64) bool {
+// checkSide returns why a side is rejected, "" when it passes; MT5 wording with the diff and level in points.
+func checkSide(sd *side, price float64, set model.SymbolSettings, pt float64) string {
 	d := points(math.Abs(price-sd.prev), pt)
 
 	if set.FilterDiscard > 0 && d > float64(set.FilterDiscard) {
-		return false
+		return fmt.Sprintf("discard filter [diff:%d, level:%d]", int(d), set.FilterDiscard)
 	}
 
 	if set.FilterSoft > 0 && d > float64(set.FilterSoft) {
@@ -153,24 +154,24 @@ func checkSide(sd *side, price float64, set model.SymbolSettings, pt float64) bo
 					sd.hardStg = true
 					sd.count = 1
 				}
-				return false
+				return fmt.Sprintf("hard filter [diff:%d, level:%d, soft counter:%d/%d]", int(d), set.FilterHard, sd.count, set.FilterSoftTicks)
 			}
 			if sd.count > set.FilterHardTicks {
 				sd.reset(price)
-				return true
+				return ""
 			}
-			return false
+			return fmt.Sprintf("hard filter [diff:%d, level:%d, hard counter:%d/%d]", int(d), set.FilterHard, sd.count, set.FilterHardTicks)
 		}
 		sd.count++
 		if sd.count > set.FilterSoftTicks {
 			sd.reset(price)
-			return true
+			return ""
 		}
-		return false
+		return fmt.Sprintf("soft filter [diff:%d, level:%d, counter:%d/%d]", int(d), set.FilterSoft, sd.count, set.FilterSoftTicks)
 	}
 
 	sd.reset(price)
-	return true
+	return ""
 }
 
 func gapUpdate(st *symbolState, set model.SymbolSettings, t *model.Tick, pt float64, firstTick bool) {
@@ -186,20 +187,25 @@ func gapUpdate(st *symbolState, set model.SymbolSettings, t *model.Tick, pt floa
 		st.bid.gapCount, st.ask.gapCount = set.FilterGapTicks, set.FilterGapTicks
 		st.bid.gapPrev, st.ask.gapPrev = t.Bid, t.Ask
 	} else {
-		gapStep(&st.bid, t.Bid, set, pt)
-		gapStep(&st.ask, t.Ask, set, pt)
+		gapStep(st, &st.bid, "bid", t.Bid, set, pt)
+		gapStep(st, &st.ask, "ask", t.Ask, set, pt)
 	}
 
 	t.Gap = st.bid.gapped || st.ask.gapped
 }
 
-func gapStep(sd *side, price float64, set model.SymbolSettings, pt float64) {
-	if points(math.Abs(price-sd.gapPrev), pt) > float64(set.FilterGap) {
+func gapStep(st *symbolState, sd *side, name string, price float64, set model.SymbolSettings, pt float64) {
+	d := points(math.Abs(price-sd.gapPrev), pt)
+	if d > float64(set.FilterGap) {
 		sd.gapped, sd.gapCount = true, 1
+		st.notes = append(st.notes, fmt.Sprintf("gap by %s from %v to %v [diff:%d, gap level:%d]", name, sd.gapPrev, price, int(d), set.FilterGapTicks))
 	} else if sd.gapped {
 		sd.gapCount++
 		if sd.gapCount > set.FilterGapTicks {
 			sd.gapped, sd.gapCount = false, 0
+			st.notes = append(st.notes, fmt.Sprintf("gap by %s mode disabled", name))
+		} else {
+			st.notes = append(st.notes, fmt.Sprintf("tick without gap by %s [tick counter: %d]", name, sd.gapCount))
 		}
 	}
 	sd.gapPrev = price

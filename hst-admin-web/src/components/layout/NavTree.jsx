@@ -99,6 +99,7 @@ function shapeTree(nav, symbols = [], datafeeds = [], groups = [], emptyFolders 
           key: `feed:${f.datafeed_id}`,
           label: f.name,
           route: `/datafeeds?feed=${f.datafeed_id}`,
+          editRoute: `/datafeeds?feed=${f.datafeed_id}&edit=1`,
           offline: f.enable !== 1 || f.sys_connection !== 1,
         })),
       };
@@ -163,6 +164,7 @@ function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFo
         className={`nav-item nav-indent-${depth}${isActive ? " active" : ""}${showPendingRename ? " nav-item-editing" : ""}`}
         role={to ? "link" : "button"}
         onClick={showPendingRename ? undefined : onRowClick}
+        onDoubleClick={node.editRoute ? () => navigate(`/${panel}${node.editRoute}`) : undefined}
         onContextMenu={onRowContextMenu}
       >
         <span

@@ -116,6 +116,7 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 
 	rows, err = h.DB.DB.Query(ctx,
 		`SELECT symbol_id, symbol, path, description, digits, point, calc_mode, trade_mode, exec_mode,
+		        international, isin, category, exchange, cfi, industry, country, basis, source, page, color_background, tick_flags,
 		        fill_flags, expir_flags, sector, gtc_mode, tick_chart_mode,
 		        contract_size, tick_value, tick_size,
 		        spread, spread_diff, spread_diff_balance, stops_level, freeze_level,
@@ -144,7 +145,9 @@ func (h *Handler) LoadSettings(ctx context.Context) error {
 	for rows.Next() {
 		s := &model.Symbol{}
 		if err := rows.Scan(&s.SymbolId, &s.Symbol, &s.Path, &s.Description, &s.Digits, &s.Point,
-			&s.CalcMode, &s.TradeMode, &s.ExecMode, &s.FillFlags, &s.ExpirFlags,
+			&s.CalcMode, &s.TradeMode, &s.ExecMode,
+			&s.International, &s.ISIN, &s.Category, &s.Exchange, &s.CFI, &s.Industry, &s.Country, &s.Basis, &s.Source, &s.Page, &s.ColorBackground, &s.TickFlags,
+			&s.FillFlags, &s.ExpirFlags,
 			&s.Sector, &s.GtcMode, &s.TickChartMode,
 			&s.ContractSize, &s.TickValue, &s.TickSize,
 			&s.Spread, &s.SpreadDiff, &s.SpreadDiffBalance, &s.StopsLevel, &s.FreezeLevel,
