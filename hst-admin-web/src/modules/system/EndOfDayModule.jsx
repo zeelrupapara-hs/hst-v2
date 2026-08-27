@@ -10,8 +10,27 @@ import {
 } from "@/api/endpoints/endOfDay.js";
 import { useConfirm } from "@/hooks/useConfirm.jsx";
 
-// the browser already ships the IANA list; older engines get a single safe zone
-const ZONES = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : ["UTC"];
+// MT-style fixed offsets UTC-12..UTC+14 with a reference place; stored as IANA Etc/GMT zones (sign inverted), which the server accepts
+const NAMES = ["International Date Line West", "Midway Island, Samoa", "Hawaii", "Alaska", "Pacific Time (US & Canada)", "Mountain Time (US & Canada)", "Central Time (US & Canada)", "Eastern Time (US & Canada)", "Atlantic Time (Canada)", "Brasilia, Buenos Aires", "Mid-Atlantic", "Azores, Cape Verde", "London, Dublin, Lisbon", "Berlin, Paris, Madrid", "Athens, Cairo, Kyiv", "Moscow, Riyadh, Nairobi", "Dubai, Baku, Tbilisi", "Karachi, Tashkent", "Dhaka, Almaty", "Bangkok, Jakarta", "Beijing, Singapore, Perth", "Tokyo, Seoul", "Sydney, Brisbane", "Solomon Is., New Caledonia", "Auckland, Fiji", "Nuku'alofa", "Kiritimati"];
+const ZONES = NAMES.map((name, i) => {
+  const n = i - 12;
+  return {
+    value: n === 0 ? "UTC" : `Etc/GMT${n > 0 ? "-" : "+"}${Math.abs(n)}`,
+    label: `(UTC${n === 0 ? "" : n > 0 ? `+${n}` : n}) ${name}`,
+  };
+});
+
+// legacy city zones (saved before the offset list) snap to their current UTC offset
+function toOffsetZone(z) {
+  if (ZONES.some((o) => o.value === z)) return z;
+  try {
+    const part = new Intl.DateTimeFormat("en", { timeZone: z, timeZoneName: "longOffset" }).formatToParts(Date.now()).find((x) => x.type === "timeZoneName").value;
+    const n = Math.trunc(Number(part.replace("GMT", "") || 0));
+    return n === 0 ? "UTC" : `Etc/GMT${n > 0 ? "-" : "+"}${Math.abs(n)}`;
+  } catch {
+    return "UTC";
+  }
+}
 
 const DST_RULES = [
   ["none", "None"],
@@ -38,7 +57,7 @@ export function TimeModule() {
         setStatus(res.message || "unavailable");
         return;
       }
-      setZone(res.data.time_zone || "UTC");
+      setZone(toOffsetZone(res.data.time_zone || "UTC"));
       setDst(res.data.time_dst || "none");
       setNtp(res.data.time_ntp_server || "");
       skewRef.current = res.data.server_now / 1e6 - Date.now();
@@ -105,9 +124,8 @@ export function TimeModule() {
         <span className="time-clock">{clock}</span>
         <label>Time zone</label>
         <select value={zone} onChange={(e) => setZone(e.target.value)}>
-          {!ZONES.includes(zone) && <option value={zone}>{zone}</option>}
           {ZONES.map((z) => (
-            <option key={z} value={z}>{z}</option>
+            <option key={z.value} value={z.value}>{z.label}</option>
           ))}
         </select>
         <label>Daylight saving</label>
@@ -125,13 +143,8 @@ export function TimeModule() {
         />
         <label>End of day at</label>
         <span className="grp-suffixed">
-          <input
-            type="text"
-            value={at}
-            placeholder="00:00"
-            onChange={(e) => setAt(e.target.value)}
-          />
-          <span className="grp-suffix">server time, HH:MM</span>
+          <input type="time" value={at} onChange={(e) => setAt(e.target.value)} />
+          <span className="grp-suffix">server time</span>
         </span>
       </div>
       <div className="config-actions time-actions">
