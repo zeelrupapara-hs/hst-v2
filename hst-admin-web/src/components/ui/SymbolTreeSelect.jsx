@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { fetchSymbols } from "@/api/endpoints/symbols.js";
-import { buildScopeTree, scopeTreeOpenPaths, SymbolScopeTreePanel } from "@/lib/symbolScopeTree.jsx";
+import {
+  buildScopeTree,
+  filterScopeTree,
+  resolveScopeText,
+  scopeTreeOpenPaths,
+  stepMatch,
+  SymbolScopeTreePanel,
+} from "@/lib/symbolScopeTree.jsx";
 
 /**
  * Inline cell editor whose dropdown is the symbol scope tree (datafeed tables).
@@ -13,6 +20,10 @@ export function SymbolTreeSelect({ value, onCommit, onCancel, leafOnly = false }
   const [openList, setOpenList] = useState(false);
   const [open, setOpen] = useState(() => new Set());
   const [rect, setRect] = useState(null);
+  const [text, setText] = useState(value ?? "");
+  const typed = text !== (value ?? "");
+  const [active, setActive] = useState(0);
+  const matches = typed ? filterScopeTree(tree, text, leafOnly) : [];
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -36,7 +47,13 @@ export function SymbolTreeSelect({ value, onCommit, onCancel, leafOnly = false }
     setOpenList(true);
   }
 
-  const commit = (v) => onCommit(v.trim() || (leafOnly ? "" : "*"));
+  // typed text has to name something in the tree; a mask passes through as the reference allows
+  const commit = (v) => {
+    const next = resolveScopeText(tree, v, leafOnly);
+    if (next === null) return false;
+    onCommit(next);
+    return true;
+  };
 
   return (
     <span className="symtree-editor">
@@ -44,14 +61,25 @@ export function SymbolTreeSelect({ value, onCommit, onCancel, leafOnly = false }
         ref={inputRef}
         type="text"
         className="df-cell-input"
-        defaultValue={value ?? ""}
+        value={text}
+        onChange={(e) => {
+          setText(e.target.value);
+          setActive(0);
+          if (!openList) showList();
+        }}
         onBlur={(e) => {
-          if (!openList) commit(e.target.value);
+          if (!openList && !commit(e.target.value)) onCancel();
         }}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
+          const step = stepMatch(e.key, active, matches.length);
+          if (step !== null) {
             e.preventDefault();
-            commit(e.currentTarget.value);
+            setActive(step);
+            if (!openList) showList();
+          } else if (e.key === "Enter") {
+            e.preventDefault();
+            if (typed && matches[active]) onCommit(matches[active].value);
+            else commit(e.currentTarget.value);
           } else if (e.key === "Escape") {
             e.preventDefault();
             onCancel();
@@ -88,6 +116,8 @@ export function SymbolTreeSelect({ value, onCommit, onCancel, leafOnly = false }
                 toggle={toggle}
                 onPick={commit}
                 leafOnly={leafOnly}
+                filter={typed ? text : ""}
+                active={active}
               />
             </div>
           </>,

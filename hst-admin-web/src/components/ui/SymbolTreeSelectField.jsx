@@ -125,6 +125,7 @@ export function SymbolTreeSelectField({
   const { folders } = useSymbolFolders();
   const [open, setOpen] = useState(false);
   const [raw, setRaw] = useState(null);
+  const [active, setActive] = useState(0);
   const [pos, setPos] = useState(null);
   const [openPaths, setOpenPaths] = useState(() => new Set([""]));
   const rootRef = useRef(null);
@@ -202,8 +203,17 @@ export function SymbolTreeSelectField({
     };
   }, [open]);
 
+  // typed text has to name a symbol (or a header item); otherwise the field keeps its value
   function commit(text) {
-    onChange?.(String(text ?? ""));
+    const t = String(text ?? "").trim();
+    if (t === "") {
+      onChange?.("");
+    } else {
+      const rows = filterSymbolPickerRows(symbols, t, normalizedHeader) ?? [];
+      const exact = rows.find((r) => String(r.value).toLowerCase() === t.toLowerCase());
+      const hit = exact ?? rows[0];
+      if (hit) onChange?.(String(hit.value));
+    }
     setRaw(null);
   }
 
@@ -227,6 +237,14 @@ export function SymbolTreeSelectField({
     onChange?.(next == null || next === "" ? "" : String(next));
     setRaw(null);
     setOpen(false);
+  }
+
+  function showMenu() {
+    if (openRef.current || locked) return;
+    announceOpen();
+    const r = rootRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom, left: r.left, width: Math.max(r.width, 260) });
+    setOpen(true);
   }
 
   function togglePath(path) {
@@ -260,15 +278,26 @@ export function SymbolTreeSelectField({
               commit(e.target.value);
               setRaw(null);
             }}
-            onChange={(e) => setRaw(e.target.value)}
+            onChange={(e) => {
+              setRaw(e.target.value);
+              setActive(0);
+              showMenu();
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                commit(e.currentTarget.value);
+                if (filtering && filterRows?.[active]) pick(filterRows[active].value);
+                else commit(e.currentTarget.value);
+                // the blur that follows must not commit the raw text over the pick
+                suppressBlurRef.current = true;
                 e.currentTarget.blur();
                 setOpen(false);
               } else if (e.key === "Escape") {
                 setOpen(false);
+              } else if ((e.key === "ArrowDown" || e.key === "ArrowUp") && filtering && filterRows?.length) {
+                e.preventDefault();
+                const n = filterRows.length;
+                setActive((i) => (e.key === "ArrowDown" ? (i + 1) % n : (i - 1 + n) % n));
               } else if (e.key === "ArrowDown" && !open) {
                 e.preventDefault();
                 openMenu(e);
@@ -297,7 +326,7 @@ export function SymbolTreeSelectField({
             {filtering ? (
               (filterRows?.length ?? 0) > 0 ? (
                 filterRows.map((row) => (
-                  <FilterRow key={row.key} row={row} value={value} onSelect={pick} />
+                  <FilterRow key={row.key} row={row} value={filterRows[active]?.value ?? value} onSelect={pick} />
                 ))
               ) : (
                 <li className="sym-folder-select-row sym-folder-select-depth-0 sym-symbol-select-empty">

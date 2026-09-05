@@ -191,7 +191,8 @@ export function filterSymbolPickerRows(symbols, needle, headerItems = []) {
   for (const row of symbols || []) {
     const sym = row.symbol || "";
     const path = row.path || sym;
-    if (!sym.toLowerCase().includes(q) && !path.toLowerCase().includes(q)) continue;
+    const desc = (row.description || "").toLowerCase();
+    if (!sym.toLowerCase().includes(q) && !path.toLowerCase().includes(q) && !desc.includes(q)) continue;
     const key = `sym:${path}`;
     if (seen.has(key)) continue;
     seen.add(key);

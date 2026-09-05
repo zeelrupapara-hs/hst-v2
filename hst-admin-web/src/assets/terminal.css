@@ -354,6 +354,7 @@ html, body {
 .nav-item .label { flex: 1; overflow: hidden; text-overflow: ellipsis; }
 
 .nav-item-editing { background: #fff; }
+.nav-item-dragover { outline: 1px dashed #316ac5; background: #e8f0fb; }
 
 .nav-folder-input {
   flex: 1;
@@ -471,6 +472,8 @@ html, body {
   background: var(--table-head);
   font-weight: 600;
 }
+.journal-table tr.selected td { background: #cce4ff; }
+.journal-table tr.journal-day td { background: var(--table-head); color: #555; font-weight: 600; }
 
 /* ── Status bar ── */
 .status-bar {
@@ -3038,6 +3041,7 @@ html, body {
   background: var(--menu-bg);
 }
 .toolbox-search-bar input[type="text"] { flex: 1; min-width: 120px; padding: 2px 5px; border: 1px solid var(--chrome-border); }
+.toolbox-search-bar select { border: 1px solid var(--chrome-border); font-size: 11px; height: 22px; }
 .toolbox-search-bar input[type="datetime-local"] { border: 1px solid var(--chrome-border); padding: 1px 3px; font-size: 11px; }
 
 /* account overview — grids, state row, P/L colors */
@@ -4967,8 +4971,10 @@ label.sym-check::after { content: none; }
   font-size: 11px;
   cursor: pointer;
 }
-.symtree-item:hover { background: #316ac5; color: #fff; }
-.symtree-item:hover .symtree-desc { color: #dfe8f6; }
+.symtree-item:hover,
+.symtree-item.symtree-active { background: #316ac5; color: #fff; }
+.symtree-item:hover .symtree-desc,
+.symtree-item.symtree-active .symtree-desc { color: #dfe8f6; }
 .symtree-desc { color: #808080; }
 .symtree-empty { padding: 4px 10px; font-size: 11px; color: #808080; }
 

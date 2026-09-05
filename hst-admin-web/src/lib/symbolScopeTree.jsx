@@ -29,6 +29,71 @@ export function scopeTreeOpenPaths(value) {
   return open;
 }
 
+/** Every folder and symbol whose name, path or description contains the text, flat, folders first. */
+export function filterScopeTree(tree, needle, leafOnly = false) {
+  const q = String(needle ?? "").trim().toLowerCase();
+  if (!tree || !q) return [];
+  const out = [];
+  const walk = (node, path) => {
+    for (const child of [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name))) {
+      const key = [...path, child.name].join("\\");
+      if (!leafOnly && key.toLowerCase().includes(q)) out.push({ kind: "folder", value: `${key}\\*`, label: key });
+      walk(child, [...path, child.name]);
+    }
+    for (const s of node.symbols.slice().sort((a, b) => a.symbol.localeCompare(b.symbol))) {
+      const full = [...path, s.symbol].join("\\");
+      if (full.toLowerCase().includes(q) || s.description.toLowerCase().includes(q)) {
+        out.push({ kind: "symbol", value: leafOnly ? s.symbol : full, label: full, description: s.description });
+      }
+    }
+  };
+  walk(tree, []);
+  return out;
+}
+
+/** The arrow keys walk the match list; returns the new index, or null when the key is not an arrow. */
+export function stepMatch(key, index, count) {
+  if (key !== "ArrowDown" && key !== "ArrowUp") return null;
+  if (!count) return 0;
+  return key === "ArrowDown" ? (index + 1) % count : (index - 1 + count) % count;
+}
+
+/**
+ * What typed text commits to: a mask stays as typed, anything else must name a folder or symbol in
+ * the tree (exact first, then the first match), and null says there is nothing to commit.
+ */
+export function resolveScopeText(tree, text, leafOnly = false) {
+  const t = String(text ?? "").trim();
+  if (t === "") return leafOnly ? "" : "*";
+  if (t.includes("*") || t.includes("!") || t.includes(",")) return leafOnly ? null : t;
+  const matches = filterScopeTree(tree, t, leafOnly);
+  const exact = matches.find((m) => m.label.toLowerCase() === t.toLowerCase() || m.value.toLowerCase() === t.toLowerCase()
+    || (m.kind === "symbol" && m.label.split("\\").pop().toLowerCase() === t.toLowerCase()));
+  return (exact ?? matches[0])?.value ?? null;
+}
+
+function ScopeMatches({ matches, onPick, active }) {
+  if (!matches.length) return <div className="symtree-row symtree-empty">no symbol matches</div>;
+  return matches.map((m, i) => (
+    <div key={`${m.kind}:${m.label}`} className="symtree-row" style={{ paddingLeft: 8 }}>
+      <button
+        type="button"
+        className={`symtree-item${m.kind === "folder" ? " symtree-folder" : ""}${i === active ? " symtree-active" : ""}`}
+        onMouseDown={(e) => {
+          e.preventDefault();
+          onPick(m.value);
+        }}
+      >
+        <span className="df-row-icon" aria-hidden="true">
+          $
+        </span>
+        {m.kind === "folder" ? `${m.label}\\*` : m.label}
+        {m.description && <span className="symtree-desc">, {m.description}</span>}
+      </button>
+    </div>
+  ));
+}
+
 function ScopeTreeBranch({ node, path, depth, open, toggle, onPick, leafOnly }) {
   const key = path.join("\\");
   const expanded = open.has(key);
@@ -104,9 +169,12 @@ function ScopeTreeBranch({ node, path, depth, open, toggle, onPick, leafOnly }) 
   );
 }
 
-export function SymbolScopeTreePanel({ tree, open, toggle, onPick, leafOnly = false }) {
+export function SymbolScopeTreePanel({ tree, open, toggle, onPick, leafOnly = false, filter = "", active = 0 }) {
   if (!tree) {
     return <div className="symtree-row symtree-empty">loading…</div>;
+  }
+  if (String(filter).trim()) {
+    return <ScopeMatches matches={filterScopeTree(tree, filter, leafOnly)} onPick={onPick} active={active} />;
   }
   return (
     <ScopeTreeBranch

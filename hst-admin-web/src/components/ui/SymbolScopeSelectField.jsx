@@ -4,7 +4,10 @@ import { fetchSymbols } from "@/api/endpoints/symbols.js";
 import { useExclusiveDropdown } from "@/hooks/useExclusiveDropdown.js";
 import {
   buildScopeTree,
+  filterScopeTree,
+  resolveScopeText,
   scopeTreeOpenPaths,
+  stepMatch,
   SymbolScopeTreePanel,
 } from "@/lib/symbolScopeTree.jsx";
 
@@ -24,6 +27,8 @@ export function SymbolScopeSelectField({
   const [open, setOpen] = useState(false);
   const [openPaths, setOpenPaths] = useState(() => new Set());
   const [raw, setRaw] = useState(null);
+  const [active, setActive] = useState(0);
+  const matches = raw ? filterScopeTree(tree, raw, leafOnly) : [];
   const [pos, setPos] = useState(null);
   const rootRef = useRef(null);
   const btnRef = useRef(null);
@@ -61,10 +66,19 @@ export function SymbolScopeSelectField({
 
   const display = raw ?? (value == null || value === "" ? (leafOnly ? "" : "*") : String(value));
 
+  // typed text has to name something in the tree; a mask passes through as the reference allows
   function commit(text) {
-    const next = String(text ?? "").trim();
-    onChange?.(next === "" ? (leafOnly ? "" : "*") : next);
+    const next = resolveScopeText(tree, text, leafOnly);
+    if (next !== null) onChange?.(next);
     setRaw(null);
+  }
+
+  function showMenu() {
+    if (openRef.current) return;
+    announceOpen();
+    const r = rootRef.current.getBoundingClientRect();
+    setPos({ top: r.bottom, left: r.left, width: Math.max(r.width, 260) });
+    setOpen(true);
   }
 
   function pick(next) {
@@ -120,11 +134,20 @@ export function SymbolScopeSelectField({
               commit(e.target.value);
               setRaw(null);
             }}
-            onChange={(e) => setRaw(e.target.value)}
+            onChange={(e) => {
+              setRaw(e.target.value);
+              setActive(0);
+              showMenu();
+            }}
             onKeyDown={(e) => {
-              if (e.key === "Enter") {
+              const step = raw ? stepMatch(e.key, active, matches.length) : null;
+              if (step !== null) {
                 e.preventDefault();
-                commit(e.currentTarget.value);
+                setActive(step);
+              } else if (e.key === "Enter") {
+                e.preventDefault();
+                if (raw && matches[active]) pick(matches[active].value);
+                else commit(e.currentTarget.value);
                 e.currentTarget.blur();
                 setOpen(false);
               } else if (e.key === "Escape") {
@@ -160,6 +183,8 @@ export function SymbolScopeSelectField({
               toggle={togglePath}
               onPick={pick}
               leafOnly={leafOnly}
+              filter={raw ?? ""}
+              active={active}
             />
           </div>,
           document.body,
