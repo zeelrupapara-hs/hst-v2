@@ -20,9 +20,11 @@ const (
 	subjectQuoteStatus  = "hstquote.status.>"
 	subjectNewsStatus   = "hstnews.status.>"
 	subjectQuoteJournal = "hstquote.journal.>"
+	subjectCoreJournal  = "hstcore.journal.>"
 	groupQuoteStatus    = "hstserver-quote-status"
 	groupNewsStatus     = "hstserver-news-status"
 	groupQuoteJournal   = "hstserver-quote-journal"
+	groupCoreJournal    = "hstserver-core-journal"
 
 	wsThrottle   = time.Second
 	flushPeriod  = 5 * time.Second
@@ -49,6 +51,15 @@ type JournalEvent struct {
 	Code       int32  `json:"code"`
 	Message    string `json:"message"`
 	Time       int64  `json:"time"`
+}
+
+// coreJournalEvent is one trade line hst-core logged, kept under the trader's login so a symbol
+// or account request finds what the engine did.
+type coreJournalEvent struct {
+	Login   int64  `json:"login"`
+	Code    int32  `json:"code"`
+	Message string `json:"message"`
+	Time    int64  `json:"time"`
 }
 
 // Notifier publishes admin websocket events (wired from v1.HttpServer.NotifyWS).
@@ -119,8 +130,15 @@ func (s *Subscriber) Start(nc *nats.Nats) error {
 		_ = newsSub.Unsubscribe()
 		return err
 	}
+	coreSub, err := nc.NC.QueueSubscribe(subjectCoreJournal, groupCoreJournal, s.onCoreJournal)
+	if err != nil {
+		_ = quoteSub.Unsubscribe()
+		_ = newsSub.Unsubscribe()
+		_ = journalSub.Unsubscribe()
+		return err
+	}
 	s.mu.Lock()
-	s.subs = []*natscore.Subscription{quoteSub, newsSub, journalSub}
+	s.subs = []*natscore.Subscription{quoteSub, newsSub, journalSub, coreSub}
 	s.mu.Unlock()
 	go s.flushLoop()
 	s.log.Log(logger.TypeNet, logger.CodeOK, "worker status subscriber started")
@@ -204,6 +222,29 @@ func (s *Subscriber) onQuoteJournal(msg *natscore.Msg) {
 	if err != nil {
 		s.log.Log(logger.TypeNet, logger.CodeWarn, "feed journal write failed",
 			"datafeed_id", evt.DatafeedID, "error", err.Error())
+	}
+}
+
+// onCoreJournal keeps one engine trade line; the column holds 512 characters, the rest is in the pod log.
+func (s *Subscriber) onCoreJournal(msg *natscore.Msg) {
+	var evt coreJournalEvent
+	if err := json.Unmarshal(msg.Data, &evt); err != nil || evt.Message == "" {
+		return
+	}
+	at := evt.Time
+	if at == 0 {
+		at = time.Now().UTC().UnixNano()
+	}
+	if len(evt.Message) > 512 {
+		evt.Message = evt.Message[:512]
+	}
+	_, err := s.db.DB.Exec(context.Background(),
+		`INSERT INTO hst.journal (created_at, type, code, login, ip, channel, os, message, detail)
+		 VALUES ($1, $2, $3, $4, NULL, 'system', '', $5, '{}'::jsonb)`,
+		at, int32(model.JournalType_trade), evt.Code, evt.Login, evt.Message)
+	if err != nil {
+		s.log.Log(logger.TypeNet, logger.CodeWarn, "trade journal write failed",
+			"login", evt.Login, "error", err.Error())
 	}
 }
 

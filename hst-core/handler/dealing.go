@@ -172,7 +172,7 @@ func (h *Handler) SendDealing(req *model.TradeRequest, o *model.Order,
 	res.OrderId = o.OrderId
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "request queued for a dealer",
-		"login", req.Login, "request", req.RequestId, "dealers", len(dealers))
+		"login", req.Login, "request", req.RequestId, "symbol", o.Symbol, "dealers", len(dealers))
 
 	return res
 }
@@ -334,7 +334,7 @@ func (h *Handler) ConfirmRequest(ctx context.Context, ev *model.DealingEvent) *m
 	h.done(p, ev.Dealer)
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "request confirmed by a dealer",
-		"login", res.Login, "request", res.RequestId, "dealer", ev.Dealer, "price", price)
+		"login", res.Login, "request", res.RequestId, "symbol", p.Request.Symbol, "dealer", ev.Dealer, "price", price)
 
 	return res
 }
@@ -419,13 +419,13 @@ func (h *Handler) AcceptRequote(ctx context.Context, ev *model.DealingEvent) *mo
 		h.offer(p, model.DealingEvent_offer, 0)
 
 		h.Log.Log(logger.TypeTrade, logger.CodeOK, "requote accepted, back to the dealer",
-			"login", res.Login, "request", res.RequestId, "price", p.Requoted)
+			"login", res.Login, "request", res.RequestId, "symbol", p.Request.Symbol, "price", p.Requoted)
 
 		return h.refuse(res, model.RetTradeDealerQueued, "")
 	}
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "requote accepted, filled without the dealer",
-		"login", res.Login, "request", res.RequestId, "price", p.Requoted)
+		"login", res.Login, "request", res.RequestId, "symbol", p.Request.Symbol, "price", p.Requoted)
 
 	return h.ConfirmRequest(ctx, &model.DealingEvent{
 		EventType: model.DealingEvent_confirm,
@@ -536,7 +536,7 @@ func (h *Handler) ReturnRequest(ev *model.DealingEvent) *model.TradeResult {
 		h.offer(p, model.DealingEvent_offer, 0)
 
 		h.Log.Log(logger.TypeTrade, logger.CodeOK, "request passed to the next dealer",
-			"login", p.Request.Login, "request", ev.RequestId,
+			"login", p.Request.Login, "request", ev.RequestId, "symbol", p.Request.Symbol,
 			"from", ev.Dealer, "to", p.holder())
 
 		res.RetCode = int32(model.RetTradeDealerQueued)

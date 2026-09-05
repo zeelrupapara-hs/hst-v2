@@ -13,6 +13,7 @@ import (
 	"hstcore/handler"
 	"hstcore/internal/health"
 	"hstcore/pkg/db"
+	"hstcore/pkg/journal"
 	"hstcore/pkg/logger"
 	"hstcore/pkg/nats"
 	"hstcore/pkg/redis"
@@ -84,6 +85,8 @@ func Run() int {
 	}()
 
 	log.Logger.Info("nats connected")
+	// every trade line also reaches the admin journal, which is where the desk reads it
+	log.SetSink(journal.Sink(natsClient))
 
 	// Redis
 	redisClient, err := redis.NewRedisClient(cfg, log)

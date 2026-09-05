@@ -1469,6 +1469,7 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 	changes := changedSymbolFields(before, &body, sessions)
 
 	// the stored path ends with the symbol, so renaming or moving rebuilds it
+	var movedFrom, movedTo string
 	if body.Symbol != nil || body.Path != nil {
 		symbol := jsonString(before["symbol"])
 		if body.Symbol != nil {
@@ -1481,6 +1482,9 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 		composed := symbolPath(folder, symbol)
 		if len(composed) > 255 {
 			return s.App.HttpResponseBadRequest(c, fmt.Errorf("path and symbol are longer than 255 together"))
+		}
+		if before, after := symbolFolder(jsonString(before["path"])), symbolFolder(composed); before != after {
+			movedFrom, movedTo = before, after
 		}
 		body.Path = &composed
 	}
@@ -1769,7 +1773,11 @@ func (s *Server) UpdateSymbol(c *fiber.Ctx) error {
 	s.NotifyDatafeedsForSymbolID(c.UserContext(), int64(id))
 	s.NotifyWS(model.SubjectSymbol, model.EventSymbolUpdated, detail)
 	s.NotifySystem(model.SubjectSystemSymbolUpdated, detail)
-	s.JournalEntry(c, model.JournalType_symbols, logger.CodeOK, journal.SymbolUpdatedMsg(detail.Symbol.Symbol), detail)
+	message := journal.SymbolUpdatedMsg(detail.Symbol.Symbol, changes)
+	if movedTo != "" {
+		message = journal.SymbolMovedMsg(detail.Symbol.Symbol, movedFrom, movedTo)
+	}
+	s.JournalEntry(c, model.JournalType_symbols, logger.CodeOK, message, detail)
 
 	return s.App.HttpResponseOK(c, detail)
 }

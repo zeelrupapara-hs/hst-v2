@@ -5,6 +5,8 @@ import (
 
 	"hstserver/model"
 	errs "hstserver/pkg/errors"
+	"hstserver/pkg/journal"
+	"hstserver/pkg/logger"
 	"hstserver/utils"
 
 	"github.com/gofiber/fiber/v2"
@@ -33,6 +35,7 @@ const journalColumns = `journal_id, created_at, type, code, login,
 //	@Param		mode	query		string	false	"which entries to return"	Enums(full, without_logins, errors_only)
 //	@Param		search	query		string	false	"matches message, case sensitive"
 //	@Param		channel	query		string	false	"a channel's own trail, e.g. datafeed:3; the login filter drops"
+//	@Param		scope	query		string	false	"own (default) or server: every login and channel, the way the trade server journal reads"	Enums(own, server)
 //	@Param		sort_by	query		string	false	"journal_id, created_at, type, code"	Enums(journal_id, created_at, type, code)
 //	@Param		order	query		string	false	"asc or desc"							Enums(asc, desc)
 //	@Success	200		{object}	Response{data=[]model.Journal}
@@ -63,21 +66,28 @@ func (s *Server) MyJournal(c *fiber.Ctx) error {
 			fmt.Errorf("mode %q is not full, without_logins or errors_only", c.Query("mode")))
 	}
 
+	scope := c.Query("scope", "own")
+	if scope != "own" && scope != "server" {
+		return s.App.HttpResponseBadQueryParams(c, fmt.Errorf("scope %q is not own or server", scope))
+	}
+	from, to := c.QueryInt("from", 0), c.QueryInt("to", 0)
+
 	// sort_by is validated against an allowlist in QueryFilter; a bind
 	// parameter cannot carry an ORDER BY clause
 	rows, err := s.DB.DB.Query(c.UserContext(),
 		`SELECT `+journalColumns+`
 		   FROM hst.journal
-		  WHERE ($1 = 0 OR created_at >= $1)
-		    AND ($2 = 0 OR created_at <= $2)
+		  WHERE ($1::bigint = 0 OR created_at >= $1::bigint)
+		    AND ($2::bigint = 0 OR created_at <= $2::bigint)
 		    AND ($3 = 0 OR type = $3)
-		    AND (($9 = '' AND login = $4) OR ($9 <> '' AND channel = $9))
+		    AND ($10 OR ($9 = '' AND login = $4) OR ($9 <> '' AND channel = $9))
+		    AND (NOT $10 OR $9 = '' OR channel = $9)
 		    AND ($5 = '' OR message LIKE '%'||$5||'%')
 		    AND ($6 = 0 OR ($6 = 1 AND code <> 4) OR ($6 = 2 AND code IN (2, 3)))
 		  ORDER BY `+q.SortBy+`
 		  LIMIT $7 OFFSET $8`,
-		c.QueryInt("from", 0), c.QueryInt("to", 0), typ, snap.Login,
-		q.Search, mode, q.Limit, q.Offset, c.Query("channel"))
+		int64(from), int64(to), typ, snap.Login,
+		q.Search, mode, q.Limit, q.Offset, c.Query("channel"), scope == "server")
 	if err != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, err)
 	}
@@ -94,6 +104,12 @@ func (s *Server) MyJournal(c *fiber.Ctx) error {
 	}
 	if rows.Err() != nil {
 		return s.App.HttpResponseInternalServerErrorRequest(c, rows.Err())
+	}
+
+	// only the first page of a server request is on record, a paging client would flood the trail
+	if scope == "server" && q.Offset == 0 {
+		s.JournalEntry(c, model.JournalType_system, logger.CodeOK,
+			journal.JournalRequestedMsg(len(out), q.Search, int64(from), int64(to)), nil)
 	}
 
 	return s.App.HttpResponseOK(c, out)

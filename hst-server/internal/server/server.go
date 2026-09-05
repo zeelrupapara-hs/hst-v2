@@ -30,6 +30,8 @@ type Server struct {
 	DB *db.PostgresDB
 	// Nats
 	Nats *nats.Nats
+	// stopPurge ends the journal retention loop
+	stopPurge func()
 	// Redis
 	Redis *redis.Redis
 	// OAuth2.0
@@ -94,6 +96,7 @@ func (s *Server) Run() error {
 	}
 
 	s.Web.Mailer.Start()
+	s.stopPurge = s.Web.Journal.Purge(s.Cfg.Setting.JournalRetention)
 
 	// register all routes
 	s.RegisterRoutes()
@@ -118,6 +121,9 @@ func (s *Server) Shutdown() error {
 		s.WorkerStatus.Stop()
 	}
 	s.Web.Mailer.Stop()
+	if s.stopPurge != nil {
+		s.stopPurge()
+	}
 	// websockets never end on their own, so fiber would otherwise wait out the whole timeout
 	s.Web.Hub.Shutdown()
 	s.Web.History.Close()

@@ -292,7 +292,7 @@ func (h *Handler) UpdateOrder(ctx context.Context, req *model.TradeRequest) *mod
 	res.Rule = decision.Rule.Name
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "order modified",
-		"login", saved.Login, "order", saved.OrderId, "price", saved.PriceOrder)
+		"login", saved.Login, "order", saved.OrderId, "symbol", saved.Symbol, "price", saved.PriceOrder)
 
 	return res
 }
@@ -395,7 +395,7 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 			}
 			e.Unlock()
 			h.Log.Log(logger.TypeTrade, logger.CodeWarn, "a stop limit trigger was not admitted by any rule",
-				"login", o.Login, "order", o.OrderId)
+				"login", o.Login, "order", o.OrderId, "symbol", o.Symbol)
 			return nil
 		}
 		h.cookStopLimit(ctx, e, o, r)
@@ -417,7 +417,7 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 
 		e.Unlock()
 		h.Log.Log(logger.TypeTrade, logger.CodeWarn, "an activation was not admitted by any rule",
-			"login", o.Login, "order", o.OrderId)
+			"login", o.Login, "order", o.OrderId, "symbol", o.Symbol)
 
 		return nil
 	}
@@ -465,7 +465,7 @@ func (h *Handler) CookOrder(ctx context.Context, e *book.Entry, hit pendingHit, 
 	}
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "pending order filled",
-		"login", o.Login, "order", o.OrderId, "type", o.Type,
+		"login", o.Login, "order", o.OrderId, "symbol", o.Symbol, "type", o.Type,
 		"price", price)
 
 	return nil
@@ -530,7 +530,7 @@ func (h *Handler) placeOrder(ctx context.Context, res *model.TradeResult, e *boo
 	res.Rule = rule
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "order placed",
-		"login", o.Login, "order", o.OrderId, "type", o.Kind(), "price", o.PriceOrder)
+		"login", o.Login, "order", o.OrderId, "symbol", o.Symbol, "type", o.Kind(), "price", o.PriceOrder)
 
 	return res
 }

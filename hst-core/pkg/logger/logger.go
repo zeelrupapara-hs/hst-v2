@@ -34,10 +34,17 @@ const (
 	TypeNotify Type = 8 // notifications
 )
 
+// Sink sees every entry after it is written, so another store can keep a copy.
+type Sink func(t Type, c Code, msg string, kv []any)
+
 type Logger struct {
 	Logger *zap.SugaredLogger
 	writer *DailyWriter
+	sink   Sink
 }
+
+// SetSink attaches a copy of every entry to a second store, nil detaches it.
+func (l *Logger) SetSink(s Sink) { l.sink = s }
 
 // NewLogger returns a zap logger with two sinks: stdout and a daily file.
 func NewLogger(cfg *config.Config) (*Logger, error) {
@@ -87,6 +94,9 @@ func (l *Logger) Log(t Type, c Code, msg string, kv ...any) {
 		l.Logger.Warnw(msg, fields...)
 	default:
 		l.Logger.Infow(msg, fields...)
+	}
+	if l.sink != nil {
+		l.sink(t, c, msg, kv)
 	}
 }
 

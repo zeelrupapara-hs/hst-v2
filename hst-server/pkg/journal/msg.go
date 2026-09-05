@@ -1,6 +1,9 @@
 package journal
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Journal messages. The acting login lives in the login column, so the text only names the record.
 var (
@@ -77,7 +80,15 @@ var (
 	}
 
 	SymbolCreatedMsg = func(symbol string) string { return fmt.Sprintf("symbol '%s' was created", symbol) }
-	SymbolUpdatedMsg = func(symbol string) string { return fmt.Sprintf("symbol '%s' was updated", symbol) }
+	SymbolUpdatedMsg = func(symbol, changes string) string {
+		if changes == "" {
+			return fmt.Sprintf("symbol '%s' was updated", symbol)
+		}
+		return fmt.Sprintf("symbol '%s' was updated: %s", symbol, changes)
+	}
+	SymbolMovedMsg = func(symbol, from, to string) string {
+		return fmt.Sprintf("symbol '%s' was moved from '%s' to '%s'", symbol, from, to)
+	}
 	SymbolDeletedMsg = func(symbol string) string { return fmt.Sprintf("symbol '%s' was deleted", symbol) }
 
 	MailServerCreatedMsg = func(id int) string { return fmt.Sprintf("mail server #%d was created", id) }
@@ -110,6 +121,25 @@ var (
 		return fmt.Sprintf("datafeed '%s' lost the connection to its source", name)
 	}
 )
+
+// JournalRequestedMsg is the trail of the request itself, as the administrator terminal keeps it.
+func JournalRequestedMsg(n int, query string, from, to int64) string {
+	period := "today"
+	if from > 0 || to > 0 {
+		period = fmt.Sprintf("%s - %s", journalDay(from), journalDay(to))
+	}
+	if query == "" {
+		return fmt.Sprintf("%d journal records for %s have been requested", n, period)
+	}
+	return fmt.Sprintf("%d journal records for '%s' %s have been requested", n, query, period)
+}
+
+func journalDay(ns int64) string {
+	if ns == 0 {
+		return "now"
+	}
+	return time.Unix(0, ns).UTC().Format("2006.01.02 15:04")
+}
 
 var BalanceMsg = func(login int64, action string, amount float64) string {
 	return fmt.Sprintf("%s of %.2f was applied to account #%d", action, amount, login)

@@ -182,7 +182,7 @@ func (h *Handler) stopOutPendings(ctx context.Context, e *book.Entry, g *model.G
 		if decision.Rule != nil && !decision.Executes() &&
 			decision.Action != model.RouteAction_cancel_order {
 			h.Log.Log(logger.TypeTrade, logger.CodeWarn, "a stop out deletion was refused by a rule",
-				"login", c.order.Login, "order", c.order.OrderId, "rule", decision.Rule.Name)
+				"login", c.order.Login, "order", c.order.OrderId, "symbol", c.order.Symbol, "rule", decision.Rule.Name)
 			continue
 		}
 

@@ -97,6 +97,7 @@ const (
 
 	INFLUX_CANDLE_BUCKET       = "INFLUX_CANDLE_BUCKET"
 	INFLUX_TICK_RETENTION_DAYS = "INFLUX_TICK_RETENTION_DAYS"
+	JOURNAL_RETENTION_DAYS     = "JOURNAL_RETENTION_DAYS"
 )
 
 type Config struct {
@@ -197,6 +198,8 @@ type Setting struct {
 	Version   string
 	LocalPath string
 	BaseUrl   string
+	// JournalRetention is how long a journal row is kept, zero keeps every row
+	JournalRetention time.Duration
 }
 
 // Logger config
@@ -304,6 +307,7 @@ func NewConfig() (*Config, error) {
 
 	// Setting
 	c.Setting.BaseUrl = getEnv(BASE_URL, "http://localhost:8080")
+	c.Setting.JournalRetention = time.Duration(getEnvAsInt(JOURNAL_RETENTION_DAYS, 0)) * 24 * time.Hour
 
 	// Logger
 	c.Logger.LogDir = getEnv(LOG_DIR, "logs")

@@ -66,6 +66,33 @@ func (j *Journal) Entry(ctx context.Context, entry *model.Journal) error {
 	return tx.Commit(ctx)
 }
 
+// Purge drops rows older than keep once a day until stop is called; a zero keep purges nothing.
+func (j *Journal) Purge(keep time.Duration) (stop func()) {
+	done := make(chan struct{})
+	if keep <= 0 {
+		return func() {}
+	}
+	go func() {
+		t := time.NewTicker(24 * time.Hour)
+		defer t.Stop()
+		for {
+			tag, err := j.db.DB.Exec(context.Background(),
+				`DELETE FROM hst.journal WHERE created_at < $1`, time.Now().Add(-keep).UnixNano())
+			if err != nil {
+				j.log.Log(logger.TypeSys, logger.CodeWarn, "journal purge failed", "error", err.Error())
+			} else if tag.RowsAffected() > 0 {
+				j.log.Log(logger.TypeSys, logger.CodeOK, "journal purged", "rows", tag.RowsAffected(), "keep", keep.String())
+			}
+			select {
+			case <-done:
+				return
+			case <-t.C:
+			}
+		}
+	}()
+	return func() { close(done) }
+}
+
 // wireEntry is a journal line as its owner sees it, matching what the API returns so a line reads
 // the same whether it arrived by request or was announced.
 type wireEntry struct {

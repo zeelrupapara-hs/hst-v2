@@ -91,7 +91,7 @@ func (h *Handler) cookStopLimit(ctx context.Context, e *book.Entry, o *model.Ord
 	h.PublishOrder(entryGroup(e), model.EventOrderCreate, &saved)
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "stop limit became a limit",
-		"login", saved.Login, "order", saved.OrderId, "price", saved.PriceOrder)
+		"login", saved.Login, "order", saved.OrderId, "symbol", saved.Symbol, "price", saved.PriceOrder)
 }
 
 // removeOrder takes a working order off. The account's lock is held on entry.
@@ -127,7 +127,7 @@ func (h *Handler) removeOrder(ctx context.Context, e *book.Entry, o *model.Order
 	h.CalculateAccountMarginsAndProfits(ctx, e)
 
 	h.Log.Log(logger.TypeTrade, logger.CodeOK, "order canceled",
-		"login", saved.Login, "order", saved.OrderId, "comment", comment)
+		"login", saved.Login, "order", saved.OrderId, "symbol", saved.Symbol, "comment", comment)
 }
 
 // ExpireOrders takes off the orders whose time has run out; at the end of the day that includes every day order.
@@ -161,7 +161,7 @@ func (h *Handler) ExpireOrders(ctx context.Context, e *book.Entry, symbol string
 		decision := h.Route(&Request{Kind: model.RouteFlags_expiration, Order: o, Entry: e, Rules: r, Tick: tick})
 		if decision.Rule != nil && decision.Action == model.RouteAction_reject {
 			h.Log.Log(logger.TypeTrade, logger.CodeWarn, "an expiry was held by a rule",
-				"login", o.Login, "order", o.OrderId, "rule", decision.Rule.Name)
+				"login", o.Login, "order", o.OrderId, "symbol", o.Symbol, "rule", decision.Rule.Name)
 			continue
 		}
 
