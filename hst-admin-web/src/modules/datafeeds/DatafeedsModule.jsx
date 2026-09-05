@@ -45,6 +45,7 @@ export function DatafeedsModule() {
   const [params, setParams] = useSearchParams();
   const highlight = Number(params.get("feed")) || null;
   const editFromNav = params.get("edit") === "1";
+  const addFromNav = params.get("add") === "1";
   const [selected, setSelected] = useState(null);
   const [dialog, setDialog] = useState(null);
   const [menu, setMenu] = useState(null);
@@ -291,6 +292,9 @@ export function DatafeedsModule() {
       {loading && !datafeeds.length && <div className="df-empty">Loading…</div>}
       {dialog && (
         <DatafeedDialog feedId={dialog.id} onClose={() => setDialog(null)} onSaved={saved} />
+      )}
+      {addFromNav && canEdit && (
+        <DatafeedDialog feedId="new" onClose={() => setParams({})} onSaved={saved} />
       )}
       {confirmElement}
     </div>

@@ -235,6 +235,12 @@ export function SymbolsModule() {
                 key={row.symbol_id}
                 className={[selectedRow ? "selected" : "", bg ? "sym-row-bg" : ""].filter(Boolean).join(" ") || undefined}
                 style={bg && !selectedRow ? { "--sym-row-bg": bg } : undefined}
+                draggable={canEdit}
+                onDragStart={(e) => {
+                  const ids = selectedRow ? selectedRows.map((r) => r.symbol_id) : [row.symbol_id];
+                  e.dataTransfer.setData("application/x-hst-symbols", JSON.stringify(ids));
+                  e.dataTransfer.effectAllowed = "move";
+                }}
                 onClick={(e) => pick(i, e)}
                 onContextMenu={(e) => !selectedRow && pick(i, e)}
                 onDoubleClick={() => canEdit && setDialog({ id: row.symbol_id })}

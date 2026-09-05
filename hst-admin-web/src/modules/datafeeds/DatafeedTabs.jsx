@@ -11,13 +11,14 @@ const MODE_OPTIONS = [
 
 const RECONNECT_OPTIONS = [1, 2, 3, 5, 10, 15, 30, 60];
 
-function Field({ label, value, onChange, type = "text", width, suffix }) {
+function Field({ label, value, onChange, type = "text", width, suffix, placeholder }) {
   return (
     <>
       <label>{label}</label>
       <input
         type={type}
         value={value ?? ""}
+        placeholder={placeholder}
         className={width ? `df-input-${width}` : ""}
         onChange={(e) => onChange(e.target.value)}
       />
@@ -69,6 +70,7 @@ export function DatafeedCommonTab({ d, set, modules }) {
           label="Password"
           type="password"
           value={d.feed_password ?? ""}
+          placeholder={"•".repeat(d.feed_password_len ?? 0)}
           onChange={(v) => set("feed_password", v)}
         />
         {!compact && (
@@ -94,6 +96,7 @@ export function DatafeedCommonTab({ d, set, modules }) {
                   label="Gateway password"
                   type="password"
                   value={d.gateway_password ?? ""}
+                  placeholder={"•".repeat(d.gateway_password_len ?? 0)}
                   onChange={(v) => set("gateway_password", v)}
                 />
               </>

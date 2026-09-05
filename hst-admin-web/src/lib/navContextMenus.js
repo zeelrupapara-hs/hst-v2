@@ -52,6 +52,20 @@ export function symbolsNavMenuItems({
 }
 
 /** Folder path carried by a symbols navigator node ("" = root under Symbols). */
+/** Data feeds: the node itself offers Add, a feed also opens its own settings. */
+export function datafeedsNavMenuItems({ canEdit = true, isFeed = false, onAdd, onEdit, onRefresh } = {}) {
+  return [
+    { label: "Add", icon: "add", shortcut: "Ctrl+N", disabled: !canEdit, onClick: onAdd },
+    ...(isFeed ? [{ label: "Edit", icon: "edit", shortcut: "Ctrl+U", disabled: !canEdit, onClick: onEdit }] : []),
+    "sep",
+    { label: "Refresh", icon: "refresh", shortcut: "F5", onClick: onRefresh },
+  ];
+}
+
+export function isDatafeedsNavNode(node) {
+  return node?.key === "datafeeds" || node?.key?.startsWith("feed:");
+}
+
 export function symbolsNavFolderPath(node) {
   if (!node) return null;
   if (node.key === "symbols") return "";

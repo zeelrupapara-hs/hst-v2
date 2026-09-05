@@ -8,6 +8,8 @@ import { navIcon } from "@/lib/icons.js";
 import {
   isGroupFolderNode,
   isGroupsNavNode,
+  datafeedsNavMenuItems,
+  isDatafeedsNavNode,
   isSymbolFolderNode,
   isSymbolsNavNode,
   groupsNavFolderPath,
@@ -15,7 +17,7 @@ import {
   symbolsNavFolderPath,
   symbolsNavMenuItems,
 } from "@/lib/navContextMenus.js";
-import { createSymbolFolder, deleteSymbolFolder, renameSymbolFolder } from "@/api/endpoints/symbols.js";
+import { createSymbolFolder, deleteSymbolFolder, renameSymbolFolder, updateSymbol } from "@/api/endpoints/symbols.js";
 import { deleteGroup } from "@/api/endpoints/groups.js";
 import { useSymbols } from "@/hooks/useSymbols.js";
 import { useSymbolFolders } from "@/hooks/useSymbolFolders.js";
@@ -129,12 +131,16 @@ function shapeTree(nav, symbols = [], datafeeds = [], groups = [], emptyFolders 
   ];
 }
 
-function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFolder, onContextMenu }) {
+const SYMBOLS_DRAG = "application/x-hst-symbols";
+
+function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFolder, onContextMenu, onDropSymbols }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(depth < 3);
+  const [dragOver, setDragOver] = useState(false);
 
   const folderPath = symbolsNavFolderPath(node);
+  const dropTarget = onDropSymbols && isSymbolFolderNode(node);
   const showPendingAdd = pendingFolder?.mode === "add" && pendingFolder.parentPath === folderPath;
   const showPendingRename = pendingFolder?.mode === "rename" && pendingFolder.fromPath === folderPath;
   const hasChildren = node.children?.length > 0 || showPendingAdd;
@@ -152,20 +158,38 @@ function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFo
   }
 
   function onRowContextMenu(e) {
-    if (!isSymbolsNavNode(node) && !isGroupsNavNode(node)) return;
+    if (!isSymbolsNavNode(node) && !isGroupsNavNode(node) && !isDatafeedsNavNode(node)) return;
     e.preventDefault();
     e.stopPropagation();
     onContextMenu(node, e);
   }
 
+  function onDragOver(e) {
+    if (!dropTarget || !e.dataTransfer.types.includes(SYMBOLS_DRAG)) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOver(true);
+  }
+
+  function onDrop(e) {
+    if (!dropTarget) return;
+    e.preventDefault();
+    setDragOver(false);
+    const raw = e.dataTransfer.getData(SYMBOLS_DRAG);
+    if (raw) onDropSymbols(JSON.parse(raw), folderPath);
+  }
+
   return (
     <li className="nav-branch">
       <div
-        className={`nav-item nav-indent-${depth}${isActive ? " active" : ""}${showPendingRename ? " nav-item-editing" : ""}`}
+        className={`nav-item nav-indent-${depth}${isActive ? " active" : ""}${showPendingRename ? " nav-item-editing" : ""}${dragOver ? " nav-item-dragover" : ""}`}
         role={to ? "link" : "button"}
         onClick={showPendingRename ? undefined : onRowClick}
         onDoubleClick={node.editRoute ? () => navigate(`/${panel}${node.editRoute}`) : undefined}
         onContextMenu={onRowContextMenu}
+        onDragOver={onDragOver}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
       >
         <span
           className={`chevron${hasChildren ? "" : " empty"}`}
@@ -222,6 +246,7 @@ function NavNode({ node, panel, depth, pendingFolder, onCommitFolder, onCancelFo
               onCommitFolder={onCommitFolder}
               onCancelFolder={onCancelFolder}
               onContextMenu={onContextMenu}
+              onDropSymbols={onDropSymbols}
             />
           ))}
           {showPendingAdd && (
@@ -319,7 +344,7 @@ export function NavTree({ nav, panel }) {
   const location = useLocation();
   const { symbols, reload: reloadSymbols } = useSymbols();
   const { folders, reload: reloadFolders } = useSymbolFolders();
-  const { datafeeds } = useDatafeeds();
+  const { datafeeds, reload: reloadDatafeeds } = useDatafeeds();
   const { groups, reload: reloadGroups } = useGroups();
   const [menu, setMenu] = useState(null);
   const [pendingFolder, setPendingFolder] = useState(null);
@@ -328,6 +353,7 @@ export function NavTree({ nav, panel }) {
 
   const canEditSymbols = session.can?.right_cfg_symbols !== false;
   const canEditGroups = session.can?.right_cfg_groups !== false;
+  const canEditDatafeeds = session.can?.right_cfg_datafeeds !== false;
   const emptyFolders = useMemo(() => emptyFolderPathsToMap(folders), [folders]);
 
   const refreshTree = useCallback(async () => {
@@ -447,6 +473,14 @@ export function NavTree({ nav, panel }) {
     [location.search, navigate, panel, refreshTree],
   );
 
+  const moveSymbols = useCallback(async (ids, folder) => {
+    for (const id of ids) {
+      const res = await updateSymbol(id, { path: folder });
+      if (!res.ok) window.alert(res.message || "move symbol failed");
+    }
+    refreshTree();
+  }, [refreshTree]);
+
   const requestDeleteSymbolFolder = useCallback((node) => {
     const path = symbolsNavFolderPath(node);
     if (!path || !isSymbolFolderNode(node)) return;
@@ -473,6 +507,23 @@ export function NavTree({ nav, panel }) {
 
   const onContextMenu = useCallback(
     (node, e) => {
+      if (isDatafeedsNavNode(node)) {
+        const isFeed = node.key !== "datafeeds";
+        setMenu({
+          x: e.clientX,
+          y: e.clientY,
+          node,
+          items: datafeedsNavMenuItems({
+            canEdit: canEditDatafeeds,
+            isFeed,
+            onAdd: () => navigate(`/${panel}/datafeeds?add=1`),
+            onEdit: isFeed ? () => navigate(`/${panel}${node.editRoute}`) : undefined,
+            onRefresh: () => Promise.all([reloadDatafeeds(), session.reload?.()]),
+          }),
+        });
+        return;
+      }
+
       if (isGroupsNavNode(node)) {
         const isFolder = isGroupFolderNode(node);
         setMenu({
@@ -507,9 +558,14 @@ export function NavTree({ nav, panel }) {
       });
     },
     [
+      canEditDatafeeds,
       canEditGroups,
       canEditSymbols,
+      navigate,
       openGroupFolder,
+      panel,
+      reloadDatafeeds,
+      session,
       refreshGroupsTree,
       refreshTree,
       requestDeleteGroupFolder,
@@ -534,6 +590,7 @@ export function NavTree({ nav, panel }) {
             onCommitFolder={commitFolder}
             onCancelFolder={cancelFolder}
             onContextMenu={onContextMenu}
+            onDropSymbols={canEditSymbols ? moveSymbols : undefined}
           />
         ))}
       </ul>

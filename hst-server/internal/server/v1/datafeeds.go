@@ -105,6 +105,9 @@ type ViewDatafeed struct {
 	BytesReceived      int64                       `json:"bytes_received"`
 	BytesSent          int64                       `json:"bytes_sent"`
 	StateFlags         int32                       `json:"state_flags"`
+	// the passwords never leave the server; their length lets the dialog show that one is set
+	FeedPasswordLen    int32 `json:"feed_password_len"`
+	GatewayPasswordLen int32 `json:"gateway_password_len"`
 }
 
 // ViewDatafeedDetail includes nested params, symbol scope rows, and translations.
@@ -215,7 +218,8 @@ const datafeedColumns = `datafeed_id, name, module, enable, feed_index, allow_im
 	timeout, timeout_reconnect, timeout_sleep, attempts_sleep, updated_at,
 	company, issuer, sys_connection, sys_last_time,
 	tick_stats_count, ticks_count, books_count, news_count,
-	bytes_received, bytes_sent, state_flags`
+	bytes_received, bytes_sent, state_flags,
+	length(feed_password), length(gateway_password)`
 
 const datafeedParamColumns = `param_id, datafeed_id, param_key, type, value, priority`
 
@@ -230,6 +234,7 @@ func scanViewDatafeed(row pgx.Row) (*ViewDatafeed, error) {
 		&v.Company, &v.Issuer, &v.SysConnection, &v.SysLastTime,
 		&v.TickStatsCount, &v.TicksCount, &v.BooksCount, &v.NewsCount,
 		&v.BytesReceived, &v.BytesSent, &v.StateFlags,
+		&v.FeedPasswordLen, &v.GatewayPasswordLen,
 	)
 	return v, err
 }
