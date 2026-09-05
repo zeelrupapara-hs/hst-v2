@@ -8,8 +8,6 @@ import { fetchSymbolSwaps } from "@/api/endpoints/symbols.js";
 import { SymbolTreeSelectField } from "@/components/ui/SymbolTreeSelectField.jsx";
 import {
   digitsForCurrencyField,
-  isForexDerived,
-  isMarginDerived,
 } from "@/lib/symbolCurrency.js";
 import {
   FOREX_SWAP_MULTIPLIERS,
@@ -22,7 +20,7 @@ import {
   BackgroundColor_options,
   BookVolume_options,
   CalcMode_name,
-  CalcMode_order,
+  CalcMode_enabled,
   ChartMode_name,
   CURRENCY_options,
   Deviation_options,
@@ -289,8 +287,8 @@ export function EditableSelectField({
   const customOption =
     allowCustomOption &&
     parsedNeedle != null &&
-    parsedNeedle > 0 &&
-    !items.some((o) => Number(o.value) === Number(parsedNeedle))
+    (typeof parsedNeedle === "string" ? parsedNeedle !== "" : parsedNeedle > 0) &&
+    !items.some((o) => String(o.value) === String(parsedNeedle))
       ? [{ value: parsedNeedle, label: fmt(parsedNeedle) }]
       : [];
   const visibleItems = filtering && needle ? [...filtered, ...customOption] : items;
@@ -714,9 +712,10 @@ export function CommonTab({ s, set, isNew, lockField }) {
   );
 }
 
+// Every calculation type leaves all three currencies and their digits to the administrator; the
+// symbol name and the calculation only pre-fill them (SymbolDialog). A code outside the list is
+// typed in, the way the reference accepts any currency.
 export function CurrencyTab({ s, set, lockField }) {
-  const forexDerived = isForexDerived(s.calc_mode);
-  const marginDerived = isMarginDerived(s.calc_mode);
   const cur = (v) => plain(CURRENCY_options).concat(
     CURRENCY_options.includes(v) || !v ? [] : [{ value: v, label: v }],
   );
@@ -727,66 +726,54 @@ export function CurrencyTab({ s, set, lockField }) {
     for (const [k, v] of Object.entries(digitPatch)) set(k, v);
   };
 
+  const currency = (label, fieldKey) => (
+    <EditableSelectField
+      label={label}
+      fieldKey={fieldKey}
+      lockField={lockField}
+      value={s[fieldKey] ?? ""}
+      options={cur(s[fieldKey])}
+      filterOptions
+      allowCustomOption
+      format={(v) => (v == null ? "" : String(v))}
+      parse={(text) => String(text ?? "").trim().toUpperCase()}
+      onChange={(v) => setCurrency(fieldKey, v)}
+    />
+  );
+
   return (
     <>
       <TabIntro>The setting up of base, profit, and margin currencies of the symbol.</TabIntro>
       <div className="form-grid sym-currency-block">
-        <SelectField
-          label="Base currency"
-          fieldKey="currency_base"
-          lockField={lockField}
-          value={s.currency_base}
-          options={cur(s.currency_base)}
-          disabled={forexDerived}
-          onChange={(v) => setCurrency("currency_base", v)}
-        />
+        {currency("Base currency", "currency_base")}
         <SelectField
           label="Base currency digits"
           fieldKey="currency_base_digits"
           lockField={lockField}
           value={s.currency_base_digits}
           options={plain(DIGITS_options)}
-          disabled={forexDerived}
           onChange={(v) => set("currency_base_digits", v)}
         />
       </div>
       <div className="form-grid sym-currency-block">
-        <SelectField
-          label="Profit currency"
-          fieldKey="currency_profit"
-          lockField={lockField}
-          value={s.currency_profit}
-          options={cur(s.currency_profit)}
-          disabled={forexDerived}
-          onChange={(v) => setCurrency("currency_profit", v)}
-        />
+        {currency("Profit currency", "currency_profit")}
         <SelectField
           label="Profit currency digits"
           fieldKey="currency_profit_digits"
           lockField={lockField}
           value={s.currency_profit_digits}
           options={plain(DIGITS_options)}
-          disabled={forexDerived}
           onChange={(v) => set("currency_profit_digits", v)}
         />
       </div>
       <div className="form-grid sym-currency-block">
-        <SelectField
-          label="Margin currency"
-          fieldKey="currency_margin"
-          lockField={lockField}
-          value={s.currency_margin}
-          options={cur(s.currency_margin)}
-          disabled={marginDerived}
-          onChange={(v) => setCurrency("currency_margin", v)}
-        />
+        {currency("Margin currency", "currency_margin")}
         <SelectField
           label="Margin currency digits"
           fieldKey="currency_margin_digits"
           lockField={lockField}
           value={s.currency_margin_digits}
           options={plain(DIGITS_options)}
-          disabled={marginDerived}
           onChange={(v) => set("currency_margin_digits", v)}
         />
       </div>
@@ -901,7 +888,7 @@ export function TradeTab({ s, set, lockField }) {
           </>
         )}
         <NumField label="Limit & stop level" fieldKey="stops_level" lockField={lockField} value={s.stops_level} suffix="pt" onChange={(v) => set("stops_level", v)} />
-        <SelectField label="Calculation" fieldKey="calc_mode" lockField={lockField} value={s.calc_mode} names={CalcMode_name} order={CalcMode_order} onChange={(v) => set("calc_mode", v)} />
+        <SelectField label="Calculation" fieldKey="calc_mode" lockField={lockField} value={s.calc_mode} names={CalcMode_name} order={CalcMode_enabled} fallback onChange={(v) => set("calc_mode", v)} />
         <NumField label="Freeze level" fieldKey="freeze_level" lockField={lockField} value={s.freeze_level} suffix="pt" onChange={(v) => set("freeze_level", v)} />
         <SelectField label="Trade" fieldKey="trade_mode" lockField={lockField} value={s.trade_mode} names={TradeMode_name} onChange={(v) => set("trade_mode", v)} />
         <NumField label="Max quote delay" fieldKey="quotes_timeout" lockField={lockField} value={s.quotes_timeout} offWhenZero suffix="sec" onChange={(v) => set("quotes_timeout", v)} />

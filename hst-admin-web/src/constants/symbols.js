@@ -27,6 +27,9 @@ export const CalcMode_name = {
 // The reference lists calculation modes by meaning, not by wire value.
 export const CalcMode_order = [0, 5, 2, 1, 3, 4, 32, 37, 33, 34, 35, 36, 64];
 
+// What the desk offers today: the exchange and collateral types stay on the wire, off the list.
+export const CalcMode_enabled = [0, 5, 1, 2, 3, 4];
+
 export const ExecMode_name = {
   0: "Request",
   1: "Instant",
