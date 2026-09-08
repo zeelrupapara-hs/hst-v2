@@ -75,10 +75,11 @@ async function syncParamPriorities(before, after, updateParam) {
 }
 
 /** @param {{feedId: number|"new", onClose: Function, onSaved: Function}} props */
-export function DatafeedDialog({ feedId, onClose, onSaved }) {
+export function DatafeedDialog({ feedId, module = "", onClose, onSaved }) {
   const isNew = feedId === "new";
   const [activeTab, setActiveTab] = useState("common");
-  const [draft, setDraft] = useState(isNew ? newDatafeedDraft() : null);
+  // a module picked in the Available list arrives preset
+  const [draft, setDraft] = useState(isNew ? { ...newDatafeedDraft(), module } : null);
   const [original, setOriginal] = useState(null);
   const [modules, setModules] = useState([]);
   const [error, setError] = useState("");

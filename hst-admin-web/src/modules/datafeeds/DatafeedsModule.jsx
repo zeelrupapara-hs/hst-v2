@@ -1,17 +1,21 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useDatafeeds } from "@/hooks/useDatafeeds.js";
 import { useSession } from "@/hooks/useSession.js";
+import { useToolbox } from "@/hooks/useToolbox.jsx";
 import { ContextMenu, listMenuHead, listMenuTail } from "@/components/ui/ContextMenu.jsx";
 import { Icon } from "@/components/ui/Icon.jsx";
 import {
   activateDatafeed,
+  createDatafeed,
   deleteDatafeed,
+  fetchDatafeed,
   fetchDatafeedModules,
   reorderDatafeeds,
   resolveDatafeedSymbols,
   updateDatafeed,
 } from "@/api/endpoints/datafeeds.js";
+import { datafeedCreateBody, normalizeDatafeedDraft } from "./datafeedPayload.js";
 import { formatNs } from "@/lib/time.js";
 import { useConfirm } from "@/hooks/useConfirm.jsx";
 import { DatafeedDialog } from "./DatafeedDialog.jsx";
@@ -51,6 +55,9 @@ export function DatafeedsModule() {
   const [menu, setMenu] = useState(null);
   const { confirm, confirmElement } = useConfirm();
   const [pane, setPane] = useState("selected");
+  const [pickedModule, setPickedModule] = useState(null);
+  const importRef = useRef(null);
+  const toolbox = useToolbox();
   const [modules, setModules] = useState([]);
   const [symbolCounts, setSymbolCounts] = useState({});
   const canEdit = session.can?.right_cfg_datafeeds !== false;
@@ -110,6 +117,46 @@ export function DatafeedsModule() {
     }
     setSelected(to);
     reload();
+  }
+
+  // the reference sorts on the server, so the order survives every terminal
+  async function onSort() {
+    const ids = [...feeds].sort((a, b) => a.name.localeCompare(b.name)).map((f) => f.datafeed_id);
+    const res = await reorderDatafeeds(ids);
+    if (!res.ok) window.alert(res.message || "sort failed");
+    reload();
+  }
+
+  function onFind() {
+    const text = window.prompt("Find data feed", "");
+    if (!text) return;
+    const i = feeds.findIndex((f) => f.name.toLowerCase().includes(text.trim().toLowerCase()));
+    if (i < 0) window.alert(`No data feed matches '${text}'`);
+    else setSelected(i);
+  }
+
+  async function onExport(target) {
+    const res = await fetchDatafeed(target.datafeed_id);
+    if (!res.ok) return window.alert(res.message || "export failed");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(res.data, null, 2)], { type: "application/json" }));
+    a.download = `${target.name}.json`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  // ponytail: imports the feed record only; symbols, translations and parameters are set in the dialog
+  async function onImport(file) {
+    if (!file) return;
+    let body;
+    try {
+      body = JSON.parse(await file.text());
+    } catch {
+      return window.alert("Not a data feed file");
+    }
+    const res = await createDatafeed(datafeedCreateBody(normalizeDatafeedDraft({ ...body, name: body.name || file.name.replace(/\.json$/i, "") })));
+    if (!res.ok) return window.alert(res.message || "import failed");
+    saved();
   }
 
   async function onToggleEnable(target) {
@@ -225,7 +272,13 @@ export function DatafeedsModule() {
             </thead>
             <tbody>
               {modules.map((m) => (
-                <tr key={m.module}>
+                <tr
+                  key={m.module}
+                  className={pickedModule === m.module ? "selected" : ""}
+                  onClick={() => setPickedModule(m.module)}
+                  onContextMenu={() => setPickedModule(m.module)}
+                  onDoubleClick={() => canEdit && setDialog({ id: "new", module: m.module })}
+                >
                   <td>
                     <span className="df-row-glyph">
                       <Icon id="datafeeds" size={14} />
@@ -255,7 +308,17 @@ export function DatafeedsModule() {
           Available
         </button>
       </div>
-      {menu && canEdit && (
+      {menu && canEdit && pane === "available" && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          onClose={() => setMenu(null)}
+          items={[
+            { label: "Add", icon: "add", shortcut: "Ctrl+N", onClick: () => setDialog({ id: "new", module: pickedModule || "" }) },
+          ]}
+        />
+      )}
+      {menu && canEdit && pane === "selected" && (
         <ContextMenu
           x={menu.x}
           y={menu.y}
@@ -267,31 +330,42 @@ export function DatafeedsModule() {
               onDelete: () => onDelete(row),
               hasSelection: !!row,
             }),
-            "sep",
-            {
-              label: "Move Up",
-              disabled: !row || selected === 0,
-              onClick: () => onMove(-1),
-            },
-            {
-              label: "Move Down",
-              disabled: !row || selected >= feeds.length - 1,
-              onClick: () => onMove(1),
-            },
-            "sep",
-            {
-              label: row?.enable === 1 ? "Disable" : "Enable",
-              disabled: !row,
-              onClick: () => onToggleEnable(row),
-            },
-            { label: "Restart", disabled: !row, onClick: () => onRestart(row) },
-            ...listMenuTail({}),
+            ...listMenuTail({
+              on: {
+                moveUp: row && selected > 0 ? () => onMove(-1) : undefined,
+                moveDown: row && selected < feeds.length - 1 ? () => onMove(1) : undefined,
+                sort: feeds.length > 1 ? onSort : undefined,
+                exportFile: row ? () => onExport(row) : undefined,
+                importFile: () => importRef.current?.click(),
+                journal: row ? () => toolbox?.openJournal?.(row.name) : undefined,
+                find: feeds.length ? onFind : undefined,
+              },
+              extras: [
+                "sep",
+                {
+                  label: row?.enable === 1 ? "Disable" : "Enable",
+                  disabled: !row,
+                  onClick: () => onToggleEnable(row),
+                },
+                { label: "Restart", disabled: !row, onClick: () => onRestart(row) },
+              ],
+            }),
           ]}
         />
       )}
+      <input
+        ref={importRef}
+        type="file"
+        accept="application/json,.json"
+        hidden
+        onChange={(e) => {
+          onImport(e.target.files?.[0]);
+          e.target.value = "";
+        }}
+      />
       {loading && !datafeeds.length && <div className="df-empty">Loading…</div>}
       {dialog && (
-        <DatafeedDialog feedId={dialog.id} onClose={() => setDialog(null)} onSaved={saved} />
+        <DatafeedDialog feedId={dialog.id} module={dialog.module} onClose={() => setDialog(null)} onSaved={saved} />
       )}
       {addFromNav && canEdit && (
         <DatafeedDialog feedId="new" onClose={() => setParams({})} onSaved={saved} />
